@@ -1,103 +1,105 @@
 /* Theme tokens. site.css is written only against these names, so a theme is just a block of values.
 
    Surfaces:  --bg (page) < --surface (panels, table body) < --surface-2 (header bar, table head)
-   Text:      --text, --text-muted (both meet WCAG AA 4.5:1 on --bg, --surface and --zebra)
-   Lines:     --border (hairlines), --border-strong (control outlines, 3:1 against --surface)
-   Accent:    --accent fills buttons/active chips with --on-accent text; --link is the accent as text
+   Text:      --text, --text-muted (both meet WCAG AA 4.5:1 on --bg, --surface, --surface-2 and the row colours)
+   Lines:     --border (hairlines), --border-strong (control outlines, 3:1 against --bg, --surface and --field)
+   Accent:    --accent fills buttons/active chips with --on-accent text (3:1 against --surface); --link is the accent as text
    Status:    --c-* are text colors for badges; the tint behind them is mixed from the same color
    Rows:      --zebra / --row-hover are deliberately only a few percent off --surface
 
-   Bright themes use saturated hues; Subdued themes use pastel fills with softer, still compliant, text. */
+   Warm themes are built on the X11 golds and browns (Goldenrod, DarkGoldenrod, Wheat, Tan); cool themes on neutral
+   steel blue. The status colors keep the same roles in every theme: info blue, ok green, warn orange, danger red,
+   vip rose. */
 
 :root,
-:root[data-theme="dark-bright"] {
+:root[data-theme="dark-warm"] {
     color-scheme: dark;
-    --bg: #0d1023;
-    --surface: #151a36;
-    --surface-2: #1e2448;
-    --field: #0f1330;
-    --text: #eceeff;
-    --text-muted: #a6aedc;
-    --border: #2a3162;
-    --border-strong: #6a76bf;
-    --accent: #7f8cff;
-    --on-accent: #0d1023;
-    --link: #8db4ff;
+    --bg: #1a1510;
+    --surface: #241d15;
+    --surface-2: #2f2619;
+    --field: #1d1710;
+    --text: #f3e6c9;
+    --text-muted: #c2b08c;
+    --border: #3d3222;
+    --border-strong: #86714a;
+    --accent: #daa520;
+    --on-accent: #1a1510;
+    --link: #efbf55;
+    --focus: #ffe08a;
+    --zebra: #292117;
+    --row-hover: #3a2e1d;
+    --c-info: #7ab8e8;
+    --c-ok: #98d38a;
+    --c-warn: #f0a24a;
+    --c-danger: #f0816f;
+    --c-vip: #e48ab0;
+}
+
+:root[data-theme="dark-cool"] {
+    color-scheme: dark;
+    --bg: #0f1620;
+    --surface: #172230;
+    --surface-2: #1f2d3f;
+    --field: #121b27;
+    --text: #e6edf5;
+    --text-muted: #a1b2c6;
+    --border: #2a3a4e;
+    --border-strong: #6a87a6;
+    --accent: #5ba4e6;
+    --on-accent: #0f1620;
+    --link: #82bef2;
     --focus: #ffd166;
-    --zebra: #191f3f;
-    --row-hover: #252d5c;
-    --c-info: #61bfff;
-    --c-ok: #4ee3a2;
-    --c-warn: #ffbb55;
-    --c-danger: #ff7a90;
-    --c-vip: #db92ff;
+    --zebra: #1b2736;
+    --row-hover: #263650;
+    --c-info: #6fd3e8;
+    --c-ok: #77d69f;
+    --c-warn: #f0b05a;
+    --c-danger: #f48484;
+    --c-vip: #e48ab0;
 }
 
-:root[data-theme="dark-subdued"] {
-    color-scheme: dark;
-    --bg: #1c2027;
-    --surface: #242932;
-    --surface-2: #2c323d;
-    --field: #1f242c;
-    --text: #d9dde6;
-    --text-muted: #9fa7b7;
-    --border: #353c49;
-    --border-strong: #6c778c;
-    --accent: #9db3e4;
-    --on-accent: #1c2027;
-    --link: #a8bdf0;
-    --focus: #e6cf9c;
-    --zebra: #272c36;
-    --row-hover: #313846;
-    --c-info: #98b9e6;
-    --c-ok: #a2d1ae;
-    --c-warn: #e4c58e;
-    --c-danger: #e6a3ad;
-    --c-vip: #c7b2e8;
-}
-
-:root[data-theme="light-bright"] {
+:root[data-theme="light-warm"] {
     color-scheme: light;
-    --bg: #eef0ff;
-    --surface: #ffffff;
-    --surface-2: #e1e6ff;
+    --bg: #f3e6c8;
+    --surface: #fffaf0;
+    --surface-2: #ebd9ab;
+    --field: #fffdf7;
+    --text: #2b2112;
+    --text-muted: #67562f;
+    --border: #dcc99a;
+    --border-strong: #8f7430;
+    --accent: #b8860b;
+    --on-accent: #231a05;
+    --link: #7d5300;
+    --focus: #a0471a;
+    --zebra: #f8efd9;
+    --row-hover: #efe0bb;
+    --c-info: #1f5f99;
+    --c-ok: #2f6b34;
+    --c-warn: #9a5200;
+    --c-danger: #b3261e;
+    --c-vip: #9a2e5c;
+}
+
+:root[data-theme="light-cool"] {
+    color-scheme: light;
+    --bg: #e8eef5;
+    --surface: #f9fbfd;
+    --surface-2: #d6e2ef;
     --field: #ffffff;
-    --text: #12142e;
-    --text-muted: #474c7c;
-    --border: #cdd3f5;
-    --border-strong: #7a83c4;
-    --accent: #3342f0;
+    --text: #14202e;
+    --text-muted: #44586e;
+    --border: #c3d2e2;
+    --border-strong: #6684a2;
+    --accent: #2b6cb0;
     --on-accent: #ffffff;
-    --link: #2336d8;
+    --link: #1d5a9e;
     --focus: #b45309;
-    --zebra: #f6f7ff;
-    --row-hover: #e8ebff;
-    --c-info: #0a62b8;
-    --c-ok: #08703f;
-    --c-warn: #964f00;
-    --c-danger: #bd1236;
-    --c-vip: #7420c0;
-}
-
-:root[data-theme="light-subdued"] {
-    color-scheme: light;
-    --bg: #ecf0ef;
-    --surface: #f8faf9;
-    --surface-2: #dde7e5;
-    --field: #fcfdfd;
-    --text: #2a3338;
-    --text-muted: #566469;
-    --border: #d2dcda;
-    --border-strong: #7c8f92;
-    --accent: #a9c9e0;
-    --on-accent: #1d2a31;
-    --link: #35688d;
-    --focus: #8a5a1c;
-    --zebra: #f1f5f4;
-    --row-hover: #e4ecea;
-    --c-info: #346691;
-    --c-ok: #35704a;
-    --c-warn: #7c5a18;
-    --c-danger: #a2435a;
-    --c-vip: #74559f;
+    --zebra: #f0f5fa;
+    --row-hover: #dde8f3;
+    --c-info: #0a6f8a;
+    --c-ok: #1b6e42;
+    --c-warn: #9a5200;
+    --c-danger: #b3261e;
+    --c-vip: #a8386a;
 }

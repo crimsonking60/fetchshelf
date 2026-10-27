@@ -4,14 +4,14 @@ namespace Fetchshelf.Web;
 public static class Themes
 {
     public const string CookieName = "fs-theme";
-    public const string Default = "dark-bright";
+    public const string Default = "dark-warm";
 
     public static IReadOnlyList<(string Id, string Label)> All { get; } =
     [
-        ("dark-bright", "Dark Bright"),
-        ("dark-subdued", "Dark Subdued"),
-        ("light-bright", "Light Bright"),
-        ("light-subdued", "Light Subdued"),
+        ("dark-warm", "Dark Warm"),
+        ("dark-cool", "Dark Cool"),
+        ("light-warm", "Light Warm"),
+        ("light-cool", "Light Cool"),
     ];
 
     /// <summary>Returns <paramref name="id"/> if it names a known theme, else the default (a stale or tampered cookie must not reach the markup).</summary>
