@@ -87,4 +87,20 @@ public class LocalTimeTests
 
         Assert.Contains("/js/local-time.", html); // fingerprinted file name
     }
+
+    [Fact]
+    public async Task Script_LocalizesAfterTheSwap_NotAfterHtmxsSettleDelay()
+    {
+        // htmx:load runs after htmx's 20 ms settle delay, so a poll (the Jobs page) would paint the wider UTC fallback
+        // text for a frame before it was rewritten, and the table's columns would shift on every refresh.
+        using var fixture = new FetchshelfWebAppFixture();
+        using var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/events");
+        var scriptUrl = System.Text.RegularExpressions.Regex.Match(page, "src=\"(/js/local-time[^\"]*)\"").Groups[1].Value;
+
+        var script = await client.GetStringAsync(scriptUrl);
+
+        Assert.Contains("addEventListener('htmx:afterSwap'", script);
+        Assert.DoesNotContain("addEventListener('htmx:load'", script);
+    }
 }
