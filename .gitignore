@@ -19,3 +19,4 @@ obj/
 
 # Local Claude setup/history/memory
 .claude
+CLAUDE.md
