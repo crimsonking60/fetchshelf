@@ -1,0 +1,101 @@
+@page "{id}"
+@model Fetchshelf.Web.Pages.Lists.DetailModel
+@{
+    ViewData["Title"] = Model.ListName;
+}
+
+<div class="row">
+    <h1>@Model.ListName</h1>
+</div>
+@await Html.PartialAsync("_PageExplanation", "This page shows the books on this Goodreads list and whether Fetchshelf has found an audiobook and/or ebook for each. Use the filter below to show only books missing a format, and mark a book done once you're happy with what's been found.")
+
+<div class="row">
+    <form method="get">
+        Show:
+        <label>
+            All
+            <input type="radio" name="show" value="" checked="@(Model.Show is null)" />
+        </label>
+        <label>
+            Any Missing
+            <input type="radio" name="show" value="any" checked="@(Model.Show == "any")" />
+        </label>
+        <label>
+            Audio Missing
+            <input type="radio" name="show" value="audio" checked="@(Model.Show == "audio")" />
+        </label>
+        <label>
+            Ebook Missing
+            <input type="radio" name="show" value="ebook" checked="@(Model.Show == "ebook")" />
+        </label>
+        <button type="submit">Apply</button>
+    </form>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <p id="no-items-message">The list is empty.</p>
+}
+else
+{
+    @foreach (var item in Model.Items)
+    {
+        <div class="list_item">
+            <img src="@item.CoverUrl" alt="" />
+            <div>
+                <div class="row">
+                    <h3>@item.Title</h3>
+                    <div>
+                        <a href="@item.MamSearchUrl" target="_blank">search on MaM</a>
+                        @if (item.BookUrl is not null)
+                        {
+                            <a href="@item.BookUrl" target="_blank">source</a>
+                        }
+                    </div>
+                </div>
+                <p class="author">by @string.Join(", ", item.Authors)</p>
+                @if (item.SeriesText is not null)
+                {
+                    <p>@item.SeriesText</p>
+                }
+                @if (item.AudioAllowed)
+                {
+                    <p>
+                        Audiobook:
+                        @if (item.AudioLink is not null)
+                        {
+                            <a href="@item.AudioLink">@item.AudioDisplay</a>
+                        }
+                        else
+                        {
+                            @item.AudioDisplay
+                        }
+                    </p>
+                }
+                @if (item.EbookAllowed)
+                {
+                    <p>
+                        Ebook:
+                        @if (item.EbookLink is not null)
+                        {
+                            <a href="@item.EbookLink">@item.EbookDisplay</a>
+                        }
+                        else
+                        {
+                            @item.EbookDisplay
+                        }
+                    </p>
+                }
+                @if (item.CanMarkDone)
+                {
+                    <form method="post" asp-page-handler="MarkDone" asp-route-id="@Model.ListId">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="guid" value="@item.Guid" />
+                        <input type="hidden" name="show" value="@Model.Show" />
+                        <button type="submit">mark done</button>
+                    </form>
+                }
+            </div>
+        </div>
+    }
+}

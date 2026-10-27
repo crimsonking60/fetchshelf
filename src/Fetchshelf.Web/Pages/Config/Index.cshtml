@@ -1,0 +1,187 @@
+@page
+@model Fetchshelf.Web.Pages.Config.IndexModel
+@using Fetchshelf.Data.Configuration
+@{
+    ViewData["Title"] = "Config";
+    var settings = Model.Settings;
+
+    string Describe(CategoryListOrBool value) => value.Names switch
+    {
+        null => "all",
+        { Count: 0 } => "none",
+        var names => string.Join(", ", names),
+    };
+}
+
+<h2>Config</h2>
+@await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber or apply a tag rule directly from here.")
+
+<section>
+    <h3>Settings</h3>
+    <table>
+        <tbody>
+            <tr><th>mam_id</th><td>@IndexModel.HiddenPlaceholder</td></tr>
+            <tr><th>web_host</th><td>@settings.WebHost</td></tr>
+            <tr><th>web_port</th><td>@settings.WebPort</td></tr>
+            <tr><th>min_ratio</th><td>@settings.MinRatio</td></tr>
+            <tr><th>unsat_buffer</th><td>@settings.UnsatBuffer</td></tr>
+            <tr><th>wedge_buffer</th><td>@settings.WedgeBuffer</td></tr>
+            <tr><th>add_torrents_stopped</th><td>@settings.AddTorrentsStopped</td></tr>
+            <tr><th>page_explanations</th><td>@settings.PageExplanations</td></tr>
+            <tr><th>job_explanations</th><td>@settings.JobExplanations</td></tr>
+            <tr><th>exclude_narrator_in_library_dir</th><td>@settings.ExcludeNarratorInLibraryDir</td></tr>
+            <tr><th>search_interval</th><td>@settings.SearchInterval</td></tr>
+            <tr><th>link_interval</th><td>@settings.LinkInterval</td></tr>
+            <tr><th>import_interval</th><td>@settings.ImportInterval</td></tr>
+            <tr><th>ignore_torrents</th><td>@string.Join(", ", settings.IgnoreTorrents)</td></tr>
+            <tr><th>audio_types</th><td>@string.Join(", ", settings.AudioTypes)</td></tr>
+            <tr><th>ebook_types</th><td>@string.Join(", ", settings.EbookTypes)</td></tr>
+            <tr><th>music_types</th><td>@string.Join(", ", settings.MusicTypes)</td></tr>
+            <tr><th>radio_types</th><td>@string.Join(", ", settings.RadioTypes)</td></tr>
+            <tr><th>search.wedge_over</th><td>@settings.Search.WedgeOver</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h3>qBittorrent connections</h3>
+    @if (settings.QBittorrent.Count == 0)
+    {
+        <p>No [[qbittorrent]] connections configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Url</th><th>Username</th><th>Password</th><th>Path mapping</th></tr></thead>
+            <tbody>
+                @foreach (var connection in settings.QBittorrent)
+                {
+                    <tr>
+                        <td>@connection.Url</td>
+                        <td>@connection.Username</td>
+                        <td>@IndexModel.HiddenPlaceholder</td>
+                        <td>@string.Join(", ", connection.PathMapping.Select(p => $"{p.Key} -> {p.Value}"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
+    <h3>Libraries</h3>
+    @if (settings.Library.Count == 0)
+    {
+        <p>No [[library]] entries configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th></tr></thead>
+            <tbody>
+                @foreach (var library in settings.Library)
+                {
+                    <tr>
+                        <td>@library.Name</td>
+                        <td>@library.LibraryDir</td>
+                        <td>@library.Category</td>
+                        <td>@library.DownloadDir</td>
+                        <td>@library.Method</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
+    <h3>Autograbbers</h3>
+    @if (settings.Autograb.Count == 0)
+    {
+        <p>No [[autograb]] entries configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Cost</th><th>Category</th><th></th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < settings.Autograb.Count; i++)
+                {
+                    var entry = settings.Autograb[i];
+                    <tr>
+                        <td>@entry.Name</td>
+                        <td>@entry.Type</td>
+                        <td>@entry.Cost</td>
+                        <td>@entry.Category</td>
+                        <td>
+                            <form method="post" action="/Jobs?handler=Trigger">
+                                <input type="hidden" name="jobName" value="@AutoDownloaderJobNames.Autograb(entry, i)" />
+                                @Html.AntiForgeryToken()
+                                <button type="submit">Run now</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
+    <h3>Snatchlists</h3>
+    @if (settings.Snatchlist.Count == 0)
+    {
+        <p>No [[snatchlist]] entries configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Cost</th></tr></thead>
+            <tbody>
+                @foreach (var entry in settings.Snatchlist)
+                {
+                    <tr>
+                        <td>@entry.Name</td>
+                        <td>@entry.Type</td>
+                        <td>@entry.Cost</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
+    <h3>Tag rules</h3>
+    @if (settings.Tag.Count == 0)
+    {
+        <p>No [[tag]] entries configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Name</th><th>Categories</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < settings.Tag.Count; i++)
+                {
+                    var entry = settings.Tag[i];
+                    <tr>
+                        <td>@entry.Name</td>
+                        <td>
+                            audio: @Describe(entry.Categories.Audio); ebook: @Describe(entry.Categories.Ebook);
+                            musicology: @Describe(entry.Categories.Musicology); radio: @Describe(entry.Categories.Radio)
+                        </td>
+                        <td>@entry.Category</td>
+                        <td>@string.Join(", ", entry.Tags)</td>
+                        <td>
+                            <form method="post" asp-page-handler="ApplyTagRule" asp-route-ruleIndex="@i">
+                                @Html.AntiForgeryToken()
+                                <button type="submit">Apply to existing torrents</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

@@ -1,0 +1,37 @@
+@page "{id}"
+@model Fetchshelf.Web.Pages.Torrents.EditModel
+@{
+    ViewData["Title"] = "Edit torrent metadata";
+}
+
+<h2>Edit metadata</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lets you correct a torrent's metadata by hand, such as its title, authors, language, or category. Save your changes to update how this torrent is shown and matched throughout Fetchshelf.")
+
+<form method="post">
+    @Html.AntiForgeryToken()
+    <label>Title <input asp-for="Input.Title" /></label>
+    <label>Authors (one per line) <textarea asp-for="Input.Authors"></textarea></label>
+    <label>Narrators (one per line) <textarea asp-for="Input.Narrators"></textarea></label>
+    <label>Series (one per line, "Name #entries") <textarea asp-for="Input.Series"></textarea></label>
+
+    <label>Language
+        <select asp-for="Input.Language" asp-items="Html.GetEnumSelectList<Fetchshelf.Core.Metadata.Language>()"></select>
+    </label>
+
+    <label>Category
+        <select asp-for="Input.Category" asp-items="Html.GetEnumSelectList<Fetchshelf.Core.Metadata.LegacyCategory>()"></select>
+    </label>
+
+    <fieldset>
+        <legend>Flags</legend>
+        @foreach (var flag in Model.AllFlags)
+        {
+            <label>
+                <input type="checkbox" name="Input.Flags" value="@flag" checked="@Model.Input.Flags.Contains(flag.ToString())" />
+                @flag
+            </label>
+        }
+    </fieldset>
+
+    <button type="submit">Save</button>
+</form>

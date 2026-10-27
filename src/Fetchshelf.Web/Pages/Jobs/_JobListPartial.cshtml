@@ -1,0 +1,59 @@
+@model IReadOnlyList<Fetchshelf.Web.Pages.Jobs.JobStatusViewModel>
+
+@if (Model.Count == 0)
+{
+    <p id="no-jobs-message">No background jobs are registered yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Job</th>
+                @if (Settings.JobExplanations)
+                {
+                    <th>Description</th>
+                }
+                <th>Last run</th>
+                <th>Result</th>
+                <th></th>
+                <th>Next run in</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var job in Model)
+            {
+                <tr>
+                    <td>@job.Name</td>
+                    @if (Settings.JobExplanations)
+                    {
+                        <td>@job.Description</td>
+                    }
+                    <td>
+                        @if (job.IsRunning)
+                        {
+                            @:Running
+                        }
+                        else if (job.LastStartedAt is { } lastStartedAt)
+                        {
+                            <time class="local-time" datetime="@lastStartedAt.UtcDateTime.ToString("o")">@lastStartedAt.ToString("u")</time>
+                        }
+                        else
+                        {
+                            @:-
+                        }
+                    </td>
+                    <td>@job.LastResultText</td>
+                    <td>
+                        <form method="post" action="?handler=Trigger" hx-post="?handler=Trigger" hx-target="#job-list" hx-swap="innerHTML">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="jobName" value="@job.Name" />
+                            <button type="submit" disabled="@job.IsRunning">Run now</button>
+                        </form>
+                    </td>
+                    <td class="next-run">@job.NextRunText(DateTimeOffset.UtcNow)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

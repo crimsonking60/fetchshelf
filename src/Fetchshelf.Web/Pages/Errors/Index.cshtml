@@ -1,0 +1,53 @@
+@page
+@model Fetchshelf.Web.Pages.Errors.IndexModel
+@{
+    ViewData["Title"] = "Errors";
+}
+
+<h2>Errors</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lists problems Fetchshelf ran into while grabbing or linking torrents. Remove an error once you've dealt with it, or restore the selection to try it again.")
+
+@if (Model.Errors.Count == 0)
+{
+    <p id="no-errors-message">No errors.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Stage</th>
+                <th>Key</th>
+                <th>Error</th>
+                <th>Occurred</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var error in Model.Errors)
+            {
+                <tr>
+                    <td>@error.Stage</td>
+                    <td>@error.Key</td>
+                    <td>@error.ErrorText</td>
+                    <td>@error.OccurredAt</td>
+                    <td>
+                        <form method="post" asp-page-handler="Remove" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@error.Id" />
+                            <button type="submit">Remove</button>
+                        </form>
+                        @if (error.CanRestore)
+                        {
+                            <form method="post" asp-page-handler="Restore" style="display:inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@error.Id" />
+                                <button type="submit">Restore the selection</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

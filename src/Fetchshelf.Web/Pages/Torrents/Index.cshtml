@@ -1,0 +1,63 @@
+@page
+@model Fetchshelf.Web.Pages.Torrents.IndexModel
+@{
+    ViewData["Title"] = "Torrents";
+}
+
+<h2>Torrents</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, sort, or select several at once to clean, refresh, or remove them in bulk.")
+
+<form method="get">
+    <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" />
+    <button type="submit">Search</button>
+</form>
+
+<form method="post" asp-page-handler="Bulk">
+    @Html.AntiForgeryToken()
+    @if (Model.Torrents.Count == 0)
+    {
+        <p id="no-torrents-message">No torrents found.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" onclick="document.querySelectorAll('.torrent-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th><a href="?Sort=Title&Dir=@(Model.Sort == "Title" && Model.Dir == "asc" ? "desc" : "asc")">Title</a></th>
+                    <th>Authors</th>
+                    <th>Series</th>
+                    <th>Media type</th>
+                    <th>Language</th>
+                    <th>Category</th>
+                    <th>Client status</th>
+                    <th>Mismatch</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var torrent in Model.Torrents)
+                {
+                    <tr>
+                        <td><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" /></td>
+                        <td><a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a></td>
+                        <td>@torrent.Authors</td>
+                        <td>@torrent.Series</td>
+                        <td>@torrent.MediaType</td>
+                        <td><a href="?Language=@torrent.Language">@torrent.Language</a></td>
+                        <td>@torrent.QBittorrentCategory</td>
+                        <td title="@torrent.ClientStatus">@QBittorrentStateLabel.For(torrent.ClientStatus)</td>
+                        <td>@(torrent.LibraryMismatchState ?? "-")</td>
+                        <td><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <button type="submit" name="action" value="clean">Clean selected</button>
+        <button type="submit" name="action" value="refresh">Refresh selected</button>
+        <button type="submit" name="action" value="removeRecord">Remove selected</button>
+
+        <p>Showing @Model.Torrents.Count of @Model.TotalCount. Page @Model.PageNumber.</p>
+    }
+</form>

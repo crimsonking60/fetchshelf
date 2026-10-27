@@ -1,0 +1,36 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Jobs";
+
+    // Live job-list refresh. Set to false while testing/debugging if the 2s polling floods the
+    // logs or interferes with breakpoints.
+    const bool pollJobs = true;
+}
+
+<h2>Jobs</h2>
+@await Html.PartialAsync("_PageExplanation", "This page shows the status of Fetchshelf's background jobs, such as searching, linking, and importing. Use the \"Run now\" button next to a job to trigger it right away instead of waiting for its schedule.")
+
+<div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s" : null)" hx-swap="innerHTML">
+    @await Html.PartialAsync("_JobListPartial", Model.Jobs)
+</div>
+
+@section Scripts {
+    <script>
+        // Last-run times are rendered server-side in UTC (the text inside <time> is the no-JS
+        // fallback); show them in the browser's local time, also after each htmx list refresh.
+        (function () {
+            function localizeTimes() {
+                document.querySelectorAll('time.local-time').forEach(function (element) {
+                    const date = new Date(element.getAttribute('datetime'));
+                    if (!isNaN(date)) {
+                        element.textContent = date.toLocaleString('sv-SE');
+                    }
+                });
+            }
+
+            document.body.addEventListener('htmx:afterSwap', localizeTimes);
+            localizeTimes();
+        })();
+    </script>
+}

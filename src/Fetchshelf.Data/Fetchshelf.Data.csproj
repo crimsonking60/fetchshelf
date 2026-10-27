@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fetchshelf.Core\Fetchshelf.Core.csproj" />
+    <ProjectReference Include="..\Fetchshelf.Core.AutoDownloader\Fetchshelf.Core.AutoDownloader.csproj" />
+    <ProjectReference Include="..\Fetchshelf.Clients.QBittorrent\Fetchshelf.Clients.QBittorrent.csproj" />
+    <ProjectReference Include="..\Fetchshelf.Clients.Mam\Fetchshelf.Clients.Mam.csproj" />
+    <ProjectReference Include="..\Fetchshelf.Clients.Abs\Fetchshelf.Clients.Abs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

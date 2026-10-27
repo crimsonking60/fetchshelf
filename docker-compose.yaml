@@ -1,0 +1,13 @@
+services:
+  fetchshelf:
+    build: .
+    image: fetchshelf:latest
+    container_name: fetchshelf
+    ports:
+      - "3157:3157"
+    volumes:
+      - ./docker-data/config:/config
+      - ./docker-data/data:/data
+    environment:
+      PUID: "1000"
+      PGID: "1000"

@@ -1,0 +1,107 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Fetchshelf.Web.Tests;
+
+/// <summary>Covers task 10.2: the Errors page.</summary>
+public partial class ErrorsIndexPageTests
+{
+    private static async Task<ErroredTorrentEntity> SeedGrabberErrorAsync(FetchshelfWebAppFixture fixture, bool restorable)
+    {
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        var entity = new ErroredTorrentEntity
+        {
+            Stage = ErrorStage.Grabber,
+            Key = "1",
+            ErrorText = "Download link is stale and could not be refreshed.",
+            OccurredAt = DateTimeOffset.UtcNow,
+            DisplayMetadataJson = restorable
+                ? JsonSerializer.Serialize(new GrabberErrorRestorePayload
+                {
+                    MamId = 1,
+                    DownloadLink = "dl1",
+                    CostDecision = "Ratio",
+                    MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata("The Way of Kings")),
+                    NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize("The Way of Kings"),
+                })
+                : null,
+        };
+        dbContext.ErroredTorrents.Add(entity);
+        await dbContext.SaveChangesAsync();
+        return entity;
+    }
+
+    [Fact]
+    public async Task Get_ListsErrorsByStage()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedGrabberErrorAsync(fixture, restorable: false);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+
+        Assert.Contains("Grabber", html);
+        Assert.Contains("stale", html);
+    }
+
+    [Fact]
+    public async Task Post_Remove_RemovesErrorEntry()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var entity = await SeedGrabberErrorAsync(fixture, restorable: false);
+        var client = fixture.CreateClient();
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+        var token = ExtractAntiforgeryToken(html);
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = entity.Id.ToString(),
+            ["__RequestVerificationToken"] = token,
+        });
+        await client.PostAsync("/errors?handler=Remove", form);
+
+        var afterHtml = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+        Assert.Contains("No errors", afterHtml);
+    }
+
+    [Fact]
+    public async Task Post_Restore_RecreatesSelectionAndRemovesError()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var entity = await SeedGrabberErrorAsync(fixture, restorable: true);
+        var client = fixture.CreateClient();
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+        var token = ExtractAntiforgeryToken(html);
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = entity.Id.ToString(),
+            ["__RequestVerificationToken"] = token,
+        });
+        await client.PostAsync("/errors?handler=Restore", form);
+
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        Assert.Empty(dbContext.ErroredTorrents);
+        var selected = Assert.Single(dbContext.SelectedTorrents);
+        Assert.Equal(1, selected.MamId);
+    }
+
+    [GeneratedRegex(@"<input[^>]*name=""__RequestVerificationToken""[^>]*>")]
+    private static partial Regex AntiforgeryInputPattern();
+
+    [GeneratedRegex(@"value=""([^""]*)""")]
+    private static partial Regex ValueAttributePattern();
+
+    private static string ExtractAntiforgeryToken(string html)
+    {
+        var inputMatch = AntiforgeryInputPattern().Match(html);
+        var valueMatch = ValueAttributePattern().Match(inputMatch.Value);
+        return valueMatch.Groups[1].Value;
+    }
+}

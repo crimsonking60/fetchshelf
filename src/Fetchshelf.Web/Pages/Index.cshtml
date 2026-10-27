@@ -1,0 +1,160 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Search";
+}
+
+<h2>Search</h2>
+@await Html.PartialAsync("_PageExplanation", "This page searches MaM directly for a title or author, or shows the newest torrents on MaM when you haven't typed anything. Download a result straight to qBittorrent, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
+
+@if (!string.IsNullOrEmpty(Model.DownloadMessage))
+{
+    <p id="download-message">@Model.DownloadMessage</p>
+}
+
+<form method="get">
+    <input type="text" name="Q" value="@Model.Q" placeholder="Search MaM" />
+    <button type="submit">Search</button>
+</form>
+
+<div id="search-filters">
+    <label>
+        <input type="checkbox" id="hide-downloaded" />
+        Hide downloaded torrents
+    </label>
+    <span id="media-filter">
+        Show:
+        <label class="show-filter-all show-filter-active" data-media-filter="All">
+            <input type="radio" name="MediaFilter" value="All" checked style="display:none" />
+            All
+        </label>
+        <label class="show-filter-ebooks" data-media-filter="Ebooks">
+            <input type="radio" name="MediaFilter" value="Ebooks" style="display:none" />
+            Ebooks
+        </label>
+        <label class="show-filter-audiobooks" data-media-filter="Audiobooks">
+            <input type="radio" name="MediaFilter" value="Audiobooks" style="display:none" />
+            Audiobooks
+        </label>
+        <label class="show-filter-comic" data-media-filter="Comics">
+            <input type="radio" name="MediaFilter" value="Comics" style="display:none" />
+            Comics
+        </label>
+        <label class="show-filter-other" data-media-filter="Other">
+            <input type="radio" name="MediaFilter" value="Other" style="display:none" />
+            Other
+        </label>
+    </span>
+</div>
+
+@if (string.IsNullOrWhiteSpace(Model.Q))
+{
+    <h3>Newest on MaM</h3>
+}
+else
+{
+    <h3>Matches for '@Model.Q'</h3>
+}
+
+@if (Model.Results.Count == 0)
+{
+    <p id="no-results-message">No results.</p>
+}
+else
+{
+    <table id="search-results">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Authors</th>
+                <th>Media type</th>
+                <th>Status</th>
+                <th>Size</th>
+                <th>Cost</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var result in Model.Results)
+            {
+                <tr data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()">
+                    <td>@result.Title</td>
+                    <td>@result.AuthorsDisplay</td>
+                    <td>@result.MediaTypeLabel</td>
+                    <td>
+                        @switch (result.Status)
+                        {
+                            case MamResultStatus.Selected:
+                                <span class="status-badge status-selected" style="background-color:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;">Selected</span>
+                                break;
+                            case MamResultStatus.Downloaded:
+                                <span class="status-badge status-downloaded" style="background-color:#d97706;color:#fff;padding:2px 8px;border-radius:4px;">Downloaded</span>
+                                break;
+                            case MamResultStatus.Linked:
+                                <span class="status-badge status-linked" style="background-color:#16a34a;color:#fff;padding:2px 8px;border-radius:4px;">Linked</span>
+                                break;
+                        }
+                    </td>
+                    <td>@result.SizeDisplay</td>
+                    <td>
+                        @if (result.IsVip) { <span class="badge-vip">VIP</span> }
+                        @if (result.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
+                        @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
+                    </td>
+                    <td>
+                        <form method="post" asp-page-handler="Download" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="mamId" value="@result.MamId" />
+                            <button type="submit">Download</button>
+                        </form>
+                        <form method="post" asp-page-handler="Download" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="mamId" value="@result.MamId" />
+                            <input type="hidden" name="wedge" value="true" />
+                            <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">Download with wedge</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const activeStyle = 'display:inline-block;cursor:pointer;background-color:#2563eb;color:#fff;border:1px solid #2563eb;padding:4px 10px;border-radius:4px;';
+            const inactiveStyle = 'display:inline-block;cursor:pointer;background-color:#e5e7eb;color:#111;border:1px solid #d1d5db;padding:4px 10px;border-radius:4px;';
+            const slugByFilter = { Ebooks: 'ebook', Audiobooks: 'audiobook', Comics: 'comic', Other: 'other' };
+            const hideDownloadedCheckbox = document.getElementById('hide-downloaded');
+            let currentMediaFilter = 'All';
+
+            function applyFilters() {
+                const mediaSlug = slugByFilter[currentMediaFilter];
+                const hideDownloaded = hideDownloadedCheckbox != null && hideDownloadedCheckbox.checked;
+                document.querySelectorAll('#search-results tbody tr').forEach(function (row) {
+                    const matchesMedia = !mediaSlug || row.dataset.mediaType === mediaSlug;
+                    const matchesStatus = !hideDownloaded || row.dataset.status === 'none';
+                    row.style.display = matchesMedia && matchesStatus ? '' : 'none';
+                });
+                document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {
+                    const isActive = button.dataset.mediaFilter === currentMediaFilter;
+                    button.classList.toggle('show-filter-active', isActive);
+                    button.style.cssText = isActive ? activeStyle : inactiveStyle;
+                    button.querySelector('input').checked = isActive;
+                });
+            }
+
+            document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    currentMediaFilter = button.dataset.mediaFilter;
+                    applyFilters();
+                });
+            });
+            if (hideDownloadedCheckbox != null) {
+                hideDownloadedCheckbox.addEventListener('change', applyFilters);
+            }
+            applyFilters();
+        })();
+    </script>
+}

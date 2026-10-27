@@ -1,0 +1,75 @@
+@page
+@model Fetchshelf.Web.Pages.Events.IndexModel
+@{
+    ViewData["Title"] = "Events";
+}
+
+<h2>Events</h2>
+@await Html.PartialAsync("_PageExplanation", "This page is a log of everything Fetchshelf has done, such as grabbing, linking, and cleaning up torrents. Filter by type, grabber, linker, or field to find a specific event.")
+
+<form method="get">
+    <select name="Type">
+        <option value="">All types</option>
+        @foreach (var kind in Enum.GetValues<Fetchshelf.Data.Entities.EventKind>())
+        {
+            <option value="@kind" selected="@(Model.Type == kind)">@kind</option>
+        }
+    </select>
+    <input type="text" name="Grabber" value="@Model.Grabber" placeholder="Grabber" />
+    <input type="text" name="Linker" value="@Model.Linker" placeholder="Linker" />
+    <input type="text" name="Field" value="@Model.Field" placeholder="Field" />
+    <button type="submit">Filter</button>
+</form>
+
+@if (Model.Events.Count == 0)
+{
+    <p id="no-events-message">No events.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Occurred at</th>
+                <th>Type</th>
+                <th>Torrent</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in Model.Events)
+            {
+                <tr>
+                    <td>@e.OccurredAt.ToString("u")</td>
+                    <td>@e.Kind</td>
+                    <td>
+                        @if (e.TorrentId is not null)
+                        {
+                            <a asp-page="/Torrents/Detail" asp-route-id="@e.TorrentId" title="@e.TorrentId">@Model.TorrentLabel(e)</a>
+                        }
+                    </td>
+                    <td>
+                        @switch (e.Kind)
+                        {
+                            case Fetchshelf.Data.Entities.EventKind.Linked:
+                                @:Linked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" by {e.LinkerName}") to @e.LibraryPath
+                                break;
+                            case Fetchshelf.Data.Entities.EventKind.Cleaned:
+                                @:Cleaned@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @e.FilesRemovedJson
+                                break;
+                            case Fetchshelf.Data.Entities.EventKind.Updated:
+                                @:@e.FieldChangesJson
+                                break;
+                            case Fetchshelf.Data.Entities.EventKind.Grabbed:
+                                @:Grabbed@(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}") (cost: @e.Cost)
+                                break;
+                            case Fetchshelf.Data.Entities.EventKind.RemovedFromMam:
+                                @:Removed from MaM
+                                break;
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

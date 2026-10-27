@@ -1,0 +1,21 @@
+# .NET build artifacts
+bin/
+obj/
+*.user
+
+# IDE
+.vs/
+.idea/
+*.suo
+
+# OS
+.DS_Store
+
+# Local test/runtime data
+*.db
+*.db-shm
+*.db-wal
+/docker-data/
+
+# Local Claude setup/history/memory
+.claude

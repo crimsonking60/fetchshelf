@@ -1,0 +1,71 @@
+@page "{id}"
+@model Fetchshelf.Web.Pages.Torrents.DetailModel
+@{
+    ViewData["Title"] = "Torrent detail";
+}
+
+@if (Model.Torrent is { } torrent)
+{
+    <h2>@torrent.Metadata.Title</h2>
+    @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it.")
+    <p>Authors: @string.Join(", ", torrent.Metadata.Authors)</p>
+    <p>Narrators: @string.Join(", ", torrent.Metadata.Narrators)</p>
+    <p>Series: @string.Join(", ", torrent.Metadata.Series.Select(s => s.Name))</p>
+    <p>Language: @torrent.Metadata.Language</p>
+    <p>Media type: @torrent.Metadata.MediaType</p>
+    <p>Metadata source: @torrent.Metadata.MetadataSource</p>
+    <p>Library path: @(torrent.LibraryPath ?? "-")</p>
+    @if (torrent.LibraryMismatchState is not null)
+    {
+        <p id="mismatch-state">Library mismatch: @torrent.LibraryMismatchState</p>
+    }
+    @if (torrent.ReplacedWithTorrentId is not null)
+    {
+        <p id="replaced-marker">Replaced with: <a asp-page="/Torrents/Detail" asp-route-id="@torrent.ReplacedWithTorrentId">@torrent.ReplacedWithTorrentId</a></p>
+    }
+    @if (torrent.AbsLink is not null)
+    {
+        <p id="abs-link"><a href="@torrent.AbsLink" target="_blank">Open in Audiobookshelf</a></p>
+    }
+
+    <h3>Linked files</h3>
+    <ul>
+        @foreach (var file in torrent.LinkedFiles)
+        {
+            <li>@file.RelativePath (@file.SizeBytes bytes)</li>
+        }
+    </ul>
+
+    @if (torrent.ClientState is { } state)
+    {
+        <h3>qBittorrent state</h3>
+        <p>Progress: @(state.Progress * 100)% - State: <span title="@state.State">@QBittorrentStateLabel.For(state.State)</span></p>
+        <p>Category: @state.Category - Tags: @string.Join(", ", state.TagList)</p>
+    }
+
+    <h3>Actions</h3>
+    <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
+    <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+    <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
+    <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
+    <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
+    <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Remove from qBittorrent with data</button></form>
+    @if (torrent.ReplacedWithTorrentId is not null)
+    {
+        <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>
+    }
+    <form method="post" asp-page-handler="RemoveRecord" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Remove record</button></form>
+    <p><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit metadata</a></p>
+
+    <h3>Events</h3>
+    <ul>
+        @foreach (var e in torrent.Events)
+        {
+            <li>@e.OccurredAt.ToString("u") - @e.Kind</li>
+        }
+    </ul>
+}
+else
+{
+    <p>Torrent not found.</p>
+}
