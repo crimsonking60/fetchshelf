@@ -14,23 +14,3 @@
 <div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s" : null)" hx-swap="innerHTML">
     @await Html.PartialAsync("_JobListPartial", Model.Jobs)
 </div>
-
-@section Scripts {
-    <script>
-        // Last-run times are rendered server-side in UTC (the text inside <time> is the no-JS
-        // fallback); show them in the browser's local time, also after each htmx list refresh.
-        (function () {
-            function localizeTimes() {
-                document.querySelectorAll('time.local-time').forEach(function (element) {
-                    const date = new Date(element.getAttribute('datetime'));
-                    if (!isNaN(date)) {
-                        element.textContent = date.toLocaleString('sv-SE');
-                    }
-                });
-            }
-
-            document.body.addEventListener('htmx:afterSwap', localizeTimes);
-            localizeTimes();
-        })();
-    </script>
-}

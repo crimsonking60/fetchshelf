@@ -30,7 +30,7 @@ else
                     <td>@error.Stage</td>
                     <td>@error.Key</td>
                     <td>@error.ErrorText</td>
-                    <td>@error.OccurredAt</td>
+                    <td><local-time value="error.OccurredAt" /></td>
                     <td>
                         <form method="post" asp-page-handler="Remove" class="inline">
                             @Html.AntiForgeryToken()

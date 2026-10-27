@@ -36,7 +36,7 @@ else
                         }
                         else if (job.LastStartedAt is { } lastStartedAt)
                         {
-                            <time class="local-time" datetime="@lastStartedAt.UtcDateTime.ToString("o")">@lastStartedAt.ToString("u")</time>
+                            <local-time value="lastStartedAt" />
                         }
                         else
                         {

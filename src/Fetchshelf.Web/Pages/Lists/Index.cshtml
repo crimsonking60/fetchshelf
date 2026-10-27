@@ -17,7 +17,7 @@ else
     {
         <div class="list-row">
             <a asp-page="/Lists/Detail" asp-route-id="@list.Id"><h3>@list.Name</h3></a>
-            <span class="meta">Last updated: @(list.UpdatedAt?.ToString() ?? "never")</span>
+            <span class="meta">Last updated: <local-time value="list.UpdatedAt" empty="never" /></span>
         </div>
     }
 }
@@ -30,7 +30,7 @@ else
     {
         <div class="list-row">
             <a asp-page="/Lists/Detail" asp-route-id="@list.Id"><h4>@list.Name</h4></a>
-            <span class="meta">Last updated: @(list.UpdatedAt?.ToString() ?? "never")</span>
+            <span class="meta">Last updated: <local-time value="list.UpdatedAt" empty="never" /></span>
         </div>
     }
 }

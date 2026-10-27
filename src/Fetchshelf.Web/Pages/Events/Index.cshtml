@@ -40,7 +40,7 @@ else
             @foreach (var e in Model.Events)
             {
                 <tr>
-                    <td class="nowrap">@e.OccurredAt.ToString("u")</td>
+                    <td><local-time value="e.OccurredAt" /></td>
                     <td class="nowrap">@e.Kind</td>
                     <td class="nowrap">
                         @if (e.TorrentId is not null)

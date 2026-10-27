@@ -49,8 +49,8 @@ else
                         </td>
                         <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
                         <td>@selection.GrabberName</td>
-                        <td>@selection.CreatedAt</td>
-                        <td>@(selection.StartedAt?.ToString() ?? "-")</td>
+                        <td><local-time value="selection.CreatedAt" /></td>
+                        <td><local-time value="selection.StartedAt" /></td>
                         <td><button form="update-@selection.Id" type="submit">Update</button></td>
                     </tr>
                 }

@@ -65,7 +65,7 @@
     <ul>
         @foreach (var e in torrent.Events)
         {
-            <li>@e.OccurredAt.ToString("u") - @e.Kind</li>
+            <li><local-time value="e.OccurredAt" /> - @e.Kind</li>
         }
     </ul>
 }
