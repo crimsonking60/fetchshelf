@@ -14,8 +14,10 @@
 else
 {
     @* Each row's Update has its own form (referenced by the inputs' and button's form attribute) so one row can be saved
-       on its own; they sit outside the bulk-remove form below because forms cannot nest. *@
-    @foreach (var selection in Model.Selections)
+       on its own; they sit outside the bulk-remove form below because forms cannot nest. Only rows still waiting to
+       download get one: category and tags are applied when the torrent is added to qBittorrent, so once a row has
+       started, editing them would change nothing. *@
+    @foreach (var selection in Model.Selections.Where(s => s.StartedAt is null))
     {
         <form id="update-@selection.Id" method="post" asp-page-handler="Update">@Html.AntiForgeryToken()</form>
     }
@@ -43,15 +45,28 @@ else
                         <td><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
                         <td>@selection.Title</td>
                         <td class="nowrap">@selection.CostDecision</td>
-                        <td>
-                            <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
-                            <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
-                        </td>
-                        <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
+                        @if (selection.StartedAt is null)
+                        {
+                            <td>
+                                <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
+                                <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
+                            </td>
+                            <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
+                        }
+                        else
+                        {
+                            <td>@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)</td>
+                            <td>@(selection.Tags.Count == 0 ? "-" : string.Join(", ", selection.Tags))</td>
+                        }
                         <td>@selection.GrabberName</td>
                         <td><local-time value="selection.CreatedAt" /></td>
                         <td><local-time value="selection.StartedAt" /></td>
-                        <td><button form="update-@selection.Id" type="submit">Update</button></td>
+                        <td>
+                            @if (selection.StartedAt is null)
+                            {
+                                <button form="update-@selection.Id" type="submit">Update</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>

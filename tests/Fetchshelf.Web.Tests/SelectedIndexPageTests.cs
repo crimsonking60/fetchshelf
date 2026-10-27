@@ -9,7 +9,7 @@ namespace Fetchshelf.Web.Tests;
 public partial class SelectedIndexPageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(
-        FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1)
+        FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1, DateTimeOffset? startedAt = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -22,6 +22,7 @@ public partial class SelectedIndexPageTests
             MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata(title)),
             NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(title),
             CreatedAt = DateTimeOffset.UtcNow,
+            StartedAt = startedAt,
         };
         dbContext.SelectedTorrents.Add(entity);
         await dbContext.SaveChangesAsync();
@@ -140,6 +141,52 @@ public partial class SelectedIndexPageTests
         using var verifyScope = fixture.CreateScope();
         var stored = await verifyScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(entity.Id);
         Assert.Equal(removedAt.ToUnixTimeSeconds(), stored!.RemovedAt!.Value.ToUnixTimeSeconds());
+    }
+
+    [Fact]
+    public async Task Get_StartedSelection_ShowsCategoryAndTagsAsTextWithoutAnUpdateButton()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var waiting = await SeedSelectedAsync(fixture, "Waiting Book", mamId: 1);
+        var started = await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/selected");
+
+        // Only the waiting row can be edited and saved.
+        Assert.Contains($"id=\"update-{waiting.Id}\"", html);
+        Assert.DoesNotContain($"id=\"update-{started.Id}\"", html);
+        Assert.Single(Regex.Matches(html, ">Update</button>"));
+        Assert.Single(Regex.Matches(html, "name=\"category\""));
+        Assert.Single(Regex.Matches(html, "name=\"tags\""));
+        // The started row still shows what was applied to the torrent.
+        Assert.Contains("<td>audiobooks</td>", html);
+    }
+
+    [Fact]
+    public async Task Post_Update_OnAStartedSelection_ChangesNothing()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedSelectedAsync(fixture, "Waiting Book", mamId: 1);
+        var started = await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = started.Id.ToString(),
+            ["category"] = "ebooks",
+            ["tags"] = "a,b",
+            ["cost"] = "Free",
+            ["__RequestVerificationToken"] = token,
+        });
+        await client.PostAsync("/selected?handler=Update", form);
+
+        using var scope = fixture.CreateScope();
+        var saved = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(started.Id);
+        Assert.Equal("audiobooks", saved!.Category);
+        Assert.Null(saved.TagsJson);
+        Assert.Equal("Ratio", saved.CostDecision);
     }
 
     [Fact]

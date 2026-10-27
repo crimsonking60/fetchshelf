@@ -36,10 +36,15 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
         return RedirectToPage();
     }
 
+    /// <summary>
+    /// Saves the category, tags (and cost, if given) of a selection that is still waiting to download. Once a selection
+    /// has started its category and tags have already gone to qBittorrent and nothing reads them again, and its cost
+    /// feeds the in-flight budget, so a started or removed selection is left as it is.
+    /// </summary>
     public async Task<IActionResult> OnPostUpdateAsync(int id, string? category, string? tags, string? cost)
     {
         var entity = await dbContext.SelectedTorrents.FindAsync(id);
-        if (entity is not null)
+        if (entity is { StartedAt: null, RemovedAt: null })
         {
             entity.Category = string.IsNullOrWhiteSpace(category) ? null : category;
             entity.TagsJson = JsonSerializer.Serialize(
