@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -26,7 +27,8 @@ public sealed class SelectionRetirementTests : IDisposable
     };
 
     private static LinkRunner LinkRunnerFor(FetchshelfDbContext context) => new(
-        context, new EventStore(context), new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [], ["m4b"], ["epub"],
+        context, new EventStore(context), new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [],
+        new FormatPreferenceLists { AudioTypes = ["m4b"], EbookTypes = ["epub"], MusicTypes = [], RadioTypes = [] },
         excludeNarratorInLibraryDir: false);
 
     private static QBittorrentClient ClientWith(params QBittorrentTorrent[] torrents) =>

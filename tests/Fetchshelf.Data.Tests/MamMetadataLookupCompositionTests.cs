@@ -1,6 +1,7 @@
 using System.Net;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
@@ -84,7 +85,7 @@ public sealed class MamMetadataLookupCompositionTests : IDisposable
             new MamClientOptions { MamId = "configured-mam-id" });
         var lookup = new MamMetadataLookup(mamClient);
         var libraries = new List<Library> { new() { LibraryDir = LibraryDir, Category = "audiobooks", Method = LibraryLinkMethod.Hardlink } };
-        var runner = new LinkRunner(context, new EventStore(context), lookup, libraries, ["m4b"], ["epub"], excludeNarratorInLibraryDir: false);
+        var runner = new LinkRunner(context, new EventStore(context), lookup, libraries, new FormatPreferenceLists { AudioTypes = ["m4b"], EbookTypes = ["epub"], MusicTypes = [], RadioTypes = [] }, excludeNarratorInLibraryDir: false);
         var connection = new QBittorrentConnection();
         var torrent = new QBittorrentTorrent
         {

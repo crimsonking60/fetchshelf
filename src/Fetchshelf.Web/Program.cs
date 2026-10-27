@@ -75,22 +75,6 @@ if (settings.Audiobookshelf is { } absSettings)
     builder.Services.AddScoped(sp => new AbsMatcher(sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>()));
 }
 
-builder.Services.AddScoped(sp => new LinkRunner(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<EventStore>(),
-    sp.GetRequiredService<IMetadataLookup>(),
-    settings.Library,
-    settings.AudioTypes,
-    settings.EbookTypes,
-    settings.ExcludeNarratorInLibraryDir,
-    sp.GetService<AbsClient>()));
-builder.Services.AddScoped(sp => new Cleaner(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), settings.AudioTypes, settings.EbookTypes,
-    sp.GetService<AbsClient>()));
-
-var tagRules = settings.Tag
-    .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
-    .ToList();
 var formatPreferenceLists = new FormatPreferenceLists
 {
     AudioTypes = settings.AudioTypes,
@@ -98,6 +82,21 @@ var formatPreferenceLists = new FormatPreferenceLists
     MusicTypes = settings.MusicTypes,
     RadioTypes = settings.RadioTypes,
 };
+builder.Services.AddScoped(sp => new LinkRunner(
+    sp.GetRequiredService<FetchshelfDbContext>(),
+    sp.GetRequiredService<EventStore>(),
+    sp.GetRequiredService<IMetadataLookup>(),
+    settings.Library,
+    formatPreferenceLists,
+    settings.ExcludeNarratorInLibraryDir,
+    sp.GetService<AbsClient>()));
+builder.Services.AddScoped(sp => new Cleaner(
+    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
+    sp.GetService<AbsClient>()));
+
+var tagRules = settings.Tag
+    .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
+    .ToList();
 builder.Services.AddScoped(sp => new SelectionRunner(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), tagRules, formatPreferenceLists));
 builder.Services.AddScoped(sp => new AutograbberRunner(

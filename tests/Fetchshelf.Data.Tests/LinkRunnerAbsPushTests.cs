@@ -1,6 +1,7 @@
 using System.Net;
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -17,8 +18,13 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
     private string DownloadsDir => Path.Combine(_root, "downloads");
     private string LibraryDir => Path.Combine(_root, "library");
 
-    private static readonly IReadOnlyList<string> AudioTypes = ["m4b", "m4a", "mp3"];
-    private static readonly IReadOnlyList<string> EbookTypes = ["epub", "pdf"];
+    private static readonly FormatPreferenceLists Formats = new()
+    {
+        AudioTypes = ["m4b", "m4a", "mp3"],
+        EbookTypes = ["epub", "pdf"],
+        MusicTypes = ["flac", "mp3", "pdf"],
+        RadioTypes = ["mp3"],
+    };
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
@@ -46,7 +52,7 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
     }
 
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup, IReadOnlyList<Library> libraries, AbsClient? absClient) =>
-        new(context, new EventStore(context), lookup, libraries, AudioTypes, EbookTypes, excludeNarratorInLibraryDir: false, absClient);
+        new(context, new EventStore(context), lookup, libraries, Formats, excludeNarratorInLibraryDir: false, absClient);
 
     private static Library CreateLibrary(string libraryDir, string category = "audiobooks") => new()
     {

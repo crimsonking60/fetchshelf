@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
@@ -13,8 +14,7 @@ namespace Fetchshelf.Data.Organizer;
 public sealed class Cleaner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
-    IReadOnlyList<string> globalAudioTypes,
-    IReadOnlyList<string> globalEbookTypes,
+    FormatPreferenceLists formatPreferenceLists,
     AbsClient? absClient = null)
 {
     /// <param name="connections">Every configured qBittorrent connection, each paired with its client.</param>
@@ -108,12 +108,13 @@ public sealed class Cleaner(
     {
         if (torrent.ChosenAudioExtension is not null)
         {
-            return FormatRanker.Rank(globalAudioTypes, [torrent.ChosenAudioExtension]);
+            var mediaType = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).MediaType;
+            return FormatRanker.Rank(formatPreferenceLists.AudioSideFor(mediaType), [torrent.ChosenAudioExtension]);
         }
 
         if (torrent.ChosenEbookExtension is not null)
         {
-            return FormatRanker.Rank(globalEbookTypes, [torrent.ChosenEbookExtension]);
+            return FormatRanker.Rank(formatPreferenceLists.EbookTypes, [torrent.ChosenEbookExtension]);
         }
 
         return FormatRanker.NotPresent;

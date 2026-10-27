@@ -1,5 +1,6 @@
 using System.Net;
 using Fetchshelf.Clients.Abs;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
@@ -14,13 +15,18 @@ public sealed class CleanerAbsDeleteTests : IDisposable
 
     private string DbPath => Path.Combine(_root, "test.db");
 
-    private static readonly IReadOnlyList<string> AudioTypes = ["m4b", "m4a", "mp3"];
-    private static readonly IReadOnlyList<string> EbookTypes = ["epub", "pdf"];
+    private static readonly FormatPreferenceLists Formats = new()
+    {
+        AudioTypes = ["m4b", "m4a", "mp3"],
+        EbookTypes = ["epub", "pdf"],
+        MusicTypes = ["flac", "mp3", "pdf"],
+        RadioTypes = ["mp3"],
+    };
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private Cleaner CreateCleaner(FetchshelfDbContext context, AbsClient? absClient) =>
-        new(context, new EventStore(context), AudioTypes, EbookTypes, absClient);
+        new(context, new EventStore(context), Formats, absClient);
 
     private static AbsClient CreateAbsClient(List<string> deletedItemIds)
     {

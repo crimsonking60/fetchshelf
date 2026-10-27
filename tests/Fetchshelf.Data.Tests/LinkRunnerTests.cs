@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
@@ -16,8 +17,13 @@ public sealed class LinkRunnerTests : IDisposable
     private string DownloadsDir => Path.Combine(_root, "downloads");
     private string LibraryDir => Path.Combine(_root, "library");
 
-    private static readonly IReadOnlyList<string> AudioTypes = ["m4b", "m4a", "mp3"];
-    private static readonly IReadOnlyList<string> EbookTypes = ["epub", "pdf"];
+    private static readonly FormatPreferenceLists Formats = new()
+    {
+        AudioTypes = ["m4b", "m4a", "mp3"],
+        EbookTypes = ["epub", "pdf"],
+        MusicTypes = ["flac", "mp3", "pdf"],
+        RadioTypes = ["mp3"],
+    };
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
@@ -29,7 +35,7 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup, IReadOnlyList<Library> libraries) =>
-        new(context, new EventStore(context), lookup, libraries, AudioTypes, EbookTypes, excludeNarratorInLibraryDir: false);
+        new(context, new EventStore(context), lookup, libraries, Formats, excludeNarratorInLibraryDir: false);
 
     private static Library CreateLibrary(string libraryDir, string category = "audiobooks") => new()
     {
@@ -99,6 +105,55 @@ public sealed class LinkRunnerTests : IDisposable
         var error = await context.ErroredTorrents.SingleAsync();
         Assert.Equal(ErrorStage.Linker, error.Stage);
         Assert.Equal("hash1", error.Key);
+    }
+
+    [Fact]
+    public async Task RunAsync_MusicologyTorrentWithFlacAndPdf_LinksBothUsingMusicTypes()
+    {
+        WriteSourceFile("album/01.flac");
+        WriteSourceFile("album/02.flac");
+        WriteSourceFile("album/booklet.pdf");
+        WriteSourceFile("album/cover.jpg");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var metadata = OrganizerTestSupport.BuildMetadata() with { MediaType = MediaType.Musicology, LegacyCategory = LegacyCategory.MusicologyMusicCompleteEditions };
+        var runner = CreateRunner(context, new FakeMetadataLookup(metadata), [CreateLibrary(LibraryDir, category: "music")]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir, category: "music")],
+            new Dictionary<string, List<QBittorrentFile>>
+            {
+                ["hash1"] =
+                [
+                    new() { Name = "album/01.flac", Size = 4 },
+                    new() { Name = "album/02.flac", Size = 4 },
+                    new() { Name = "album/booklet.pdf", Size = 4 },
+                    new() { Name = "album/cover.jpg", Size = 4 },
+                ],
+            });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Empty(context.ErroredTorrents);
+        var saved = await context.Torrents.SingleAsync();
+        Assert.Equal("flac", saved.ChosenAudioExtension);
+        Assert.Equal("pdf", saved.ChosenEbookExtension);
+        Assert.True(File.Exists(Path.Combine(saved.LibraryPath!, "01.flac")));
+        Assert.True(File.Exists(Path.Combine(saved.LibraryPath!, "booklet.pdf")));
+        Assert.False(File.Exists(Path.Combine(saved.LibraryPath!, "cover.jpg")));
+    }
+
+    [Fact]
+    public async Task RunAsync_AudiobookWithOnlyFlac_IsNotLinkedBecauseFlacIsOnlyAMusicType()
+    {
+        WriteSourceFile("book.flac");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.flac", Size = 4 }] });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Empty(context.Torrents);
+        Assert.Equal(ErrorStage.Linker, (await context.ErroredTorrents.SingleAsync()).Stage);
     }
 
     [Fact]

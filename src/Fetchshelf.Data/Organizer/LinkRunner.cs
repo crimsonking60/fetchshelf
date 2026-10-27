@@ -2,6 +2,7 @@ using System.Text.Json;
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
@@ -19,8 +20,7 @@ public sealed class LinkRunner(
     EventStore eventStore,
     IMetadataLookup metadataLookup,
     IReadOnlyList<Library> libraries,
-    IReadOnlyList<string> globalAudioTypes,
-    IReadOnlyList<string> globalEbookTypes,
+    FormatPreferenceLists formatPreferenceLists,
     bool excludeNarratorInLibraryDir,
     AbsClient? absClient = null)
 {
@@ -122,14 +122,14 @@ public sealed class LinkRunner(
 
         var library = libraries[matchedIndex.Value];
         var files = await client.ListFilesAsync(torrent.Hash, cancellationToken);
-        var audioTypes = library.AudioTypes ?? globalAudioTypes;
-        var ebookTypes = library.EbookTypes ?? globalEbookTypes;
+        var audioTypes = library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType);
+        var ebookTypes = library.EbookTypes ?? formatPreferenceLists.EbookTypes;
         var bestAudioExtension = FormatRanker.SelectBestExtension(audioTypes, files.Select(f => Path.GetExtension(f.Name)));
         var bestEbookExtension = FormatRanker.SelectBestExtension(ebookTypes, files.Select(f => Path.GetExtension(f.Name)));
 
         if (bestAudioExtension is null && bestEbookExtension is null)
         {
-            await RecordLinkerErrorAsync(torrent, "No recognized audio or ebook format present among the torrent's files.", cancellationToken);
+            await RecordLinkerErrorAsync(torrent, "None of the torrent's files has a format listed for its media type.", cancellationToken);
             return;
         }
 

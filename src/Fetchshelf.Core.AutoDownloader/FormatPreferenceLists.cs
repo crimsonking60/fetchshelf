@@ -21,4 +21,15 @@ public sealed record FormatPreferenceLists
         MediaType.Radio => RadioTypes,
         _ => throw new ArgumentOutOfRangeException(nameof(mediaType)),
     };
+
+    /// <summary>
+    /// The list that picks the audio-side file type when linking: music and radio have their own lists, every other
+    /// media type uses <see cref="AudioTypes"/>. The ebook side always uses <see cref="EbookTypes"/>.
+    /// </summary>
+    public IReadOnlyList<string> AudioSideFor(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Musicology => MusicTypes,
+        MediaType.Radio => RadioTypes,
+        _ => AudioTypes,
+    };
 }
