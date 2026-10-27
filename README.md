@@ -1,7 +1,7 @@
 <h1>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
-    <img src="docs/images/logo-light.svg" alt="" height="32" align="middle">
+    <img src="docs/images/logo-light.svg" alt="" height="32" align="bottom">
   </picture>
   Fetchshelf
 </h1>
