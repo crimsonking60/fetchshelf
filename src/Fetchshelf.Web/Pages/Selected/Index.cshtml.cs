@@ -20,15 +20,19 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
             .ToList();
     }
 
-    public async Task<IActionResult> OnPostRemoveAsync(int id)
+    /// <summary>Takes the ticked selections out of the queue; ones already removed keep their original removal time.</summary>
+    public async Task<IActionResult> OnPostRemoveSelectedAsync(List<int> selectedIds)
     {
-        var entity = await dbContext.SelectedTorrents.FindAsync(id);
-        if (entity is not null)
+        var entities = await dbContext.SelectedTorrents
+            .Where(s => selectedIds.Contains(s.Id) && s.RemovedAt == null)
+            .ToListAsync();
+        var removedAt = DateTimeOffset.UtcNow;
+        foreach (var entity in entities)
         {
-            entity.RemovedAt = DateTimeOffset.UtcNow;
-            await dbContext.SaveChangesAsync();
+            entity.RemovedAt = removedAt;
         }
 
+        await dbContext.SaveChangesAsync();
         return RedirectToPage();
     }
 

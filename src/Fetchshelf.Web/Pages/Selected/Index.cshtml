@@ -5,7 +5,7 @@
 }
 
 <h2>Selected</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent. Adjust a selection's category or tags before it starts, or remove it if you no longer want it.")
+@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent. Adjust a selection's category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
 
 @if (Model.Selections.Count == 0)
 {
@@ -13,45 +13,52 @@
 }
 else
 {
+    @* Each row's Update has its own form (referenced by the inputs' and button's form attribute) so one row can be saved
+       on its own; they sit outside the bulk-remove form below because forms cannot nest. *@
     @foreach (var selection in Model.Selections)
     {
         <form id="update-@selection.Id" method="post" asp-page-handler="Update">@Html.AntiForgeryToken()</form>
-        <form id="remove-@selection.Id" method="post" asp-page-handler="Remove">@Html.AntiForgeryToken()</form>
     }
-    <table>
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Cost</th>
-                <th>Category</th>
-                <th>Tags</th>
-                <th>Grabber</th>
-                <th>Created</th>
-                <th>Started</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var selection in Model.Selections)
-            {
+
+    <form method="post" asp-page-handler="RemoveSelected">
+        @Html.AntiForgeryToken()
+        <table>
+            <thead>
                 <tr>
-                    <td>@selection.Title</td>
-                    <td class="nowrap">@selection.CostDecision</td>
-                    <td>
-                        <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
-                        <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
-                    </td>
-                    <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
-                    <td>@selection.GrabberName</td>
-                    <td>@selection.CreatedAt</td>
-                    <td>@(selection.StartedAt?.ToString() ?? "-")</td>
-                    <td>
-                        <button form="update-@selection.Id" type="submit">Update</button>
-                        <input form="remove-@selection.Id" type="hidden" name="id" value="@selection.Id" />
-                        <button form="remove-@selection.Id" type="submit" class="danger">Remove</button>
-                    </td>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Title</th>
+                    <th>Cost</th>
+                    <th>Category</th>
+                    <th>Tags</th>
+                    <th>Grabber</th>
+                    <th>Created</th>
+                    <th>Started</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var selection in Model.Selections)
+                {
+                    <tr>
+                        <td><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
+                        <td>@selection.Title</td>
+                        <td class="nowrap">@selection.CostDecision</td>
+                        <td>
+                            <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
+                            <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
+                        </td>
+                        <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
+                        <td>@selection.GrabberName</td>
+                        <td>@selection.CreatedAt</td>
+                        <td>@(selection.StartedAt?.ToString() ?? "-")</td>
+                        <td><button form="update-@selection.Id" type="submit">Update</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="actions">
+            <button type="submit" class="danger">Remove selected</button>
+        </div>
+    </form>
 }
