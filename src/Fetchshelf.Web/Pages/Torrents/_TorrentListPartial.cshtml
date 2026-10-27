@@ -34,10 +34,10 @@ else
                     <td><a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a></td>
                     <td>@torrent.Authors</td>
                     <td>@torrent.Series</td>
-                    <td>@torrent.MediaType</td>
+                    <td class="nowrap">@torrent.MediaType</td>
                     <td><a href="?Language=@torrent.Language">@torrent.Language</a></td>
                     <td>@torrent.QBittorrentCategory</td>
-                    <td title="@torrent.ClientStatus">@QBittorrentStateLabel.For(torrent.ClientStatus)</td>
+                    <td class="nowrap" title="@torrent.ClientStatus">@QBittorrentStateLabel.For(torrent.ClientStatus)</td>
                     <td>@(torrent.LibraryMismatchState ?? "-")</td>
                     <td class="nowrap"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
                 </tr>
