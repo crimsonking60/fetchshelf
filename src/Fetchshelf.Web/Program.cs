@@ -264,7 +264,7 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
         }
 
         await jobRegistry.TriggerAsync(JobNames.Clean, ct);
-    }, "Moves finished downloads into your library folders.");
+    }, "Moves finished downloads from qBittorrent into your library folders.");
 
     jobRegistry.Register(JobNames.Clean, async ct =>
     {
