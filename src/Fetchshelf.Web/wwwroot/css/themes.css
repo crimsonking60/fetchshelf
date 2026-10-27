@@ -1,0 +1,103 @@
+/* Theme tokens. site.css is written only against these names, so a theme is just a block of values.
+
+   Surfaces:  --bg (page) < --surface (panels, table body) < --surface-2 (header bar, table head)
+   Text:      --text, --text-muted (both meet WCAG AA 4.5:1 on --bg, --surface and --zebra)
+   Lines:     --border (hairlines), --border-strong (control outlines, 3:1 against --surface)
+   Accent:    --accent fills buttons/active chips with --on-accent text; --link is the accent as text
+   Status:    --c-* are text colors for badges; the tint behind them is mixed from the same color
+   Rows:      --zebra / --row-hover are deliberately only a few percent off --surface
+
+   Bright themes use saturated hues; Subdued themes use pastel fills with softer, still compliant, text. */
+
+:root,
+:root[data-theme="dark-bright"] {
+    color-scheme: dark;
+    --bg: #0d1023;
+    --surface: #151a36;
+    --surface-2: #1e2448;
+    --field: #0f1330;
+    --text: #eceeff;
+    --text-muted: #a6aedc;
+    --border: #2a3162;
+    --border-strong: #6a76bf;
+    --accent: #7f8cff;
+    --on-accent: #0d1023;
+    --link: #8db4ff;
+    --focus: #ffd166;
+    --zebra: #191f3f;
+    --row-hover: #252d5c;
+    --c-info: #61bfff;
+    --c-ok: #4ee3a2;
+    --c-warn: #ffbb55;
+    --c-danger: #ff7a90;
+    --c-vip: #db92ff;
+}
+
+:root[data-theme="dark-subdued"] {
+    color-scheme: dark;
+    --bg: #1c2027;
+    --surface: #242932;
+    --surface-2: #2c323d;
+    --field: #1f242c;
+    --text: #d9dde6;
+    --text-muted: #9fa7b7;
+    --border: #353c49;
+    --border-strong: #6c778c;
+    --accent: #9db3e4;
+    --on-accent: #1c2027;
+    --link: #a8bdf0;
+    --focus: #e6cf9c;
+    --zebra: #272c36;
+    --row-hover: #313846;
+    --c-info: #98b9e6;
+    --c-ok: #a2d1ae;
+    --c-warn: #e4c58e;
+    --c-danger: #e6a3ad;
+    --c-vip: #c7b2e8;
+}
+
+:root[data-theme="light-bright"] {
+    color-scheme: light;
+    --bg: #eef0ff;
+    --surface: #ffffff;
+    --surface-2: #e1e6ff;
+    --field: #ffffff;
+    --text: #12142e;
+    --text-muted: #474c7c;
+    --border: #cdd3f5;
+    --border-strong: #7a83c4;
+    --accent: #3342f0;
+    --on-accent: #ffffff;
+    --link: #2336d8;
+    --focus: #b45309;
+    --zebra: #f6f7ff;
+    --row-hover: #e8ebff;
+    --c-info: #0a62b8;
+    --c-ok: #08703f;
+    --c-warn: #964f00;
+    --c-danger: #bd1236;
+    --c-vip: #7420c0;
+}
+
+:root[data-theme="light-subdued"] {
+    color-scheme: light;
+    --bg: #ecf0ef;
+    --surface: #f8faf9;
+    --surface-2: #dde7e5;
+    --field: #fcfdfd;
+    --text: #2a3338;
+    --text-muted: #566469;
+    --border: #d2dcda;
+    --border-strong: #7c8f92;
+    --accent: #a9c9e0;
+    --on-accent: #1d2a31;
+    --link: #35688d;
+    --focus: #8a5a1c;
+    --zebra: #f1f5f4;
+    --row-hover: #e4ecea;
+    --c-info: #346691;
+    --c-ok: #35704a;
+    --c-warn: #7c5a18;
+    --c-danger: #a2435a;
+    --c-vip: #74559f;
+}

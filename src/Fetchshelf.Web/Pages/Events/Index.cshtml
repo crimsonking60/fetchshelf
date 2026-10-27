@@ -7,7 +7,7 @@
 <h2>Events</h2>
 @await Html.PartialAsync("_PageExplanation", "This page is a log of everything Fetchshelf has done, such as grabbing, linking, and cleaning up torrents. Filter by type, grabber, linker, or field to find a specific event.")
 
-<form method="get">
+<form method="get" class="toolbar">
     <select name="Type">
         <option value="">All types</option>
         @foreach (var kind in Enum.GetValues<Fetchshelf.Data.Entities.EventKind>())
@@ -23,7 +23,7 @@
 
 @if (Model.Events.Count == 0)
 {
-    <p id="no-events-message">No events.</p>
+    <p id="no-events-message" class="empty">No events.</p>
 }
 else
 {

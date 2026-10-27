@@ -62,6 +62,8 @@ public sealed class FetchshelfWebAppFixture : IDisposable
 
     public HttpClient CreateClient() => _factory.CreateClient();
 
+    public HttpClient CreateNoRedirectClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
     public IServiceScope CreateScope() => _factory.Services.CreateScope();
 
     public void Dispose()

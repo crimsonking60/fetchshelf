@@ -9,7 +9,7 @@
 
 @if (Model.Selections.Count == 0)
 {
-    <p id="no-selections-message">No torrents are selected.</p>
+    <p id="no-selections-message" class="empty">No torrents are selected.</p>
 }
 else
 {
@@ -48,7 +48,7 @@ else
                     <td>
                         <button form="update-@selection.Id" type="submit">Update</button>
                         <input form="remove-@selection.Id" type="hidden" name="id" value="@selection.Id" />
-                        <button form="remove-@selection.Id" type="submit">Remove</button>
+                        <button form="remove-@selection.Id" type="submit" class="danger">Remove</button>
                     </td>
                 </tr>
             }

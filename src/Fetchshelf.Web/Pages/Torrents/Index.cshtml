@@ -7,7 +7,7 @@
 <h2>Torrents</h2>
 @await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, sort, or select several at once to clean, refresh, or remove them in bulk.")
 
-<form method="get">
+<form method="get" class="toolbar">
     <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" />
     <button type="submit">Search</button>
 </form>
@@ -16,7 +16,7 @@
     @Html.AntiForgeryToken()
     @if (Model.Torrents.Count == 0)
     {
-        <p id="no-torrents-message">No torrents found.</p>
+        <p id="no-torrents-message" class="empty">No torrents found.</p>
     }
     else
     {
@@ -54,10 +54,12 @@
             </tbody>
         </table>
 
-        <button type="submit" name="action" value="clean">Clean selected</button>
-        <button type="submit" name="action" value="refresh">Refresh selected</button>
-        <button type="submit" name="action" value="removeRecord">Remove selected</button>
+        <div class="actions">
+            <button type="submit" name="action" value="clean">Clean selected</button>
+            <button type="submit" name="action" value="refresh">Refresh selected</button>
+            <button type="submit" name="action" value="removeRecord" class="danger">Remove selected</button>
+        </div>
 
-        <p>Showing @Model.Torrents.Count of @Model.TotalCount. Page @Model.PageNumber.</p>
+        <p class="muted">Showing @Model.Torrents.Count of @Model.TotalCount. Page @Model.PageNumber.</p>
     }
 </form>

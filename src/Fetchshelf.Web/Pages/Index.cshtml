@@ -9,10 +9,10 @@
 
 @if (!string.IsNullOrEmpty(Model.DownloadMessage))
 {
-    <p id="download-message">@Model.DownloadMessage</p>
+    <p id="download-message" class="notice">@Model.DownloadMessage</p>
 }
 
-<form method="get">
+<form method="get" class="toolbar">
     <input type="text" name="Q" value="@Model.Q" placeholder="Search MaM" />
     <button type="submit">Search</button>
 </form>
@@ -25,23 +25,23 @@
     <span id="media-filter">
         Show:
         <label class="show-filter-all show-filter-active" data-media-filter="All">
-            <input type="radio" name="MediaFilter" value="All" checked style="display:none" />
+            <input type="radio" name="MediaFilter" value="All" checked class="visually-hidden" />
             All
         </label>
         <label class="show-filter-ebooks" data-media-filter="Ebooks">
-            <input type="radio" name="MediaFilter" value="Ebooks" style="display:none" />
+            <input type="radio" name="MediaFilter" value="Ebooks" class="visually-hidden" />
             Ebooks
         </label>
         <label class="show-filter-audiobooks" data-media-filter="Audiobooks">
-            <input type="radio" name="MediaFilter" value="Audiobooks" style="display:none" />
+            <input type="radio" name="MediaFilter" value="Audiobooks" class="visually-hidden" />
             Audiobooks
         </label>
         <label class="show-filter-comic" data-media-filter="Comics">
-            <input type="radio" name="MediaFilter" value="Comics" style="display:none" />
+            <input type="radio" name="MediaFilter" value="Comics" class="visually-hidden" />
             Comics
         </label>
         <label class="show-filter-other" data-media-filter="Other">
-            <input type="radio" name="MediaFilter" value="Other" style="display:none" />
+            <input type="radio" name="MediaFilter" value="Other" class="visually-hidden" />
             Other
         </label>
     </span>
@@ -58,7 +58,7 @@ else
 
 @if (Model.Results.Count == 0)
 {
-    <p id="no-results-message">No results.</p>
+    <p id="no-results-message" class="empty">No results.</p>
 }
 else
 {
@@ -85,13 +85,13 @@ else
                         @switch (result.Status)
                         {
                             case MamResultStatus.Selected:
-                                <span class="status-badge status-selected" style="background-color:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;">Selected</span>
+                                <span class="status-badge status-selected">Selected</span>
                                 break;
                             case MamResultStatus.Downloaded:
-                                <span class="status-badge status-downloaded" style="background-color:#d97706;color:#fff;padding:2px 8px;border-radius:4px;">Downloaded</span>
+                                <span class="status-badge status-downloaded">Downloaded</span>
                                 break;
                             case MamResultStatus.Linked:
-                                <span class="status-badge status-linked" style="background-color:#16a34a;color:#fff;padding:2px 8px;border-radius:4px;">Linked</span>
+                                <span class="status-badge status-linked">Linked</span>
                                 break;
                         }
                     </td>
@@ -102,12 +102,12 @@ else
                         @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
                     </td>
                     <td>
-                        <form method="post" asp-page-handler="Download" style="display:inline">
+                        <form method="post" asp-page-handler="Download" class="inline">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="mamId" value="@result.MamId" />
                             <button type="submit">Download</button>
                         </form>
-                        <form method="post" asp-page-handler="Download" style="display:inline">
+                        <form method="post" asp-page-handler="Download" class="inline">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="mamId" value="@result.MamId" />
                             <input type="hidden" name="wedge" value="true" />
@@ -123,8 +123,6 @@ else
 @section Scripts {
     <script>
         (function () {
-            const activeStyle = 'display:inline-block;cursor:pointer;background-color:#2563eb;color:#fff;border:1px solid #2563eb;padding:4px 10px;border-radius:4px;';
-            const inactiveStyle = 'display:inline-block;cursor:pointer;background-color:#e5e7eb;color:#111;border:1px solid #d1d5db;padding:4px 10px;border-radius:4px;';
             const slugByFilter = { Ebooks: 'ebook', Audiobooks: 'audiobook', Comics: 'comic', Other: 'other' };
             const hideDownloadedCheckbox = document.getElementById('hide-downloaded');
             let currentMediaFilter = 'All';
@@ -135,12 +133,11 @@ else
                 document.querySelectorAll('#search-results tbody tr').forEach(function (row) {
                     const matchesMedia = !mediaSlug || row.dataset.mediaType === mediaSlug;
                     const matchesStatus = !hideDownloaded || row.dataset.status === 'none';
-                    row.style.display = matchesMedia && matchesStatus ? '' : 'none';
+                    row.hidden = !(matchesMedia && matchesStatus);
                 });
                 document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {
                     const isActive = button.dataset.mediaFilter === currentMediaFilter;
                     button.classList.toggle('show-filter-active', isActive);
-                    button.style.cssText = isActive ? activeStyle : inactiveStyle;
                     button.querySelector('input').checked = isActive;
                 });
             }

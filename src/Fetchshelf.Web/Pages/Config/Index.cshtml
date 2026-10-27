@@ -47,7 +47,7 @@
     <h3>qBittorrent connections</h3>
     @if (settings.QBittorrent.Count == 0)
     {
-        <p>No [[qbittorrent]] connections configured.</p>
+        <p class="empty">No [[qbittorrent]] connections configured.</p>
     }
     else
     {
@@ -72,7 +72,7 @@
     <h3>Libraries</h3>
     @if (settings.Library.Count == 0)
     {
-        <p>No [[library]] entries configured.</p>
+        <p class="empty">No [[library]] entries configured.</p>
     }
     else
     {
@@ -98,7 +98,7 @@
     <h3>Autograbbers</h3>
     @if (settings.Autograb.Count == 0)
     {
-        <p>No [[autograb]] entries configured.</p>
+        <p class="empty">No [[autograb]] entries configured.</p>
     }
     else
     {
@@ -131,7 +131,7 @@
     <h3>Snatchlists</h3>
     @if (settings.Snatchlist.Count == 0)
     {
-        <p>No [[snatchlist]] entries configured.</p>
+        <p class="empty">No [[snatchlist]] entries configured.</p>
     }
     else
     {
@@ -155,7 +155,7 @@
     <h3>Tag rules</h3>
     @if (settings.Tag.Count == 0)
     {
-        <p>No [[tag]] entries configured.</p>
+        <p class="empty">No [[tag]] entries configured.</p>
     }
     else
     {

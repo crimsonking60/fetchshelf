@@ -10,7 +10,7 @@
 @await Html.PartialAsync("_PageExplanation", "This page shows the books on this Goodreads list and whether Fetchshelf has found an audiobook and/or ebook for each. Use the filter below to show only books missing a format, and mark a book done once you're happy with what's been found.")
 
 <div class="row">
-    <form method="get">
+    <form method="get" class="toolbar">
         Show:
         <label>
             All
@@ -34,7 +34,7 @@
 
 @if (Model.Items.Count == 0)
 {
-    <p id="no-items-message">The list is empty.</p>
+    <p id="no-items-message" class="empty">The list is empty.</p>
 }
 else
 {

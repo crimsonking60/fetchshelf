@@ -1,24 +1,67 @@
+@{
+    var theme = Themes.Resolve(Context.Request.Cookies[Themes.CookieName]);
+    var currentPage = (string?)ViewContext.RouteData.Values["page"] ?? "";
+
+    // Search lives at /Index; every other nav entry owns the folder it points into (Torrents/Detail keeps "Torrents" lit).
+    bool IsCurrent(string navPage) =>
+        navPage == "/Index"
+            ? currentPage == "/Index"
+            : currentPage.StartsWith(navPage[..(navPage.LastIndexOf('/') + 1)], StringComparison.Ordinal);
+
+    var navItems = new (string Page, string Label)[]
+    {
+        ("/Index", "Search"),
+        ("/Jobs/Index", "Jobs"),
+        ("/Selected/Index", "Selected"),
+        ("/Torrents/Index", "Torrents"),
+        ("/Events/Index", "Events"),
+        ("/Errors/Index", "Errors"),
+        ("/Lists/Index", "Lists"),
+        ("/Config/Index", "Config"),
+    };
+}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@theme">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Fetchshelf</title>
+    <link rel="preload" href="~/lib/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="~/css/fonts.css" />
+    <link rel="stylesheet" href="~/css/themes.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
     <script src="~/lib/htmx/htmx.min.js"></script>
+    <script src="~/js/theme.js" defer></script>
 </head>
 <body>
-    <header>
-        <h1><a asp-area="" asp-page="/Index">Fetchshelf</a></h1>
-        <nav>
-            <a asp-page="/Index">Search</a>
-            <a asp-page="/Jobs/Index">Jobs</a>
-            <a asp-page="/Selected/Index">Selected</a>
-            <a asp-page="/Torrents/Index">Torrents</a>
-            <a asp-page="/Events/Index">Events</a>
-            <a asp-page="/Errors/Index">Errors</a>
-            <a asp-page="/Lists/Index">Lists</a>
-            <a asp-page="/Config/Index">Config</a>
+    <header class="site-header">
+        <h1 class="brand">
+            <a asp-area="" asp-page="/Index">
+                <svg width="22" height="20" viewBox="0 0 22 20" aria-hidden="true">
+                    <rect class="spine-a" x="0" y="4" width="6" height="16" rx="1.2" />
+                    <rect class="spine-b" x="8" y="0" width="6" height="20" rx="1.2" />
+                    <rect class="spine-c" x="16" y="6" width="6" height="14" rx="1.2" />
+                </svg>
+                Fetchshelf
+            </a>
+        </h1>
+        <nav class="site-nav" aria-label="Main">
+            @foreach (var (navPage, label) in navItems)
+            {
+                <a asp-page="@navPage" aria-current="@(IsCurrent(navPage) ? "page" : null)">@label</a>
+            }
         </nav>
+        <form class="theme-switcher" method="get" action="/theme">
+            <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+            <label for="theme-select">Theme</label>
+            <select id="theme-select" name="name" data-theme-select>
+                @foreach (var (id, themeLabel) in Themes.All)
+                {
+                    <option value="@id" selected="@(id == theme)">@themeLabel</option>
+                }
+            </select>
+            <noscript><button type="submit">Apply</button></noscript>
+        </form>
     </header>
     <main>
         @RenderBody()

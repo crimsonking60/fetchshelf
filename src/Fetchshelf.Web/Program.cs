@@ -243,6 +243,7 @@ app.UseRouting();
 app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
+app.MapThemeEndpoint();
 
 app.Run();
 
