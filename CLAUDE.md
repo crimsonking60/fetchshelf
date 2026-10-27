@@ -151,3 +151,7 @@ mocks of EF Core or HTTP clients where the logic can be isolated in a Core-layer
 - `Directory.Build.props` enables nullable reference types, implicit usings, and
   `TreatWarningsAsErrors` solution-wide — new projects inherit this automatically; don't override it
   per-project without reason.
+
+## Dos and don'ts
+
+- Do not put references to MLM or Fetchshelf-spec.md in comments, documentation or other files.
