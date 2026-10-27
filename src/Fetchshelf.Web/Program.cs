@@ -62,7 +62,8 @@ builder.Services.AddScoped<EventStore>();
 // MamClient is a singleton: one mam_id account => one rate-limited client instance.
 builder.Services.AddSingleton(sp => new MamClient(
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("mam"),
-    sp.GetRequiredService<MamClientOptions>()));
+    sp.GetRequiredService<MamClientOptions>(),
+    logger: sp.GetRequiredService<ILogger<MamClient>>()));
 builder.Services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
 builder.Services.AddSingleton<MamAccessGate>();
 

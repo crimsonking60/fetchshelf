@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Clients.Mam;
 
@@ -9,7 +11,8 @@ public sealed partial class MamClient(
     HttpClient httpClient,
     MamClientOptions options,
     TimeProvider? timeProvider = null,
-    Func<TimeSpan, CancellationToken, Task>? delay = null)
+    Func<TimeSpan, CancellationToken, Task>? delay = null,
+    ILogger<MamClient>? logger = null)
 {
     private const string CookieName = "mam_id";
     private static readonly TimeSpan AccountStateCacheDuration = TimeSpan.FromSeconds(60);
@@ -19,6 +22,17 @@ public sealed partial class MamClient(
     /// 60s is a conservative default for an unofficial API.
     /// </summary>
     private static readonly TimeSpan RateLimitBackoff = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// How long to stop calling MaM after an HTTP 403. Retrying a rejected `mam_id` every job interval gains nothing and
+    /// risks a longer block; fixing `mam_id` means editing config.toml and restarting, which also clears this pause.
+    /// </summary>
+    private static readonly TimeSpan ForbiddenPause = TimeSpan.FromMinutes(30);
+
+    private const int LoggedBodyLength = 300;
+
+    private readonly ILogger<MamClient> _logger = logger ?? NullLogger<MamClient>.Instance;
+    private DateTimeOffset? _forbiddenUntil;
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -102,9 +116,13 @@ public sealed partial class MamClient(
     /// <summary>
     /// Sends a request with the configured `mam_id` cookie attached. Any cookie MaM sets in the
     /// response is ignored. Backs off on HTTP 429 and throws on HTTP 406 (Fetchshelf-spec.md §5.1).
+    /// An HTTP 403 throws <see cref="MamForbiddenException"/> and, unless <paramref name="pauseOnForbidden"/> is
+    /// false, pauses all further MaM calls for <see cref="ForbiddenPause"/>. Torrent downloads opt out of the pause,
+    /// since one refused download does not show that the session itself is dead.
     /// </summary>
-    internal async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    internal async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken, bool pauseOnForbidden = true)
     {
+        ThrowIfPausedAfterForbidden();
         await ApplyRateLimitBackoffAsync(cancellationToken);
 
         if (!string.IsNullOrEmpty(options.MamId))
@@ -113,6 +131,11 @@ public sealed partial class MamClient(
         }
 
         var response = await httpClient.SendAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await LogFailedResponseAsync(request, response, cancellationToken);
+        }
 
         if ((int)response.StatusCode == 429)
         {
@@ -127,7 +150,83 @@ public sealed partial class MamClient(
             throw new MamAccountBlockedException("MaM account is temporarily blocked (HTTP 406).");
         }
 
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            response.Dispose();
+            if (pauseOnForbidden)
+            {
+                _forbiddenUntil = _timeProvider.GetUtcNow() + ForbiddenPause;
+            }
+
+            throw new MamForbiddenException(ForbiddenMessage(pauseOnForbidden ? _forbiddenUntil : null));
+        }
+
         return response;
+    }
+
+    private void ThrowIfPausedAfterForbidden()
+    {
+        if (_forbiddenUntil is { } until)
+        {
+            if (_timeProvider.GetUtcNow() < until)
+            {
+                throw new MamForbiddenException(ForbiddenMessage(until));
+            }
+
+            _forbiddenUntil = null;
+        }
+    }
+
+    private static string ForbiddenMessage(DateTimeOffset? pausedUntil)
+    {
+        const string cause = "MaM refused the request (HTTP 403). The mam_id may have been invalidated or be locked to a different IP address, or the account may be blocked.";
+        return pausedUntil is { } until
+            ? $"{cause} MaM calls are paused until {until:HH:mm} UTC; fix mam_id in config.toml and restart Fetchshelf to resume sooner."
+            : cause;
+    }
+
+    /// <summary>
+    /// Logs why a call failed. The body is only read for the statuses SendAsync turns into exceptions (and so disposes anyway):
+    /// it tells a Cloudflare block page from a MaM message. Other failures are returned for the caller to read.
+    /// </summary>
+    private async Task LogFailedResponseAsync(HttpRequestMessage request, HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var status = (int)response.StatusCode;
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "none";
+        var endpoint = RedactDownloadHash(request.RequestUri?.AbsolutePath ?? "?");
+
+        if (status is not (403 or 406 or 429))
+        {
+            _logger.LogWarning("MaM {Method} {Endpoint} returned HTTP {Status} ({ContentType})", request.Method, endpoint, status, contentType);
+            return;
+        }
+
+        string body;
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            body = "(body unavailable)";
+        }
+
+        var snippet = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (snippet.Length > LoggedBodyLength)
+        {
+            snippet = $"{snippet[..LoggedBodyLength]}...";
+        }
+
+        _logger.LogWarning(
+            "MaM {Method} {Endpoint} returned HTTP {Status} ({ContentType}): {BodyStart}", request.Method, endpoint, status, contentType, snippet);
+    }
+
+    /// <summary>The hash in `/tor/download.php/&lt;hash&gt;` is a personal download token; keep it out of logs.</summary>
+    private static string RedactDownloadHash(string path)
+    {
+        const string marker = "/download.php/";
+        var index = path.IndexOf(marker, StringComparison.Ordinal);
+        return index < 0 ? path : $"{path[..(index + marker.Length)]}<hash>";
     }
 
     /// <summary>Waits out a prior 429's backoff window, if still active, before issuing another request.</summary>

@@ -1,0 +1,11 @@
+@model Fetchshelf.Web.Pages.DownloadFeedbackViewModel
+
+@* The message is the swap into #download-message-area; the updated row replaces its twin in the results table out of band.
+   htmx needs the <template> wrapper to swap a <tr>, which a plain parser would otherwise drop. *@
+@await Html.PartialAsync("_DownloadMessagePartial", (Model.Message, Model.IsError))
+@if (Model.Row is { } row)
+{
+    <template>
+        @await Html.PartialAsync("_SearchResultRowPartial", (row, true))
+    </template>
+}

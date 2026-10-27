@@ -18,10 +18,10 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"other\"", html);
-        Assert.Contains("data-media-filter=\"Other\"", html);
+        Assert.Contains("data-media-filter=\"Other\"", await client.GetStringAsync("/"));
     }
 
     [Theory]
@@ -33,7 +33,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"audiobook\"", html);
     }
@@ -47,7 +47,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"ebook\"", html);
     }
@@ -61,10 +61,10 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"comic\"", html);
-        Assert.Contains("data-media-filter=\"Comics\"", html);
+        Assert.Contains("data-media-filter=\"Comics\"", await client.GetStringAsync("/"));
     }
 
     private static string SearchResponseJson(bool large) => $$"""
@@ -103,7 +103,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("The Way of Kings", html);
         Assert.Contains("Brandon Sanderson", html);
@@ -112,15 +112,153 @@ public partial class IndexPageTests
     }
 
     [Fact]
+    public async Task Get_ResultWithManyAuthors_ShowsShortenedListWithFullListInTheBalloon()
+    {
+        var names = Enumerable.Range(1, 30).Select(i => $"Contributor {i:00}").ToList();
+        // author_info is a JSON object serialised into a JSON string, hence the escaped quotes.
+        var authorInfo = "{" + string.Join(",", names.Select((name, i) => $"\\\"{i + 1}\\\":\\\"{name}\\\"")) + "}";
+        var json = SearchResponseJson(large: false).Replace("{\\\"1\\\":\\\"Brandon Sanderson\\\"}", authorInfo);
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("... more", html);
+        Assert.Contains($"<span class=\"tip\" role=\"tooltip\">{string.Join(", ", names)}</span>", html);
+    }
+
+    private static Func<HttpRequestMessage, HttpResponseMessage> TimingOutMamHandler() =>
+        _ => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 30 seconds elapsing.", new TimeoutException());
+
+    [Fact]
+    public async Task GetResults_MamTimesOut_ShowsATimeoutMessageInTheUi()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: TimingOutMamHandler());
+        var client = fixture.CreateClient();
+
+        var response = await client.GetAsync("/?handler=Results&Q=kings");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("id=\"search-error\"", html);
+        Assert.Contains("MaM did not answer within 30 seconds", html);
+        Assert.Contains("Try again", html);
+    }
+
+    /// <summary>Answers the first search (so the results page renders with its forms), then times out on every later one.</summary>
+    private static Func<HttpRequestMessage, HttpResponseMessage> MamThatTimesOutAfterTheFirstSearch()
+    {
+        var searches = 0;
+        var working = MamHandler(SearchResponseJson(large: false));
+        return request =>
+            request.RequestUri!.AbsolutePath.Contains("loadSearchJSONbasic.php") && Interlocked.Increment(ref searches) > 1
+                ? TimingOutMamHandler()(request)
+                : working(request);
+    }
+
+    private static async Task<HttpResponseMessage> PostDownloadAsync(HttpClient client, string token, bool fromHtmx)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["mamId"] = "1", ["__RequestVerificationToken"] = token }),
+        };
+        if (fromHtmx)
+        {
+            request.Headers.Add("HX-Request", "true");
+        }
+
+        return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task Post_Download_FromHtmx_MamTimesOut_ReturnsAnErrorMessageAndNoRow()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamThatTimesOutAfterTheFirstSearch());
+        using var client = fixture.CreateNoRedirectClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/?handler=Results&Q=kings"));
+
+        var response = await PostDownloadAsync(client, token, fromHtmx: true);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful responses
+        Assert.Contains("class=\"notice error\"", body);
+        Assert.Contains("Download failed: MaM did not answer within 30 seconds", body);
+        Assert.DoesNotContain("<template>", body);
+    }
+
+    [Fact]
+    public async Task Post_Download_WithoutHtmx_MamTimesOut_ShowsTheErrorAfterTheRedirect()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamThatTimesOutAfterTheFirstSearch());
+        using var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/?handler=Results&Q=kings"));
+
+        var landingPage = await (await PostDownloadAsync(client, token, fromHtmx: false)).Content.ReadAsStringAsync();
+
+        Assert.Contains("Download failed: MaM did not answer within 30 seconds", landingPage);
+    }
+
+    [Fact]
+    public async Task Fixture_WithoutAMamHandler_FailsLoudlyInsteadOfReachingTheRealMam()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("Test sent a real MaM request", html);
+    }
+
+    [Fact]
+    public async Task Get_PageShell_DoesNotWaitOnMam_AndLoadsResultsThroughHtmx()
+    {
+        var mamCalls = 0;
+        Func<HttpRequestMessage, HttpResponseMessage> handler = request =>
+        {
+            Interlocked.Increment(ref mamCalls);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(SearchResponseJson(large: false)) };
+        };
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: handler);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?Q=kings");
+
+        Assert.Equal(0, mamCalls);
+        Assert.DoesNotContain("The Way of Kings", html);
+        var hxGet = Regex.Match(html, "id=\"search-results-panel\" hx-get=\"([^\"]*)\"").Groups[1].Value;
+        Assert.Contains("handler=Results", hxGet);
+        Assert.Contains("Q=kings", hxGet);
+        Assert.Contains("hx-trigger=\"load\"", html);
+        Assert.Contains("id=\"search-loading\"", html);
+    }
+
+    [Fact]
+    public async Task GetResults_MamRejectsTheSession_RendersAnErrorWithRetryInsteadOfFailing()
+    {
+        Func<HttpRequestMessage, HttpResponseMessage> handler = _ => new HttpResponseMessage(HttpStatusCode.Forbidden);
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: handler);
+        var client = fixture.CreateClient();
+
+        var response = await client.GetAsync("/?handler=Results&Q=kings");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful responses
+        Assert.Contains("id=\"search-error\"", html);
+        Assert.Contains("Try again", html);
+        Assert.DoesNotContain("id=\"search-results\"", html);
+    }
+
+    [Fact]
     public async Task Get_WithoutQuery_ShowsNewestTorrentsFromMam()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
+        var shell = await client.GetStringAsync("/");
+        var results = await client.GetStringAsync("/?handler=Results");
 
-        Assert.Contains("Newest on MaM", html);
-        Assert.Contains("The Way of Kings", html);
+        Assert.Contains("Newest on MaM", shell);
+        Assert.Contains("The Way of Kings", results);
     }
 
     [Fact]
@@ -140,7 +278,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: handler);
         var client = fixture.CreateClient();
 
-        await client.GetAsync("/");
+        await client.GetAsync("/?handler=Results");
 
         Assert.NotNull(capturedBody);
         Assert.DoesNotContain("\"text\"", capturedBody);
@@ -154,7 +292,7 @@ public partial class IndexPageTests
             "mam_id = \"\"\n\n[search]\nwedge_over = \"1 GiB\"\n", mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.DoesNotContain("wedge-highlighted", html);
     }
@@ -165,7 +303,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("<th>Media type</th>", html);
         Assert.Contains("<td>Audiobook</td>", html);
@@ -178,7 +316,7 @@ public partial class IndexPageTests
             "mam_id = \"\"\n\n[search]\nwedge_over = \"1 GiB\"\n", mamHandler: MamHandler(SearchResponseJson(large: true)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("wedge-highlighted", html);
     }
@@ -203,7 +341,7 @@ public partial class IndexPageTests
         }
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("status-selected", html);
         Assert.Contains(">Selected<", html);
@@ -219,7 +357,7 @@ public partial class IndexPageTests
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null);
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("status-downloaded", html);
         Assert.Contains(">Downloaded<", html);
@@ -235,7 +373,7 @@ public partial class IndexPageTests
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: "/library/the-way-of-kings");
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("status-linked", html);
         Assert.Contains(">Linked<", html);
@@ -254,7 +392,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: CapturingMamHandler(SearchResponseJson(large: false), body => capturedBody = body));
         var client = fixture.CreateClient();
 
-        await client.GetAsync("/?Q=kings");
+        await client.GetAsync("/?handler=Results&Q=kings");
 
         Assert.NotNull(capturedBody);
         Assert.DoesNotContain("\"main_cat\"", capturedBody);
@@ -266,7 +404,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"audiobook\"", html);
     }
@@ -295,7 +433,7 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(EbookResponseJson));
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/?Q=radiance")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=radiance")).Content.ReadAsStringAsync();
 
         Assert.Contains("data-media-type=\"ebook\"", html);
     }
@@ -318,7 +456,7 @@ public partial class IndexPageTests
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
         var token = ExtractAntiforgeryToken(html);
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -336,6 +474,76 @@ public partial class IndexPageTests
     }
 
     [Fact]
+    public async Task Post_Download_FromHtmx_ReturnsMessageAndRefreshedRowInsteadOfRedirecting()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+        Assert.DoesNotContain("status-selected", html);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("id=\"download-message\"", body);
+        Assert.Contains("Selected", body);
+        // The row comes back as an out-of-band swap, now showing the Selected status.
+        var template = Regex.Match(body, "<template>(.*)</template>", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Contains("id=\"result-1\"", template);
+        Assert.Contains("hx-swap-oob=\"true\"", template);
+        Assert.Contains("status-selected", template);
+        Assert.Contains("data-status=\"selected\"", template);
+
+        using var scope = fixture.CreateScope();
+        Assert.Single(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents);
+    }
+
+    [Fact]
+    public async Task Post_Download_FromHtmx_DoesNotLeaveAMessageForTheNextPageLoad()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        await client.SendAsync(request);
+
+        var nextShell = await client.GetStringAsync("/?Q=kings");
+
+        Assert.DoesNotContain("id=\"download-message\"", nextShell);
+    }
+
+    [Fact]
+    public async Task Get_ResultRows_PostDownloadsThroughHtmxButKeepTheFormAction()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("hx-post=\"/?handler=Download\"", html);
+        Assert.Contains("hx-target=\"#download-message-area\"", html);
+        Assert.Contains("action=\"/?handler=Download\"", html); // works without htmx too
+        Assert.Contains("id=\"result-1\"", html);
+    }
+
+    [Fact]
     public async Task Post_Download_NoPreferredFormat_CreatesNoSelectionAndExplainsWhy()
     {
         // Musicology torrent whose only file type (m4a) is not in the default music_types (flac, mp3, pdf).
@@ -344,7 +552,7 @@ public partial class IndexPageTests
             .Replace("\"filetype\": \"m4b\"", "\"filetype\": \"m4a\"");
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
-        var html = await (await client.GetAsync("/?Q=kings")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
         var token = ExtractAntiforgeryToken(html);
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>

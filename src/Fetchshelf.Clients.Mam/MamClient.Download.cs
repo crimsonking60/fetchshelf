@@ -18,7 +18,7 @@ public sealed partial class MamClient
         await ApplyDownloadPolitenessAsync(cancellationToken);
 
         var url = BuildUrl($"/tor/download.php/{dlHash}?tid={mamId}{(wedge ? "&fl" : "")}");
-        using var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url), cancellationToken);
+        using var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url), cancellationToken, pauseOnForbidden: false);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);
     }

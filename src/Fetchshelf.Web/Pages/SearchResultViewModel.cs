@@ -14,6 +14,36 @@ public sealed record SearchResultViewModel(
         MediaTypeSlug: MediaTypeSlugOf(record),
         MediaTypeLabel: MediaTypeLabelOf(record));
 
+    /// <summary>Authors longer than this are cut for the Search table (anthologies can list dozens); the full list stays in <see cref="AuthorsDisplay"/>.</summary>
+    public const int MaxAuthorsLength = 40;
+
+    /// <summary><see cref="AuthorsDisplay"/> cut to <see cref="MaxAuthorsLength"/> characters and ending in "... more", or unchanged if it fits.</summary>
+    public string AuthorsShortDisplay => ShortenAuthors(AuthorsDisplay);
+
+    public bool AuthorsShortened => AuthorsDisplay.Length > MaxAuthorsLength;
+
+    /// <summary>
+    /// Keeps whole authors while they fit in <paramref name="maxLength"/> characters (not counting the ending);
+    /// a first author that is itself longer than that is cut mid-name instead.
+    /// </summary>
+    public static string ShortenAuthors(string authors, int maxLength = MaxAuthorsLength)
+    {
+        if (authors.Length <= maxLength)
+        {
+            return authors;
+        }
+
+        var lastBoundary = -1;
+        for (var comma = authors.IndexOf(", ", StringComparison.Ordinal); comma >= 0 && comma <= maxLength; comma = authors.IndexOf(", ", comma + 1, StringComparison.Ordinal))
+        {
+            lastBoundary = comma;
+        }
+
+        return lastBoundary > 0
+            ? $"{authors[..lastBoundary]}, ... more"
+            : $"{authors[..maxLength].TrimEnd()}... more";
+    }
+
     private static string AuthorsDisplayOf(MamTorrentRecord record) =>
         string.Join(", ", record.Authors.OrderBy(kv => kv.Key).Select(kv => kv.Value));
 

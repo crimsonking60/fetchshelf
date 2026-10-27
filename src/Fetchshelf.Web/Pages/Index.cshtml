@@ -7,10 +7,13 @@
 <h2>Search</h2>
 @await Html.PartialAsync("_PageExplanation", "This page searches MaM directly for a title or author, or shows the newest torrents on MaM when you haven't typed anything. Download a result straight to qBittorrent, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
 
-@if (!string.IsNullOrEmpty(Model.DownloadMessage))
-{
-    <p id="download-message" class="notice">@Model.DownloadMessage</p>
-}
+@* Stays below the sticky header while scrolling, so feedback from a download is visible wherever in the results it was clicked. *@
+<div id="download-message-area" class="download-feedback" aria-live="polite">
+    @if (!string.IsNullOrEmpty(Model.DownloadMessage))
+    {
+        @await Html.PartialAsync("_DownloadMessagePartial", (Model.DownloadMessage, false))
+    }
+</div>
 
 <form method="get" class="toolbar">
     <input type="text" name="Q" value="@Model.Q" placeholder="Search MaM" />
@@ -56,69 +59,18 @@ else
     <h3>Matches for '@Model.Q'</h3>
 }
 
-@if (Model.Results.Count == 0)
-{
-    <p id="no-results-message" class="empty">No results.</p>
-}
-else
-{
-    <table id="search-results">
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Authors</th>
-                <th>Media type</th>
-                <th>Status</th>
-                <th>Size</th>
-                <th>Cost</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var result in Model.Results)
-            {
-                <tr data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()">
-                    <td>@result.Title</td>
-                    <td>@result.AuthorsDisplay</td>
-                    <td>@result.MediaTypeLabel</td>
-                    <td>
-                        @switch (result.Status)
-                        {
-                            case MamResultStatus.Selected:
-                                <span class="status-badge status-selected">Selected</span>
-                                break;
-                            case MamResultStatus.Downloaded:
-                                <span class="status-badge status-downloaded">Downloaded</span>
-                                break;
-                            case MamResultStatus.Linked:
-                                <span class="status-badge status-linked">Linked</span>
-                                break;
-                        }
-                    </td>
-                    <td>@result.SizeDisplay</td>
-                    <td>
-                        @if (result.IsVip) { <span class="badge-vip">VIP</span> }
-                        @if (result.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
-                        @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
-                    </td>
-                    <td>
-                        <form method="post" asp-page-handler="Download" class="inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="mamId" value="@result.MamId" />
-                            <button type="submit">Download</button>
-                        </form>
-                        <form method="post" asp-page-handler="Download" class="inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="mamId" value="@result.MamId" />
-                            <input type="hidden" name="wedge" value="true" />
-                            <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">Download with wedge</button>
-                        </form>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+<div class="results-wrap">
+    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading">
+        @await Html.PartialAsync("_SearchResultsPartial", Model)
+    </div>
+    @* Starts visible (htmx-request) so the table is never shown empty before the first request begins; htmx clears it when the request ends. *@
+    <div id="search-loading" class="loading-overlay htmx-indicator htmx-request" role="status">
+        <div class="loading-chip">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Searching MaM…</span>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>
@@ -151,6 +103,12 @@ else
             if (hideDownloadedCheckbox != null) {
                 hideDownloadedCheckbox.addEventListener('change', applyFilters);
             }
+            // The table arrives after page load, so filters must be re-applied to each new set of rows.
+            document.body.addEventListener('htmx:afterSwap', function (event) {
+                if (event.target.id === 'search-results-panel') {
+                    applyFilters();
+                }
+            });
             applyFilters();
         })();
     </script>

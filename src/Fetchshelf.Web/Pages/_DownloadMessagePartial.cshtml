@@ -1,0 +1,6 @@
+@model (string Message, bool IsError)
+
+<p id="download-message" class="notice@(Model.IsError ? " error" : "")" role="@(Model.IsError ? "alert" : null)">
+    <span>@Model.Message</span>
+    <button type="button" class="dismiss" onclick="this.closest('.notice').remove()">Dismiss</button>
+</p>

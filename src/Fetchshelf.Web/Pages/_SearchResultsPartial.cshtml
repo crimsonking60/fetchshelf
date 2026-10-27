@@ -1,0 +1,36 @@
+@model Fetchshelf.Web.Pages.IndexModel
+
+@if (Model.SearchError is not null)
+{
+    <p id="search-error" class="notice error">
+        Search failed: @Model.SearchError
+        <button type="button" hx-get="@Url.Page("/Index", "Results", new { Model.Q })" hx-target="#search-results-panel" hx-swap="innerHTML" hx-indicator="#search-loading">Try again</button>
+    </p>
+}
+else if (Model.ResultsLoaded && Model.Results.Count == 0)
+{
+    <p id="no-results-message" class="empty">No results.</p>
+}
+else
+{
+    @* Before the results arrive this renders as just the header row, so the spinner has a table to sit over. *@
+    <table id="search-results">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Authors</th>
+                <th>Media type</th>
+                <th>Status</th>
+                <th>Size</th>
+                <th>Cost</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var result in Model.Results)
+            {
+                @await Html.PartialAsync("_SearchResultRowPartial", (result, false))
+            }
+        </tbody>
+    </table>
+}

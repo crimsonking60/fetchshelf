@@ -1,0 +1,55 @@
+@model (Fetchshelf.Web.Pages.SearchResultViewModel Result, bool SwapOob)
+@{
+    var result = Model.Result;
+}
+@* SwapOob is set when htmx returns this row after a download, to replace the row already on the page (see _DownloadFeedbackPartial). *@
+<tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()">
+    <td>@result.Title</td>
+    <td>
+        @if (result.AuthorsShortened)
+        {
+            @* Focusable so the full list is also reachable by keyboard and touch (:focus-within shows the balloon). *@
+            <span class="has-tip" tabindex="0">@result.AuthorsShortDisplay<span class="tip" role="tooltip">@result.AuthorsDisplay</span></span>
+        }
+        else
+        {
+            @result.AuthorsDisplay
+        }
+    </td>
+    <td>@result.MediaTypeLabel</td>
+    <td>
+        @switch (result.Status)
+        {
+            case MamResultStatus.Selected:
+                <span class="status-badge status-selected">Selected</span>
+                break;
+            case MamResultStatus.Downloaded:
+                <span class="status-badge status-downloaded">Downloaded</span>
+                break;
+            case MamResultStatus.Linked:
+                <span class="status-badge status-linked">Linked</span>
+                break;
+        }
+    </td>
+    <td class="nowrap">@result.SizeDisplay</td>
+    <td class="nowrap">
+        @if (result.IsVip) { <span class="badge-vip">VIP</span> }
+        @if (result.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
+        @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
+    </td>
+    <td>
+        <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
+              hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="mamId" value="@result.MamId" />
+            <button type="submit">Download</button>
+        </form>
+        <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
+              hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="mamId" value="@result.MamId" />
+            <input type="hidden" name="wedge" value="true" />
+            <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">Wedge&nbsp;download</button>
+        </form>
+    </td>
+</tr>

@@ -16,8 +16,8 @@ namespace Fetchshelf.Web.Pages;
 /// application's home page ("/").
 /// </summary>
 public class IndexModel(
-    MamClient mamClient, SelectionRunner selectionRunner, FetchshelfSettings settings, FetchshelfDbContext dbContext,
-    ILogger<IndexModel> logger) : PageModel
+    MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
+    FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
     [TempData]
@@ -28,7 +28,22 @@ public class IndexModel(
 
     public IReadOnlyList<SearchResultViewModel> Results { get; private set; } = [];
 
-    public async Task OnGetAsync()
+    /// <summary>False while the page shell is rendered; the results arrive afterwards via <see cref="OnGetResultsAsync"/>.</summary>
+    public bool ResultsLoaded { get; private set; }
+
+    /// <summary>Set when the MaM search failed, so the results panel can say why instead of staying empty.</summary>
+    public string? SearchError { get; private set; }
+
+    /// <summary>
+    /// Renders the page shell without waiting on MaM; the browser then fetches the table through
+    /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it.
+    /// </summary>
+    public void OnGet()
+    {
+    }
+
+    /// <summary>The results table for <see cref="Q"/>, swapped into the Search page by htmx.</summary>
+    public async Task<PartialViewResult> OnGetResultsAsync()
     {
         // Neither the Ebooks/Audiobooks "Show" filter nor "Hide downloaded torrents" narrows this
         // query or the Results list - both are applied browser-side (see the page's script)
@@ -41,15 +56,28 @@ public class IndexModel(
             Target = MamSearchTarget.New,
             ReturnDownloadLink = true,
         };
-        var result = await mamClient.SearchAsync(query);
-        var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
-        var statusByMamId = await LoadStatusesAsync(result.Data.Select(record => record.MamId).ToList());
 
-        Results = result.Data
-            .Select(record => SearchResultViewModel.From(
-                record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-                statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)))
-            .ToList();
+        try
+        {
+            var result = await mamClient.SearchAsync(query);
+            var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
+            var statusByMamId = await LoadStatusesAsync(result.Data.Select(record => record.MamId).ToList());
+
+            Results = result.Data
+                .Select(record => SearchResultViewModel.From(
+                    record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
+                    statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)))
+                .ToList();
+        }
+        catch (Exception ex) when (!IsRequestAborted(ex))
+        {
+            // htmx does not swap error responses, so a thrown exception would leave the panel blank: say what went wrong instead.
+            logger.LogWarning(ex, "Search on MaM failed");
+            SearchError = MamErrorDescriber.Describe(ex, mamOptions.Timeout);
+        }
+
+        ResultsLoaded = true;
+        return Partial("_SearchResultsPartial", this);
     }
 
     /// <summary>
@@ -85,27 +113,65 @@ public class IndexModel(
         return statuses;
     }
 
+    /// <summary>
+    /// Starts the selection for <paramref name="mamId"/>. From the Search page's htmx forms it answers with just the
+    /// outcome message and the refreshed row, so the page is not reloaded; without htmx it redirects back to the page.
+    /// </summary>
     public async Task<IActionResult> OnPostDownloadAsync(long mamId, bool wedge)
     {
-        var lookup = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnDownloadLink = true });
-        var record = lookup.Data.FirstOrDefault();
-        if (record is not null)
+        MamTorrentRecord? record = null;
+        var failed = false;
+        string message;
+        try
         {
-            var metadata = MamTorrentMapper.Map(record);
-            var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
-            var outcome = await selectionRunner.ProcessCandidateAsync(
-                record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
-                unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
-            logger.LogInformation("Manual download of MaM id {MamId} ended with outcome {Outcome}", mamId, outcome);
-            DownloadMessage = DescribeOutcome(outcome, metadata, settings);
+            var lookup = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnDownloadLink = true });
+            record = lookup.Data.FirstOrDefault();
+            if (record is not null)
+            {
+                var metadata = MamTorrentMapper.Map(record);
+                var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
+                var outcome = await selectionRunner.ProcessCandidateAsync(
+                    record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
+                    unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
+                logger.LogInformation("Manual download of MaM id {MamId} ended with outcome {Outcome}", mamId, outcome);
+                message = DescribeOutcome(outcome, metadata, settings);
+            }
+            else
+            {
+                message = $"MaM returned no torrent with id {mamId}.";
+            }
         }
-        else
+        catch (Exception ex) when (!IsRequestAborted(ex))
         {
-            DownloadMessage = $"MaM returned no torrent with id {mamId}.";
+            logger.LogWarning(ex, "Manual download of MaM id {MamId} failed", mamId);
+            failed = true;
+            record = null;
+            message = $"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}";
         }
 
-        return RedirectToPage(new { Q });
+        if (!Request.Headers.ContainsKey("HX-Request"))
+        {
+            DownloadMessage = message;
+            return RedirectToPage(new { Q });
+        }
+
+        // Set only on the redirect path above: TempData would otherwise show this message again on the next page load.
+        SearchResultViewModel? row = null;
+        if (record is not null)
+        {
+            var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
+            var statuses = await LoadStatusesAsync([record.MamId]);
+            row = SearchResultViewModel.From(
+                record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
+                statuses.GetValueOrDefault(record.MamId, MamResultStatus.None));
+        }
+
+        return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
     }
+
+    /// <summary>True when the browser gave up on the request: nobody is left to show an error to, so let it propagate.</summary>
+    private bool IsRequestAborted(Exception exception) =>
+        exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
     private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FetchshelfSettings settings)
     {

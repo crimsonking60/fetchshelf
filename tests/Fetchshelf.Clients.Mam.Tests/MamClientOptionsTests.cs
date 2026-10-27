@@ -12,6 +12,6 @@ public class MamClientOptionsTests
         Assert.Equal("https://www.myanonamouse.net", options.BaseUrl);
         Assert.Equal("https://cdn.myanonamouse.net", options.CdnBaseUrl);
         Assert.Equal("Fetchshelf/0.1.0", options.UserAgent);
-        Assert.Equal(TimeSpan.FromSeconds(20), options.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
     }
 }

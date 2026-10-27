@@ -15,5 +15,5 @@ public sealed record MamClientOptions
 
     public string UserAgent { get; init; } = "Fetchshelf/0.1.0";
 
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(20);
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
 }
