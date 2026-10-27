@@ -40,9 +40,9 @@ else
             @foreach (var e in Model.Events)
             {
                 <tr>
-                    <td>@e.OccurredAt.ToString("u")</td>
-                    <td>@e.Kind</td>
-                    <td>
+                    <td class="nowrap">@e.OccurredAt.ToString("u")</td>
+                    <td class="nowrap">@e.Kind</td>
+                    <td class="nowrap">
                         @if (e.TorrentId is not null)
                         {
                             <a asp-page="/Torrents/Detail" asp-route-id="@e.TorrentId" title="@e.TorrentId">@Model.TorrentLabel(e)</a>
