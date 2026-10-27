@@ -1,4 +1,10 @@
-# Fetchshelf
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
+    <img src="docs/images/logo-light.svg" alt="" height="32" align="middle">
+  </picture>
+  Fetchshelf
+</h1>
 
 Fetchshelf is a self-hosted service that connects the private book tracker
 [MyAnonamouse](https://www.myanonamouse.net) (MaM) with a BitTorrent client (qBittorrent) and,
