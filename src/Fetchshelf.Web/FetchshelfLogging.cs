@@ -19,10 +19,15 @@ public static class FetchshelfLogging
             levelSwitch.MinimumLevel = level;
         }
 
+        var frameworkLevel = AtLeast(levelSwitch.MinimumLevel, LogEventLevel.Warning);
+
         // Console writes block when the terminal stops draining output (paused, Ctrl-S, stalled SSH client).
         // Writing through a bounded buffer that drops on overflow keeps that from stalling every request.
         var configuration = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(levelSwitch)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", frameworkLevel)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Migrations", AtLeast(levelSwitch.MinimumLevel, LogEventLevel.Information))
+            .MinimumLevel.Override("Microsoft.AspNetCore", frameworkLevel)
             .WriteTo.Async(sink => sink.Console(standardErrorFromLevel: LogEventLevel.Verbose), bufferSize: 10_000, blockWhenFull: false);
 
         if (!string.IsNullOrEmpty(logDirEnv))
@@ -34,4 +39,6 @@ public static class FetchshelfLogging
 
         return configuration;
     }
+
+    private static LogEventLevel AtLeast(LogEventLevel level, LogEventLevel floor) => level > floor ? level : floor;
 }

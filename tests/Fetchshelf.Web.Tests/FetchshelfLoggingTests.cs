@@ -84,6 +84,59 @@ public sealed class FetchshelfLoggingTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("Microsoft.EntityFrameworkCore.Database.Command")]
+    [InlineData("Microsoft.AspNetCore.Hosting.Diagnostics")]
+    [InlineData("Microsoft.AspNetCore.Routing.EndpointMiddleware")]
+    public void Build_FrameworkSource_KeepsWarningsButDropsInformation(string sourceContext)
+    {
+        var output = CaptureStderr(null, logger =>
+        {
+            var framework = logger.ForContext("SourceContext", sourceContext);
+            framework.Information("framework-info");
+            framework.Warning("framework-warning");
+            logger.Information("app-info");
+        });
+
+        Assert.DoesNotContain("framework-info", output);
+        Assert.Contains("framework-warning", output);
+        Assert.Contains("app-info", output);
+    }
+
+    [Fact]
+    public void Build_MigrationSource_KeepsInformation()
+    {
+        var output = CaptureStderr(null, logger =>
+            logger.ForContext("SourceContext", "Microsoft.EntityFrameworkCore.Migrations").Information("applying-migration"));
+
+        Assert.Contains("applying-migration", output);
+    }
+
+    [Fact]
+    public void Build_LevelStricterThanFrameworkFloor_AlsoAppliesToFrameworkSources()
+    {
+        var output = CaptureStderr("Error", logger =>
+            logger.ForContext("SourceContext", "Microsoft.AspNetCore.Hosting.Diagnostics").Warning("framework-warning"));
+
+        Assert.DoesNotContain("framework-warning", output);
+    }
+
+    private static string CaptureStderr(string? logLevelEnv, Action<ILogger> act)
+    {
+        var originalError = Console.Error;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetError(writer);
+            LogAndFlush(FetchshelfLogging.Build(null, logLevelEnv).CreateLogger(), act);
+            return writer.ToString();
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
     [Fact]
     public async Task Build_StderrBlocked_LoggingDoesNotBlockTheCaller()
     {
