@@ -13,7 +13,7 @@ namespace Fetchshelf.Web.Pages.Torrents;
 /// <summary>The Torrents page, Fetchshelf-spec.md §10.2.</summary>
 public class IndexModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
-    FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory) : PageModel
+    FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker) : PageModel
 {
     private const int DefaultPageSize = 25;
 
@@ -42,9 +42,48 @@ public class IndexModel(
 
     public int TotalCount { get; private set; }
 
+    /// <summary>The outcome of a "Check qBittorrent", shown above the list; set by the htmx response itself or, after the non-htmx redirect, read back from TempData.</summary>
+    public string? CheckMessage { get; private set; }
+
+    public bool CheckFailed { get; private set; }
+
     public async Task OnGetAsync()
     {
+        CheckMessage = TempData["CheckMessage"] as string;
+        CheckFailed = TempData["CheckFailed"] as bool? ?? false;
         Torrents = await LoadAsync();
+    }
+
+    /// <summary>
+    /// Asks qBittorrent for the current state of every tracked torrent and refreshes the stored status. From the page's htmx
+    /// form it answers with the re-rendered list (same filters, sort and page); without htmx it redirects back to it.
+    /// </summary>
+    public async Task<IActionResult> OnPostCheckClientAsync()
+    {
+        var clients = QBittorrentConnections.Build(settings, qbittorrentFactory).Select(c => c.Client).ToList();
+        var result = await clientStatusChecker.CheckAsync(clients, HttpContext.RequestAborted);
+        CheckFailed = !result.Succeeded;
+        CheckMessage = Describe(result);
+
+        if (!Request.Headers.ContainsKey("HX-Request"))
+        {
+            // Plain TempData entries rather than [TempData] properties, so the htmx path below leaves nothing behind for the next page load.
+            TempData["CheckMessage"] = CheckMessage;
+            TempData["CheckFailed"] = CheckFailed;
+            return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
+        }
+
+        Torrents = await LoadAsync();
+        return Partial("_TorrentListPartial", this);
+    }
+
+    private static string Describe(ClientStatusCheckResult result)
+    {
+        var torrents = result.Checked == 1 ? "1 torrent" : $"{result.Checked} torrents";
+        return result.Succeeded
+            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client."
+            : $"qBittorrent could not be fully checked - {string.Join("; ", result.Errors)}. "
+                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.";
     }
 
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds)
