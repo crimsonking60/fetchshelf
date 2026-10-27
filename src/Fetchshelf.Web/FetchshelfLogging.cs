@@ -19,9 +19,11 @@ public static class FetchshelfLogging
             levelSwitch.MinimumLevel = level;
         }
 
+        // Console writes block when the terminal stops draining output (paused, Ctrl-S, stalled SSH client).
+        // Writing through a bounded buffer that drops on overflow keeps that from stalling every request.
         var configuration = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(levelSwitch)
-            .WriteTo.Console(standardErrorFromLevel: LogEventLevel.Verbose);
+            .WriteTo.Async(sink => sink.Console(standardErrorFromLevel: LogEventLevel.Verbose), bufferSize: 10_000, blockWhenFull: false);
 
         if (!string.IsNullOrEmpty(logDirEnv))
         {

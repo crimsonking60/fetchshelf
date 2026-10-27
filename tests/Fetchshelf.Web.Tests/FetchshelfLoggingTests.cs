@@ -85,6 +85,44 @@ public sealed class FetchshelfLoggingTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_StderrBlocked_LoggingDoesNotBlockTheCaller()
+    {
+        var originalError = Console.Error;
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            Console.SetError(new BlockingWriter(release));
+            var logger = FetchshelfLogging.Build(null, null).CreateLogger();
+
+            var logging = Task.Run(() =>
+            {
+                for (var i = 0; i < 100; i++)
+                {
+                    logger.Information("message {Index}", i);
+                }
+            });
+
+            var finished = await Task.WhenAny(logging, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.Same(logging, finished);
+
+            release.Set();
+            (logger as IDisposable)?.Dispose();
+        }
+        finally
+        {
+            release.Set();
+            Console.SetError(originalError);
+        }
+    }
+
+    private sealed class BlockingWriter(ManualResetEventSlim release) : TextWriter
+    {
+        public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+
+        public override void Write(char value) => release.Wait();
+    }
+
+    [Fact]
     public void Build_UnparseableLevel_FallsBackToDebugRatherThanThrowing()
     {
         var originalError = Console.Error;

@@ -19,17 +19,8 @@ Log.Logger = FetchshelfLogging
     .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
 
-// Jobs like Link do synchronous, blocking file I/O (hardlinks/copies/moves with no async
-// equivalent) while running fire-and-forget off a "Run now" click (see JobRegistry.TriggerAsync).
-// With the CLR's default thread pool floor (as low as 1 in a constrained container), that blocking
-// call can leave no worker thread free to serve ordinary page requests until the slow thread-
-// injection ramp-up kicks in, which looks like the whole web UI freezing for minutes. Raising the
-// floor keeps spare threads on hand so Kestrel is never left starved.
-ThreadPool.GetMinThreads(out var minWorkerThreads, out var minCompletionPortThreads);
-ThreadPool.SetMinThreads(Math.Max(minWorkerThreads, 16), Math.Max(minCompletionPortThreads, 16));
-
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseSerilog();
+builder.Host.UseSerilog(dispose: true);
 
 var configFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath();
 var settings = ConfigLoader.Load(configFilePath);
@@ -226,6 +217,7 @@ if (args.Contains("--update-search-title"))
     Log.Information("Update search title started");
     await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
     Log.Information("Update search title done");
+    await Log.CloseAndFlushAsync();
     return;
 }
 
