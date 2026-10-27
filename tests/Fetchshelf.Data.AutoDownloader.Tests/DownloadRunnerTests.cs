@@ -150,6 +150,7 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         var error = Assert.Single(context.ErroredTorrents);
         Assert.Equal(ErrorStage.Grabber, error.Stage);
+        Assert.Equal(TorrentMetadataSerializer.Deserialize(context.SelectedTorrents.Single().MetadataJson).Title, error.Title);
     }
 
     [Fact]

@@ -79,9 +79,13 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<int>("Stage")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Title")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Stage", "Key");
+                    b.HasIndex("Stage", "Key")
+                        .IsUnique();
 
                     b.ToTable("ErroredTorrents");
                 });

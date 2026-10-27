@@ -38,7 +38,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
         modelBuilder.Entity<ErroredTorrentEntity>(entity =>
         {
-            entity.HasIndex(e => new { e.Stage, e.Key });
+            entity.HasIndex(e => new { e.Stage, e.Key }).IsUnique();
         });
 
         modelBuilder.Entity<EventEntity>(entity =>

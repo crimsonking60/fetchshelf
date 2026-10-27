@@ -102,6 +102,43 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_SameTorrentFailsOnEveryRun_KeepsOneErrorRowNamedAfterTheTorrent()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata(authors: [])), [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+        var firstOccurredAt = (await context.ErroredTorrents.SingleAsync()).OccurredAt;
+        await runner.RunAsync(new QBittorrentConnection(), client);
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var error = await context.ErroredTorrents.SingleAsync();
+        Assert.Equal("Some Torrent", error.Title);
+        Assert.True(error.OccurredAt >= firstOccurredAt);
+    }
+
+    [Fact]
+    public async Task RunAsync_TorrentLinksAfterAnEarlierFailure_ClearsItsError()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await CreateRunner(context, new FakeMetadataLookup(result: null), libraries).RunAsync(new QBittorrentConnection(), client);
+        Assert.Single(context.ErroredTorrents);
+
+        await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries).RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Empty(context.ErroredTorrents);
+        Assert.NotNull((await context.Torrents.SingleAsync()).LibraryPath);
+    }
+
+    [Fact]
     public async Task RunAsync_LookupThrowsForOneTorrent_RecordsErrorAndStillLinksTheRest()
     {
         WriteSourceFile("book.m4b");

@@ -16,22 +16,21 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
     public async Task OnGetAsync()
     {
         var entities = await dbContext.ErroredTorrents.ToListAsync();
+        var hashes = entities.Where(e => e.Stage != ErrorStage.Grabber).Select(e => e.Key).ToList();
+        var trackedTitles = await dbContext.Torrents
+            .Where(t => hashes.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, t => t.Title);
+
         Errors = entities
             .OrderBy(e => e.Stage)
             .ThenByDescending(e => e.OccurredAt)
-            .Select(ErroredTorrentViewModel.From)
+            .Select(e => ErroredTorrentViewModel.From(e, trackedTitles))
             .ToList();
     }
 
-    public async Task<IActionResult> OnPostRemoveAsync(int id)
+    public async Task<IActionResult> OnPostRemoveSelectedAsync(List<int> selectedIds)
     {
-        var entity = await dbContext.ErroredTorrents.FindAsync(id);
-        if (entity is not null)
-        {
-            dbContext.ErroredTorrents.Remove(entity);
-            await dbContext.SaveChangesAsync();
-        }
-
+        await dbContext.ErroredTorrents.Where(e => selectedIds.Contains(e.Id)).ExecuteDeleteAsync();
         return RedirectToPage();
     }
 

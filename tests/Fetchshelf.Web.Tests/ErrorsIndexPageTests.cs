@@ -45,12 +45,61 @@ public partial class ErrorsIndexPageTests
 
         var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
 
-        Assert.Contains("Grabber", html);
+        Assert.Contains("Download", html);
         Assert.Contains("stale", html);
+        Assert.Contains("MaM id 1", html);
     }
 
     [Fact]
-    public async Task Post_Remove_RemovesErrorEntry()
+    public async Task Get_RestorableDownloadErrorWithoutStoredTitle_ShowsTitleFromItsSelection()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedGrabberErrorAsync(fixture, restorable: true);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+
+        Assert.Contains("The Way of Kings", html);
+        Assert.Contains("Retry download", html);
+    }
+
+    [Fact]
+    public async Task Get_LinkErrorForTrackedTorrent_ShowsTitleAndLinksToTheTorrent()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Add(new TorrentEntity
+            {
+                Id = "abc123",
+                MamId = 2,
+                Title = "Mistborn",
+                NormalizedTitleKey = "mistborn",
+                MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata("Mistborn")),
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
+            {
+                Stage = ErrorStage.Linker,
+                Key = "abc123",
+                ErrorText = "Torrent has no author; cannot be linked.",
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = fixture.CreateClient();
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+
+        Assert.Contains("Link", html);
+        Assert.Contains("Info-hash abc123", html);
+        Assert.Contains("href=\"/torrents/abc123\"", html);
+        Assert.Contains("Mistborn", html);
+    }
+
+    [Fact]
+    public async Task Post_RemoveSelected_RemovesTheTickedErrors()
     {
         using var fixture = new FetchshelfWebAppFixture();
         var entity = await SeedGrabberErrorAsync(fixture, restorable: false);
@@ -60,10 +109,10 @@ public partial class ErrorsIndexPageTests
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["id"] = entity.Id.ToString(),
+            ["selectedIds"] = entity.Id.ToString(),
             ["__RequestVerificationToken"] = token,
         });
-        await client.PostAsync("/errors?handler=Remove", form);
+        await client.PostAsync("/errors?handler=RemoveSelected", form);
 
         var afterHtml = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
         Assert.Contains("No errors", afterHtml);

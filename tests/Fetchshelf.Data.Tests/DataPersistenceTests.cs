@@ -1,6 +1,8 @@
 using System.Reflection;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Fetchshelf.Data.Tests;
 
@@ -46,6 +48,23 @@ public sealed class DataPersistenceTests : IDisposable
         {
             Assert.Contains(expected, tableNames);
         }
+    }
+
+    [Fact]
+    public void Migrate_DuplicateErrorRowsFromBeforeTheUniqueIndex_KeepsOnlyTheNewestPerStageAndKey()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261023143408_ExtendListEntities");
+        foreach (var (key, text) in new[] { ("hash1", "first"), ("hash1", "second"), ("hash2", "other") })
+        {
+            context.Database.ExecuteSql(
+                $"INSERT INTO ErroredTorrents (Stage, Key, ErrorText, OccurredAt) VALUES (1, {key}, {text}, '2026-10-27 10:00:00+00:00')");
+        }
+
+        DatabaseMigrator.Migrate(context);
+
+        var remaining = context.ErroredTorrents.OrderBy(e => e.Key).Select(e => e.ErrorText).ToList();
+        Assert.Equal(["second", "other"], remaining);
     }
 
     [Fact]

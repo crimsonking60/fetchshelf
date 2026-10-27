@@ -216,14 +216,14 @@ public sealed class DownloadRunner(
             MetadataJson = selected.MetadataJson,
             NormalizedTitleKey = selected.NormalizedTitleKey,
         };
-        dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
-        {
-            Stage = ErrorStage.Grabber,
-            Key = selected.MamId.ToString(),
-            ErrorText = "Download link is stale and could not be refreshed.",
-            DisplayMetadataJson = System.Text.Json.JsonSerializer.Serialize(restorePayload),
-            OccurredAt = DateTimeOffset.UtcNow,
-        });
+        await ErrorLog.RecordAsync(
+            dbContext,
+            ErrorStage.Grabber,
+            selected.MamId.ToString(),
+            TorrentMetadataSerializer.Deserialize(selected.MetadataJson).Title,
+            "Download link is stale and could not be refreshed.",
+            System.Text.Json.JsonSerializer.Serialize(restorePayload),
+            cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -262,14 +262,8 @@ public sealed class DownloadRunner(
         return null;
     }
 
-    private async Task ClearGrabberErrorAsync(long mamId, CancellationToken cancellationToken)
-    {
-        var key = mamId.ToString();
-        var existing = await dbContext.ErroredTorrents
-            .Where(e => e.Stage == ErrorStage.Grabber && e.Key == key)
-            .ToListAsync(cancellationToken);
-        dbContext.ErroredTorrents.RemoveRange(existing);
-    }
+    private Task ClearGrabberErrorAsync(long mamId, CancellationToken cancellationToken) =>
+        ErrorLog.ClearAsync(dbContext, ErrorStage.Grabber, mamId.ToString(), cancellationToken);
 
     private void CreateTorrentRecord(string hash, Fetchshelf.Core.Metadata.TorrentMetadata metadata) =>
         dbContext.Torrents.Add(new TorrentEntity

@@ -18,6 +18,9 @@ public sealed class ErroredTorrentEntity
     /// <summary>MaM id (Grabber stage) or info-hash (Linker/Cleaner stage), as a string.</summary>
     public required string Key { get; set; }
 
+    /// <summary>The torrent's name when the error was recorded, so the row is recognizable without a Torrent record.</summary>
+    public string? Title { get; set; }
+
     public required string ErrorText { get; set; }
 
     public string? DisplayMetadataJson { get; set; }

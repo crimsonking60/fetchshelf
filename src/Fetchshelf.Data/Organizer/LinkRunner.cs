@@ -43,7 +43,7 @@ public sealed class LinkRunner(
                 // One bad torrent (e.g. a lookup or file error) must not stop the rest of the run.
                 // Rate limiting and account blocks still end the run: every later lookup would fail too.
                 dbContext.ChangeTracker.Clear();
-                await RecordLinkerErrorAsync(torrent.Hash, ex.Message, cancellationToken);
+                await RecordLinkerErrorAsync(torrent, ex.Message, cancellationToken);
             }
         }
     }
@@ -85,6 +85,7 @@ public sealed class LinkRunner(
             {
                 // Already linked: sync and recompute mismatch; do not touch files or metadata here.
                 SyncMismatch(existing, connection, torrent, metadata);
+                await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
                 await dbContext.SaveChangesAsync(cancellationToken);
                 return;
             }
@@ -101,7 +102,7 @@ public sealed class LinkRunner(
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
             if (looked is null)
             {
-                await RecordLinkerErrorAsync(torrent.Hash, $"Metadata not found for info-hash '{torrent.Hash}'.", cancellationToken);
+                await RecordLinkerErrorAsync(torrent, "MaM has no torrent with this info-hash.", cancellationToken);
                 return;
             }
 
@@ -110,7 +111,7 @@ public sealed class LinkRunner(
 
         if (metadata.Authors.Count == 0)
         {
-            await RecordLinkerErrorAsync(torrent.Hash, "Torrent has no author; cannot be linked.", cancellationToken);
+            await RecordLinkerErrorAsync(torrent, "Torrent has no author; cannot be linked.", cancellationToken);
             return;
         }
 
@@ -128,7 +129,7 @@ public sealed class LinkRunner(
 
         if (bestAudioExtension is null && bestEbookExtension is null)
         {
-            await RecordLinkerErrorAsync(torrent.Hash, "No recognized audio or ebook format present among the torrent's files.", cancellationToken);
+            await RecordLinkerErrorAsync(torrent, "No recognized audio or ebook format present among the torrent's files.", cancellationToken);
             return;
         }
 
@@ -187,6 +188,7 @@ public sealed class LinkRunner(
             LibraryPath = destinationFolder,
         }, cancellationToken);
 
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -320,15 +322,9 @@ public sealed class LinkRunner(
         DenyTags = library.DenyTags,
     };
 
-    private async Task RecordLinkerErrorAsync(string hash, string errorText, CancellationToken cancellationToken)
+    private async Task RecordLinkerErrorAsync(QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken)
     {
-        dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
-        {
-            Stage = ErrorStage.Linker,
-            Key = hash,
-            ErrorText = errorText,
-            OccurredAt = DateTimeOffset.UtcNow,
-        });
+        await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, cancellationToken: cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 

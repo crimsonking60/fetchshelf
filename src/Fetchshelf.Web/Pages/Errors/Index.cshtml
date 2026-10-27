@@ -5,7 +5,7 @@
 }
 
 <h2>Errors</h2>
-@await Html.PartialAsync("_PageExplanation", "This page lists problems Fetchshelf ran into while grabbing or linking torrents. Remove an error once you've dealt with it, or restore the selection to try it again.")
+@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into, one row per torrent and job. Link tries a failed torrent again on every run: its row is updated while it keeps failing and disappears once it links. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. Tick the rows you have dealt with and use Remove selected.")
 
 @if (Model.Errors.Count == 0)
 {
@@ -13,41 +13,62 @@
 }
 else
 {
-    <table>
-        <thead>
-            <tr>
-                <th>Stage</th>
-                <th>Key</th>
-                <th>Error</th>
-                <th>Occurred</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var error in Model.Errors)
-            {
+    @* Retry has its own form per row (referenced by the button's form attribute) because forms cannot nest inside the
+       bulk-remove form below. *@
+    @foreach (var error in Model.Errors.Where(e => e.CanRestore))
+    {
+        <form id="restore-@error.Id" method="post" asp-page-handler="Restore">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@error.Id" />
+        </form>
+    }
+
+    <form method="post" asp-page-handler="RemoveSelected">
+        @Html.AntiForgeryToken()
+        <table>
+            <thead>
                 <tr>
-                    <td>@error.Stage</td>
-                    <td>@error.Key</td>
-                    <td>@error.ErrorText</td>
-                    <td><local-time value="error.OccurredAt" /></td>
-                    <td>
-                        <form method="post" asp-page-handler="Remove" class="inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@error.Id" />
-                            <button type="submit">Remove</button>
-                        </form>
-                        @if (error.CanRestore)
-                        {
-                            <form method="post" asp-page-handler="Restore" class="inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@error.Id" />
-                                <button type="submit">Restore the selection</button>
-                            </form>
-                        }
-                    </td>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.error-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Job</th>
+                    <th>Torrent</th>
+                    <th>Error</th>
+                    <th>Last failed</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var error in Model.Errors)
+                {
+                    var name = error.Title ?? "(unknown torrent)";
+                    <tr>
+                        <td><input class="error-select" type="checkbox" name="selectedIds" value="@error.Id" aria-label="Select @name" /></td>
+                        <td class="nowrap">@error.Job</td>
+                        <td>
+                            @if (error.TorrentDetailId is not null)
+                            {
+                                <a asp-page="/Torrents/Detail" asp-route-id="@error.TorrentDetailId">@name</a>
+                            }
+                            else
+                            {
+                                @name
+                            }
+                            <div class="muted mono">@error.KeyLabel @error.Key</div>
+                        </td>
+                        <td>@error.ErrorText</td>
+                        <td><local-time value="error.OccurredAt" /></td>
+                        <td>
+                            @if (error.CanRestore)
+                            {
+                                <button form="restore-@error.Id" type="submit" class="nowrap">Retry download</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="actions">
+            <button type="submit" class="danger">Remove selected</button>
+        </div>
+    </form>
 }
