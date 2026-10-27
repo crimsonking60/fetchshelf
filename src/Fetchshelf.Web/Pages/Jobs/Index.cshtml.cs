@@ -31,6 +31,12 @@ public class IndexModel(IJobRegistry jobRegistry) : PageModel
         return Partial("_JobListPartial", Jobs);
     }
 
+    private static readonly string[] PriorityJobOrder = ["Download", "Link", "Clean"];
+
     private IReadOnlyList<JobStatusViewModel> BuildJobViewModels() =>
-        jobRegistry.GetAll().Select(JobStatusViewModel.From).ToList();
+        jobRegistry.GetAll()
+            .Select(JobStatusViewModel.From)
+            .OrderBy(j => Array.IndexOf(PriorityJobOrder, j.Name) is var i && i >= 0 ? i : int.MaxValue)
+            .ThenBy(j => j.Name, StringComparer.Ordinal)
+            .ToList();
 }

@@ -124,6 +124,25 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task JobsPage_MultipleJobsRegistered_OrdersDownloadLinkCleanFirstThenAlphabetical()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("Zeta", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Clean", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Alpha", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Link", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Download", _ => Task.CompletedTask);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/Jobs")).Content.ReadAsStringAsync();
+
+        var expectedOrder = new[] { "Download", "Link", "Clean", "Alpha", "Zeta" };
+        var positions = expectedOrder.Select(name => html.IndexOf(name, StringComparison.Ordinal)).ToList();
+        Assert.All(positions, p => Assert.True(p >= 0));
+        Assert.Equal(positions, positions.OrderBy(p => p));
+    }
+
+    [Fact]
     public async Task JobsPartial_ReturnsCurrentStatusIndependentOfFullPage()
     {
         using var fixture = new FetchshelfWebAppFixture();
