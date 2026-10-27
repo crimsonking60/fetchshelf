@@ -5,7 +5,7 @@
 }
 
 <h2>Selected</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent. Adjust a selection's category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
+@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent, or has sent and is still downloading. A torrent leaves the queue once it has finished; the Torrents page follows it from there. Adjust a selection's category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
 
 @if (Model.Selections.Count == 0)
 {

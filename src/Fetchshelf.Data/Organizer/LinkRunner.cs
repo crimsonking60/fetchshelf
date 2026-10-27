@@ -28,7 +28,10 @@ public sealed class LinkRunner(
     public async Task RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
     {
         var torrents = await client.ListTorrentsAsync(cancellationToken);
-        foreach (var torrent in torrents.Where(t => t.IsFinished))
+        var finished = torrents.Where(t => t.IsFinished).ToList();
+        await RetireFinishedSelectionsAsync(finished, cancellationToken);
+
+        foreach (var torrent in finished)
         {
             try
             {
@@ -42,6 +45,20 @@ public sealed class LinkRunner(
                 dbContext.ChangeTracker.Clear();
                 await RecordLinkerErrorAsync(torrent.Hash, ex.Message, cancellationToken);
             }
+        }
+    }
+
+    /// <summary>
+    /// A selection that was started has done its job once its torrent finishes: the Torrents list takes over, so the
+    /// selection leaves the queue. Done up front and saved on its own, so a later linking failure cannot undo it.
+    /// </summary>
+    private async Task RetireFinishedSelectionsAsync(IReadOnlyList<QBittorrentTorrent> finished, CancellationToken cancellationToken)
+    {
+        var hashes = finished.Select(t => t.Hash).ToList();
+        var mamIds = await dbContext.Torrents.Where(t => hashes.Contains(t.Id)).Select(t => t.MamId).ToListAsync(cancellationToken);
+        if (await SelectionRetirement.RetireStartedAsync(dbContext, mamIds, cancellationToken) > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
     }
 

@@ -1,5 +1,10 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
@@ -99,6 +104,37 @@ public partial class TorrentsCheckClientTests
         var landing = await client.GetStringAsync(response.Headers.Location!.OriginalString);
         Assert.Contains("Checked 1 torrent in qBittorrent: 1 found, 0 not in client.", landing);
         Assert.DoesNotContain("id=\"check-message\"", await client.GetStringAsync("/torrents"));
+    }
+
+    [Fact]
+    public async Task Post_CheckClient_FinishedDownload_LeavesTheSelectedQueueAndSaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("Finished Book"));
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.SelectedTorrents.Add(new SelectedTorrentEntity
+            {
+                MamId = 1,
+                DownloadLink = "dl1",
+                CostDecision = "Ratio",
+                MetadataJson = TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata("Finished Book")),
+                NormalizedTitleKey = TitleNormalizer.Normalize("Finished Book"),
+                CreatedAt = DateTimeOffset.UtcNow.AddHours(-1),
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-30),
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = fixture.CreateNoRedirectClient();
+        Assert.Contains("Finished Book", await client.GetStringAsync("/selected"));
+        var page = await client.GetStringAsync("/torrents");
+
+        var html = await (await PostCheckAsync(client, page, fromHtmx: true)).Content.ReadAsStringAsync();
+
+        Assert.Contains("1 finished download was removed from the Selected queue.", html);
+        Assert.DoesNotContain("Finished Book", await client.GetStringAsync("/selected"));
     }
 
     [Fact]

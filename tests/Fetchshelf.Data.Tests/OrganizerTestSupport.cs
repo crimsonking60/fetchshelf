@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Tests;
@@ -75,4 +77,41 @@ internal static class OrganizerTestSupport
             MetadataSource = MetadataSource.Mam,
             UploadTime = DateTimeOffset.UtcNow,
         };
+
+    public static async Task<TorrentEntity> SeedTorrentAsync(FetchshelfDbContext context, string id, long mamId)
+    {
+        var metadata = BuildMetadata(title: $"Book {mamId}") with { MamId = mamId };
+        var entity = new TorrentEntity
+        {
+            Id = id,
+            MamId = mamId,
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+            Title = metadata.Title,
+            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        context.Torrents.Add(entity);
+        await context.SaveChangesAsync();
+        return entity;
+    }
+
+    public static async Task<SelectedTorrentEntity> SeedSelectionAsync(
+        FetchshelfDbContext context, long mamId, DateTimeOffset? startedAt, DateTimeOffset? removedAt = null)
+    {
+        var metadata = BuildMetadata(title: $"Book {mamId}") with { MamId = mamId };
+        var entity = new SelectedTorrentEntity
+        {
+            MamId = mamId,
+            DownloadLink = $"dl{mamId}",
+            CostDecision = "Ratio",
+            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+            CreatedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            StartedAt = startedAt,
+            RemovedAt = removedAt,
+        };
+        context.SelectedTorrents.Add(entity);
+        await context.SaveChangesAsync();
+        return entity;
+    }
 }

@@ -80,10 +80,16 @@ public class IndexModel(
     private static string Describe(ClientStatusCheckResult result)
     {
         var torrents = result.Checked == 1 ? "1 torrent" : $"{result.Checked} torrents";
+        var retired = result.RetiredSelections switch
+        {
+            0 => string.Empty,
+            1 => " 1 finished download was removed from the Selected queue.",
+            var count => $" {count} finished downloads were removed from the Selected queue.",
+        };
         return result.Succeeded
-            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client."
+            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client.{retired}"
             : $"qBittorrent could not be fully checked - {string.Join("; ", result.Errors)}. "
-                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.";
+                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}";
     }
 
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds)

@@ -15,7 +15,9 @@ public static class ClientStatuses
 /// <param name="FoundInClient">Of those, how many qBittorrent reported (their status and category were refreshed).</param>
 /// <param name="NotInClient">Of those, how many no qBittorrent instance has; always 0 when a connection failed.</param>
 /// <param name="Errors">One entry per connection that could not be queried, or a single entry if none is configured.</param>
-public sealed record ClientStatusCheckResult(int Checked, int FoundInClient, int NotInClient, IReadOnlyList<string> Errors)
+/// <param name="RetiredSelections">Started selections taken off the Selected queue because their torrent has finished.</param>
+public sealed record ClientStatusCheckResult(
+    int Checked, int FoundInClient, int NotInClient, IReadOnlyList<string> Errors, int RetiredSelections = 0)
 {
     public bool Succeeded => Errors.Count == 0;
 }
@@ -23,7 +25,7 @@ public sealed record ClientStatusCheckResult(int Checked, int FoundInClient, int
 /// <summary>
 /// Refreshes the stored client status of every tracked torrent from the configured qBittorrent instances, on demand.
 /// The Link job only updates finished torrents it processes; this also covers torrents that are still downloading,
-/// stopped, or gone from the client.
+/// stopped, or gone from the client. Selections whose torrent turns out to be finished leave the Selected queue.
 /// </summary>
 public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
 {
@@ -54,6 +56,7 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
 
         var found = 0;
         var notInClient = 0;
+        var finishedMamIds = new List<long>();
         foreach (var torrent in tracked)
         {
             if (inClient.TryGetValue(torrent.Id, out var live))
@@ -61,6 +64,10 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
                 torrent.ClientStatus = live.State;
                 torrent.QBittorrentCategory = live.Category;
                 found++;
+                if (live.IsFinished)
+                {
+                    finishedMamIds.Add(torrent.MamId);
+                }
             }
             else if (errors.Count == 0)
             {
@@ -73,8 +80,9 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
             }
         }
 
+        var retired = await SelectionRetirement.RetireStartedAsync(dbContext, finishedMamIds, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new ClientStatusCheckResult(tracked.Count, found, notInClient, errors);
+        return new ClientStatusCheckResult(tracked.Count, found, notInClient, errors, retired);
     }
 
     private static string Describe(Exception exception) => exception switch
