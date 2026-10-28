@@ -59,7 +59,7 @@ here is my plan" saves you from building something that doesn't fit.
 | Git | 2.30 or later | Version control. |
 | GitHub CLI (`gh`) | 2.40 or later | Forking, pull requests and issues from the terminal. Optional but recommended; this guide uses it throughout. |
 | A GitHub account | | Forking and pull requests. |
-| qBittorrent | 4.x or 5.x, with the Web UI enabled | Optional. Needed to try downloading and linking end to end. `qbittorrent-nox` (no GUI) is enough. |
+| qBittorrent | A version MaM currently allows, with the Web UI enabled | Optional. Needed to try downloading and linking end to end. `qbittorrent-nox` (no GUI) is enough. MaM only allows certain client versions and changes the list over time, so check MaM's current list of approved clients before you install one. A distribution's package can be too new or too old. |
 | SQLite command-line tool | 3.x | Optional. Handy for looking inside the database. |
 | Docker with Compose | Current | Optional. Needed only to test the container image. |
 | A MyAnonamouse account | | Optional. Needed only for features that talk to MaM. Much of the web UI, and all tests, work without one. |
@@ -77,6 +77,9 @@ Install Git, the GitHub CLI and the optional tools:
 sudo apt update
 sudo apt install git gh sqlite3 qbittorrent-nox
 ```
+
+Before you use `qbittorrent-nox` with your MaM account, check its version (`qbittorrent-nox --version`)
+against MaM's current list of approved clients. See [Requirements](#requirements).
 
 Install the .NET 10 SDK.
 
@@ -122,6 +125,9 @@ Install Git, the GitHub CLI and the optional tools:
 ```sh
 sudo dnf install git gh sqlite qbittorrent-nox
 ```
+
+Before you use `qbittorrent-nox` with your MaM account, check its version (`qbittorrent-nox --version`)
+against MaM's current list of approved clients. See [Requirements](#requirements).
 
 On RHEL, AlmaLinux and Rocky Linux, `gh` and `qbittorrent-nox` come from outside the base repositories:
 enable [EPEL](https://docs.fedoraproject.org/en-US/epel/) for `qbittorrent-nox`, and add GitHub's own package

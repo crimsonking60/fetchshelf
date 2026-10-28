@@ -62,7 +62,9 @@ You need:
 - **A MaM account in good standing.** Fetchshelf acts on your behalf. You remain responsible for following
   MaM's rules, including ratio, seeding and unsatisfied-snatch requirements. Start with conservative
   settings (see [Protecting your account](#protecting-your-account)).
-- **qBittorrent** with its Web UI enabled, reachable from the machine that runs Fetchshelf.
+- **qBittorrent** with its Web UI enabled, reachable from the machine that runs Fetchshelf. MaM only allows
+  certain client versions and changes the list over time, so check MaM's current list of approved clients
+  before you install or upgrade qBittorrent.
 - **Docker**, and optionally Docker Compose.
 - **Audiobookshelf**, optional.
 - **Disk layout that allows hardlinks**, if you want files to appear in the library without using extra
