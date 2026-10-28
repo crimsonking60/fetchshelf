@@ -1,0 +1,124 @@
+# Fetchshelf example 4 of 6: targeted searches
+#
+# Autograbs are not limited to bookmarks. This example watches MaM for new content by author, mines the
+# freeleech list, keeps an eye on one uploader, and imports your snatch lists so books you already own
+# are never downloaded twice.
+#
+# Reference for every setting: docs/configuration.md (see "[[autograb]]", "The shared torrent filter"
+# and "[[snatchlist]]").
+#
+# Builds on: 3-downloader.toml. Next step: 5-lists-and-audiobookshelf.toml.
+
+mam_id = "replace-with-your-mam-session-id"
+
+min_ratio = 2
+unsat_buffer = 10
+wedge_buffer = 3
+search_interval = 30
+
+[[qbittorrent]]
+url = "http://qbittorrent:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+# --- Searching by text ------------------------------------------------------------------------------
+# type = "new" (also spelled "torrents") searches ALL torrents on MaM, newest first. The name refers to
+# the default ordering, not to a separate set of "new" torrents. 'type' decides which pool of torrents
+# is searched, 'sort_by' decides their order within it.
+[[autograb]]
+name = "New Terry Pratchett ebooks"
+type = "new"
+cost = "all"                  # pay with ratio; the default "free" would only take freeleech
+query = '"Terry Pratchett"'   # MaM search syntax: quotes match the exact phrase
+search_in = ["author"]        # match the query against authors only, not descriptions or titles
+media_type = ["Ebook"]
+languages = ["English"]
+max_authors = 3               # skips anthologies, but keeps co-authored books like Good Omens
+max_size = "30 MiB"
+# Only read the newest 100 matches per run (the default for this type). Raise max_pages to look
+# further back, or use sort_by = "oldest_first" to work through the back catalogue instead.
+max_pages = 1
+sort_by = "newest_first"      # the default; spelled out for clarity
+
+# A one-off backfill you only run by hand: search_interval = 0 means "no schedule", so it runs when you
+# press Run now on the Jobs page. dry_run = true makes it log what it would do without downloading
+# anything, so you can check the results before switching it off.
+[[autograb]]
+name = "Pratchett backfill (manual)"
+type = "new"
+cost = "all"
+query = '"Terry Pratchett"'
+search_in = ["author"]
+media_type = ["Ebook"]
+max_authors = 3
+sort_by = "oldest_first"
+max_pages = 5                 # up to 500 results
+search_interval = 0
+dry_run = true
+
+# --- Searching the freeleech list --------------------------------------------------------------------
+# Everything on MaM's global freeleech list that matches the filters. Good for seeding up ratio.
+# Several filters combine: a torrent must satisfy every field that is set.
+[[autograb]]
+name = "Popular freeleech audiobooks"
+type = "freeleech"
+cost = "free"
+media_type = ["Audiobook"]
+categories = { audio = ["Fantasy", "Science Fiction"] }  # only these audiobook categories
+languages = ["English"]
+flags = { explicit = false, abridged = false }           # forbid these flags; true would require them
+min_seeders = 1
+max_seeders = 20             # not already well seeded: fewer seeders means you help more
+min_size = "100 MiB"
+max_active_downloads = 3
+category = "audiobooks"      # force this qBittorrent category, overriding any [[tag]] rule
+sort_by = "low_seeders"      # also: "oldest_first", "random", "low_snatches"
+unsat_buffer = 20            # this block keeps more slots free than the global setting
+wedge_buffer = 0
+
+# --- Other pools -------------------------------------------------------------------------------------
+# One uploader's torrents, by MaM user id. 'exclude_uploader' does the opposite for a name list.
+[[autograb]]
+name = "Favourite uploader"
+type = { uploader = 12345 }
+cost = "free"
+uploaded_after = "2026-01-01"
+
+# Your own uploads, kept as metadata only so they count as owned. mark_removed also asks MaM about
+# torrents it has stored that have vanished from the results, and marks them removed from MaM.
+[[autograb]]
+name = "My uploads"
+type = "mine"
+cost = "metadata_only"
+mark_removed = true
+
+# --- Snatch lists -----------------------------------------------------------------------------------
+# Snatchlists never download anything. They create metadata-only entries for what you already have, so
+# duplicate checks work for books that were not downloaded through Fetchshelf. Cost can only be
+# "metadata_only" (the default) or "metadata_only_add". 'languages' and the upload-date filters are not
+# allowed here.
+[[snatchlist]]
+type = "seed_unsat"       # seeding, still unsatisfied
+search_interval = 60
+
+[[snatchlist]]
+type = "seed_sat"         # seeding, satisfied
+cost = "metadata_only_add"
+max_pages = 20            # pages of 250 rows; the default is 50
+search_interval = 360
+
+[[tag]]
+categories = { audio = false, ebook = true }
+category = "ebooks"
+
+[[tag]]
+categories = { audio = true, ebook = false }
+category = "audiobooks"
+
+[[library]]
+category = "ebooks"
+library_dir = "/data/library/ebooks"
+
+[[library]]
+category = "audiobooks"
+library_dir = "/data/library/audiobooks"

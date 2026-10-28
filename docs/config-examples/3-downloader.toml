@@ -1,0 +1,90 @@
+# Fetchshelf example 3 of 6: automatic downloads from bookmarks
+#
+# Combines both halves: bookmarked torrents are downloaded automatically, sorted into qBittorrent
+# categories by tag rules, and linked into libraries by those categories. It also shows how to spend
+# your ratio, unsat slots and wedges carefully.
+#
+# Reference for every setting: docs/configuration.md (see "Cost", "The shared torrent filter",
+# "[[autograb]]", "[[tag]]" and "[[library]]").
+#
+# Builds on: 2-library-organizer.toml. Next step: 4-targeted-searches.toml.
+
+mam_id = "replace-with-your-mam-session-id"
+
+# --- Safety limits ----------------------------------------------------------------------------------
+# Fetchshelf never starts a download that would break these.
+min_ratio = 2        # never drop below this ratio
+unsat_buffer = 10    # always keep this many unsatisfied-snatch slots free
+wedge_buffer = 3     # always keep this many freeleech wedges unused
+
+# --- Schedule ---------------------------------------------------------------------------------------
+search_interval = 15 # minutes between autograb runs
+link_interval = 10   # minutes between scans for finished torrents
+
+# New torrents are added to qBittorrent paused if this is true. Handy while you are still testing.
+add_torrents_stopped = false
+
+# MaM torrent ids that must never be downloaded, as strings.
+ignore_torrents = ["123456", "234567"]
+
+[[qbittorrent]]
+url = "http://qbittorrent:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+[qbittorrent.path_mapping]
+"/downloads" = "/data/torrents"
+
+# --- Autograbs: the same bookmarks, three ways -------------------------------------------------------
+# Each block is its own scheduled search with its own cost. They run independently, and a torrent
+# that one block has already selected is not selected again by another.
+
+# 1. Free torrents cost nothing, so take them all.
+[[autograb]]
+name = "Free bookmarks"
+type = "bookmarks"
+cost = "free"
+
+# 2. Small files are cheap in ratio. 'cost = "all"' pays with ratio. 'name' is needed because of
+#    max_active_downloads, which stops this block queueing more than 5 unfinished torrents at once.
+[[autograb]]
+name = "Small bookmarks"
+type = "bookmarks"
+cost = "all"
+max_size = "30 MiB"
+max_active_downloads = 5
+languages = ["English"]
+
+# 3. Everything else: use a wedge if one is available above wedge_buffer, otherwise pay with ratio.
+#    Other costs: "wedge" (always wedge, fail if none), "metadata_only" (never download).
+[[autograb]]
+name = "Other bookmarks"
+type = "bookmarks"
+cost = "try_wedge"
+languages = ["English"]
+# Only the first 3 pages (300 results) per run. Bookmarks default to 50 pages.
+max_pages = 3
+
+# --- Tag rules: give each download a qBittorrent category -------------------------------------------
+# The category comes from the first matching rule that sets one. Tags from all matching rules are
+# added. Libraries below use the category to decide where files go.
+[[tag]]
+categories = { audio = false, ebook = true }  # ebooks only
+category = "ebooks"
+tags = ["fetchshelf"]
+
+[[tag]]
+categories = { audio = true, ebook = false }  # audiobooks only
+category = "audiobooks"
+tags = ["fetchshelf"]
+
+# --- Libraries --------------------------------------------------------------------------------------
+[[library]]
+name = "Audiobooks"
+category = "audiobooks"
+library_dir = "/data/library/audiobooks"
+
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/data/library/ebooks"

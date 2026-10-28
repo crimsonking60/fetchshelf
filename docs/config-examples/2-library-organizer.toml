@@ -1,0 +1,66 @@
+# Fetchshelf example 2 of 6: library organizer only
+#
+# Use this if you download torrents yourself (or with the Search page in Fetchshelf's web UI) and just
+# want finished torrents sorted into a clean Author/Series/Title folder tree, optionally with
+# Audiobookshelf kept in step. There is no [[autograb]], so nothing is ever downloaded automatically.
+#
+# Reference for every setting: docs/configuration.md (see "[[qbittorrent]]", "[[library]]" and
+# "[audiobookshelf]").
+#
+# Builds on: 1-minimal.toml. Next step: 3-downloader.toml.
+
+mam_id = "replace-with-your-mam-session-id"
+
+# Minutes between scans for finished torrents to link. Lower reacts faster, higher is gentler on
+# qBittorrent. 0 would mean "only when I press Run now".
+link_interval = 10
+
+# Which file types count as the book, best first. Only these are linked. When two copies of the same
+# book exist the one whose type comes first replaces the other (so an epub beats a pdf here).
+audio_types = ["m4b", "m4a", "mp3"]
+ebook_types = ["epub", "azw3", "mobi", "pdf"]
+
+# Leave the "{Narrator}" suffix off audiobook folder names. Folders then look like
+# "Andy Weir/Project Hail Mary" instead of "Andy Weir/Project Hail Mary {Ray Porter}".
+exclude_narrator_in_library_dir = false
+
+[[qbittorrent]]
+url = "http://qbittorrent:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+# Fetchshelf and qBittorrent often see the same folder under different paths, for example when both run
+# in Docker. Left side: the path as qBittorrent reports it. Right side: the same place as Fetchshelf
+# sees it. Without this, linking fails with "source missing" errors.
+[qbittorrent.path_mapping]
+"/downloads" = "/data/torrents"
+
+# When a better format of a book is linked, the old copy is retired. Tag it in qBittorrent so you can
+# find and delete it later. Fetchshelf only removes files it linked itself, never the torrent's data.
+[qbittorrent.on_cleaned]
+tags = ["superseded"]
+
+# Libraries are tried in file order and the first match wins.
+#
+# Audiobooks: any torrent in the "audiobooks" qBittorrent category.
+[[library]]
+name = "Audiobooks"
+category = "audiobooks"
+library_dir = "/data/library/audiobooks"
+
+# Ebooks: any torrent in the "ebooks" category. 'method' is how files are placed; "hardlink" (the
+# default) uses no extra disk space but needs the downloads and the library on the same filesystem.
+# "hardlink_or_copy" falls back to copying when they are not.
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/data/library/ebooks"
+method = "hardlink_or_copy"
+
+# Optional. Lets Fetchshelf find the linked books in Audiobookshelf, push metadata to them, and delete
+# old items when a book is upgraded. Without it Audiobookshelf still reads the metadata.json file that
+# Fetchshelf writes next to each book.
+[audiobookshelf]
+url = "http://audiobookshelf:13378"
+token = "replace-with-your-audiobookshelf-api-token"
+interval = 10 # minutes between matching linked books to Audiobookshelf items

@@ -4,27 +4,60 @@ using Fetchshelf.Data.Configuration;
 namespace Fetchshelf.Data.Tests;
 
 /// <summary>
-/// Confirms the repository's root-level <c>example-config.toml</c> — shared as a reference config,
-/// with an intentionally non-functional <c>mam_id</c> so it is safe to publish — still parses and
-/// passes validation as a TOML-only config file.
+/// Confirms every config under <c>docs/config-examples</c> - shared as reference configs, with
+/// intentionally non-functional credentials so they are safe to publish - still parses and passes
+/// validation as a TOML-only config file.
 /// </summary>
 public sealed class ExampleConfigTests
 {
-    private static string RepoRootExampleConfigPath([CallerFilePath] string sourceFile = "") =>
-        Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", "..", "example-config.toml");
+    private static string ExamplesDirectory([CallerFilePath] string sourceFile = "") =>
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", "..", "docs", "config-examples"));
+
+    public static TheoryData<string> ExampleFiles()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in Directory.GetFiles(ExamplesDirectory(), "*.toml").Order())
+        {
+            data.Add(Path.GetFileName(file));
+        }
+
+        return data;
+    }
 
     [Fact]
-    public void Load_ExampleConfigToml_ParsesSuccessfully()
+    public void ExamplesDirectory_HasTheNumberedExamples()
     {
-        var path = RepoRootExampleConfigPath();
-        Assert.True(File.Exists(path), $"Expected to find example-config.toml at '{path}'.");
+        var names = Directory.GetFiles(ExamplesDirectory(), "*.toml").Select(Path.GetFileName).Order().ToList();
 
-        var settings = ConfigLoader.Load(path);
+        Assert.Equal(6, names.Count);
+        for (var i = 0; i < names.Count; i++)
+        {
+            Assert.StartsWith($"{i + 1}-", names[i]);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(ExampleFiles))]
+    public void Load_Example_ParsesSuccessfully(string fileName)
+    {
+        var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), fileName));
 
         Assert.False(string.IsNullOrEmpty(settings.MamId));
         Assert.NotEmpty(settings.QBittorrent);
         Assert.NotEmpty(settings.Library);
+    }
+
+    [Fact]
+    public void Load_EverythingExample_SetsEveryTopLevelSectionKind()
+    {
+        var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), "6-everything.toml"));
+
         Assert.NotEmpty(settings.Autograb);
+        Assert.NotEmpty(settings.Snatchlist);
         Assert.NotEmpty(settings.GoodreadsList);
+        Assert.NotEmpty(settings.NotionList);
+        Assert.NotEmpty(settings.Tag);
+        Assert.NotNull(settings.Audiobookshelf);
+        Assert.NotNull(settings.Search.WedgeOver);
     }
 }
