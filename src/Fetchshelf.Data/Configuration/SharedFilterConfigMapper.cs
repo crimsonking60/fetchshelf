@@ -27,6 +27,7 @@ public static class SharedFilterConfigMapper
             MaxLeechers = config.MaxLeechers,
             MinSnatched = config.MinSnatched,
             MaxSnatched = config.MaxSnatched,
+            MaxAuthors = config.MaxAuthors,
         };
     }
 

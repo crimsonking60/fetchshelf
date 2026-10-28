@@ -27,6 +27,23 @@ public sealed class AutogrebConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_MaxAuthors_IsParsedFromToml()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "new"
+            search_in = ["author"]
+            max_authors = 3
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Equal(3, settings.Autograb[0].MaxAuthors);
+    }
+
+    [Fact]
     public void Load_MaxActiveDownloadsWithoutName_Throws()
     {
         File.WriteAllText(ConfigPath, """

@@ -97,6 +97,11 @@ public static class TorrentFilterMatcher
             return false;
         }
 
+        if (filter.MaxAuthors is { } maxAuthors && meta.Authors.Count > maxAuthors)
+        {
+            return false;
+        }
+
         return true;
     }
 

@@ -69,6 +69,9 @@ public sealed record TorrentFilter
     public long? MinSnatched { get; init; }
 
     public long? MaxSnatched { get; init; }
+
+    /// <summary>Inclusive cap on the number of listed authors; rejects anthologies. Not part of the original filter field set.</summary>
+    public int? MaxAuthors { get; init; }
 }
 
 /// <summary>Maps a media type onto the shared filter's four main-type groups, Fetchshelf-spec.md §4.3.</summary>

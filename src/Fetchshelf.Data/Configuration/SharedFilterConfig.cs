@@ -49,4 +49,6 @@ public class SharedFilterConfig
     public long? MinSnatched { get; set; }
 
     public long? MaxSnatched { get; set; }
+
+    public int? MaxAuthors { get; set; }
 }

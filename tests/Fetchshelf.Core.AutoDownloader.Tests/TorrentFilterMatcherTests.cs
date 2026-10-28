@@ -14,7 +14,8 @@ public class TorrentFilterMatcherTests
         DateTimeOffset? uploadTime = null,
         long seeders = 5,
         long leechers = 1,
-        long timesCompleted = 10) => new()
+        long timesCompleted = 10,
+        int authorCount = 1) => new()
         {
             Metadata = new TorrentMetadata
             {
@@ -26,6 +27,7 @@ public class TorrentFilterMatcherTests
                 Flags = flags,
                 TotalSizeBytes = sizeBytes,
                 Title = "Some Title",
+                Authors = Enumerable.Range(1, authorCount).Select(i => $"Author {i}").ToList(),
                 MetadataSource = MetadataSource.Mam,
                 UploadTime = uploadTime ?? new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
             },
@@ -123,6 +125,24 @@ public class TorrentFilterMatcherTests
         var candidate = Build(sizeBytes: sizeBytes);
 
         Assert.Equal(expectedMatch, TorrentFilterMatcher.Matches(filter, candidate));
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(12, false)]
+    public void MaxAuthors_IsInclusive(int authorCount, bool expectedMatch)
+    {
+        var filter = new TorrentFilter { MaxAuthors = 3 };
+
+        Assert.Equal(expectedMatch, TorrentFilterMatcher.Matches(filter, Build(authorCount: authorCount)));
+    }
+
+    [Fact]
+    public void MaxAuthors_Unset_AllowsAnyAuthorCount()
+    {
+        Assert.True(TorrentFilterMatcher.Matches(new TorrentFilter(), Build(authorCount: 50)));
     }
 
     [Fact]

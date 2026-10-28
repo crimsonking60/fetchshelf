@@ -29,6 +29,7 @@ public class SharedFilterConfigMapperTests
             MaxLeechers = 10,
             MinSnatched = 2,
             MaxSnatched = 50,
+            MaxAuthors = 3,
         };
 
         var filter = SharedFilterConfigMapper.ToTorrentFilter(config);
@@ -49,5 +50,6 @@ public class SharedFilterConfigMapperTests
         Assert.Equal(10, filter.MaxLeechers);
         Assert.Equal(2, filter.MinSnatched);
         Assert.Equal(50, filter.MaxSnatched);
+        Assert.Equal(3, filter.MaxAuthors);
     }
 }
