@@ -1,0 +1,96 @@
+# Every push to main is a release. The version and release notes come from the first "## " section of RELEASES.md.
+# Publishes ghcr.io/crimsonking60/fetchshelf:<version> and :latest, then tags the commit and creates the GitHub
+# release.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/crimsonking60/fetchshelf
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    name: Publish release
+    needs: checks
+    # Forks have no access to this image name.
+    if: github.repository == 'crimsonking60/fetchshelf'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the version and notes from RELEASES.md
+        id: release
+        run: |
+          heading=$(grep -m1 '^## ' RELEASES.md || true)
+          if [ -z "$heading" ]; then
+            echo "::notice::RELEASES.md lists no release yet, so there is nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          version=$(printf '%s\n' "$heading" | sed -E 's/^## +([^ ]+).*/\1/')
+          if ! printf '%s\n' "$version" | grep -Eq '^[0-9]{4}\.(0[1-9]|1[0-2])\.(0|[1-9][0-9]*)$'; then
+            echo "::error::The first heading in RELEASES.md must start with a YYYY.MM.N version, but it is: $heading"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "::error::v$version is already released. Add a section for the new version at the top of RELEASES.md."
+            exit 1
+          fi
+
+          awk '/^## /{ if (found) exit; found = 1; next } found { print }' RELEASES.md > "$RUNNER_TEMP/notes.md"
+
+          echo "Releasing $version"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - if: steps.release.outputs.publish == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - if: steps.release.outputs.publish == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: steps.release.outputs.publish == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: FETCHSHELF_VERSION=${{ steps.release.outputs.version }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.release.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+
+      - name: Tag the commit and create the GitHub release
+        if: steps.release.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"
