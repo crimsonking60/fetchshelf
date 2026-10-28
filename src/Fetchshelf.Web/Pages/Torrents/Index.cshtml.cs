@@ -42,6 +42,8 @@ public class IndexModel(
 
     public int TotalCount { get; private set; }
 
+    public int TotalPages { get; private set; } = 1;
+
     /// <summary>The outcome of a "Check qBittorrent", shown above the list; set by the htmx response itself or, after the non-htmx redirect, read back from TempData.</summary>
     public string? CheckMessage { get; private set; }
 
@@ -158,7 +160,9 @@ public class IndexModel(
         TotalCount = matched.Count;
 
         var pageSize = PageSize <= 0 ? DefaultPageSize : PageSize;
-        var entities = ordered.Skip((Math.Max(PageNumber, 1) - 1) * pageSize).Take(pageSize).ToList();
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalCount / (double)pageSize));
+        PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
+        var entities = ordered.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList();
         return entities.Select(TorrentListItemViewModel.From).ToList();
     }
 }
