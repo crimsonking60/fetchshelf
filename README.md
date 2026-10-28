@@ -25,11 +25,12 @@ this document was created by analyzing the original MLM implementation.
 
 ## Status
 
-This project is under active, incremental development and does not yet have a usable release.
+This project is under active, incremental development.
 
 ## Latest release
 
-None yet. Every release and its changes are listed in [RELEASES.md](RELEASES.md).
+**2026.10.1** (2026-10-28). See [RELEASES.md](RELEASES.md#2026101---2026-10-28) for what changed, and for
+every earlier release.
 
 ## Contributing
 
