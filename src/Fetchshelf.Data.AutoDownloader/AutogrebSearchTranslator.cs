@@ -70,7 +70,7 @@ public static class AutogrebSearchTranslator
 
     private static MamSortOrder ToSortOrder(string? sortBy) => sortBy?.ToLowerInvariant() switch
     {
-        null => MamSortOrder.NewestFirst,
+        null or "newest_first" => MamSortOrder.NewestFirst,
         "oldest_first" => MamSortOrder.OldestFirst,
         "random" => MamSortOrder.Random,
         "low_seeders" => MamSortOrder.LowestSeeders,

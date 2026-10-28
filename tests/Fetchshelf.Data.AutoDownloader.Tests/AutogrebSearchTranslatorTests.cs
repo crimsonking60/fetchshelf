@@ -12,6 +12,20 @@ public class AutogrebSearchTranslatorTests
         Type = type,
     };
 
+    [Theory]
+    [InlineData(null, MamSortOrder.NewestFirst)]
+    [InlineData("newest_first", MamSortOrder.NewestFirst)]
+    [InlineData("oldest_first", MamSortOrder.OldestFirst)]
+    public void SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
+    {
+        var entry = Entry(AutogrebType.New);
+        entry.SortBy = sortBy;
+
+        var query = AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal(expected, query.SortOrder);
+    }
+
     [Fact]
     public void SearchIn_MapsToSearchFields()
     {
