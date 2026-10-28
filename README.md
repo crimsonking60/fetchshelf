@@ -27,6 +27,11 @@ this document was created by analyzing the original MLM implementation.
 
 This project is under active, incremental development and does not yet have a usable release.
 
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and see the
+[contributors guide](docs/contributors-guide.md) for setting up a development machine and the full workflow.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

@@ -550,6 +550,9 @@ gh pr checks                 # automated checks, once the repository has them
 gh pr view --comments        # read review comments in the terminal
 ```
 
+GitHub asks the code owners listed in `.github/CODEOWNERS` to review automatically, so you don't need to pick
+reviewers yourself.
+
 Answer review comments by pushing more commits to the same branch. The pull request updates itself. Reply to
 each comment, or resolve it, so the reviewer knows it was handled. If a discussion stalls, say what you need
 to move forward.
@@ -752,7 +755,8 @@ work I can do on request.
 - [ ] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
   Origin) or a contributor license agreement.
 - [ ] **You:** Decide whether to adopt a code of conduct, for example the Contributor Covenant.
-- [ ] **You:** Decide branch protection for `main`: required reviews, required checks, no direct pushes.
+- [ ] **You:** Decide branch protection for `main`: required reviews (optionally "Require review from Code
+  Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no direct pushes.
 
 ### Work
 
@@ -763,6 +767,7 @@ work I can do on request.
   checklist from [Before you open one](#before-you-open-one).
 - [ ] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile, which
   `run.sh` uses, points at one developer's home directory, so this guide uses environment variables instead.
-- [ ] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues
+- [x] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues
   and pull requests.
-- [ ] **Me:** Link this guide from `README.md`.
+- [x] **Me:** Link this guide from `README.md`.
+- [x] **Me:** Add `.github/CODEOWNERS`.
