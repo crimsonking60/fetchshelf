@@ -27,6 +27,10 @@ this document was created by analyzing the original MLM implementation.
 
 This project is under active, incremental development and does not yet have a usable release.
 
+## Latest release
+
+None yet. Every release and its changes are listed in [RELEASES.md](RELEASES.md).
+
 ## Contributing
 
 Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and see the

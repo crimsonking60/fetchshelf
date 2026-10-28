@@ -411,7 +411,7 @@ working. When you change an entity or the database context:
    SQL that fixes them before that step.
 5. Add a test that upgrades a database from the previous migration with realistic data in it.
 
-Never edit a migration that is already on `main`. Add a new one instead.
+Never edit a migration that is already on `develop` or `main`. Add a new one instead.
 
 ## Working with MaM responsibly
 
@@ -427,12 +427,16 @@ people's accounts. When you work on anything that talks to MaM:
 
 ## Branches
 
-Never work directly on `main`, not even in your fork. Keep your fork's `main` as a clean copy of the main
-repository and create one branch per change from it:
+The main repository has two long-lived branches. `develop` is where pull requests are merged and where the
+next release takes shape; it is the default branch. `main` holds the latest release and only changes when a
+new version is released (see the [maintainer guide](maintainer-guide.md)). Contributors only need `develop`.
+
+Never work directly on `develop`, not even in your fork. Keep your fork's `develop` as a clean copy of the main
+repository's and create one branch per change from it:
 
 ```sh
-git switch main
-git pull upstream main
+git switch develop
+git pull upstream develop
 git switch -c fix/123-errors-page-duplicates
 ```
 
@@ -511,21 +515,23 @@ git push --force-with-lease
   [configuration reference](configuration.md).
 - Database changes have a migration that upgrades existing databases (see
   [Database changes and migrations](#database-changes-and-migrations)).
-- Your branch is up to date with `upstream/main`.
+- Your branch is up to date with `upstream/develop`.
+- You haven't edited `RELEASES.md` or the "Latest release" section of `README.md`. Maintainers write those when
+  they prepare a release, from your pull request's description.
 
 ### Opening one
 
 From your branch, after pushing:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base main --fill
+gh pr create --repo crimsonking60/fetchshelf --base develop --fill
 ```
 
 `--fill` uses your commit messages for the title and description. Edit them if the pull request has more
 than one commit. To write the description yourself:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base main \
+gh pr create --repo crimsonking60/fetchshelf --base develop \
   --title "Keep one error per torrent and job on the Errors page" \
   --body-file pr-description.md
 ```
@@ -533,7 +539,7 @@ gh pr create --repo crimsonking60/fetchshelf --base main \
 Open a **draft** pull request to get early feedback on work in progress, and mark it ready when it is:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base main --fill --draft
+gh pr create --repo crimsonking60/fetchshelf --base develop --fill --draft
 gh pr ready
 ```
 
@@ -552,7 +558,7 @@ A good description covers:
 ```sh
 gh pr status                 # your pull requests and their review state
 gh pr view --web             # open the current branch's pull request in the browser
-gh pr checks                 # automated checks, once the repository has them
+gh pr checks                 # the automated build, test and format checks
 gh pr view --comments        # read review comments in the terminal
 ```
 
@@ -575,45 +581,42 @@ gh pr review 42 --approve
 gh pr review 42 --request-changes --body "The migration drops existing rows; see inline comment."
 ```
 
-Maintainers merge approved pull requests:
-
-```sh
-gh pr merge 42 --squash --delete-branch
-```
+Maintainers merge approved pull requests into `develop`, squashing each into one commit. The
+[maintainer guide](maintainer-guide.md) describes merging and releasing.
 
 ### After the merge
 
 ```sh
-git switch main
-git pull upstream main
-git push origin main
+git switch develop
+git pull upstream develop
+git push origin develop
 git branch -d fix/123-errors-page-duplicates
 git push origin --delete fix/123-errors-page-duplicates
 ```
 
 ## Keeping your fork up to date
 
-Bring your fork's `main` up to date with the main repository:
+Bring your fork's `develop` up to date with the main repository:
 
 ```sh
-gh repo sync <your-username>/fetchshelf    # updates your fork on GitHub
-git switch main
-git pull origin main                       # updates your local main
+gh repo sync <your-username>/fetchshelf --branch develop   # updates your fork on GitHub
+git switch develop
+git pull origin develop                                    # updates your local develop
 ```
 
 or, with Git alone:
 
 ```sh
-git switch main
-git pull upstream main
-git push origin main
+git switch develop
+git pull upstream develop
+git push origin develop
 ```
 
-To bring a branch you are working on up to date, rebase it on the new `main`, then force-push it:
+To bring a branch you are working on up to date, rebase it on the new `develop`, then force-push it:
 
 ```sh
 git switch fix/123-errors-page-duplicates
-git rebase main
+git rebase develop
 # fix any conflicts, then: git add <files> && git rebase --continue
 dotnet build && dotnet test
 git push --force-with-lease
@@ -704,15 +707,15 @@ choose **Report a vulnerability**, so the report stays private until a fix is ou
 | --- | --- |
 | Sign in | `gh auth login`, then `gh auth setup-git` |
 | Fork and clone | `gh repo fork crimsonking60/fetchshelf --clone` |
-| Update your fork on GitHub | `gh repo sync <your-username>/fetchshelf` |
+| Update your fork on GitHub | `gh repo sync <your-username>/fetchshelf --branch develop` |
 | Open the repository in the browser | `gh repo view crimsonking60/fetchshelf --web` |
 | List issues | `gh issue list --repo crimsonking60/fetchshelf` |
 | Search issues | `gh issue list --repo crimsonking60/fetchshelf --search "text"` |
 | Read an issue | `gh issue view 123 --repo crimsonking60/fetchshelf --comments` |
 | Create an issue | `gh issue create --repo crimsonking60/fetchshelf --label bug --title "..." --body-file report.md` |
 | Comment on an issue | `gh issue comment 123 --repo crimsonking60/fetchshelf --body "..."` |
-| Create a pull request | `gh pr create --repo crimsonking60/fetchshelf --base main --fill` |
-| Create a draft pull request | `gh pr create --repo crimsonking60/fetchshelf --base main --fill --draft` |
+| Create a pull request | `gh pr create --repo crimsonking60/fetchshelf --base develop --fill` |
+| Create a draft pull request | `gh pr create --repo crimsonking60/fetchshelf --base develop --fill --draft` |
 | Mark a draft ready | `gh pr ready` |
 | Your pull requests | `gh pr status` |
 | View the current pull request | `gh pr view --web` |
@@ -756,19 +759,20 @@ work I can do on request.
   Development), then update [Discussions](#discussions).
 - [ ] **You:** Enable private vulnerability reporting under the repository's security settings, which
   [Security problems](#security-problems) relies on.
-- [ ] **You:** Decide the merge strategy (squash, rebase or merge commits) and turn off the others in the
-  repository settings. This guide currently shows `--squash`.
+- [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
+  `develop` into `main` with a merge commit. Setting it up is tracked in the
+  [maintainer guide](maintainer-guide.md#to-do).
 - [ ] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
   Origin) or a contributor license agreement.
 - [ ] **You:** Decide whether to adopt a code of conduct, for example the Contributor Covenant.
-- [ ] **You:** Decide branch protection for `main`: required reviews (optionally "Require review from Code
-  Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no direct pushes.
+- [ ] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
+  from Code Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no
+  direct pushes. The [maintainer guide](maintainer-guide.md#to-do) has a proposal.
 
 ### Work
 
-- [ ] **Me:** Add a continuous integration workflow (`.github/workflows/`) that runs `dotnet build`,
-  `dotnet test` and `dotnet format --verify-no-changes` on every pull request, then mention it in
-  [Review](#review).
+- [x] **Me:** Add a continuous integration workflow that runs `dotnet build`, `dotnet test` and
+  `dotnet format --verify-no-changes` on every pull request.
 - [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
   checklist from [Before you open one](#before-you-open-one).
 - [ ] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile, which
