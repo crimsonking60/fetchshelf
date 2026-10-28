@@ -26,6 +26,7 @@ public static class AutogrebSearchTranslator
         return new MamSearchQuery
         {
             Text = entry.Query,
+            SearchFields = entry.SearchIn.Select(ParseSearchField).ToList(),
             Target = target,
             Kind = kind,
             SortOrder = ToSortOrder(entry.SortBy),
@@ -61,6 +62,11 @@ public static class AutogrebSearchTranslator
         "freeleech" => (MamSearchTarget.New, MamSearchKind.Freeleech),
         _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };
+
+    private static MamSearchField ParseSearchField(string name) =>
+        Enum.TryParse<MamSearchField>(name.Replace("_", "", StringComparison.Ordinal), ignoreCase: true, out var field)
+            ? field
+            : throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown search_in field.");
 
     private static MamSortOrder ToSortOrder(string? sortBy) => sortBy?.ToLowerInvariant() switch
     {

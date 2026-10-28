@@ -13,6 +13,34 @@ public class AutogrebSearchTranslatorTests
     };
 
     [Fact]
+    public void SearchIn_MapsToSearchFields()
+    {
+        var entry = Entry(AutogrebType.New);
+        entry.SearchIn = ["author", "file_types", "Title"];
+
+        var query = AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal([MamSearchField.Author, MamSearchField.FileTypes, MamSearchField.Title], query.SearchFields);
+    }
+
+    [Fact]
+    public void SearchIn_Unset_LeavesSearchFieldsEmpty()
+    {
+        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.New), new TorrentFilter(), 0);
+
+        Assert.Empty(query.SearchFields);
+    }
+
+    [Fact]
+    public void SearchIn_UnknownField_Throws()
+    {
+        var entry = Entry(AutogrebType.New);
+        entry.SearchIn = ["isbn"];
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0));
+    }
+
+    [Fact]
     public void BookmarksType_MapsToBookmarksTarget()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter(), 0);
