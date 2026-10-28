@@ -26,6 +26,23 @@ public sealed class AutogrebConfigTests : IDisposable
         Assert.Contains("type", exception.Message);
     }
 
+    [Theory]
+    [InlineData("new")]
+    [InlineData("torrents")]
+    public void Load_NewTypeAndItsTorrentsAlias_ParseToTheSameType(string type)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[autograb]]
+            type = "{type}"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Same(AutogrebType.New, settings.Autograb[0].Type);
+    }
+
     [Fact]
     public void Load_MaxAuthors_IsParsedFromToml()
     {

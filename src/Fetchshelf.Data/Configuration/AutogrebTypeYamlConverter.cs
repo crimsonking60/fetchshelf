@@ -18,7 +18,7 @@ public sealed class AutogrebTypeYamlConverter : IYamlTypeConverter
             {
                 "bookmarks" => AutogrebType.Bookmarks,
                 "freeleech" => AutogrebType.Freeleech,
-                "new" => AutogrebType.New,
+                "new" or "torrents" => AutogrebType.New,
                 "mine" => AutogrebType.Mine,
                 _ => throw new ConfigurationException($"Invalid configuration: unrecognized autograb type '{scalar.Value}'."),
             };
