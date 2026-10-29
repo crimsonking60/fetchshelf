@@ -23,6 +23,13 @@ Fetchshelf has two independent, optional halves:
 See `Fetchshelf-spec.md` for the full behavioral specification, 
 this document was created by analyzing the original MLM implementation.
 
+## Getting started
+
+Fetchshelf runs in Docker. The [user guide](docs/user-guide.md) walks you through installing it with
+Docker or Docker Compose, connecting it to MaM, qBittorrent and Audiobookshelf, and setting up your
+library and automatic downloads. For every setting, see the
+[configuration reference](docs/configuration.md).
+
 ## Status
 
 This project is under active, incremental development.

@@ -1,5 +1,7 @@
 # Fetchshelf maintainer guide
 
+> **Work in progress.** This guide is incomplete and may change.
+
 This guide is for maintainers: the people who review and merge pull requests and publish releases. It
 assumes you have write access to <https://github.com/crimsonking60/fetchshelf> and know the contributor
 workflow in the [contributors guide](contributors-guide.md).

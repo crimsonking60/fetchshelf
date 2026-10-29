@@ -1,5 +1,7 @@
 # Fetchshelf user guide
 
+> **Work in progress.** This guide is incomplete and may change.
+
 This guide is for people who run Fetchshelf. It assumes you use Docker, optionally with Docker Compose,
 and are comfortable editing a text file. It does not cover building Fetchshelf from source.
 
