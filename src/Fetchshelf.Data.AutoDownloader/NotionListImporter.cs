@@ -44,11 +44,11 @@ public sealed class NotionListImporter(
             return 0;
         }
 
-        var response = await notionClient.QueryDataSourceAsync(entry.DataSource, entry.Token, cancellationToken);
+        var rows = await notionClient.QueryAllRowsAsync(entry.DataSource, entry.Token, cancellationToken);
         var grabFilters = entry.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
 
         var selectedCount = 0;
-        foreach (var row in response.Results)
+        foreach (var row in rows)
         {
             foreach (var mamId in NotionMamIdExtractor.ExtractMamIds(row, entry.MamFields))
             {

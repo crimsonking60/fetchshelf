@@ -13,18 +13,41 @@ public sealed class NotionClient(HttpClient httpClient)
 {
     private const string ApiVersion = "2025-09-03";
 
+    /// <summary>The largest page Notion's query endpoint returns.</summary>
+    private const int PageSize = 100;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public async Task<NotionDataSourceResponse> QueryDataSourceAsync(
+    /// <summary>Every row of the data source, following Notion's paging until the last page.</summary>
+    public async Task<IReadOnlyList<NotionRow>> QueryAllRowsAsync(
         string dataSourceId, string token, CancellationToken cancellationToken = default)
+    {
+        var rows = new List<NotionRow>();
+        string? cursor = null;
+        do
+        {
+            var page = await QueryPageAsync(dataSourceId, token, cursor, cancellationToken);
+            rows.AddRange(page.Results);
+            cursor = page.HasMore ? page.NextCursor : null;
+        }
+        while (cursor is not null);
+
+        return rows;
+    }
+
+    private async Task<NotionDataSourceResponse> QueryPageAsync(
+        string dataSourceId, string token, string? startCursor, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Post, $"https://api.notion.com/v1/data_sources/{Uri.EscapeDataString(dataSourceId)}/query")
         {
             Headers = { { "Notion-Version", ApiVersion } },
+            Content = new StringContent(
+                JsonSerializer.Serialize(new QueryRequest(PageSize, startCursor), JsonOptions), System.Text.Encoding.UTF8, "application/json"),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -34,4 +57,6 @@ public sealed class NotionClient(HttpClient httpClient)
         var result = await response.Content.ReadFromJsonAsync<NotionDataSourceResponse>(JsonOptions, cancellationToken);
         return result ?? new NotionDataSourceResponse();
     }
+
+    private sealed record QueryRequest(int PageSize, string? StartCursor);
 }
