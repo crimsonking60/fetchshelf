@@ -76,8 +76,18 @@ You need:
 
 ## Installing with Docker
 
-The image is published as `<registry>/<image>:<tag>`. Replace that placeholder with the real image name
-once you know it.
+The image is published to the GitHub Container Registry as `ghcr.io/crimsonking60/fetchshelf`, built for
+64-bit x86 (`linux/amd64`). These tags are available:
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest release. The examples in this guide use it. |
+| A version, such as `2026.10.2` | One specific release. It never changes, so use it to upgrade only when you choose to. |
+| `develop` | The current development build, for testing only. It can change several times a day and can break your setup. |
+
+Versions are written `YYYY.MM.N`: the year and month of the release, then a number that counts releases
+within that month from `0`. Every release and what changed in it is listed in
+[RELEASES.md](../RELEASES.md).
 
 1. Create folders on the host for Fetchshelf's configuration and database:
 
@@ -98,7 +108,7 @@ once you know it.
      -v /srv/fetchshelf/config:/config \
      -v /srv/fetchshelf/data:/data \
      -v /srv/media:/media \
-     <registry>/<image>:<tag>
+     ghcr.io/crimsonking60/fetchshelf:latest
    ```
 
 3. Check that it is running:
@@ -135,12 +145,12 @@ Other environment variables you can set:
 
 ## Installing with Docker Compose
 
-Compose keeps all of this in one file. Save this as `docker-compose.yaml`, replacing the image placeholder:
+Compose keeps all of this in one file. Save this as `docker-compose.yaml`:
 
 ```yaml
 services:
   fetchshelf:
-    image: <registry>/<image>:<tag>
+    image: ghcr.io/crimsonking60/fetchshelf:latest
     container_name: fetchshelf
     restart: unless-stopped
     ports:
@@ -197,7 +207,7 @@ services:
       - /srv/media/library/audiobooks:/audiobooks
 
   fetchshelf:
-    image: <registry>/<image>:<tag>
+    image: ghcr.io/crimsonking60/fetchshelf:latest
     container_name: fetchshelf
     restart: unless-stopped
     depends_on:
@@ -753,10 +763,13 @@ with a torrent you downloaded by hand, then add autograbs.
 
 ## Updating Fetchshelf
 
+Before you update, read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you
+must do when upgrading.
+
 With Docker:
 
 ```sh
-docker pull <registry>/<image>:<tag>
+docker pull ghcr.io/crimsonking60/fetchshelf:latest
 docker stop fetchshelf && docker rm fetchshelf
 # then run the same docker run command as before
 ```
@@ -772,7 +785,8 @@ docker compose up -d fetchshelf
 - The database is upgraded automatically when the new version starts.
 - **Back up first.** See [Backups](#backups-and-moving-to-a-new-machine). Going back to an older version
   after an upgrade is not supported, so keep the backup until you are happy.
-- To avoid surprise upgrades, use a fixed version tag instead of `latest`.
+- To avoid surprise upgrades, use a version tag such as `ghcr.io/crimsonking60/fetchshelf:2026.10.2` instead of
+  `latest`. To update, change the tag to the new version, then pull and recreate the container as above.
 - After updating, open **Jobs** and check that the jobs run and finish without errors.
 
 ## Backups and moving to a new machine
@@ -924,10 +938,10 @@ work I can do on request.
 
 ### Decisions
 
-- [ ] **You:** Decide where the image is hosted (registry, name) and replace every `<registry>/<image>:<tag>`
+- [x] **You:** Decide where the image is hosted (registry, name) and replace every `<registry>/<image>:<tag>`
   in [Installing with Docker](#installing-with-docker), [Installing with Docker Compose](#installing-with-docker-compose)
   and [Updating Fetchshelf](#updating-fetchshelf).
-- [ ] **You:** Decide the tagging scheme (`latest`, version numbers, release channels) and where release
+- [x] **You:** Decide the tagging scheme (`latest`, version numbers, release channels) and where release
   notes live, then update [Updating Fetchshelf](#updating-fetchshelf).
 - [ ] **You:** Decide the support channel (issue tracker, forum thread, chat) and fill in
   [Getting help](#getting-help).
@@ -936,7 +950,7 @@ work I can do on request.
   today.
 - [ ] **You:** Review the suggested starting values in [Protecting your account](#protecting-your-account)
   (`min_ratio`, buffers) and confirm they are the advice you want to give.
-- [ ] **You:** Decide whether the repository `README.md` should link to this guide and the configuration
+- [x] **You:** Decide whether the repository `README.md` should link to this guide and the configuration
   reference.
 
 ### Facts to confirm

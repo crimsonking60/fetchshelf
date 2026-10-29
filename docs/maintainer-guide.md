@@ -456,6 +456,6 @@ work I can do on request.
 - [ ] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about.
 - [ ] **Me:** Optionally, automate the back-merge of `main` into `develop` at the end of the release workflow.
-- [ ] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
+- [x] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
   `ghcr.io/crimsonking60/fetchshelf`, and fill in "Updating Fetchshelf" with the tags and a link to
   `RELEASES.md`, once the first release exists.
