@@ -4,13 +4,10 @@
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": false,
+      "launchBrowser": true,
       "applicationUrl": "http://localhost:5084",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "FETCHSHELF_CONFIG_FILE": "fetchshelf-dev-data/config.toml",
-        "FETCHSHELF_DATA_FILE": "fetchshelf-dev-data/data.db",
-        "FETCHSHELF_LOG": "Information"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "https": {

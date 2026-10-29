@@ -775,8 +775,8 @@ work I can do on request.
   `dotnet format --verify-no-changes` on every pull request.
 - [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
   checklist from [Before you open one](#before-you-open-one).
-- [ ] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile, which
-  `run.sh` uses, points at one developer's home directory, so this guide uses environment variables instead.
+- [x] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile is back to
+  the project template's default, with no machine-specific paths.
 - [x] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues
   and pull requests.
 - [x] **Me:** Link this guide from `README.md`.
