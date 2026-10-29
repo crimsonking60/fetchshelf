@@ -254,4 +254,127 @@ public sealed class SelectionRunnerTests : IDisposable
         Assert.Equal(SelectionOutcome.CostNotFree, outcome);
         Assert.Empty(context.SelectedTorrents);
     }
+
+    private static Task<SelectionOutcome> DryRun(SelectionRunner runner, MamTorrentRecord record, ConfiguredCost cost = ConfiguredCost.Ratio) =>
+        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, null, "test-grabber", 0, 0, dryRun: true);
+
+    private static async Task AddSelectedAsync(FetchshelfDbContext context, MamTorrentRecord record)
+    {
+        var metadata = MamTorrentMapper.Map(record);
+        context.SelectedTorrents.Add(new SelectedTorrentEntity
+        {
+            MamId = record.MamId,
+            DownloadLink = "x",
+            CostDecision = "Ratio",
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(metadata),
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(metadata.Title),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunOfASelectableTorrent_ReturnsSelectedAndWritesNothing()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1));
+
+        Assert.Equal(SelectionOutcome.Selected, outcome);
+        Assert.Empty(context.SelectedTorrents);
+        Assert.Empty(context.DuplicateTorrents);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunOfANonFreeTorrentWithFreeCost_StillReportsCostNotFree()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1), cost: ConfiguredCost.Free);
+
+        Assert.Equal(SelectionOutcome.CostNotFree, outcome);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunOfAWorseDuplicate_RecordsNoDuplicate()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        await AddSelectedAsync(context, SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["m4b"]));
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["mp3"]));
+
+        Assert.Equal(SelectionOutcome.DuplicateOfSelected, outcome);
+        Assert.Empty(context.DuplicateTorrents);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunOfABetterCandidate_LeavesTheExistingSelectionInPlace()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        await AddSelectedAsync(context, SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["mp3"]));
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["m4b"]));
+
+        Assert.Equal(SelectionOutcome.Selected, outcome);
+        var selection = Assert.Single(context.SelectedTorrents.AsNoTracking());
+        Assert.Equal(1, selection.MamId);
+        Assert.Null(selection.RemovedAt);
+        Assert.Empty(context.DuplicateTorrents);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunFindingTheSameBookTwiceInOneRun_ReportsTheSecondAsADuplicate()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        var first = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["m4b"]));
+        var second = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["mp3"]));
+        var sameIdAgain = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["m4b"]));
+
+        Assert.Equal(SelectionOutcome.Selected, first);
+        Assert.Equal(SelectionOutcome.DuplicateOfSelected, second);
+        Assert.Equal(SelectionOutcome.RefreshedSelected, sameIdAgain);
+        Assert.Empty(context.SelectedTorrents);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunOfALibraryTorrentWithChangedMetadata_ChangesNothing()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var oldMetadata = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, title: "Old Title"));
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 1,
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(oldMetadata.Title),
+            Title = oldMetadata.Title,
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(oldMetadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1, title: "New Title"));
+
+        Assert.Equal(SelectionOutcome.RefreshedLibrary, outcome);
+        Assert.Equal("Old Title", context.Torrents.AsNoTracking().Single().Title);
+        Assert.Empty(context.Events);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_DryRunWithMetadataOnlyAdd_CreatesNoEntry()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        var outcome = await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1), cost: ConfiguredCost.MetadataOnlyAdd);
+
+        Assert.Equal(SelectionOutcome.MetadataOnlyCreated, outcome);
+        Assert.Empty(context.Torrents);
+    }
 }

@@ -120,7 +120,7 @@ public sealed class NotionListImporter(
 
             var outcome = await selectionRunner.ProcessCandidateAsync(
                 record, metadata, ignoreTorrents, entry.Grab[i].Cost, autogrebCategory: null, grabberName: entry.Name,
-                unsatBuffer, wedgeBuffer, cancellationToken);
+                unsatBuffer, wedgeBuffer, cancellationToken: cancellationToken);
             return outcome == SelectionOutcome.Selected ? 1 : 0;
         }
 

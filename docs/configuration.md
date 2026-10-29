@@ -264,7 +264,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `unsat_buffer` | global | Overrides the global buffer for this block. |
 | `wedge_buffer` | global | Overrides the global buffer for this block. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
-| `dry_run` | `false` | Run the whole process but write nothing and download nothing; only log. |
+| `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MaM directly, and mark the torrent as removed from MaM if it is gone. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
@@ -344,7 +344,7 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | `cost` | `metadata_only` | Only `metadata_only` and `metadata_only_add` are allowed. |
 | `max_pages` | 50 | Pages of 250 rows to read. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
-| `dry_run` | `false` | Log only. |
+| `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |
 
 ## `[[goodreads_list]]`
 

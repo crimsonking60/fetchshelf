@@ -5,6 +5,8 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
@@ -13,11 +15,14 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// metadata-only Torrent records so those torrents count as owned for duplicate detection,
 /// Fetchshelf-spec.md §7.7.
 /// </summary>
-public sealed class SnatchlistImporter(FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate)
+public sealed class SnatchlistImporter(
+    FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, ILogger<SnatchlistImporter>? logger = null)
 {
     private const long RowsPerPage = 250;
 
-    /// <summary>Returns the number of new metadata-only entries created.</summary>
+    private readonly ILogger<SnatchlistImporter> _logger = logger ?? NullLogger<SnatchlistImporter>.Instance;
+
+    /// <summary>Returns the number of new metadata-only entries created; a dry run creates none and returns 0.</summary>
     public async Task<int> RunAsync(SnatchlistEntry entry, CancellationToken cancellationToken = default)
     {
         using var _ = await accessGate.AcquireAsync(cancellationToken);
@@ -26,7 +31,14 @@ public sealed class SnatchlistImporter(FetchshelfDbContext dbContext, MamClient 
         var kind = ToMamKind(entry.Type);
         var cacheTimestamp = DateTimeOffset.UtcNow;
         var maxPages = entry.MaxPages ?? 50;
+        var name = entry.Name ?? entry.Type.ToString();
+        var detailLevel = entry.DryRun ? LogLevel.Information : LogLevel.Debug;
         var createdCount = 0;
+        var rowCount = 0;
+        if (entry.DryRun)
+        {
+            _logger.LogInformation("Snatchlist {Name}: dry run, nothing will be written", name);
+        }
 
         for (var page = 0; page < maxPages; page++)
         {
@@ -36,15 +48,19 @@ public sealed class SnatchlistImporter(FetchshelfDbContext dbContext, MamClient 
                 break;
             }
 
+            rowCount += rows.Count;
             foreach (var row in rows)
             {
-                if (await ImportRowAsync(row, filter, cancellationToken))
+                if (await ImportRowAsync(name, row, filter, entry.DryRun, detailLevel, cancellationToken))
                 {
                     createdCount++;
                 }
             }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (!entry.DryRun)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
 
             if (rows.Count < RowsPerPage)
             {
@@ -52,14 +68,19 @@ public sealed class SnatchlistImporter(FetchshelfDbContext dbContext, MamClient 
             }
         }
 
-        return createdCount;
+        _logger.LogInformation(
+            "Snatchlist {Name}: read {RowCount} snatch list rows, {CreatedCount} {Verb}",
+            name, rowCount, createdCount, entry.DryRun ? "would have been recorded as owned (dry run)" : "recorded as owned");
+        return entry.DryRun ? 0 : createdCount;
     }
 
-    private async Task<bool> ImportRowAsync(MamSnatchlistRow row, TorrentFilter filter, CancellationToken cancellationToken)
+    private async Task<bool> ImportRowAsync(
+        string name, MamSnatchlistRow row, TorrentFilter filter, bool dryRun, LogLevel detailLevel, CancellationToken cancellationToken)
     {
         var metadata = await mamClient.LookupAsync(row.MamId, cancellationToken);
         if (metadata is null)
         {
+            _logger.Log(detailLevel, "Snatchlist {Name}: MaM torrent {MamId} was not found on MaM, skipped", name, row.MamId);
             return false;
         }
 
@@ -73,16 +94,33 @@ public sealed class SnatchlistImporter(FetchshelfDbContext dbContext, MamClient 
         };
         if (!TorrentFilterMatcher.Matches(filter, candidate))
         {
+            _logger.Log(detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" does not pass the filter, skipped", name, row.MamId, metadata.Title);
             return false;
         }
 
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.MamId == row.MamId, cancellationToken);
         if (existing is not null)
         {
+            _logger.Log(
+                detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" is already known, {Action}",
+                name, row.MamId, metadata.Title, dryRun ? "its metadata would be refreshed" : "metadata refreshed");
+            if (dryRun)
+            {
+                return false;
+            }
+
             existing.MetadataJson = TorrentMetadataSerializer.Serialize(metadata);
             existing.Title = metadata.Title;
             existing.NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title);
             return false;
+        }
+
+        _logger.Log(
+            detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" {Action}",
+            name, row.MamId, metadata.Title, dryRun ? "would be recorded as owned" : "recorded as owned");
+        if (dryRun)
+        {
+            return true;
         }
 
         dbContext.Torrents.Add(new TorrentEntity

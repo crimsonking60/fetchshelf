@@ -297,7 +297,7 @@ public sealed class GoodreadsListImporter(
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
             winner.Payload, winner.Metadata, ignoreTorrents, cost, autogrebCategory: null, grabberName: entry.Name,
-            unsatBuffer, wedgeBuffer, cancellationToken);
+            unsatBuffer, wedgeBuffer, cancellationToken: cancellationToken);
 
         if (outcome == SelectionOutcome.Selected)
         {

@@ -103,9 +103,11 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
     sp.GetRequiredService<MamClient>(),
     sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<FetchshelfDbContext>()));
+    sp.GetRequiredService<FetchshelfDbContext>(),
+    sp.GetRequiredService<ILogger<AutograbberRunner>>()));
 builder.Services.AddScoped(sp => new SnatchlistImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>()));
+    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
+    sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
 builder.Services.AddScoped(sp => new GoodreadsListImporter(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),

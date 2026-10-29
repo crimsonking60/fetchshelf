@@ -507,7 +507,8 @@ cost = "try_wedge"
 ### Trying a block out safely
 
 - `dry_run = true` runs the whole search and selection but downloads and records nothing. It only logs what
-  it would do. Look at the log, then remove it.
+  it would do. Look at the log, then remove it. Your ratio, unsatisfied-snatch slots and wedges are only
+  checked when a download starts, so "would be selected" means it would be queued, not necessarily started.
 - `search_interval = 0` stops the block running by itself. Start it from the **Jobs** page with **Run now**.
   Use both for a one-off backfill.
 - `max_active_downloads` (which needs a `name`) caps how many unfinished downloads one block may have.

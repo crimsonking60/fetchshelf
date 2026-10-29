@@ -13,12 +13,19 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// the caller (<see cref="AutograbberRunner"/>) loops over results and stops once the run's budget
 /// of <see cref="SelectionOutcome.Selected"/> outcomes is reached.
 /// </summary>
+/// <remarks>
+/// With <c>dryRun</c>, every check runs and the same outcome is returned, but nothing is written. Torrents a dry run
+/// would have selected are remembered for the rest of this instance's life (one job run), so a later copy of the same
+/// book in that run is reported as a duplicate, as it would be in a real run.
+/// </remarks>
 public sealed class SelectionRunner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
     IReadOnlyList<TagRule> tagRules,
     FormatPreferenceLists preferenceLists)
 {
+    private readonly List<DryRunSelection> _dryRunSelections = [];
+
     public async Task<SelectionOutcome> ProcessCandidateAsync(
         MamTorrentRecord record,
         TorrentMetadata metadata,
@@ -28,6 +35,7 @@ public sealed class SelectionRunner(
         string? grabberName,
         int unsatBuffer,
         int wedgeBuffer,
+        bool dryRun = false,
         CancellationToken cancellationToken = default)
     {
         if (ignoreTorrents.Contains(record.MamId))
@@ -37,6 +45,11 @@ public sealed class SelectionRunner(
 
         var existingSelected = await dbContext.SelectedTorrents
             .FirstOrDefaultAsync(s => s.MamId == record.MamId && s.RemovedAt == null, cancellationToken);
+        if (dryRun && (existingSelected is not null || _dryRunSelections.Any(d => d.MamId == record.MamId)))
+        {
+            return SelectionOutcome.RefreshedSelected;
+        }
+
         if (existingSelected is not null)
         {
             RefreshSelectedMetadata(existingSelected, metadata, unsatBuffer, wedgeBuffer);
@@ -47,14 +60,22 @@ public sealed class SelectionRunner(
         var existingTorrent = await dbContext.Torrents.FirstOrDefaultAsync(t => t.MamId == record.MamId, cancellationToken);
         if (existingTorrent is not null)
         {
-            await RefreshLibraryMetadataAsync(existingTorrent, metadata, cancellationToken);
+            if (!dryRun)
+            {
+                await RefreshLibraryMetadataAsync(existingTorrent, metadata, cancellationToken);
+            }
+
             return SelectionOutcome.RefreshedLibrary;
         }
 
         if (configuredCost == ConfiguredCost.MetadataOnlyAdd)
         {
-            CreateMetadataOnlyEntry(record.MamId, metadata);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (!dryRun)
+            {
+                CreateMetadataOnlyEntry(record.MamId, metadata);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             return SelectionOutcome.MetadataOnlyCreated;
         }
 
@@ -73,18 +94,26 @@ public sealed class SelectionRunner(
         var normalizedTitle = TitleNormalizer.Normalize(metadata.Title);
 
         var duplicateAgainstSelected = await CheckDuplicateAgainstSelectedAsync(
-            record.MamId, metadata, normalizedTitle, candidateRank, cancellationToken);
+            record.MamId, metadata, normalizedTitle, candidateRank, dryRun, cancellationToken);
         if (duplicateAgainstSelected)
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (!dryRun)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             return SelectionOutcome.DuplicateOfSelected;
         }
 
         var duplicateAgainstLibrary = await CheckDuplicateAgainstLibraryAsync(
-            record.MamId, metadata, normalizedTitle, candidateRank, cancellationToken);
+            record.MamId, metadata, normalizedTitle, candidateRank, dryRun, cancellationToken);
         if (duplicateAgainstLibrary)
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (!dryRun)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             return SelectionOutcome.DuplicateOfLibrary;
         }
 
@@ -104,10 +133,18 @@ public sealed class SelectionRunner(
             return SelectionOutcome.CostNotFree;
         }
 
+        if (dryRun)
+        {
+            _dryRunSelections.Add(new DryRunSelection(record.MamId, metadata, normalizedTitle));
+            return SelectionOutcome.Selected;
+        }
+
         CreateSelected(record, metadata, cost.Value, category, tags, grabberName, unsatBuffer, wedgeBuffer);
         await dbContext.SaveChangesAsync(cancellationToken);
         return SelectionOutcome.Selected;
     }
+
+    private sealed record DryRunSelection(long MamId, TorrentMetadata Metadata, string NormalizedTitle);
 
     private static void RefreshSelectedMetadata(SelectedTorrentEntity existing, TorrentMetadata metadata, int unsatBuffer, int wedgeBuffer)
     {
@@ -156,7 +193,7 @@ public sealed class SelectionRunner(
     }
 
     private async Task<bool> CheckDuplicateAgainstSelectedAsync(
-        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, CancellationToken cancellationToken)
+        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
     {
         var sameTitle = await dbContext.SelectedTorrents
             .Where(s => s.RemovedAt == null && s.NormalizedTitleKey == normalizedTitle)
@@ -173,19 +210,44 @@ public sealed class SelectionRunner(
             var otherRank = FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
             if (otherRank <= candidateRank)
             {
-                RecordDuplicate(candidateMamId, candidateMeta, duplicateOfTorrentId: other.MamId.ToString());
+                if (!dryRun)
+                {
+                    RecordDuplicate(candidateMamId, candidateMeta, duplicateOfTorrentId: other.MamId.ToString());
+                }
+
                 return true;
             }
 
-            other.RemovedAt = DateTimeOffset.UtcNow;
-            RecordDuplicate(other.MamId, otherMeta, duplicateOfTorrentId: candidateMamId.ToString());
+            if (!dryRun)
+            {
+                other.RemovedAt = DateTimeOffset.UtcNow;
+                RecordDuplicate(other.MamId, otherMeta, duplicateOfTorrentId: candidateMamId.ToString());
+            }
+        }
+
+        if (dryRun)
+        {
+            foreach (var other in _dryRunSelections.Where(d => d.NormalizedTitle == normalizedTitle).ToList())
+            {
+                if (!SameBookComparer.AreSameBook(candidateMeta, other.Metadata))
+                {
+                    continue;
+                }
+
+                if (FormatRanker.Rank(preferenceLists.For(other.Metadata.MediaType), other.Metadata.FileTypes) <= candidateRank)
+                {
+                    return true;
+                }
+
+                _dryRunSelections.Remove(other);
+            }
         }
 
         return false;
     }
 
     private async Task<bool> CheckDuplicateAgainstLibraryAsync(
-        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, CancellationToken cancellationToken)
+        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
     {
         var sameTitle = await dbContext.Torrents
             .Where(t => t.NormalizedTitleKey == normalizedTitle)
@@ -202,7 +264,11 @@ public sealed class SelectionRunner(
             var otherRank = FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
             if (otherRank <= candidateRank)
             {
-                RecordDuplicate(candidateMamId, candidateMeta, duplicateOfTorrentId: other.Id);
+                if (!dryRun)
+                {
+                    RecordDuplicate(candidateMamId, candidateMeta, duplicateOfTorrentId: other.Id);
+                }
+
                 return true;
             }
 

@@ -2,6 +2,7 @@ using System.Net;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -79,5 +80,21 @@ public sealed class SnatchlistImporterTests : IDisposable
             candidateRecord, MamTorrentMapper.Map(candidateRecord), [], ConfiguredCost.Ratio, null, null, 0, 0);
 
         Assert.Equal(SelectionOutcome.DuplicateOfLibrary, outcome);
+    }
+
+    [Fact]
+    public async Task RunAsync_DryRun_CreatesNothingAndLogsWhatItWouldRecord()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
+
+        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, DryRun = true });
+
+        Assert.Equal(0, created);
+        Assert.Empty(context.Torrents);
+        var messages = logger.Messages(LogLevel.Information);
+        Assert.Contains(messages, m => m.Contains("MaM torrent 1 \"The Way of Kings\" would be recorded as owned"));
+        Assert.Contains(messages, m => m.Contains("read 1 snatch list rows, 1 would have been recorded as owned (dry run)"));
     }
 }

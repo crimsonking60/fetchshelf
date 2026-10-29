@@ -2,6 +2,7 @@ using System.Net;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -121,5 +122,47 @@ public sealed class AutograbberRunnerTests : IDisposable
 
         Assert.Equal(0, selectedCount);
         Assert.Empty(searchRequestPaths);
+    }
+
+    [Fact]
+    public async Task RunAsync_DryRun_SelectsNothingReturnsZeroAndLogsWhatItWouldSelect()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var (client, _) = CreateFakeClient(SearchResponseWithTwoTorrents());
+        var logger = new ListLogger<AutograbberRunner>();
+        var runner = new AutograbberRunner(
+            client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context,
+            logger);
+        var entry = Entry();
+        entry.Name = "Bookmarks";
+        entry.DryRun = true;
+
+        var selectedCount = await runner.RunAsync(entry, globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
+
+        Assert.Equal(0, selectedCount);
+        Assert.Empty(context.SelectedTorrents);
+        var messages = logger.Messages(LogLevel.Information);
+        Assert.Contains(messages, m => m.Contains("Autograb Bookmarks: dry run"));
+        Assert.Contains(messages, m => m.Contains("MaM torrent 1 \"High Seeders\": would be selected"));
+        Assert.Contains(messages, m => m.Contains("MaM torrent 2 \"Low Seeders\": would be selected"));
+        Assert.Contains(messages, m => m.Contains("2 search results, 2 would have been selected (dry run)"));
+    }
+
+    [Fact]
+    public async Task RunAsync_NotADryRun_LogsASummaryAndKeepsPerTorrentDetailsAtDebugLevel()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var (client, _) = CreateFakeClient(SearchResponseWithTwoTorrents());
+        var logger = new ListLogger<AutograbberRunner>();
+        var runner = new AutograbberRunner(
+            client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context,
+            logger);
+
+        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
+
+        Assert.Equal(1, selectedCount);
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.Contains("2 search results, 1 selected"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MaM torrent 1 \"High Seeders\": selected"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MaM torrent 2 \"Low Seeders\" does not pass the filter"));
     }
 }
