@@ -507,7 +507,8 @@ cost = "try_wedge"
 ### Trying a block out safely
 
 - `dry_run = true` runs the whole search and selection but downloads and records nothing. It only logs what
-  it would do. Look at the log, then remove it.
+  it would do. Look at the log, then remove it. Your ratio, unsatisfied-snatch slots and wedges are only
+  checked when a download starts, so "would be selected" means it would be queued, not necessarily started.
 - `search_interval = 0` stops the block running by itself. Start it from the **Jobs** page with **Run now**.
   Use both for a one-off backfill.
 - `max_active_downloads` (which needs a `name`) caps how many unfinished downloads one block may have.
@@ -519,6 +520,12 @@ Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-t
 Instead of searching, you can keep a list of books you want and let Fetchshelf look each one up.
 
 ### Goodreads
+
+> **Not working at the moment.** Fetchshelf reads Goodreads shelves through their RSS feeds, and Goodreads
+> (owned by Amazon) discontinued all RSS feeds in October 2026. Until this is resolved, every
+> `[[goodreads_list]]` fails on each run with an HTTP 404 error and imports nothing. Remove or comment out
+> your `[[goodreads_list]]` blocks to stop these errors. Everything else in Fetchshelf, including Notion
+> lists, is unaffected. The rest of this section describes how the integration worked.
 
 ```toml
 [[goodreads_list]]
@@ -939,8 +946,8 @@ work I can do on request.
   want one.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
   explain creating an integration, sharing the database with it, or finding the data source id.
-- [ ] **You:** Check the Goodreads instructions, in particular how to find the shelf's RSS link and whether
-  the shelf must be public.
+- [ ] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
+  feeds, then rewrite or remove the Goodreads section in [Importing reading lists](#importing-reading-lists).
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](#connecting-to-audiobookshelf),
   especially how to create the API token.
 - [ ] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and

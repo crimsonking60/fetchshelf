@@ -30,7 +30,7 @@ public sealed class NotionClientTests
         """;
 
     [Fact]
-    public async Task QueryDataSourceAsync_DeserializesEveryPropertyTypeWithoutError()
+    public async Task QueryAllRowsAsync_DeserializesEveryPropertyTypeWithoutError()
     {
         var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -38,9 +38,9 @@ public sealed class NotionClientTests
         });
         var client = new NotionClient(new HttpClient(handler));
 
-        var response = await client.QueryDataSourceAsync("data-source-id", "secret-token");
+        var rows = await client.QueryAllRowsAsync("data-source-id", "secret-token");
 
-        var row = Assert.Single(response.Results);
+        var row = Assert.Single(rows);
         Assert.Equal("page-1", row.Id);
         var mamProperty = Assert.IsType<NotionUrlProperty>(row.Properties["MaM"]);
         Assert.Equal("https://www.myanonamouse.net/t/123456", mamProperty.Url);
@@ -56,7 +56,7 @@ public sealed class NotionClientTests
     }
 
     [Fact]
-    public async Task QueryDataSourceAsync_SendsBearerTokenAndNotionVersionHeader()
+    public async Task QueryAllRowsAsync_SendsBearerTokenAndNotionVersionHeader()
     {
         HttpRequestMessage? capturedRequest = null;
         var handler = new FakeHttpMessageHandler(request =>
@@ -69,7 +69,7 @@ public sealed class NotionClientTests
         });
         var client = new NotionClient(new HttpClient(handler));
 
-        await client.QueryDataSourceAsync("data-source-id", "secret-token");
+        await client.QueryAllRowsAsync("data-source-id", "secret-token");
 
         Assert.NotNull(capturedRequest);
         Assert.Equal(HttpMethod.Post, capturedRequest.Method);
@@ -77,5 +77,52 @@ public sealed class NotionClientTests
         Assert.Equal("Bearer", capturedRequest.Headers.Authorization?.Scheme);
         Assert.Equal("secret-token", capturedRequest.Headers.Authorization?.Parameter);
         Assert.Equal("2025-09-03", capturedRequest.Headers.GetValues("Notion-Version").Single());
+    }
+
+    [Fact]
+    public async Task QueryAllRowsAsync_MoreThanOnePage_FollowsTheCursorUntilTheLastPage()
+    {
+        var requestBodies = new List<string>();
+        var handler = new FakeHttpMessageHandler(request =>
+        {
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            requestBodies.Add(body);
+            var json = requestBodies.Count switch
+            {
+                1 => """{"results":[{"id":"row-1","properties":{}},{"id":"row-2","properties":{}}],"next_cursor":"cursor-a","has_more":true}""",
+                2 => """{"results":[{"id":"row-3","properties":{}}],"next_cursor":"cursor-b","has_more":true}""",
+                _ => """{"results":[{"id":"row-4","properties":{}}],"next_cursor":null,"has_more":false}""",
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+        });
+        var client = new NotionClient(new HttpClient(handler));
+
+        var rows = await client.QueryAllRowsAsync("data-source-id", "secret-token");
+
+        Assert.Equal(["row-1", "row-2", "row-3", "row-4"], rows.Select(r => r.Id));
+        Assert.Equal(3, requestBodies.Count);
+        Assert.Equal("""{"page_size":100}""", requestBodies[0]);
+        Assert.Equal("""{"page_size":100,"start_cursor":"cursor-a"}""", requestBodies[1]);
+        Assert.Equal("""{"page_size":100,"start_cursor":"cursor-b"}""", requestBodies[2]);
+    }
+
+    [Fact]
+    public async Task QueryAllRowsAsync_HasMoreWithoutACursor_StopsInsteadOfLooping()
+    {
+        var requests = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            requests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"results":[{"id":"row-1","properties":{}}],"next_cursor":null,"has_more":true}""", Encoding.UTF8, "application/json"),
+            };
+        });
+        var client = new NotionClient(new HttpClient(handler));
+
+        var rows = await client.QueryAllRowsAsync("data-source-id", "secret-token");
+
+        Assert.Single(rows);
+        Assert.Equal(1, requests);
     }
 }

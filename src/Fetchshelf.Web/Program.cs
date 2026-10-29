@@ -103,9 +103,11 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
     sp.GetRequiredService<MamClient>(),
     sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<FetchshelfDbContext>()));
+    sp.GetRequiredService<FetchshelfDbContext>(),
+    sp.GetRequiredService<ILogger<AutograbberRunner>>()));
 builder.Services.AddScoped(sp => new SnatchlistImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>()));
+    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
+    sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
 builder.Services.AddScoped(sp => new GoodreadsListImporter(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),
@@ -118,7 +120,8 @@ builder.Services.AddScoped(sp => new NotionListImporter(
     sp.GetRequiredService<MamClient>(),
     sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<NotionClient>()));
+    sp.GetRequiredService<NotionClient>(),
+    logger: sp.GetRequiredService<ILogger<NotionListImporter>>()));
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
