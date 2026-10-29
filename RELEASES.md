@@ -5,6 +5,34 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.10.2 - 2026-10-29
+
+A safety fix for `dry_run`, and Notion lists of any size.
+
+### Upgrading
+
+- If you ran 2026.10.1 with `dry_run = true` on an `[[autograb]]` or `[[snatchlist]]` block, that block was
+  not actually dry: autograbs queued real downloads and snatchlists recorded torrents as owned. Check the
+  Selected page and qBittorrent for anything you didn't mean to download.
+- Goodreads lists don't work any more: Goodreads (owned by Amazon) discontinued all RSS feeds in October 2026,
+  and Fetchshelf reads shelves through them. Every `[[goodreads_list]]` now fails with an HTTP 404 error.
+  Remove or comment out those blocks. Notion lists are unaffected.
+
+### Changed
+
+- Every autograb, snatchlist and Notion list run logs a one-line summary of what it found and did. Set
+  `FETCHSHELF_LOG=Debug` to also see what happened to each torrent and why.
+
+### Fixed
+
+- `dry_run = true` on `[[autograb]]` and `[[snatchlist]]` blocks now works. A dry run searches and runs every
+  selection check, but selects, records and downloads nothing, and logs what each torrent would get. Your
+  ratio, unsatisfied-snatch slots and wedges are only checked when a download starts, so "would be selected"
+  means it would be queued, not necessarily started.
+- Notion lists read every row of the database. Only the first 100 rows were read before.
+- A Notion list's dry run runs the same selection checks, and logs for each link whether it would be selected
+  and with which `grab` block, or why not.
+
 ## 2026.10.1 - 2026-10-28
 
 The first published release, made mainly to try out the release process. Fetchshelf is still under active
