@@ -520,6 +520,12 @@ Instead of searching, you can keep a list of books you want and let Fetchshelf l
 
 ### Goodreads
 
+> **Not working at the moment.** Fetchshelf reads Goodreads shelves through their RSS feeds, and Goodreads
+> (owned by Amazon) discontinued all RSS feeds in October 2026. Until this is resolved, every
+> `[[goodreads_list]]` fails on each run with an HTTP 404 error and imports nothing. Remove or comment out
+> your `[[goodreads_list]]` blocks to stop these errors. Everything else in Fetchshelf, including Notion
+> lists, is unaffected. The rest of this section describes how the integration worked.
+
 ```toml
 [[goodreads_list]]
 name = "To read"
@@ -939,8 +945,8 @@ work I can do on request.
   want one.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
   explain creating an integration, sharing the database with it, or finding the data source id.
-- [ ] **You:** Check the Goodreads instructions, in particular how to find the shelf's RSS link and whether
-  the shelf must be public.
+- [ ] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
+  feeds, then rewrite or remove the Goodreads section in [Importing reading lists](#importing-reading-lists).
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](#connecting-to-audiobookshelf),
   especially how to create the API token.
 - [ ] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and
