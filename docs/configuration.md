@@ -389,10 +389,11 @@ Repeatable. Reads rows from a Notion data source and fetches the MaM torrents th
 | `search_interval` | `import_interval` | Minutes between runs. |
 | `unsat_buffer` | global | Overrides the global buffer. |
 | `wedge_buffer` | global | Overrides the global buffer. |
-| `dry_run` | `false` | Log only. |
+| `dry_run` | `false` | Look each new torrent up on MaM and run the selection checks, but select nothing. What each torrent would get is logged. |
 
-MaM ids that are already known are skipped. The others are fetched from MaM and passed through the first
-matching `grab` block.
+Every row of the data source is read, however many there are. MaM ids that are already known are skipped.
+The others are fetched from MaM and passed through the first matching `grab` block. Each run logs how many
+rows and MaM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened to each torrent.
 
 ### `grab` blocks
 

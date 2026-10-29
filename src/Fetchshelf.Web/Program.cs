@@ -120,7 +120,8 @@ builder.Services.AddScoped(sp => new NotionListImporter(
     sp.GetRequiredService<MamClient>(),
     sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<NotionClient>()));
+    sp.GetRequiredService<NotionClient>(),
+    logger: sp.GetRequiredService<ILogger<NotionListImporter>>()));
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
