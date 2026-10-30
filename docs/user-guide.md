@@ -744,7 +744,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MaM and download books by hand. |
-| **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. |
+| **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. Below them, the kinds of job you have not configured. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, updated. |
@@ -831,7 +831,8 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | AbsMatcher | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 
 Autograb, snatchlist and list jobs are named after the block's `name`, or `autograb[0]`, `snatchlist[1]`
-and so on if it has none. Give your blocks names so the Jobs page is easy to read.
+and so on if it has none. Give your blocks names so the Jobs page is easy to read. Below the jobs, the page
+lists each kind of optional job you have not configured, such as *Snatchlist is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - An interval of `0` means the job never runs by itself.
