@@ -297,6 +297,8 @@ Fetchshelf logs in to MaM with a session id, the value of a session cookie that 
 
 4. Restart the container. The jobs now start.
 
+For more about sessions and how MaM locks them, see MaM's own documentation.
+
 Things to know:
 
 - **Treat `mam_id` like a password.** Anyone who has it can act as you on MaM.
@@ -1048,9 +1050,9 @@ work I can do on request.
 
 ### Facts to confirm
 
-- [ ] **You:** Check the MaM session steps in [Connecting to MaM](#connecting-to-mam) against the current MaM
+- [x] **You:** Check the MaM session steps in [Connecting to MaM](#connecting-to-mam) against the current MaM
   pages (menu names, the address/ASN lock options, dynamic IP wording). I wrote them from general
-  knowledge, not from MaM itself.
+  knowledge, not from MaM itself. Kept as they are, with a pointer to MaM's documentation.
 - [x] **You:** Confirm the statement on following MaM's rules, and add a link to the rules page if you
   want one. Confirmed; no link, since the rules are in a private area of MaM.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
