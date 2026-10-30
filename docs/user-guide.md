@@ -255,7 +255,7 @@ you set `mam_id`. That is intentional: you can look around before anything happe
 
 1. Open `http://<your-host>:3157`.
 2. The top bar has the pages **Search**, **Jobs**, **Selected**, **Torrents**, **Events**, **Errors**,
-   **Lists** and **Config**. There is also a theme selector. See
+   **Duplicates**, **Lists** and **Config**. There is also a theme selector. See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
 4. Edit `config.toml` in the config folder you mounted, then restart the container.
@@ -728,31 +728,45 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MaM and download books by hand. |
-| **Jobs** | Every background job, its last run and result, and a **Run now** button. Updates live. |
+| **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, updated. |
-| **Errors** | Problems found by the downloader, linker and cleaner. |
+| **Errors** | Problems found by the Download, Link and Clean jobs. |
+| **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | Imported Goodreads and Notion lists and their books. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
 
 ### Selected
 
-Shows each queued torrent with its cost, category, tags and which autograb chose it. You can remove
-entries, or change a queued torrent's category, tags or cost before it starts.
+Shows each queued torrent with its cost, category, tags, what chose it (an autograb, a list or a manual
+search), and when it was queued and started. You can remove entries, or change a queued torrent's cost,
+category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge`; the free
+costs only record what MaM reported, so they cannot be chosen by hand.
 
 ### Torrents
 
-- **Search and sort.** Search by title, author or series, sort by title or date added, and filter by
-  clicking a language or media type. Pages hold 25 torrents. Use **Previous** and **Next** below the list.
+- **Search, sort and filter.** Search by title, author or series. The newest torrents come first; click
+  the **Title** heading to sort by title, and click it again to reverse the order. Click a torrent's media
+  type or language to show only torrents of that kind. Searching, sorting and filtering combine; the
+  filters in use are listed above the table, each with a **show all** link to remove it. Pages hold 25
+  torrents. Use **Previous** and **Next** below the list.
+- **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
+  check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
+  [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
+  metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected** or **Remove selected**.
   *Clean* retires a torrent's library files, *Refresh* re-reads its metadata from MaM, and *Remove* deletes
   Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent.
-- **Torrent page.** Click a title for the full details: metadata, library location and linked files, links
-  to MaM and Audiobookshelf, events, and the qBittorrent state. Actions: clean, refresh, refresh and relink,
-  remove the record, clear the "replaced" marker, start or stop the torrent in qBittorrent, remove it from
-  qBittorrent **with its data**, and set its qBittorrent category and tags.
+- **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
+  where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
+  torrent on MaM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
+  show a library mismatch and, for a replaced book, a link to the torrent that replaced it. Actions:
+  **Clean**, **Refresh**, **Refresh and relink**, **Start** and **Stop** in qBittorrent, **Remove from
+  qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear replaced marker**. While
+  qBittorrent has the torrent, you can also change its category and tags there: untick a tag to remove it,
+  type new ones separated by commas, and press **Set category and tags**.
 - **Edit.** If MaM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
   until you explicitly refresh it.
@@ -760,19 +774,31 @@ entries, or change a queued torrent's category, tags or cost before it starts.
 ### Events
 
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
-fields changed. Events are never edited, so you can use them to see why something happened.
+fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
+by event type, by the autograb or list that grabbed a torrent, by the library that linked it, or by a
+changed field.
 
 ### Errors
 
-One entry per problem, showing the stage (downloader, linker or cleaner), the torrent and when it
-happened. Remove an entry once it is dealt with. For a downloader error you can restore the selection to
-try again.
+One entry per torrent and job, showing the job that ran into the problem (Download, Link or Clean), the
+torrent, the error and when it last failed. The Link job tries a failed torrent again on every run: the
+entry is updated while it keeps failing and disappears once it links. A queued download whose MaM link
+went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
+Tick the entries you have dealt with and use **Remove selected**.
+
+### Duplicates
+
+Torrents that an autograb, list or manual download skipped because you already have, or have already
+selected, the same book in an equal or better format. A selection that was dropped for a better copy is
+listed here too. Each entry links to the skipped torrent on MaM and shows what it duplicates: the torrent's
+page when Fetchshelf has it, otherwise the queued selection or the torrent on MaM. Tick the entries you no
+longer need and use **Remove selected**.
 
 ### Config
 
-Shows the settings in effect. For each autograb there is a link to run its search on MaM. For each `[[tag]]`
-rule there is **Apply to existing torrents**, which sets the rule's category and tags on torrents you
-already have.
+Shows the settings in effect. For each autograb there is a **Run now** button that runs that block once.
+For each `[[tag]]` rule there is **Apply to existing torrents**, which sets the rule's category and tags on
+torrents you already have.
 
 ## Background jobs
 
@@ -941,7 +967,8 @@ The usual reasons, in order:
    log.
 3. The budget is used up: no unsatisfied slots, not enough ratio budget, or the wedge reserve. The
    torrents stay on the **Selected** page.
-4. The book is already in your library, or a duplicate of one, in an equal or better format.
+4. The book is already in your library, or a duplicate of one, in an equal or better format. Skipped
+   torrents are listed on the **Duplicates** page.
 5. The torrent has none of your wanted file types.
 6. The block's interval is `0`.
 
@@ -1045,13 +1072,14 @@ work I can do on request.
 - [x] **Me:** Confirm that downgrading after an upgrade is unsupported and that backups should be taken
   with the container stopped, then adjust [Updating Fetchshelf](#updating-fetchshelf) and
   [Backups](#backups-and-moving-to-a-new-machine) if needed.
-- [ ] **Me:** Check the pages table and the Torrents bulk actions against the running application, and
-  add anything missing (for example the metadata problem finders, if and when they exist).
+- [x] **Me:** Check the pages table and the Torrents bulk actions against the running application, and
+  add anything missing (for example the metadata problem finders, if and when they exist). The metadata
+  problem finders do not exist yet; describe them here when they do.
 
 ### Content still to add
 
-- [ ] **You:** Provide screenshots for [First start](#first-start) and
-  [Using the web interface](#using-the-web-interface), or tell me to leave them out.
+- [x] **You:** Provide screenshots for [First start](#first-start) and
+  [Using the web interface](#using-the-web-interface), or tell me to leave them out. Decided: no screenshots.
 - [x] **Me:** Add a short glossary (ratio, unsatisfied snatch, wedge, freeleech, VIP) if you want one for
   readers new to MaM. Decided against: MaM documents these terms, and the guide assumes readers know them.
 - [ ] **Me:** Final read-through for consistency with the configuration reference, then check all links.
