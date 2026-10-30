@@ -92,7 +92,9 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
                 { new ByteArrayContent(torrentFileContent), "torrents", "upload.torrent" },
                 { new StringContent(category), "category" },
                 { new StringContent(string.Join(',', tags)), "tags" },
+                // qBittorrent 5 renamed "paused" to "stopped" and ignores "paused"; older versions ignore "stopped".
                 { new StringContent(addStopped ? "true" : "false"), "paused" },
+                { new StringContent(addStopped ? "true" : "false"), "stopped" },
             };
             return new HttpRequestMessage(HttpMethod.Post, BuildUrl("/api/v2/torrents/add")) { Content = content };
         }, cancellationToken);
