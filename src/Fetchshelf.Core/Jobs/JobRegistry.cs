@@ -1,11 +1,14 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Core.Jobs;
 
 /// <summary>In-memory <see cref="IJobRegistry"/></summary>
-public sealed class JobRegistry : IJobRegistry
+public sealed class JobRegistry(ILogger<JobRegistry>? logger = null) : IJobRegistry
 {
     private readonly ConcurrentDictionary<string, RegisteredJob> _jobs = new();
+    private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
 
     public void Register(string name, Func<CancellationToken, Task> runAsync, string? description = null) =>
         _jobs[name] = new RegisteredJob { Name = name, RunAsync = runAsync, Description = description };
@@ -36,14 +39,17 @@ public sealed class JobRegistry : IJobRegistry
 
         var startedAt = DateTimeOffset.UtcNow;
         job.IsRunning = true;
+        _logger.LogInformation("Job {JobName} started", name);
         try
         {
             await job.RunAsync(cancellationToken);
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Success, null);
+            _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
         }
         catch (Exception ex)
         {
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Failure, ex.Message);
+            _logger.LogWarning(ex, "Job {JobName} failed: {Error}", name, ex.Message);
         }
         finally
         {
