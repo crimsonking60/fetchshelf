@@ -3,7 +3,8 @@
 > **Work in progress.** This guide is incomplete and may change.
 
 This guide is for people who run Fetchshelf. It assumes you use Docker, optionally with Docker Compose,
-and are comfortable editing a text file. It does not cover building Fetchshelf from source.
+are comfortable editing a text file, and know how MaM works: ratio, unsatisfied snatches, freeleech, wedges
+and VIP are not explained here. It does not cover building Fetchshelf from source.
 
 ## Contents
 
@@ -430,12 +431,34 @@ integration off.
 
 The **Search** page is also the home page. Use it to search MaM yourself and download a book by hand.
 
-- Type a search and pick filters. Each result shows its cost: icons mark freeleech, VIP, personal freeleech
-  and torrents you have already snatched.
-- **Download** adds the torrent as it is. **Download with wedge** spends a freeleech wedge so the torrent
-  costs no ratio.
-- If you set `wedge_over` in the `[search]` section, results larger than that size have the wedge button
-  highlighted:
+- **Search** looks for your text in the title and author of every torrent on MaM. With the box empty, the
+  page shows the newest torrents on MaM instead. Either way you get at most the 100 newest matches; there
+  are no further pages, so make the search more specific if what you want is not there.
+- **Hide downloaded torrents** hides every result that has a status (see below), so only torrents Fetchshelf
+  has not handled yet remain.
+- **Show** limits the list to one kind of torrent:
+
+  | Choice | Shows |
+  |---|---|
+  | All | Every result. |
+  | Ebooks | Ebooks and periodical ebooks. |
+  | Audiobooks | Audiobooks and periodical audiobooks. |
+  | Comics | Manga, and comic books and graphic novels. |
+  | Other | Everything else, such as musicology and radio. |
+
+  These two filters only hide rows in the results already on the page. They do not change what is asked
+  of MaM, so they cannot bring in more results, and they are reset when you run a new search.
+- Each result shows its title, authors, media type, size and status. The status says where the torrent is
+  in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
+  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. It does not
+  show torrents you snatched outside Fetchshelf.
+- The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
+- **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
+  costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
+  for example, that a copy is already in your library, or that none of its file types is in your
+  preferred types.
+- If you set `wedge_over` in the `[search]` section, results larger than that size have the
+  **Wedge download** button highlighted:
 
   ```toml
   [search]
@@ -763,8 +786,12 @@ with a torrent you downloaded by hand, then add autograbs.
 
 ## Updating Fetchshelf
 
-Before you update, read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you
-must do when upgrading.
+Before you update:
+
+1. Read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you must do when
+   upgrading.
+2. Back up your config and data folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
+   backup until you are happy with the new version: it is the only way back.
 
 With Docker:
 
@@ -783,8 +810,10 @@ docker compose up -d fetchshelf
 
 - Your configuration and database live in the mounted folders, so they survive the update.
 - The database is upgraded automatically when the new version starts.
-- **Back up first.** See [Backups](#backups-and-moving-to-a-new-machine). Going back to an older version
-  after an upgrade is not supported, so keep the backup until you are happy.
+- **Going back to an older version is not supported.** The upgrade changes the database and nothing undoes
+  those changes. An older version starts on the changed database without any warning, but can then fail.
+  To go back, stop Fetchshelf, restore the backup you took before upgrading, and start the older version.
+  Anything that happened after the upgrade is lost.
 - To avoid surprise upgrades, use a version tag such as `ghcr.io/crimsonking60/fetchshelf:2026.10.2` instead of
   `latest`. To update, change the tag to the new version, then pull and recreate the container as above.
 - After updating, open **Jobs** and check that the jobs run and finish without errors.
@@ -801,11 +830,14 @@ What matters:
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
 
-To back up, **stop the container**, copy both folders, then start it again. Copying a database while it is
-in use can give you an unusable copy.
+To back up, **stop the container**, copy both folders, then start it again. While Fetchshelf runs, its
+latest changes are kept in a `data.db-wal` file next to `data.db`, so a copy taken while it runs can be
+missing them or be unusable. When the container stops, they are written into `data.db` and the extra
+files are removed. If `data.db-wal` or `data.db-shm` are still there after a stop, for example after a
+crash, copy them as well and keep them next to `data.db`.
 
-To move to another machine, install Fetchshelf there, stop it, copy `config.toml` and `data.db` into the
-new config and data folders, and start it. Mount your media at the **same paths** as before (or adjust
+To move to another machine, install Fetchshelf there, stop it on both machines, copy `config.toml` and
+everything in the data folder into the new config and data folders, and start it. Mount your media at the **same paths** as before (or adjust
 `library_dir` and `path_mapping`), and use the same `PUID` / `PGID`, or fix the ownership of the copied
 files.
 
@@ -958,8 +990,8 @@ work I can do on request.
 - [ ] **You:** Check the MaM session steps in [Connecting to MaM](#connecting-to-mam) against the current MaM
   pages (menu names, the address/ASN lock options, dynamic IP wording). I wrote them from general
   knowledge, not from MaM itself.
-- [ ] **You:** Confirm the statement on following MaM's rules, and add a link to the rules page if you
-  want one.
+- [x] **You:** Confirm the statement on following MaM's rules, and add a link to the rules page if you
+  want one. Confirmed; no link, since the rules are in a private area of MaM.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
   explain creating an integration, sharing the database with it, or finding the data source id.
 - [ ] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
@@ -968,12 +1000,12 @@ work I can do on request.
   especially how to create the API token.
 - [ ] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and
   fix anything that does not work. Nothing in this guide has been run end to end yet.
-- [ ] **Me:** Read the Search page code and describe its filters accurately in
+- [x] **Me:** Read the Search page code and describe its filters accurately in
   [Finding and downloading books](#finding-and-downloading-books). I described it from the design, not the
   page.
 - [ ] **Me:** Audit what the logs contain at `debug` level and tighten or confirm the wording in
   [Security and privacy](#security-and-privacy).
-- [ ] **Me:** Confirm that downgrading after an upgrade is unsupported and that backups should be taken
+- [x] **Me:** Confirm that downgrading after an upgrade is unsupported and that backups should be taken
   with the container stopped, then adjust [Updating Fetchshelf](#updating-fetchshelf) and
   [Backups](#backups-and-moving-to-a-new-machine) if needed.
 - [ ] **Me:** Check the pages table and the Torrents bulk actions against the running application, and
@@ -983,6 +1015,6 @@ work I can do on request.
 
 - [ ] **You:** Provide screenshots for [First start](#first-start) and
   [Using the web interface](#using-the-web-interface), or tell me to leave them out.
-- [ ] **Me:** Add a short glossary (ratio, unsatisfied snatch, wedge, freeleech, VIP) if you want one for
-  readers new to MaM.
+- [x] **Me:** Add a short glossary (ratio, unsatisfied snatch, wedge, freeleech, VIP) if you want one for
+  readers new to MaM. Decided against: MaM documents these terms, and the guide assumes readers know them.
 - [ ] **Me:** Final read-through for consistency with the configuration reference, then check all links.
