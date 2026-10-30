@@ -20,4 +20,8 @@ fi
 
 chown -R app:app /config /data
 
-exec runuser -u app -- dotnet Fetchshelf.Web.dll "$@"
+# setpriv replaces this shell with the app, so `docker stop` signals the app directly and it gets the whole
+# stop timeout to shut down. runuser would stay in between and kill the app 2 seconds after SIGTERM.
+# setpriv keeps the environment as it is, so set what runuser used to set.
+export HOME=/home/app USER=app LOGNAME=app
+exec setpriv --reuid app --regid app --init-groups dotnet Fetchshelf.Web.dll "$@"
