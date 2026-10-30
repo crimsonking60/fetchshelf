@@ -15,6 +15,14 @@ using Fetchshelf.Web.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
+if (args.Contains(HealthProbe.Argument))
+{
+    Environment.ExitCode = await HealthProbe.RunAsync(
+        Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath(),
+        TimeSpan.FromSeconds(5));
+    return;
+}
+
 Log.Logger = FetchshelfLogging
     .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
@@ -204,6 +212,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddPageRoute("/Torrents/Edit", "torrents/{id}/edit");
     options.Conventions.AddPageRoute("/Lists/Detail", "lists/{id}");
 });
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
 
@@ -240,6 +249,7 @@ app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
 app.MapThemeEndpoint();
+app.MapHealthChecks("/health");
 
 app.Run();
 

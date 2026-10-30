@@ -32,4 +32,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3157
 VOLUME ["/config", "/data"]
 
+# Asks the running instance's /health endpoint, on the port configured by web_port.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD ["dotnet", "/app/Fetchshelf.Web.dll", "--healthcheck"]
+
 ENTRYPOINT ["docker-entrypoint.sh"]
