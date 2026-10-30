@@ -120,6 +120,9 @@ within that month from `0`. Every release and what changed in it is listed in
 
    Then open `http://<your-host>:3157` in a browser.
 
+   About a minute after starting, `docker ps` shows the container as `(healthy)`. See
+   [Health check](#health-check).
+
 What the options mean:
 
 | Option | Meaning |
@@ -143,6 +146,17 @@ Other environment variables you can set:
 | `FETCHSHELF_LOG` | `debug` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. |
 | `FETCHSHELF_LOG_DIR` | empty | If set, also write daily rotating log files to this folder. Logs always go to the container output. |
 | `FETCHSHELF_CONF_<setting>` | | Override a configuration setting. See [Configuring Fetchshelf](#configuring-fetchshelf). |
+
+### Health check
+
+The image has a built-in health check. Every 30 seconds Docker asks Fetchshelf whether it is running and can
+open its database, and `docker ps` shows the container as `healthy` or `unhealthy`. The check follows
+`web_port`, so it keeps working if you change the port. It does not check MaM, qBittorrent or
+Audiobookshelf: problems with those show up on the **Jobs** and **Errors** pages instead.
+
+The same check is available at `http://<your-host>:3157/health` for monitoring tools and reverse proxies.
+It answers `Healthy` with status 200, or `Unhealthy` with status 503. Docker itself does not restart an
+unhealthy container; use the health status for monitoring, or with a tool that acts on it.
 
 ## Installing with Docker Compose
 
@@ -921,6 +935,12 @@ files.
 
 First, look at the **Jobs**, **Errors** and **Events** pages and at `docker logs fetchshelf`.
 
+### The container is unhealthy
+
+Run `docker inspect --format '{{json .State.Health}}' fetchshelf` to see the last checks and their answers.
+`Unhealthy` means Fetchshelf runs but cannot open its database: check the permissions on `/data` (see
+below). *Connection refused* means Fetchshelf is not answering at all: read `docker logs fetchshelf`.
+
 ### The container exits or restarts
 
 Run `docker logs fetchshelf`. If the message begins with *Invalid configuration*, fix the setting it names
@@ -1040,11 +1060,12 @@ work I can do on request.
   notes live, then update [Updating Fetchshelf](#updating-fetchshelf).
 - [ ] **You:** Decide the support channel (issue tracker, forum thread, chat) and fill in
   [Getting help](#getting-help).
-- [ ] **You:** Decide whether the guide should say the project has no stable release yet, and where.
-- [ ] **You:** Decide whether the image should get a `HEALTHCHECK`. If so, document it. The image has none
-  today.
-- [ ] **You:** Review the suggested starting values in [Protecting your account](#protecting-your-account)
-  (`min_ratio`, buffers) and confirm they are the advice you want to give.
+- [x] **You:** Decide whether the guide should say the project has no stable release yet, and where.
+  Decided: no such note, the releases are stable.
+- [x] **You:** Decide whether the image should get a `HEALTHCHECK`. If so, document it. The image has none
+  today. Added: see [Health check](#health-check).
+- [x] **You:** Review the suggested starting values in [Protecting your account](#protecting-your-account)
+  (`min_ratio`, buffers) and confirm they are the advice you want to give. Confirmed.
 - [x] **You:** Decide whether the repository `README.md` should link to this guide and the configuration
   reference.
 
