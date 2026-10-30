@@ -334,6 +334,8 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 
 /* Jobs */
 .next-run { color: var(--text-muted); white-space: nowrap; }
+.unconfigured-jobs { margin-top: 2rem; }
+.unconfigured-jobs p { margin: 0.2rem 0; }
 .htmx-request table { opacity: 0.85; }
 
 /* Lists */

@@ -57,6 +57,47 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task JobsPage_NothingOptionalConfigured_ListsEachKindOnceAlphabeticallyBelowTheJobs()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("Download", _ => Task.CompletedTask);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        var lines = Regex.Matches(html, "<p>([^<]+) is not configured</p>").Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(["AbsMatcher", "Autograb", "Goodreads list", "Notion list", "Snatchlist"], lines);
+        Assert.True(html.IndexOf("id=\"unconfigured-jobs\"", StringComparison.Ordinal) > html.IndexOf("</table>", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task JobsPage_ConfiguredKinds_AreNotListedAsUnconfigured()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [audiobookshelf]
+            url = "http://abs.test"
+            token = "token"
+
+            [[autograb]]
+            type = "bookmarks"
+            name = "first"
+
+            [[autograb]]
+            type = "bookmarks"
+            name = "second"
+            """);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.DoesNotContain("AbsMatcher is not configured", html);
+        Assert.DoesNotContain("Autograb is not configured", html);
+        Assert.Contains("Snatchlist is not configured", html);
+    }
+
+    [Fact]
     public async Task JobsPage_JobExplanationsDisabled_HidesDescriptionColumn()
     {
         using var fixture = new FetchshelfWebAppFixture("mam_id = \"\"\njob_explanations = false\n");
