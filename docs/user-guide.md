@@ -882,8 +882,12 @@ files.
 - **What leaves your machine.** Fetchshelf talks to MaM (searches, downloads, your account state),
   qBittorrent and Audiobookshelf (on your network), and, if you use them, Goodreads (reading your shelf and
   book pages) and Notion. It sends no usage data anywhere else.
-- **Logs.** The default log level is `debug`, which is detailed. Check a log before you share it and remove
-  anything private. Set `FETCHSHELF_LOG=information` for quieter logs.
+- **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
+  full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
+  names of your autograbs and lists, MaM torrent ids, and, when MaM refuses a request, the start of MaM's
+  reply. At the default level, `debug`, they also contain the title of every search result an autograb
+  rejects. Error messages can name hosts, folders and files on your system. Read a log before you share it
+  and remove anything you consider private. Set `FETCHSHELF_LOG=information` to leave out the titles.
 
 ## Troubleshooting
 
@@ -1036,7 +1040,7 @@ work I can do on request.
 - [x] **Me:** Read the Search page code and describe its filters accurately in
   [Finding and downloading books](#finding-and-downloading-books). I described it from the design, not the
   page.
-- [ ] **Me:** Audit what the logs contain at `debug` level and tighten or confirm the wording in
+- [x] **Me:** Audit what the logs contain at `debug` level and tighten or confirm the wording in
   [Security and privacy](#security-and-privacy).
 - [x] **Me:** Confirm that downgrading after an upgrade is unsupported and that backups should be taken
   with the container stopped, then adjust [Updating Fetchshelf](#updating-fetchshelf) and
