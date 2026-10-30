@@ -85,7 +85,7 @@ cost = "all"
 # --- Audiobookshelf -----------------------------------------------------------------------------------
 # Optional. Leave the section out to switch the integration off.
 [audiobookshelf]
-url = "http://audiobookshelf:13378"
+url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a browser
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10
 

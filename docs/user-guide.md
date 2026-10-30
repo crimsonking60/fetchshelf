@@ -176,13 +176,15 @@ Common commands, run in the folder that contains the file:
 
 ### Together with qBittorrent and Audiobookshelf
 
-If you run all three in one Compose project, give every container the same `/media` mount. Then the path
-that qBittorrent reports for a download is also valid inside Fetchshelf, so no `path_mapping` is needed,
-and hardlinks work because downloads and library share one filesystem.
+If you run all three in one Compose project, mount your media folder at `/media` in every container. Then
+the path that qBittorrent reports for a download is also valid inside Fetchshelf, so no `path_mapping` is
+needed, hardlinks work because downloads and library share one filesystem, and Audiobookshelf sees each
+book at the same path as Fetchshelf, which it needs to match them.
 
 ```yaml
 services:
   qbittorrent:
+    # Use a version tag from MaM's list of approved clients instead of latest.
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     restart: unless-stopped
@@ -191,10 +193,10 @@ services:
       PGID: "1000"
       WEBUI_PORT: "8080"
     ports:
-      - "8080:8080"
+      - "8080:8080"                # keep both numbers equal to WEBUI_PORT
     volumes:
       - ./qbittorrent:/config
-      - /srv/media:/media          # save downloads under /media/torrents
+      - /srv/media:/media
 
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
@@ -205,7 +207,7 @@ services:
     volumes:
       - ./audiobookshelf/config:/config
       - ./audiobookshelf/metadata:/metadata
-      - /srv/media/library/audiobooks:/audiobooks
+      - /srv/media/library:/media/library
 
   fetchshelf:
     image: ghcr.io/crimsonking60/fetchshelf:latest
@@ -224,11 +226,26 @@ services:
       - /srv/media:/media
 ```
 
-With this layout, `config.toml` can address the other containers by service name, for example
-`url = "http://qbittorrent:8080"` and `url = "http://audiobookshelf:80"`, and the library folders are
-`/media/library/audiobooks` and `/media/library/ebooks`. Audiobookshelf sees the audiobook library at
-`/audiobooks`, a different path from Fetchshelf's, which Audiobookshelf matching handles for you (see
-[Connecting to Audiobookshelf](#connecting-to-audiobookshelf)).
+With this layout, `config.toml` can address qBittorrent by service name, `url = "http://qbittorrent:8080"`.
+For Audiobookshelf, use the address you open it at in a browser, such as `http://192.168.1.10:13378`, so
+that the links Fetchshelf shows to Audiobookshelf also work in your browser (see
+[Connecting to Audiobookshelf](#connecting-to-audiobookshelf)). The library folders are
+`/media/library/audiobooks` and `/media/library/ebooks`, and the Audiobookshelf libraries use the same
+folders (see [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)).
+
+After the first `docker compose up -d`, set up qBittorrent before you connect Fetchshelf to it:
+
+1. Find the temporary Web UI password in `docker compose logs qbittorrent`. The user name is `admin`.
+   qBittorrent makes a new temporary password on every start until you set your own.
+2. Open qBittorrent at `http://<your-host>:8080` and sign in.
+3. In **Options → Web UI**, set your own password. Fetchshelf needs a password that does not change.
+4. In **Options → Downloads**, set **Default Save Path** to `/media/torrents`. Fetchshelf does not choose
+   where downloads are saved, so without this they end up in `/downloads`, outside `/media`, where Fetchshelf
+   cannot see them.
+
+If port 8080 is already taken on your host, change `WEBUI_PORT` and both numbers in the port mapping
+together, for example `WEBUI_PORT: "8090"` and `"8090:8090"`, and use `http://qbittorrent:8090` in
+`config.toml`. qBittorrent refuses requests that arrive on a different port from its own.
 
 ## First start
 
@@ -322,7 +339,11 @@ you need nothing. If they differ, map one to the other:
 ```
 
 This reads: where qBittorrent says `/downloads`, Fetchshelf should use `/media/torrents`. The longest
-matching prefix wins. A wrong or missing mapping is the most common cause of linking errors (see
+matching prefix wins.
+
+Fetchshelf does not tell qBittorrent where to save a download, so the **Default Save Path** in
+qBittorrent's **Options → Downloads** decides it. Make sure that folder is one Fetchshelf can reach, directly
+or through `path_mapping`. A wrong or missing mapping is the most common cause of linking errors (see
 [Troubleshooting](#troubleshooting)).
 
 ### Categories and tags
@@ -410,19 +431,28 @@ next to every book. With it, Fetchshelf also:
 - pushes updated metadata to Audiobookshelf after linking or a refresh;
 - deletes the old Audiobookshelf item when a book is replaced by a better format.
 
-1. In Audiobookshelf, create an API token for a user that can see your libraries.
+1. In Audiobookshelf, open **Settings → API Keys** and create a key for a user that can see your libraries.
 2. Add the section:
 
    ```toml
    [audiobookshelf]
-   url = "http://audiobookshelf:13378"
-   token = "your-api-token"
+   url = "http://192.168.1.10:13378"
+   token = "your-api-key"
    interval = 10
    ```
 
-3. Make sure each Audiobookshelf library points at a folder that contains your Fetchshelf library folder
-   (the folder you set as `library_dir`). Fetchshelf matches by finding the Audiobookshelf library whose
-   folders contain the book's path, so the paths may differ between the two programs.
+   Set `url` to the address you open Audiobookshelf at in a browser, using the host's IP address or name,
+   not `localhost`. Fetchshelf uses it both to talk to Audiobookshelf and for the **Open in
+   Audiobookshelf** link on a torrent's page, so it must work from the Fetchshelf container and from your
+   browser. A Compose service name such as `http://audiobookshelf:80` works for matching, but the link
+   then only works in a browser that can resolve that name, which is usually not the case outside Docker.
+
+3. Make Audiobookshelf see your library at the **same path** as Fetchshelf. Fetchshelf finds a book in
+   Audiobookshelf only if one of the Audiobookshelf library's folders contains the exact path where
+   Fetchshelf linked the book. If Fetchshelf's `library_dir` is `/media/library/audiobooks`, mount the same
+   folder at `/media/library/audiobooks` in the Audiobookshelf container and add that folder to the
+   Audiobookshelf library. If the paths differ, for example `/audiobooks` in Audiobookshelf, no book is
+   ever matched.
 
 `interval` is how many minutes pass between matching runs. Remove the whole section to switch the
 integration off.
@@ -918,8 +948,8 @@ author used is the **first** author.
 
 ### Audiobookshelf does not find a book
 
-Make sure an Audiobookshelf library contains the folder `library_dir` points to, and that Audiobookshelf has
-scanned it. The matcher runs every `interval` minutes, or press **Run now** on the **AbsMatcher** job.
+Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
+Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press **Run now** on the **AbsMatcher** job.
 
 ### Getting more detail
 
@@ -998,8 +1028,11 @@ work I can do on request.
   feeds, then rewrite or remove the Goodreads section in [Importing reading lists](#importing-reading-lists).
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](#connecting-to-audiobookshelf),
   especially how to create the API token.
-- [ ] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and
-  fix anything that does not work. Nothing in this guide has been run end to end yet.
+- [x] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and
+  fix anything that does not work. Run with qBittorrent 5.3.0 and Audiobookshelf 2.37.1: linking and
+  Audiobookshelf matching work. MaM itself was not part of the run.
+- [x] **You:** Decide how the **Open in Audiobookshelf** link should work when `url` uses a Compose service
+  name that browsers cannot resolve. Decided: recommend the host address in `url`.
 - [x] **Me:** Read the Search page code and describe its filters accurately in
   [Finding and downloading books](#finding-and-downloading-books). I described it from the design, not the
   page.

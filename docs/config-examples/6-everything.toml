@@ -56,7 +56,7 @@ wedge_over = "100 MiB"
 # [audiobookshelf]: optional. Remove the section to switch the integration off.
 # =====================================================================================================
 [audiobookshelf]
-url = "http://audiobookshelf:13378"
+url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a browser
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
 

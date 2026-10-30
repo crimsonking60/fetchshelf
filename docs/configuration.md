@@ -153,14 +153,15 @@ Optional. Leave the section out to turn the integration off.
 
 | Setting | Default | Description |
 |---|---|---|
-| `url` | (required) | Base URL of your Audiobookshelf server. |
+| `url` | (required) | Base URL of your Audiobookshelf server. Also used for the links to Audiobookshelf on torrent pages, so use the address you open it at in a browser, such as `http://192.168.1.10:13378`, rather than a Docker service name. |
 | `token` | (required) | API token for Audiobookshelf. Treat it as a secret. |
 | `interval` | `10` | Minutes between runs of the matcher. |
 
 What it does:
 
 - The **matcher** looks for linked torrents that have no Audiobookshelf id yet, finds the Audiobookshelf
-  library whose folders contain the book's library path, and stores the matching item's id.
+  library whose folders contain the book's library path, and stores the matching item's id. Audiobookshelf
+  must therefore see the library at the same path as Fetchshelf.
 - After linking, and after a metadata refresh, updated metadata is pushed to matched items.
 - When a lesser format is retired, the old Audiobookshelf item is deleted.
 - The torrent pages link to the matched Audiobookshelf item.
@@ -577,7 +578,7 @@ audio_types = ["m4b", "mp3"]
 wedge_over = "100 MiB"
 
 [audiobookshelf]
-url = "http://audiobookshelf:13378"
+url = "http://192.168.1.10:13378"
 token = "abs-api-token"
 
 [[qbittorrent]]
