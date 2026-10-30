@@ -1,3 +1,4 @@
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
@@ -12,7 +13,7 @@ namespace Fetchshelf.Web.Pages.Torrents;
 /// <summary>The Torrent detail page, Fetchshelf-spec.md §10.3.</summary>
 public class DetailModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
-    FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory) : PageModel
+    FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions) : PageModel
 {
     public TorrentDetailViewModel? Torrent { get; private set; }
 
@@ -89,8 +90,17 @@ public class DetailModel(
         return RedirectToPage("/Torrents/Index");
     }
 
-    public async Task<IActionResult> OnPostSetCategoryAndTagsAsync(string id, string category, List<string> tags)
+    /// <summary>
+    /// Sets the torrent's qBittorrent category and tags: <paramref name="tags"/> are the current tags left ticked, and
+    /// <paramref name="newTags"/> is a comma-separated list of tags to add.
+    /// </summary>
+    public async Task<IActionResult> OnPostSetCategoryAndTagsAsync(string id, string? category, List<string> tags, string? newTags)
     {
+        category ??= string.Empty;
+        tags = tags
+            .Concat((newTags ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         await WithOwningClientAsync(id, async client =>
         {
             await client.SetCategoryAsync(id, category);
@@ -151,6 +161,6 @@ public class DetailModel(
             // qBittorrent unreachable: detail page still shows stored state (§10.3: "when available").
         }
 
-        return TorrentDetailViewModel.From(entity, events, clientState, settings.Audiobookshelf?.Url);
+        return TorrentDetailViewModel.From(entity, events, clientState, settings.Audiobookshelf?.Url, mamOptions.BaseUrl);
     }
 }

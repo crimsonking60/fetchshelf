@@ -36,6 +36,30 @@ public class TorrentDetailPageTests
         Assert.Contains("No torrents found.", listHtml);
     }
 
+    [Fact]
+    public async Task Get_TorrentWithMamId_LinksToItOnMam()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents/hash1");
+
+        Assert.Contains("href=\"https://www.myanonamouse.net/t/1\"", html);
+    }
+
+    [Fact]
+    public async Task Get_TorrentNotInQBittorrent_HasNoCategoryAndTagsForm()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents/hash1");
+
+        Assert.DoesNotContain("category-tags-form", html);
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = System.Text.RegularExpressions.Regex.Match(

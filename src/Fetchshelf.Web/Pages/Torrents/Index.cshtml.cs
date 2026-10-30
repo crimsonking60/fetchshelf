@@ -38,6 +38,8 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = DefaultPageSize;
 
+    public TorrentListQuery Query => new(Q, Language, MediaType, Sort, Dir, PageSize);
+
     public IReadOnlyList<TorrentListItemViewModel> Torrents { get; private set; } = [];
 
     public int TotalCount { get; private set; }
@@ -120,7 +122,7 @@ public class IndexModel(
                 break;
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
     }
 
     private async Task<List<TorrentListItemViewModel>> LoadAsync()

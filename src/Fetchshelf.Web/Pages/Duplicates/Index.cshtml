@@ -1,0 +1,59 @@
+@page
+@model Fetchshelf.Web.Pages.Duplicates.IndexModel
+@{
+    ViewData["Title"] = "Duplicates";
+}
+
+<h2>Duplicates</h2>
+@await Html.PartialAsync("_PageExplanation", "Torrents Fetchshelf skipped because you already have, or have already selected, the same book in an equal or better format. Each row shows what it duplicates. Tick the rows you no longer need and use Remove selected.")
+
+@if (Model.Duplicates.Count == 0)
+{
+    <p id="no-duplicates-message" class="empty">No duplicates.</p>
+}
+else
+{
+    <form method="post" asp-page-handler="RemoveSelected">
+        @Html.AntiForgeryToken()
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.duplicate-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Title</th>
+                    <th>Authors</th>
+                    <th>Duplicate of</th>
+                    <th>Skipped</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var duplicate in Model.Duplicates)
+                {
+                    <tr>
+                        <td><input class="duplicate-select" type="checkbox" name="selectedIds" value="@duplicate.Id" aria-label="Select @duplicate.Title" /></td>
+                        <td><a href="@duplicate.MamLink" target="_blank" rel="noreferrer">@duplicate.Title</a></td>
+                        <td>@duplicate.Authors</td>
+                        <td>
+                            @if (duplicate.DuplicateOf.TorrentId is not null)
+                            {
+                                <a asp-page="/Torrents/Detail" asp-route-id="@duplicate.DuplicateOf.TorrentId">@duplicate.DuplicateOf.Text</a>
+                            }
+                            else if (duplicate.DuplicateOf.MamLink is not null)
+                            {
+                                <a href="@duplicate.DuplicateOf.MamLink" target="_blank" rel="noreferrer">@duplicate.DuplicateOf.Text</a>
+                            }
+                            else
+                            {
+                                @duplicate.DuplicateOf.Text
+                            }
+                        </td>
+                        <td><local-time value="duplicate.CreatedAt" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="actions">
+            <button type="submit" class="danger">Remove selected</button>
+        </div>
+    </form>
+}

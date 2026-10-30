@@ -123,6 +123,55 @@ public partial class TorrentDetailActionsTests
         Assert.Contains(removedTags, t => t.Contains('a'));
     }
 
+    [Fact]
+    public async Task Get_TorrentInQBittorrent_ShowsCategoryAndTagsFormWithCurrentValues()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent("/library"), qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/torrents/{Hash}");
+
+        Assert.Contains("id=\"category-tags-form\"", html);
+        Assert.Matches("name=\"category\" value=\"audiobooks\"", html);
+        Assert.Matches("type=\"checkbox\" name=\"tags\" value=\"a\" checked", html);
+        Assert.Matches("type=\"checkbox\" name=\"tags\" value=\"b\" checked", html);
+    }
+
+    [Fact]
+    public async Task Post_SetCategoryAndTags_AddsCommaSeparatedNewTags()
+    {
+        var addedTags = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent("/library"),
+            qbittorrentHandler: request =>
+            {
+                if (request.RequestUri!.AbsolutePath.Contains("addTags"))
+                {
+                    addedTags.Add(Uri.UnescapeDataString(request.Content!.ReadAsStringAsync().Result));
+                }
+
+                return OrganizerTestSupport.FakeQBittorrentServer(Hash)(request);
+            });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync($"/torrents/{Hash}"));
+
+        using var form = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("category", "audiobooks"),
+            new KeyValuePair<string, string>("tags", "a"),
+            new KeyValuePair<string, string>("tags", "b"),
+            new KeyValuePair<string, string>("newTags", "c, d ,"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+        ]);
+        var response = await client.PostAsync($"/torrents/{Hash}?handler=SetCategoryAndTags", form);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains(addedTags, t => t.Contains("tags=c,d", StringComparison.Ordinal));
+    }
+
     [GeneratedRegex(@"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""")]
     private static partial Regex AntiforgeryTokenPattern();
 

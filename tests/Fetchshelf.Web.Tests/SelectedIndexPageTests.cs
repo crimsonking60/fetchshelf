@@ -213,6 +213,65 @@ public partial class SelectedIndexPageTests
         Assert.Equal("ebooks", updated!.Category);
     }
 
+    [Fact]
+    public async Task Get_WaitingSelection_OffersOnlyTheChangeableCosts()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedSelectedAsync(fixture);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/selected");
+
+        var options = Regex.Matches(html, "<option value=\"([A-Za-z]+)\"").Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(["Ratio", "TryWedge", "UseWedge"], options);
+    }
+
+    [Fact]
+    public async Task Post_UpdateCost_ToAChangeableCost_IsSaved()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var entity = await SeedSelectedAsync(fixture);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = entity.Id.ToString(),
+            ["category"] = "audiobooks",
+            ["cost"] = "UseWedge",
+            ["__RequestVerificationToken"] = token,
+        });
+        await client.PostAsync("/selected?handler=Update", form);
+
+        using var scope = fixture.CreateScope();
+        var saved = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(entity.Id);
+        Assert.Equal("UseWedge", saved!.CostDecision);
+    }
+
+    [Fact]
+    public async Task Post_UpdateCost_ToAFreeCost_IsRejected()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var entity = await SeedSelectedAsync(fixture);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = entity.Id.ToString(),
+            ["category"] = "ebooks",
+            ["cost"] = "Vip",
+            ["__RequestVerificationToken"] = token,
+        });
+        var response = await client.PostAsync("/selected?handler=Update", form);
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        using var scope = fixture.CreateScope();
+        var saved = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(entity.Id);
+        Assert.Equal("Ratio", saved!.CostDecision);
+        Assert.Equal("audiobooks", saved.Category);
+    }
+
     [GeneratedRegex(@"<input[^>]*name=""__RequestVerificationToken""[^>]*>")]
     private static partial Regex AntiforgeryInputPattern();
 

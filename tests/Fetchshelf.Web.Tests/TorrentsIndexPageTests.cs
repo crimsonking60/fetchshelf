@@ -66,6 +66,57 @@ public class TorrentsIndexPageTests
         Assert.Contains("No torrents found.", afterHtml);
     }
 
+    [Fact]
+    public async Task Get_MediaTypeValue_IsAFilterLink_ThatNarrowsList()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("Audio Book"));
+        await OrganizerTestSupport.SeedTorrentAsync(
+            fixture, "hash2", OrganizerTestSupport.BuildMetadata("Paper Book") with { MediaType = Fetchshelf.Core.Metadata.MediaType.Ebook });
+        var client = fixture.CreateClient();
+
+        var listHtml = await client.GetStringAsync("/torrents");
+        var filteredHtml = await client.GetStringAsync("/torrents?MediaType=Ebook");
+
+        Assert.Contains("MediaType=Ebook", listHtml);
+        Assert.Contains("Paper Book", filteredHtml);
+        Assert.DoesNotContain("Audio Book", filteredHtml);
+    }
+
+    [Fact]
+    public async Task Get_SortAndFilterLinks_KeepTheSearchAndOtherFilters()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Kings&Language=English"));
+
+        var titleSortLink = System.Text.RegularExpressions.Regex.Match(html, @"href=""([^""]*Sort=Title[^""]*)""").Groups[1].Value;
+        Assert.Contains("Q=Kings", titleSortLink);
+        Assert.Contains("Language=English", titleSortLink);
+        Assert.Contains("Dir=asc", titleSortLink);
+        var mediaTypeLink = System.Text.RegularExpressions.Regex.Match(html, @"href=""([^""]*MediaType=Audiobook[^""]*)""").Groups[1].Value;
+        Assert.Contains("Q=Kings", mediaTypeLink);
+        Assert.Contains("Language=English", mediaTypeLink);
+    }
+
+    [Fact]
+    public async Task Get_Filtered_SearchFormKeepsFilter_AndShowAllClearsIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Kings&Language=English"));
+
+        Assert.Contains("<input type=\"hidden\" name=\"Language\" value=\"English\" />", html);
+        var activeFilters = html[html.IndexOf("id=\"active-filters\"", StringComparison.Ordinal)..];
+        var showAllLink = System.Text.RegularExpressions.Regex.Match(activeFilters, @"href=""([^""]*)""").Groups[1].Value;
+        Assert.Contains("Q=Kings", showAllLink);
+        Assert.DoesNotContain("Language=", showAllLink);
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = System.Text.RegularExpressions.Regex.Match(
