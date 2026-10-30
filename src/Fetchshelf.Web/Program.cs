@@ -1,5 +1,4 @@
 using Fetchshelf.Clients.Abs;
-using Fetchshelf.Clients.Goodreads;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.Notion;
 using Fetchshelf.Clients.QBittorrent;
@@ -67,10 +66,6 @@ builder.Services.AddSingleton(sp => new MamClient(
 builder.Services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
 builder.Services.AddSingleton<MamAccessGate>();
 
-builder.Services.AddSingleton(new GoodreadsClientOptions());
-builder.Services.AddHttpClient("goodreads");
-builder.Services.AddScoped(sp => new GoodreadsClient(
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("goodreads"), sp.GetRequiredService<GoodreadsClientOptions>()));
 builder.Services.AddHttpClient("notion");
 builder.Services.AddScoped(sp => new NotionClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("notion")));
 
@@ -116,13 +111,6 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
 builder.Services.AddScoped(sp => new SnatchlistImporter(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
-builder.Services.AddScoped(sp => new GoodreadsListImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<GoodreadsClient>(),
-    formatPreferenceLists));
 builder.Services.AddScoped(sp => new NotionListImporter(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),
@@ -177,17 +165,6 @@ if (settings.BackgroundJobsEnabled)
         }
     }
 
-    for (var i = 0; i < settings.GoodreadsList.Count; i++)
-    {
-        var jobName = AutoDownloaderJobNames.GoodreadsList(settings.GoodreadsList[i], i);
-        var intervalMinutes = settings.GoodreadsList[i].SearchInterval ?? settings.ImportInterval;
-        if (intervalMinutes > 0)
-        {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
-        }
-    }
-
     for (var i = 0; i < settings.NotionList.Count; i++)
     {
         var jobName = AutoDownloaderJobNames.NotionList(settings.NotionList[i], i);
@@ -210,7 +187,6 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AddPageRoute("/Torrents/Detail", "torrents/{id}");
     options.Conventions.AddPageRoute("/Torrents/Edit", "torrents/{id}/edit");
-    options.Conventions.AddPageRoute("/Lists/Detail", "lists/{id}");
 });
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
@@ -323,22 +299,6 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         }, "Imports your MaM snatchlist so those torrents count as owned.");
     }
 
-    for (var i = 0; i < settings.GoodreadsList.Count; i++)
-    {
-        var entry = settings.GoodreadsList[i];
-        var jobName = AutoDownloaderJobNames.GoodreadsList(entry, i);
-        jobRegistry.Register(jobName, async ct =>
-        {
-            using var scope = scopeFactory.CreateScope();
-            var importer = scope.ServiceProvider.GetRequiredService<GoodreadsListImporter>();
-            var selectedCount = await importer.RunAsync(entry, settings.UnsatBuffer, settings.WedgeBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0)
-            {
-                await jobRegistry.TriggerAsync(JobNames.Download, ct);
-            }
-        }, "Checks a Goodreads list for want-to-read books and queues matches.");
-    }
-
     for (var i = 0; i < settings.NotionList.Count; i++)
     {
         var entry = settings.NotionList[i];
@@ -379,9 +339,6 @@ internal static class AutoDownloaderJobNames
 
     public static string Snatchlist(SnatchlistEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
-
-    public static string GoodreadsList(GoodreadsListEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"goodreads_list[{index}]" : entry.Name;
 
     public static string NotionList(NotionListEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"notion_list[{index}]" : entry.Name;

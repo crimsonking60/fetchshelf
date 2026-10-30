@@ -38,13 +38,6 @@ public sealed class FetchshelfSettings
 
     public int ImportInterval { get; set; } = 135;
 
-    /// <summary>Alias for <see cref="ImportInterval"/> (spec §4.1: "alias `goodreads_interval`").</summary>
-    public int GoodreadsInterval
-    {
-        get => ImportInterval;
-        set => ImportInterval = value;
-    }
-
     public List<string> IgnoreTorrents { get; set; } = [];
 
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
@@ -73,9 +66,6 @@ public sealed class FetchshelfSettings
 
     /// <summary>Repeatable `[[snatchlist]]` entries (§4.2, §7.7).</summary>
     public List<SnatchlistEntry> Snatchlist { get; set; } = [];
-
-    /// <summary>Repeatable `[[goodreads_list]]` entries (§4.2, §7.8).</summary>
-    public List<GoodreadsListEntry> GoodreadsList { get; set; } = [];
 
     /// <summary>Repeatable `[[notion_list]]` entries (§4.2, §7.8).</summary>
     public List<NotionListEntry> NotionList { get; set; } = [];

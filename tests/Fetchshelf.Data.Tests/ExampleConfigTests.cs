@@ -54,7 +54,6 @@ public sealed class ExampleConfigTests
 
         Assert.NotEmpty(settings.Autograb);
         Assert.NotEmpty(settings.Snatchlist);
-        Assert.NotEmpty(settings.GoodreadsList);
         Assert.NotEmpty(settings.NotionList);
         Assert.NotEmpty(settings.Tag);
         Assert.NotNull(settings.Audiobookshelf);

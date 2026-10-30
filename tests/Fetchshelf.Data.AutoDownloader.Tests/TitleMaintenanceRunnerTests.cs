@@ -34,15 +34,6 @@ public sealed class TitleMaintenanceRunnerTests : IDisposable
             }),
             CreatedAt = DateTimeOffset.UtcNow,
         });
-        context.ListItems.Add(new ListItemEntity
-        {
-            ListId = "list1",
-            Guid = "guid1",
-            BookTitle = "The Way of Kings",
-            AuthorsJson = "[]",
-            CoverUrl = string.Empty,
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
         await context.SaveChangesAsync();
 
         await TitleMaintenanceRunner.RunAsync(context);
@@ -50,8 +41,5 @@ public sealed class TitleMaintenanceRunnerTests : IDisposable
         var torrent = Assert.Single(context.Torrents);
         Assert.Equal(TitleNormalizer.Normalize("The Way of Kings"), torrent.NormalizedTitleKey);
         Assert.NotEqual("stale-key", torrent.NormalizedTitleKey);
-
-        var listItem = Assert.Single(context.ListItems);
-        Assert.Equal("The Way of Kings", listItem.BookTitle);
     }
 }

@@ -30,7 +30,6 @@ public static class ConfigLoader
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["import_interval"] = (s, v) => s.ImportInterval = int.Parse(v, CultureInfo.InvariantCulture),
-        ["goodreads_interval"] = (s, v) => s.ImportInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
         ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
@@ -62,7 +61,6 @@ public static class ConfigLoader
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
-        ValidateGoodreadsLists(settings);
         ValidateNotionLists(settings);
         return settings;
     }
@@ -300,28 +298,6 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
-            }
-        }
-    }
-
-    private static void ValidateGoodreadsLists(FetchshelfSettings settings)
-    {
-        foreach (var list in settings.GoodreadsList)
-        {
-            if (string.IsNullOrWhiteSpace(list.Url))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[goodreads_list]] section is missing 'url'.");
-            }
-
-            if (list.Grab.Count == 0)
-            {
-                throw new ConfigurationException("Invalid configuration: a [[goodreads_list]] section must have at least one 'grab' block.");
-            }
-
-            if (list.PreferFormat is not (null or Core.Metadata.FilterMainType.Audio or Core.Metadata.FilterMainType.Ebook))
-            {
-                throw new ConfigurationException(
-                    "Invalid configuration: a [[goodreads_list]] section's 'prefer_format' must be 'audio' or 'ebook'.");
             }
         }
     }

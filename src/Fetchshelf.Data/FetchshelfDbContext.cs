@@ -16,10 +16,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<EventEntity> Events => Set<EventEntity>();
 
-    public DbSet<ListEntity> Lists => Set<ListEntity>();
-
-    public DbSet<ListItemEntity> ListItems => Set<ListItemEntity>();
-
     public DbSet<ConfigStoreEntry> ConfigStore => Set<ConfigStoreEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -45,17 +41,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasIndex(e => e.TorrentId);
             entity.HasIndex(e => e.MamId);
-        });
-
-        modelBuilder.Entity<ListEntity>(entity =>
-        {
-            entity.HasKey(l => l.Id);
-        });
-
-        modelBuilder.Entity<ListItemEntity>(entity =>
-        {
-            entity.HasKey(i => new { i.ListId, i.Guid });
-            entity.HasIndex(i => i.ListId);
         });
 
         modelBuilder.Entity<ConfigStoreEntry>(entity =>

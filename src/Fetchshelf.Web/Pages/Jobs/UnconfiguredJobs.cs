@@ -14,7 +14,6 @@ public static class UnconfiguredJobs
         {
             ("AbsMatcher", settings.Audiobookshelf is not null),
             ("Autograb", settings.Autograb.Count > 0),
-            ("Goodreads list", settings.GoodreadsList.Count > 0),
             ("Notion list", settings.NotionList.Count > 0),
             ("Snatchlist", settings.Snatchlist.Count > 0),
         };
