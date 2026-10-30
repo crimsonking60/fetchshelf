@@ -44,7 +44,7 @@ looking at what it is doing, and is configured with a single text file.
 It has two halves that you can use together or separately:
 
 - **The auto-downloader** finds torrents on MaM that match rules you write (your bookmarks, a favourite
-  author, a Goodreads shelf, and so on) and adds them to qBittorrent. While doing so it protects your
+  author, a Notion reading list, and so on) and adds them to qBittorrent. While doing so it protects your
   account: it keeps your ratio above a limit, leaves some unsatisfied-snatch slots free and holds back a
   number of freeleech wedges.
 - **The library organizer** watches qBittorrent for finished torrents and links the book files into a tidy
@@ -269,7 +269,7 @@ you set `mam_id`. That is intentional: you can look around before anything happe
 
 1. Open `http://<your-host>:3157`.
 2. The top bar has the pages **Search**, **Jobs**, **Selected**, **Torrents**, **Events**, **Errors**,
-   **Duplicates**, **Lists** and **Config**. There is also a theme selector. See
+   **Duplicates** and **Config**. There is also a theme selector. See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
 4. Edit `config.toml` in the config folder you mounted, then restart the container.
@@ -598,41 +598,7 @@ Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-t
 
 ## Importing reading lists
 
-Instead of searching, you can keep a list of books you want and let Fetchshelf look each one up.
-
-### Goodreads
-
-> **Not working at the moment.** Fetchshelf reads Goodreads shelves through their RSS feeds, and Goodreads
-> (owned by Amazon) discontinued all RSS feeds in October 2026. Until this is resolved, every
-> `[[goodreads_list]]` fails on each run with an HTTP 404 error and imports nothing. Remove or comment out
-> your `[[goodreads_list]]` blocks to stop these errors. Everything else in Fetchshelf, including Notion
-> lists, is unaffected. The rest of this section describes how the integration worked.
-
-```toml
-[[goodreads_list]]
-name = "To read"
-url = "https://www.goodreads.com/review/list_rss/1234567-example-user?shelf=to-read"
-prefer_format = "audio"
-
-[[goodreads_list.grab]]
-cost = "all"
-languages = ["English"]
-max_size = "15 MiB"
-
-[[goodreads_list.grab]]
-cost = "wedge"
-languages = ["English"]
-```
-
-- `url` is the RSS feed of one shelf. Use the RSS link on the shelf's page on Goodreads. The shelf must be
-  visible to Fetchshelf.
-- Each book on the shelf is searched for on MaM by title and author. Series in titles such as
-  `Title (Series, #3)` are understood.
-- `grab` blocks decide what is acceptable and how to pay. They are tried **in order, and the first block
-  that finds a hit wins**, so put the most specific one first. Every list needs at least one.
-- `prefer_format` (`"audio"` or `"ebook"`) keeps only that format when both exist. Without it, Fetchshelf
-  wants both.
-- Books you already own (checked against your library) are not downloaded again.
+Instead of searching, you can keep a list of the torrents you want and let Fetchshelf fetch them.
 
 ### Notion
 
@@ -647,15 +613,20 @@ mam_fields = ["Audiobook link", "Ebook link"]
 
 [[notion_list.grab]]
 cost = "all"
+languages = ["English"]
+max_size = "15 MiB"
+
+[[notion_list.grab]]
+cost = "wedge"
+languages = ["English"]
 ```
 
-`mam_fields` names the URL properties that hold MaM links. The number at the end of each link is the MaM
-torrent id. Ids Fetchshelf already knows are skipped.
-
-### The Lists page
-
-**Lists** shows every imported list and, for each book, whether its audio and ebook sides are selected,
-wanted, not wanted or already existing. Open a list to see its books and mark one as done.
+- `mam_fields` names the URL properties that hold MaM links. The number at the end of each link is the MaM
+  torrent id. Ids Fetchshelf already knows are skipped.
+- `grab` blocks decide what is acceptable and how to pay. For each linked torrent they are tried **in
+  order, and the first block whose filter matches decides the cost**, so put the most specific one first.
+  Every list needs at least one.
+- Books you already have, in an equal or better format, are not downloaded again.
 
 ### Snatchlists
 
@@ -750,7 +721,6 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Events** | A log of what happened: grabbed, linked, cleaned, updated. |
 | **Errors** | Problems found by the Download, Link and Clean jobs. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
-| **Lists** | Imported Goodreads and Notion lists and their books. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
 
 ### Selected
@@ -824,7 +794,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MaM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Imports your snatch list as owned books. | Same. |
-| Goodreads / Notion lists | Look up each wanted book. | Every `import_interval` minutes, or the list's own interval. |
+| Notion list (one per `[[notion_list]]`) | Looks up each linked torrent and selects what qualifies. | Every `import_interval` minutes, or the list's own interval. |
 | Download | Starts selected torrents in qBittorrent within your limits. | After autograbs and list runs select something, and every `search_interval` minutes. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes, and after each download run. |
 | Clean | Retires lesser formats. | After each link run. |
@@ -851,7 +821,7 @@ The [numbered examples](config-examples/README.md) are complete configs for thes
 | Keep my own downloads tidy, nothing automatic | [`2-library-organizer.toml`](config-examples/2-library-organizer.toml) | Add libraries for each category you use. Optionally add `[audiobookshelf]`. |
 | Download my bookmarked books automatically | [`3-downloader.toml`](config-examples/3-downloader.toml) | Check `min_ratio` and the buffers. Start with `dry_run = true`. |
 | Follow an author or look for new content | [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml) | Use `search_in`, `max_authors` and a sensible `cost`. |
-| Get books from a Goodreads or Notion list | [`5-lists-and-audiobookshelf.toml`](config-examples/5-lists-and-audiobookshelf.toml) | Put the most specific `grab` block first. |
+| Get books from a Notion list | [`5-lists-and-audiobookshelf.toml`](config-examples/5-lists-and-audiobookshelf.toml) | Put the most specific `grab` block first. |
 | See every available option | [`6-everything.toml`](config-examples/6-everything.toml) | Read it, do not copy it whole. |
 
 Whichever you start from, work in this order: set `mam_id`, connect qBittorrent, get one library working
@@ -898,7 +868,7 @@ What matters:
 | What | Where | Why |
 |---|---|---|
 | `config.toml` | the `/config` folder | Your settings and secrets. |
-| `data.db` | the `/data` folder | Everything Fetchshelf remembers: torrents, selections, events, lists. |
+| `data.db` | the `/data` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
 
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
@@ -923,8 +893,8 @@ files.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not.
 - **What leaves your machine.** Fetchshelf talks to MaM (searches, downloads, your account state),
-  qBittorrent and Audiobookshelf (on your network), and, if you use them, Goodreads (reading your shelf and
-  book pages) and Notion. It sends no usage data anywhere else.
+  qBittorrent and Audiobookshelf (on your network), and, if you use it, Notion. It sends no usage data anywhere
+  else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MaM torrent ids, and, when MaM refuses a request, the start of MaM's
@@ -1079,8 +1049,9 @@ work I can do on request.
   want one. Confirmed; no link, since the rules are in a private area of MaM.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
   explain creating an integration, sharing the database with it, or finding the data source id.
-- [ ] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
+- [x] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
   feeds, then rewrite or remove the Goodreads section in [Importing reading lists](#importing-reading-lists).
+  Decided: removed.
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](#connecting-to-audiobookshelf),
   especially how to create the API token.
 - [x] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and

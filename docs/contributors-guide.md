@@ -359,7 +359,6 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.Mam` | HTTP client for MyAnonamouse. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
-| `Fetchshelf.Clients.Goodreads` | Goodreads shelf (RSS) reading. |
 | `Fetchshelf.Clients.Notion` | Notion list reading. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
 | `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, list imports. |
@@ -734,8 +733,7 @@ requests, discussions, screenshots or logs:
 
 - `mam_id` (your MaM session);
 - qBittorrent usernames and passwords;
-- Audiobookshelf and Notion tokens;
-- private Goodreads feed URLs.
+- Audiobookshelf and Notion tokens.
 
 Replace them with placeholders such as `replace-with-your-mam-session-id` before you share a config. Also
 check logs and screenshots for private paths, usernames and library contents you'd rather not publish.

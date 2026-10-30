@@ -29,7 +29,7 @@ job_explanations = true  # short description of each job on the Jobs page
 # Intervals are in minutes. 0 means "only when started from the UI".
 search_interval = 30     # default for every autograb and snatchlist block
 link_interval = 10       # how often finished torrents are scanned and linked
-import_interval = 135    # default for every Goodreads and Notion list (older name: goodreads_interval)
+import_interval = 135    # default for every Notion list
 
 # MaM torrent ids that must never be selected, as strings.
 ignore_torrents = ["123456", "234567"]
@@ -182,36 +182,23 @@ media_type = ["Audiobook", "Ebook"]
 max_size = "10 GiB"
 
 # =====================================================================================================
-# [[goodreads_list]] and [[notion_list]]: repeatable. Each needs at least one grab block.
+# [[notion_list]]: repeatable. Each needs at least one grab block.
 # Blocks are tried in order and the first match wins.
 # =====================================================================================================
-[[goodreads_list]]
-name = "To read"
-url = "https://www.goodreads.com/review/list_rss/1234567-example-user?shelf=to-read"
-prefer_format = "audio"  # "audio" or "ebook"; when both are found, the other is marked not wanted
-search_interval = 120    # overrides import_interval
-unsat_buffer = 15
-wedge_buffer = 5
-dry_run = false
-
-[[goodreads_list.grab]]
-cost = "all"
-languages = ["English"]
-max_size = "15 MiB"
-
-[[goodreads_list.grab]]
-cost = "wedge"
-languages = ["English"]
-
 [[notion_list]]
 name = "Notion wishlist"
 data_source = "00000000-0000-0000-0000-000000000000"
 token = "replace-with-your-notion-integration-token"
 mam_fields = ["Audiobook link", "Ebook link"] # URL properties whose trailing number is a MaM id
-search_interval = 240
+search_interval = 240    # overrides import_interval
 unsat_buffer = 15
 wedge_buffer = 5
 dry_run = false
+
+[[notion_list.grab]]
+cost = "all"
+languages = ["English"]
+max_size = "15 MiB"
 
 [[notion_list.grab]]
 cost = "try_wedge"
