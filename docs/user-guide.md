@@ -174,8 +174,8 @@ services:
       PUID: "1000"
       PGID: "1000"
     volumes:
-      - ./fetchshelf/config:/config
-      - ./fetchshelf/data:/data
+      - /srv/fetchshelf/config:/config
+      - /srv/fetchshelf/data:/data
       - /srv/media:/media
 ```
 
@@ -209,7 +209,7 @@ services:
     ports:
       - "8080:8080"                # keep both numbers equal to WEBUI_PORT
     volumes:
-      - ./qbittorrent:/config
+      - /srv/qbittorrent/config:/config
       - /srv/media:/media
 
   audiobookshelf:
@@ -219,8 +219,8 @@ services:
     ports:
       - "13378:80"
     volumes:
-      - ./audiobookshelf/config:/config
-      - ./audiobookshelf/metadata:/metadata
+      - /srv/audiobookshelf/config:/config
+      - /srv/audiobookshelf/metadata:/metadata
       - /srv/media/library:/media/library
 
   fetchshelf:
@@ -235,8 +235,8 @@ services:
       PUID: "1000"
       PGID: "1000"
     volumes:
-      - ./fetchshelf/config:/config
-      - ./fetchshelf/data:/data
+      - /srv/fetchshelf/config:/config
+      - /srv/fetchshelf/data:/data
       - /srv/media:/media
 ```
 
