@@ -73,7 +73,7 @@ These decisions change what is published, so make them before anything becomes p
     --add-topic audiobookshelf --add-topic qbittorrent --add-topic myanonamouse --add-topic self-hosted
   ```
 
-- [ ] **You:** Turn off **Projects** (unused): `gh repo edit crimsonking60/fetchshelf --enable-projects=false`.
+- [x] **You:** Turn off **Projects** (unused). Done on 2026-10-31.
 - [x] **You:** Issues: already enabled.
 - [x] **You:** Enable Discussions. Done on 2026-10-31; GitHub created the default categories Announcements,
   General, Ideas, Polls, Q&A and Show and tell.
