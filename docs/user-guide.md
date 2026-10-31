@@ -999,7 +999,8 @@ you can use any other player.
 
 **Does it ever delete my downloaded data?** The cleaner only removes files that Fetchshelf itself linked,
 and empty folders, `cover.jpg` and `metadata.json` in a book's own library folder. The one action that
-deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself.
+deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
+and then confirm.
 
 **How do I stop it downloading?** Press the stop button on the container, or set the interval of the
 autograbs to `0`. To pause only new downloads, set `add_torrents_stopped = true`.

@@ -82,6 +82,21 @@ public partial class TorrentDetailActionsTests
     }
 
     [Fact]
+    public async Task Get_RemoveWithDataForm_AsksForConfirmationBeforeSubmitting()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent("/library"), qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/torrents/{Hash}");
+
+        var form = Assert.Single(RemoveWithDataFormPattern().Matches(html)).Value;
+        Assert.Contains("onsubmit=\"return confirm(", form);
+        Assert.Contains("delete its downloaded files", form);
+    }
+
+    [Fact]
     public async Task Post_SetCategoryAndTags_AddsMissingAndRemovesUnticked()
     {
         var addedTags = new List<string>();
@@ -171,6 +186,9 @@ public partial class TorrentDetailActionsTests
         response.EnsureSuccessStatusCode();
         Assert.Contains(addedTags, t => t.Contains("tags=c,d", StringComparison.Ordinal));
     }
+
+    [GeneratedRegex(@"<form[^>]*handler=RemoveWithData[^>]*>")]
+    private static partial Regex RemoveWithDataFormPattern();
 
     [GeneratedRegex(@"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""")]
     private static partial Regex AntiforgeryTokenPattern();

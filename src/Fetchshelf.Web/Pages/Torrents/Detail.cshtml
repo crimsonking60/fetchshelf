@@ -74,7 +74,7 @@
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
         <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
         <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.')">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
         @if (torrent.ReplacedWithTorrentId is not null)
         {
             <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>
