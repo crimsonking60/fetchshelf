@@ -84,8 +84,9 @@ type = { uploader = 12345 }
 cost = "free"
 uploaded_after = "2026-01-01"
 
-# Your own uploads, kept as metadata only so they count as owned. mark_removed also asks MAM about
-# torrents it has stored that have vanished from the results, and marks them removed from MAM.
+# Your own uploads, kept as metadata only so they count as owned. mark_removed is meant to ask MAM
+# about stored torrents that have vanished from the results and mark them removed from MAM. It is
+# accepted and validated, but not acted on yet.
 [[autograb]]
 name = "My uploads"
 type = "mine"
@@ -93,12 +94,12 @@ cost = "metadata_only"
 mark_removed = true
 
 # --- Snatch lists -----------------------------------------------------------------------------------
-# Snatchlists never download anything. They create metadata-only entries for what you already have, so
-# duplicate checks work for books that were not downloaded through Fetchshelf. Cost can only be
-# "metadata_only" (the default) or "metadata_only_add". 'languages' and the upload-date filters are not
-# allowed here.
+# Snatchlists never download anything. Cost can only be "metadata_only" (the default), which refreshes
+# the details of torrents Fetchshelf already stores, or "metadata_only_add", which also creates
+# metadata-only entries for the rest, so duplicate checks work for books that were not downloaded
+# through Fetchshelf. 'languages' and the upload-date filters are not allowed here.
 [[snatchlist]]
-type = "seed_unsat"       # seeding, still unsatisfied
+type = "seed_unsat"       # seeding, still unsatisfied; only refreshes torrents already stored
 search_interval = 60
 
 [[snatchlist]]

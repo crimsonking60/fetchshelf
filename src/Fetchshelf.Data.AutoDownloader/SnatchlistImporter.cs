@@ -11,8 +11,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Imports a `[[snatchlist]]` entry: pages the user's MAM snatch list and creates/updates
-/// metadata-only Torrent records so those torrents count as owned for duplicate detection.
+/// Imports a `[[snatchlist]]` entry: pages the user's MAM snatch list and refreshes the metadata of
+/// torrents already stored. With `metadata_only_add` it also creates metadata-only Torrent records for
+/// the others, so those torrents count as owned for duplicate detection.
 /// </summary>
 public sealed class SnatchlistImporter(
     FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, ILogger<SnatchlistImporter>? logger = null)
@@ -50,7 +51,7 @@ public sealed class SnatchlistImporter(
             rowCount += rows.Count;
             foreach (var row in rows)
             {
-                if (await ImportRowAsync(name, row, filter, entry.DryRun, detailLevel, cancellationToken))
+                if (await ImportRowAsync(name, row, filter, entry.Cost, entry.DryRun, detailLevel, cancellationToken))
                 {
                     createdCount++;
                 }
@@ -74,22 +75,25 @@ public sealed class SnatchlistImporter(
     }
 
     private async Task<bool> ImportRowAsync(
-        string name, MamSnatchlistRow row, TorrentFilter filter, bool dryRun, LogLevel detailLevel, CancellationToken cancellationToken)
+        string name, MamSnatchlistRow row, TorrentFilter filter, ConfiguredCost cost, bool dryRun, LogLevel detailLevel,
+        CancellationToken cancellationToken)
     {
-        var metadata = await mamClient.LookupAsync(row.MamId, cancellationToken);
-        if (metadata is null)
+        // The snatch list row has no uploader or completion count, so the filter is checked against the search record.
+        var result = await mamClient.SearchAsync(new MamSearchQuery { Id = row.MamId }, cancellationToken);
+        if (result.Data.FirstOrDefault() is not { } record)
         {
             _logger.Log(detailLevel, "Snatchlist {Name}: MAM torrent {MamId} was not found on MAM, skipped", name, row.MamId);
             return false;
         }
 
+        var metadata = MamTorrentMapper.Map(record);
         var candidate = new TorrentFilterCandidate
         {
             Metadata = metadata,
-            UploaderName = string.Empty,
-            Seeders = row.Seeders,
-            Leechers = row.Leechers,
-            TimesCompleted = 0,
+            UploaderName = record.UploaderName,
+            Seeders = record.Seeders,
+            Leechers = record.Leechers,
+            TimesCompleted = record.TimesCompleted,
         };
         if (!TorrentFilterMatcher.Matches(filter, candidate))
         {
@@ -111,6 +115,14 @@ public sealed class SnatchlistImporter(
             existing.MetadataJson = TorrentMetadataSerializer.Serialize(metadata);
             existing.Title = metadata.Title;
             existing.NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title);
+            return false;
+        }
+
+        if (cost != ConfiguredCost.MetadataOnlyAdd)
+        {
+            _logger.Log(
+                detailLevel, "Snatchlist {Name}: MAM torrent {MamId} \"{Title}\" is not stored, skipped (cost metadata_only only updates stored torrents)",
+                name, row.MamId, metadata.Title);
             return false;
         }
 

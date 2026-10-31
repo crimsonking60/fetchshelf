@@ -111,7 +111,7 @@ unsat_buffer = 15      # overrides the global buffer for this block
 wedge_buffer = 5       # overrides the global buffer for this block
 max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
 dry_run = false        # true: do everything except write or download, and only log
-mark_removed = false   # true: mark stored torrents that MAM no longer has as removed
+mark_removed = false   # accepted and validated, but not acted on yet
 category = "ebooks"    # force this qBittorrent category, overriding [[tag]] rules
 
 # --- shared torrent filter (all fields) ---
@@ -168,13 +168,14 @@ cost = "metadata_only_add" # also creates a metadata-only entry for torrents not
 sort_by = "random"
 
 # =====================================================================================================
-# [[snatchlist]]: repeatable. Imports your snatch lists as metadata-only entries; never downloads.
+# [[snatchlist]]: repeatable. Reads your snatch lists and refreshes stored torrents; with
+# "metadata_only_add" also records the rest as metadata-only entries. Never downloads.
 # 'languages', 'uploaded_after' and 'uploaded_before' are not allowed here; the rest of the shared
 # filter is.
 # =====================================================================================================
 [[snatchlist]]
 type = "unsat"           # unsat, inact_unsat, seed_unsat, seed_sat, inact_sat, uploads_active
-cost = "metadata_only"   # or "metadata_only_add"; no other cost is allowed
+cost = "metadata_only"   # refresh stored torrents only; "metadata_only_add" also adds the rest
 max_pages = 20           # pages of 250 rows (default 50)
 search_interval = 60     # overrides the global search_interval
 dry_run = false

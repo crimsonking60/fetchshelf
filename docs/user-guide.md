@@ -562,7 +562,8 @@ you set. The details are in the [configuration reference](configuration.md#the-s
 | `ratio` or `all` | Pay with ratio. |
 | `wedge` | Always use a wedge on torrents that are not already free. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
-| `metadata_only` | Never download; just record the book's details. |
+| `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
+| `metadata_only_add` | Like `metadata_only`, but also records books Fetchshelf does not have yet, so they count as owned. |
 
 Torrents that are already free are always treated as free, so wedges are never wasted.
 
@@ -630,8 +631,10 @@ languages = ["English"]
 
 ### Snatchlists
 
-A `[[snatchlist]]` imports one of your MAM snatch lists as records of what you already own, without
-downloading anything. This stops Fetchshelf downloading a book you got some other way. See
+A `[[snatchlist]]` reads one of your MAM snatch lists without downloading anything. With
+`cost = "metadata_only_add"` it records every torrent on the list as something you already own, which
+stops Fetchshelf downloading a book you got some other way. With the default, `metadata_only`, it only
+refreshes the details of torrents Fetchshelf already has. See
 [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
 ## Protecting your account
@@ -670,7 +673,7 @@ Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` o
 
 ## How finished downloads are organized
 
-Every `link_interval` minutes (default 10), and after each download run, Fetchshelf looks for torrents in
+Every `link_interval` minutes (default 10), Fetchshelf looks for torrents in
 qBittorrent that are 100% complete, finds the matching library and links the wanted files in.
 
 - **Which files.** Only files with an extension in your `audio_types` / `ebook_types` lists are linked.
@@ -681,8 +684,8 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
   |---|---|
   | In a series | `Author/Series/Series #1 - Title` |
   | Not in a series | `Author/Title` |
-  | Audiobook with a narrator | the above plus ` {Narrator}` |
   | With an edition | the above plus `, 2nd Edition` |
+  | Audiobook with a narrator | the above plus ` {Narrator}` |
 
   For example `Brandon Sanderson/Stormlight Archive/Stormlight Archive #1 - The Way of Kings {Michael Kramer}`.
   Set `exclude_narrator_in_library_dir = true` to leave the narrator out. The author is the first author.
@@ -705,8 +708,8 @@ itself is not deleted. You can still relink a replaced torrent later.
 ### When the folder no longer matches
 
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
-from where it is. The torrent is then flagged on the **Torrents** page as *No library*, *New library dir* or
-*New path*. Open it and choose **Refresh and relink** to move the files.
+from where it is. The torrent is then flagged on the **Torrents** page as `NoLibrary`, `NewLibraryDir` or
+`NewPath`. Open it and choose **Refresh and relink** to move the files.
 
 ## Using the web interface
 
@@ -727,8 +730,9 @@ There is no login. See [Security and privacy](#security-and-privacy).
 
 Shows each queued torrent with its cost, category, tags, what chose it (an autograb, a list or a manual
 search), and when it was queued and started. You can remove entries, or change a queued torrent's cost,
-category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge`; the free
-costs only record what MAM reported, so they cannot be chosen by hand.
+category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge` (the
+`ratio`, `try_wedge` and `wedge` costs from the configuration); the free costs only record what MAM
+reported, so they cannot be chosen by hand.
 
 ### Torrents
 
@@ -793,10 +797,10 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Job | What it does | Runs |
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
-| Snatchlist (one per `[[snatchlist]]`) | Imports your snatch list as owned books. | Same. |
+| Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
 | Notion list (one per `[[notion_list]]`) | Looks up each linked torrent and selects what qualifies. | Every `import_interval` minutes, or the list's own interval. |
 | Download | Starts selected torrents in qBittorrent within your limits. | After autograbs and list runs select something, and every `search_interval` minutes. |
-| Link | Links finished torrents into libraries. | Every `link_interval` minutes, and after each download run. |
+| Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | AbsMatcher | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 
@@ -880,9 +884,9 @@ files are removed. If `data.db-wal` or `data.db-shm` are still there after a sto
 crash, copy them as well and keep them next to `data.db`.
 
 To move to another machine, install Fetchshelf there, stop it on both machines, copy `config.toml` and
-everything in the data folder into the new config and data folders, and start it. Mount your media at the **same paths** as before (or adjust
-`library_dir` and `path_mapping`), and use the same `PUID` / `PGID`, or fix the ownership of the copied
-files.
+everything in the data folder into the new config and data folders, and start it. Mount your media at the
+**same paths** as before (or adjust `library_dir` and `path_mapping`), and use the same `PUID` / `PGID`, or
+fix the ownership of the copied files.
 
 ## Security and privacy
 
@@ -931,8 +935,8 @@ An empty `mam_id` means no jobs run. Also check the interval: `0` means the job 
 ### MAM login fails, or "too many requests", or the account is blocked
 
 An authentication error means the session has expired or does not match your address. Create a new session
-and update `mam_id`. For rate limiting, wait: the job tries again at its next interval. A blocked account (HTTP 406) aborts
-downloads; wait and check your account on MAM.
+and update `mam_id`. For rate limiting, wait: the job tries again at its next interval. A blocked account
+(HTTP 406) aborts downloads; wait and check your account on MAM.
 
 ### qBittorrent cannot be reached
 
@@ -973,7 +977,8 @@ author used is the **first** author.
 ### Audiobookshelf does not find a book
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
-Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press **Run now** on the **AbsMatcher** job.
+Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
+**Run now** on the **AbsMatcher** job.
 
 ### Getting more detail
 

@@ -126,7 +126,8 @@ Notes:
 
 - **Format lists do three jobs.** A torrent is only downloaded if it contains at least one listed
   extension, only listed extensions are linked into a library, and the list order ranks competing copies
-  of the same book: the copy whose first listed extension comes earliest wins. With
+  of the same book: the copy whose first listed extension comes earliest wins, and between two linked
+  copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
 - **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer, and so
@@ -264,7 +265,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `wedge_buffer` | global | Overrides the global buffer for this block. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
-| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. |
+| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
 ### `type`
@@ -331,8 +332,9 @@ max_size = "30 MiB"
 
 ## `[[snatchlist]]`
 
-Repeatable. Imports your MAM snatch lists as metadata-only entries so that torrents you already have count
-as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
+Repeatable. Reads one of your MAM snatch lists and refreshes the metadata of the torrents Fetchshelf already
+stores. With `cost = "metadata_only_add"` it also records the others as metadata-only entries, so that
+torrents you already have count as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
 
 Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`, `uploaded_after` and
 `uploaded_before` are not allowed** and cause an error.
@@ -340,7 +342,7 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | Setting | Default | Description |
 |---|---|---|
 | `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
-| `cost` | `metadata_only` | Only `metadata_only` and `metadata_only_add` are allowed. |
+| `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as owned. No other cost is allowed. |
 | `max_pages` | 50 | Pages of 250 rows to read. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |
@@ -363,7 +365,7 @@ Repeatable. Reads rows from a Notion data source and fetches the MAM torrents th
 
 Every row of the data source is read, however many there are. MAM ids that are already known are skipped.
 The others are fetched from MAM and passed through the first matching `grab` block. Each run logs how many
-rows and MAM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened to each torrent.
+rows and MAM links it read and, at the default `debug` log level, what happened to each torrent.
 
 ### `grab` blocks
 
@@ -471,7 +473,7 @@ Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
-it as a mismatch (no library, new library directory, or new path) and offers **refresh and relink** to
+it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink** to
 move the files. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
 
 ## Reference data

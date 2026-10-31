@@ -297,7 +297,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
             await importer.RunAsync(entry, ct);
-        }, "Imports your MAM snatchlist so those torrents count as owned.");
+        }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
     for (var i = 0; i < settings.NotionList.Count; i++)

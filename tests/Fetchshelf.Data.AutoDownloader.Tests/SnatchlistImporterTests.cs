@@ -1,7 +1,10 @@
 using System.Net;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
@@ -53,12 +56,12 @@ public sealed class SnatchlistImporterTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_ImportsRowAsMetadataOnlyEntry()
+    public async Task RunAsync_MetadataOnlyAdd_ImportsRowAsMetadataOnlyEntry()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd });
 
         Assert.Equal(1, created);
         var entry = Assert.Single(context.Torrents);
@@ -66,11 +69,88 @@ public sealed class SnatchlistImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_MetadataOnly_SkipsTorrentThatIsNotStored()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
+
+        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+
+        Assert.Equal(0, created);
+        Assert.Empty(context.Torrents);
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 1 \"The Way of Kings\" is not stored, skipped"));
+    }
+
+    [Fact]
+    public async Task RunAsync_MetadataOnly_RefreshesStoredTorrent()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var oldMetadata = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, title: "Old Title"));
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "stored",
+            MamId = 1,
+            NormalizedTitleKey = TitleNormalizer.Normalize(oldMetadata.Title),
+            Title = oldMetadata.Title,
+            MetadataJson = TorrentMetadataSerializer.Serialize(oldMetadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
+
+        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+
+        Assert.Equal(0, created);
+        var entry = Assert.Single(context.Torrents);
+        Assert.Equal("stored", entry.Id);
+        Assert.Equal("The Way of Kings", entry.Title);
+    }
+
+    [Fact]
+    public async Task RunAsync_ExcludeUploader_IsCheckedAgainstTheTorrentsUploader()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
+
+        var created = await importer.RunAsync(new SnatchlistEntry
+        {
+            Type = SnatchlistType.Unsat,
+            Cost = ConfiguredCost.MetadataOnlyAdd,
+            ExcludeUploader = ["uploader"],
+        });
+
+        Assert.Equal(0, created);
+        Assert.Empty(context.Torrents);
+    }
+
+    [Theory]
+    [InlineData(1L, null, 1)]
+    [InlineData(2L, null, 0)]
+    [InlineData(null, 0L, 0)]
+    public async Task RunAsync_SnatchedBounds_AreCheckedAgainstTheTorrentsCompletionCount(long? minSnatched, long? maxSnatched, int expectedCreated)
+    {
+        // The search record reports times_completed = 1.
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
+
+        var created = await importer.RunAsync(new SnatchlistEntry
+        {
+            Type = SnatchlistType.Unsat,
+            Cost = ConfiguredCost.MetadataOnlyAdd,
+            MinSnatched = minSnatched,
+            MaxSnatched = maxSnatched,
+        });
+
+        Assert.Equal(expectedCreated, created);
+    }
+
+    [Fact]
     public async Task RunAsync_ImportedEntry_IsTreatedAsOwnedByLaterSelection()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
-        await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+        await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd });
 
         // A worse-ranked candidate for the same book should become a duplicate of the imported entry.
         var candidateRecord = SelectionTestSupport.BuildRecord(mamId: 2, title: "The Way of Kings", authorName: "A", fileTypes: ["mp3"]);
@@ -89,7 +169,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         var logger = new ListLogger<SnatchlistImporter>();
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, DryRun = true });
+        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd, DryRun = true });
 
         Assert.Equal(0, created);
         Assert.Empty(context.Torrents);
