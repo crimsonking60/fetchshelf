@@ -21,8 +21,11 @@ These decisions change what is published, so make them before anything becomes p
   requests), plus private vulnerability reports for security problems, all enabled before the project is
   announced.
 - [x] **You:** Code of conduct. Decided: "Don't be a dick", in `CODE_OF_CONDUCT.md`.
-- [ ] **You:** Images for 64-bit ARM (`linux/arm64`) as well as `linux/amd64`, for Raspberry Pi and ARM-based
-  NAS users.
+- [x] **You:** Images for 64-bit ARM (`linux/arm64`) as well as `linux/amd64`, for Raspberry Pi and ARM-based
+  NAS users. Decided: `linux/amd64`, `linux/arm64` and `linux/arm/v7`, every platform the .NET base images
+  support.
+- [ ] **You:** Run an ARM image on a real ARM device once one is published. The images are checked to contain
+  the right native code for each architecture, but only the `linux/amd64` image has been started.
 - [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
 
 ## 2. Prepare while still private

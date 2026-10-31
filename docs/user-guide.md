@@ -78,7 +78,9 @@ You need:
 ## Installing with Docker
 
 The image is published to the GitHub Container Registry as `ghcr.io/crimsonking60/fetchshelf`, built for
-64-bit x86 (`linux/amd64`). These tags are available:
+64-bit x86 (`linux/amd64`), 64-bit ARM (`linux/arm64`, for example a Raspberry Pi 4 or 5 or most ARM-based
+NAS devices) and 32-bit ARM (`linux/arm/v7`, for example a Raspberry Pi with a 32-bit operating system).
+Docker picks the right one for your machine automatically. These tags are available:
 
 | Tag | What it is |
 |---|---|
