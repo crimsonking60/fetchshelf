@@ -762,8 +762,9 @@ work I can do on request.
 - [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
   `develop` into `main` with a merge commit. Setting it up is tracked in the
   [maintainer guide](maintainer-guide.md#to-do).
-- [ ] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
-  Origin) or a contributor license agreement.
+- [x] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
+  Origin) or a contributor license agreement. Decided: neither for now. Contributions are made under the
+  project's MIT license; a DCO check can be added later if the project grows.
 - [ ] **You:** Decide whether to adopt a code of conduct, for example the Contributor Covenant.
 - [ ] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
   from Code Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no
