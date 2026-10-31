@@ -1,11 +1,11 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Connection details for the MaM client, Fetchshelf-spec.md §5.1.</summary>
+/// <summary>Connection details for the MaM client.</summary>
 public sealed record MamClientOptions
 {
     public string BaseUrl { get; init; } = "https://www.myanonamouse.net";
 
-    /// <summary>Snatch lists are served from a separate host (Fetchshelf-spec.md §5.1, confirmed against
+    /// <summary>Snatch lists are served from a separate host (confirmed against
     /// the original Rust implementation's `mlm_mam::api::MaM::snatchlist`).</summary>
     public string CdnBaseUrl { get; init; } = "https://cdn.myanonamouse.net";
 

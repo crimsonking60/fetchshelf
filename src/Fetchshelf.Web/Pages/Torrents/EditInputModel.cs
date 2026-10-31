@@ -2,7 +2,7 @@ using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>Bound form fields for the manual metadata edit page, Fetchshelf-spec.md §6.5.</summary>
+/// <summary>Bound form fields for the manual metadata edit page.</summary>
 public sealed class EditInputModel
 {
     public string Title { get; set; } = string.Empty;

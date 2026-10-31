@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Fetchshelf.Clients.Abs;
 
-/// <summary>`PATCH /api/items/{id}/media` request body, Fetchshelf-spec.md §5.3, §8.7.</summary>
+/// <summary>`PATCH /api/items/{id}/media` request body.</summary>
 public sealed record AbsMetadataUpdateRequest
 {
     [JsonPropertyName("metadata")]

@@ -4,7 +4,7 @@ namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
 /// A torrent as seen by the shared filter: <see cref="TorrentMetadata"/> plus the fields only a live
-/// MaM search result carries (uploader, peer counts), Fetchshelf-spec.md §4.3/§5.1. Built once per search
+/// MaM search result carries (uploader, peer counts). Built once per search
 /// result and discarded - never persisted.
 /// </summary>
 public sealed record TorrentFilterCandidate

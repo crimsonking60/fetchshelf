@@ -2,7 +2,7 @@ using Fetchshelf.Core.Jobs;
 
 namespace Fetchshelf.Web.Pages.Jobs;
 
-/// <summary>Display model for one job row on the Jobs page, Fetchshelf-spec.md §10.1.</summary>
+/// <summary>Display model for one job row on the Jobs page.</summary>
 public sealed record JobStatusViewModel(string Name, string? Description, DateTimeOffset? LastStartedAt, string LastResultText, bool IsRunning, DateTimeOffset? NextScheduledRun)
 {
     /// <summary>"4m 12s" for a timed job that is idle, else null.</summary>

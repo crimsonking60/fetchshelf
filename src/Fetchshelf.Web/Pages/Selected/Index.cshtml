@@ -5,7 +5,7 @@
 }
 
 <h2>Selected</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent, or has sent and is still downloading. A torrent leaves the queue once it has finished; the Torrents page follows it from there. Adjust a selection's category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
+@await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent, or has sent and is still downloading. A torrent leaves the queue once it has finished; the Torrents page follows it from there. Adjust a selection's cost, category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
 
 @if (Model.Selections.Count == 0)
 {
@@ -15,7 +15,7 @@ else
 {
     @* Each row's Update has its own form (referenced by the inputs' and button's form attribute) so one row can be saved
        on its own; they sit outside the bulk-remove form below because forms cannot nest. Only rows still waiting to
-       download get one: category and tags are applied when the torrent is added to qBittorrent, so once a row has
+       download get one: cost, category and tags are used when the torrent is added to qBittorrent, so once a row has
        started, editing them would change nothing. *@
     @foreach (var selection in Model.Selections.Where(s => s.StartedAt is null))
     {
@@ -44,9 +44,16 @@ else
                     <tr>
                         <td><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
                         <td>@selection.Title</td>
-                        <td class="nowrap">@selection.CostDecision</td>
                         @if (selection.StartedAt is null)
                         {
+                            <td>
+                                <select form="update-@selection.Id" name="cost" aria-label="Cost for @selection.Title">
+                                    @foreach (var cost in Fetchshelf.Web.Pages.Selected.IndexModel.CostChoicesFor(selection))
+                                    {
+                                        <option value="@cost" selected="@(cost == selection.CostDecision)">@cost</option>
+                                    }
+                                </select>
+                            </td>
                             <td>
                                 <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
                                 <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
@@ -55,6 +62,7 @@ else
                         }
                         else
                         {
+                            <td class="nowrap">@selection.CostDecision</td>
                             <td>@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)</td>
                             <td>@(selection.Tags.Count == 0 ? "-" : string.Join(", ", selection.Tags))</td>
                         }

@@ -3,7 +3,7 @@ using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>Builds the Audiobookshelf-compatible `metadata.json` document, Fetchshelf-spec.md §8.7.</summary>
+/// <summary>Builds the Audiobookshelf-compatible `metadata.json` document.</summary>
 public static class LibraryMetadataJsonBuilder
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -36,7 +36,7 @@ public static class LibraryMetadataJsonBuilder
         return JsonSerializer.Serialize(document, Options);
     }
 
-    /// <summary>Legacy category plus genre categories, de-duplicated (Fetchshelf-spec.md §8.7) - shared with
+    /// <summary>Legacy category plus genre categories, de-duplicated - shared with
     /// the Audiobookshelf client's metadata push, which sends the same derived genre list.</summary>
     public static IReadOnlyList<string> BuildGenres(TorrentMetadata metadata)
     {
@@ -54,7 +54,7 @@ public static class LibraryMetadataJsonBuilder
         series.Entries.Count > 0 ? $"{series.Name} #{FormatSequence(series)}" : series.Name;
 
     /// <summary>Splits a title at its first colon into title/subtitle, unless the part before the
-    /// colon is shorter than 4 characters (Fetchshelf-spec.md §8.7) - shared with the Audiobookshelf client's
+    /// colon is shorter than 4 characters - shared with the Audiobookshelf client's
     /// metadata push, which applies the same split.</summary>
     public static (string Title, string? Subtitle) SplitTitle(string title)
     {
@@ -75,7 +75,7 @@ public static class LibraryMetadataJsonBuilder
     }
 }
 
-/// <summary>The `metadata.json` document shape, Fetchshelf-spec.md §8.7.</summary>
+/// <summary>The `metadata.json` document shape.</summary>
 public sealed record MetadataJsonDocument
 {
     public required IReadOnlyList<string> Authors { get; init; }

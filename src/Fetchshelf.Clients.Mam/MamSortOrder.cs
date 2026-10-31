@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Search result sort order, Fetchshelf-spec.md §5.1 ("sort order (default newest first, plus oldest first, random, lowest seeders, lowest snatches)").</summary>
+/// <summary>Search result sort order. MaM sorts newest first by default.</summary>
 public enum MamSortOrder
 {
     NewestFirst,

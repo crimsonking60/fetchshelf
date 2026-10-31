@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>A MaM torrent search request, Fetchshelf-spec.md §5.1. Unset fields impose no filter.</summary>
+/// <summary>A MaM torrent search request. Unset fields impose no filter.</summary>
 public sealed record MamSearchQuery
 {
     public string? Text { get; init; }
@@ -52,7 +52,7 @@ public sealed record MamSearchQuery
 
     public bool ReturnDownloadLink { get; init; }
 
-    /// <summary>Set to look up one torrent by MaM id instead of searching (Fetchshelf-spec.md §5.1 "look up one torrent").</summary>
+    /// <summary>Set to look up one torrent by MaM id instead of searching.</summary>
     public long? Id { get; init; }
 
     /// <summary>Set to look up one torrent by info-hash instead of searching.</summary>

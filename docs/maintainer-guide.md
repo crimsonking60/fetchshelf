@@ -1,5 +1,7 @@
 # Fetchshelf maintainer guide
 
+> **Work in progress.** This guide is incomplete and may change.
+
 This guide is for maintainers: the people who review and merge pull requests and publish releases. It
 assumes you have write access to <https://github.com/crimsonking60/fetchshelf> and know the contributor
 workflow in the [contributors guide](contributors-guide.md).
@@ -23,7 +25,6 @@ workflow in the [contributors guide](contributors-guide.md).
 - [Hotfixes](#hotfixes)
 - [When a release goes wrong](#when-a-release-goes-wrong)
 - [Maintainer gh command reference](#maintainer-gh-command-reference)
-- [To do](#to-do)
 
 ## Branches
 
@@ -323,8 +324,9 @@ Release when `develop` has something worth shipping and:
 
 4. **Watch the release workflow.** The push to `main` starts it. It reads the version from `RELEASES.md`, stops
    if that version's tag already exists or doesn't match `YYYY.MM.N`, builds and tests, publishes the container
-   image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, tags the commit, and creates the GitHub
-   release with the `RELEASES.md` section as its description.
+   image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, tags the commit, creates the GitHub
+   release with the `RELEASES.md` section as its description, and merges `main` back into `develop` (see
+   [After the release](#after-the-release)).
 
    ```sh
    gh run list --workflow release.yml --limit 3
@@ -340,13 +342,25 @@ Release when `develop` has something worth shipping and:
 
 ### After the release
 
-1. **Merge `main` back into `develop`,** so `main` stays an ancestor of `develop`:
+1. **Check that `main` was merged back into `develop`.** The release workflow's last job does this, so `main`
+   stays an ancestor of `develop`: it pushes a merge commit "Merge release 2026.10.0 back into develop" to
+   `develop`. If it can't, because the merge has conflicts, `develop` moved on during the release, or branch
+   protection refused the push, it opens a pull request from `main` into `develop` instead and says why in a
+   warning on the workflow run. Resolve any conflicts and merge that pull request with a merge commit:
 
    ```sh
-   gh pr create --repo crimsonking60/fetchshelf --base develop --head main \
-     --title "Merge release 2026.10.0 back into develop" --body "Back-merge after release."
+   gh pr list --repo crimsonking60/fetchshelf --base develop --head main
    gh pr merge <number> --merge
    ```
+
+   A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
+   bypassing the branch rules, after making sure `develop` builds.
+
+   The repository deletes a pull request's head branch after merging, except for protected branches and the
+   default branch. If `main` is not protected yet, merging this pull request deletes it: press **Restore
+   branch** on the merged pull request straight away.
+
+   Pull `develop` before you continue working on it: `git switch develop && git pull`.
 
 2. **Pull the new image** on your own setup and check that it starts and upgrades your database.
 3. **Close the milestone,** if you used one, and move anything unfinished to the next.
@@ -372,8 +386,9 @@ When the current release has a bug that can't wait, and `develop` holds changes 
 
 2. Review it as usual, but keep it minimal: only the fix, its test and the release notes.
 3. Squash-merge it into `main`. That publishes the release.
-4. Merge `main` back into `develop` as in [After the release](#after-the-release), so the fix and its release
-   notes aren't lost.
+4. The release workflow merges `main` back into `develop`, so the fix and its release notes aren't lost. A
+   hotfix is the likeliest release to conflict with `develop`; if it does, finish the merge as in
+   [After the release](#after-the-release).
 
 If `develop` is ready to release anyway, skip the hotfix branch: fix it on `develop` and make a normal
 release.
@@ -409,51 +424,3 @@ release.
 | Watch the release workflow | `gh run list --workflow release.yml`, `gh run watch` |
 | See a release | `gh release view v2026.10.0` |
 | Close an issue as not planned | `gh issue close 123 --reason "not planned" --comment "..."` |
-
-## To do
-
-Tick each item when it is done. "You" means decisions or facts only the project owner can supply. "Me" means
-work I can do on request.
-
-### Decisions
-
-- [x] **You:** Version format: `YYYY.MM.N` with a two-digit month, and a `v` prefix on Git tags.
-- [x] **You:** Container images are published to the GitHub Container Registry,
-  `ghcr.io/crimsonking60/fetchshelf`.
-- [x] **You:** Publish an image of every push to `develop`, tagged `develop`.
-- [x] **You:** Releases are announced in `README.md`, linking to `RELEASES.md`, which lists every release with
-  its changes, newest first.
-- [x] **You:** No other maintainers for now. When there are, add them to `.github/CODEOWNERS`.
-- [ ] **You:** Decide whether to publish images for 64-bit ARM (`linux/arm64`) as well, for Raspberry Pi and
-  ARM-based NAS users. Images are currently built for `linux/amd64` only.
-- [ ] **You:** Make the container package public once the repository is public. Packages published from a
-  private repository are private, so nobody else can pull them.
-
-### Repository setup
-
-- [x] **You:** Create the `develop` branch from `main` and make it the default branch.
-
-- [ ] **You:** Protect `develop`: require a pull request, the "Build, test and format" check and code-owner
-  review; block force pushes and deletion.
-- [ ] **You:** Protect `main`: require a pull request and the "Build, test and format" check; block force pushes
-  and deletion.
-- [ ] **You:** In the repository's merge settings, allow squash merging and merge commits, and turn off rebase
-  merging.
-- [ ] **You:** Turn on "Automatically delete head branches". Protected branches such as `develop` are never
-  deleted by it.
-
-### Work
-
-- [x] **Me:** Add `RELEASES.md` and a "Latest release" section to `README.md`.
-- [x] **Me:** Add the check workflow (`.github/workflows/checks.yml`): build, test and format check on every
-  pull request into `develop` or `main`, and before anything is published.
-- [x] **Me:** Add the release workflow (`.github/workflows/release.yml`).
-- [x] **Me:** Add the develop image workflow (`.github/workflows/develop-image.yml`).
-- [x] **Me:** Pass the version into the image build (the `FETCHSHELF_VERSION` build argument in the
-  `Dockerfile`; `develop` images get `develop-<commit>`).
-- [ ] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
-  about.
-- [ ] **Me:** Optionally, automate the back-merge of `main` into `develop` at the end of the release workflow.
-- [ ] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
-  `ghcr.io/crimsonking60/fetchshelf`, and fill in "Updating Fetchshelf" with the tags and a link to
-  `RELEASES.md`, once the first release exists.

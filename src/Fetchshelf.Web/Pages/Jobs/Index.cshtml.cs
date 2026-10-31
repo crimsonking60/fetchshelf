@@ -1,15 +1,23 @@
 using Fetchshelf.Core.Jobs;
+using Fetchshelf.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Jobs;
 
-/// <summary>The Jobs page, Fetchshelf-spec.md §10.1.</summary>
-public class IndexModel(IJobRegistry jobRegistry) : PageModel
+/// <summary>The Jobs page.</summary>
+public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings) : PageModel
 {
     public IReadOnlyList<JobStatusViewModel> Jobs { get; private set; } = [];
 
-    public void OnGet() => Jobs = BuildJobViewModels();
+    /// <summary>Kinds of optional job with nothing configured, listed below the jobs.</summary>
+    public IReadOnlyList<string> Unconfigured { get; private set; } = [];
+
+    public void OnGet()
+    {
+        Jobs = BuildJobViewModels();
+        Unconfigured = UnconfiguredJobs.For(settings);
+    }
 
     /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>
     public PartialViewResult OnGetJobsPartial()

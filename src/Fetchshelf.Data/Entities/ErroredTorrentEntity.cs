@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Entities;
 
-/// <summary>Pipeline stages that can record an error against a torrent, Fetchshelf-spec.md §3.2.</summary>
+/// <summary>Pipeline stages that can record an error against a torrent.</summary>
 public enum ErrorStage
 {
     Grabber,
@@ -8,7 +8,7 @@ public enum ErrorStage
     Cleaner,
 }
 
-/// <summary>One row per (stage, torrent) error; a successful run of the stage clears it (Fetchshelf-spec.md §3.2).</summary>
+/// <summary>One row per (stage, torrent) error; a successful run of the stage clears it.</summary>
 public sealed class ErroredTorrentEntity
 {
     public int Id { get; set; }

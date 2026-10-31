@@ -61,6 +61,6 @@ method = "hardlink_or_copy"
 # old items when a book is upgraded. Without it Audiobookshelf still reads the metadata.json file that
 # Fetchshelf writes next to each book.
 [audiobookshelf]
-url = "http://audiobookshelf:13378"
+url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a browser
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items

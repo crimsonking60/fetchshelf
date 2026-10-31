@@ -7,7 +7,7 @@
 @if (Model.Torrent is { } torrent)
 {
     <h2>@torrent.Metadata.Title</h2>
-    @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it.")
+    @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     <div class="meta-block">
         <p><span class="label">Authors</span><span class="value">@string.Join(", ", torrent.Metadata.Authors)</span></p>
         <p><span class="label">Narrators</span><span class="value">@string.Join(", ", torrent.Metadata.Narrators)</span></p>
@@ -24,6 +24,10 @@
     @if (torrent.ReplacedWithTorrentId is not null)
     {
         <p id="replaced-marker" class="notice">Replaced with: <a asp-page="/Torrents/Detail" asp-route-id="@torrent.ReplacedWithTorrentId">@torrent.ReplacedWithTorrentId</a></p>
+    }
+    @if (torrent.MamLink is not null)
+    {
+        <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MaM</a></p>
     }
     @if (torrent.AbsLink is not null)
     {
@@ -43,6 +47,24 @@
         <h3>qBittorrent state</h3>
         <p>Progress: @(state.Progress * 100)% - State: <span title="@state.State">@QBittorrentStateLabel.For(state.State)</span></p>
         <p>Category: @state.Category - Tags: @string.Join(", ", state.TagList)</p>
+
+        @* Untick a tag to remove it; add new ones, separated by commas. *@
+        <form id="category-tags-form" method="post" asp-page-handler="SetCategoryAndTags" asp-route-id="@torrent.Id" class="edit-form">
+            @Html.AntiForgeryToken()
+            <label>Category <input type="text" name="category" value="@state.Category" /></label>
+            @if (state.TagList.Count > 0)
+            {
+                <fieldset>
+                    <legend>Tags</legend>
+                    @foreach (var tag in state.TagList)
+                    {
+                        <label><input type="checkbox" name="tags" value="@tag" checked /> @tag</label>
+                    }
+                </fieldset>
+            }
+            <label>Add tags <input type="text" name="newTags" placeholder="Separate tags with commas" /></label>
+            <button type="submit">Set category and tags</button>
+        </form>
     }
 
     <h3>Actions</h3>

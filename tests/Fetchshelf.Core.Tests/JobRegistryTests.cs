@@ -1,4 +1,5 @@
 using Fetchshelf.Core.Jobs;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Core.Tests;
 
@@ -127,5 +128,49 @@ public class JobRegistryTests
 
         Assert.NotNull(statusImmediatelyAfter);
         Assert.Equal(JobRunResult.Success, statusImmediatelyAfter!.Result);
+    }
+
+    [Fact]
+    public async Task TriggerAsync_SuccessfulRun_LogsStartAndFinish()
+    {
+        var logger = new CapturingLogger();
+        var registry = new JobRegistry(logger);
+        registry.Register("example-job", _ => Task.CompletedTask);
+
+        await registry.TriggerAsync("example-job");
+
+        Assert.Collection(
+            logger.Entries,
+            entry => Assert.Equal((LogLevel.Information, "Job example-job started"), entry),
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.Level);
+                Assert.StartsWith("Job example-job finished in ", entry.Message, StringComparison.Ordinal);
+            });
+    }
+
+    [Fact]
+    public async Task TriggerAsync_RunFunctionThrows_LogsWarningWithTheError()
+    {
+        var logger = new CapturingLogger();
+        var registry = new JobRegistry(logger);
+        registry.Register("failing-job", _ => throw new InvalidOperationException("boom"));
+
+        await registry.TriggerAsync("failing-job");
+
+        Assert.Equal((LogLevel.Warning, "Job failing-job failed: boom"), logger.Entries[^1]);
+    }
+
+    private sealed class CapturingLogger : ILogger<JobRegistry>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
     }
 }

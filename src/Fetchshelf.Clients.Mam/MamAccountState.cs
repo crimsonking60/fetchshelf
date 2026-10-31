@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>The account state Fetchshelf-spec.md §5.1 requires: ratio, upload/download totals, wedges, and unsat count/limit.</summary>
+/// <summary>The account state requires: ratio, upload/download totals, wedges, and unsat count/limit.</summary>
 public sealed record MamAccountState
 {
     public required double Ratio { get; init; }

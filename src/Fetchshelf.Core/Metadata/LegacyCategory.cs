@@ -1,7 +1,7 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// Tracker legacy categories (fixed list), Fetchshelf-spec.md §12.3. Enum values are the tracker's own
+/// Tracker legacy categories (fixed list). Enum values are the tracker's own
 /// category ids, which are unique across all media types.
 /// </summary>
 public enum LegacyCategory
@@ -107,7 +107,7 @@ public enum LegacyCategory
 
 /// <summary>
 /// Groups legacy categories by the media type they belong to, so cleaning rules such as
-/// "Ebook with an audio legacy category becomes Audiobook" (Fetchshelf-spec.md §6.4) can be implemented.
+/// "Ebook with an audio legacy category becomes Audiobook" can be implemented.
 /// </summary>
 public static class LegacyCategoryGroups
 {

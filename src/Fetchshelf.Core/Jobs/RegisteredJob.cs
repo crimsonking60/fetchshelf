@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Jobs;
 
-/// <summary>A background job registered by name, with its most recent run record, Fetchshelf-spec.md §10.1.</summary>
+/// <summary>A background job registered by name, with its most recent run record.</summary>
 public sealed class RegisteredJob
 {
     public required string Name { get; init; }

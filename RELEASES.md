@@ -5,6 +5,56 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.10.3 - 2026-10-31
+
+Goodreads support is gone, there is a new Duplicates page, images now run on ARM, and Docker can tell
+whether Fetchshelf is healthy.
+
+### Upgrading
+
+- **Remove Goodreads from `config.toml` before you upgrade.** Fetchshelf no longer starts with a
+  `[[goodreads_list]]` block or a `goodreads_interval` setting in it, and says which setting is the problem.
+  Notion lists use `import_interval`.
+- The database is upgraded when the new version starts: the stored Goodreads list data is deleted, and going
+  back to an older version is not possible. Back up your `/data` folder first.
+- If you set up Audiobookshelf from the user guide's Docker Compose example, check two things, because the
+  example was wrong. Audiobookshelf has to see your library at the same path as Fetchshelf, for example
+  `/media/library/audiobooks` in both containers, or no book is ever matched. And `[audiobookshelf]` `url`
+  should be the address you open Audiobookshelf at in a browser, such as `http://192.168.1.10:13378`.
+
+### Added
+
+- **Duplicates** page: the torrents that were skipped because you already have, or have already selected, the
+  same book in an equal or better format, and what each one duplicates.
+- Images for 64-bit ARM (`linux/arm64`, for example a Raspberry Pi 4 or 5) and 32-bit ARM (`linux/arm/v7`),
+  as well as `linux/amd64`. Docker picks the right one for your machine.
+- A health check: `docker ps` shows the container as healthy or unhealthy, and `/health` answers `Healthy`
+  or `Unhealthy` for monitoring tools.
+- The version is shown on the **Config** page and in the first log line, for bug reports.
+- The **Jobs** page lists the kinds of job you haven't configured.
+- **Selected** page: change the cost of a queued torrent to `Ratio`, `TryWedge` or `UseWedge`.
+- Torrent page: change the torrent's category and tags in qBittorrent, and a link to the torrent on MaM.
+- **Torrents** page: click a media type to show only that kind. The filters in use are listed above the
+  table, each with a link to remove it.
+- The log shows when each job starts and finishes, and why a job failed. Failures were only shown on the
+  **Jobs** page before.
+
+### Fixed
+
+- MaM download links contain a personal download key, and they were written to the log. They aren't any
+  more, and neither is the address of every other web request Fetchshelf makes. Logs from earlier versions
+  can contain these links, so don't share them unedited.
+- `add_torrents_stopped = true` works with qBittorrent 5. Torrents were added started.
+- `docker stop` gives Fetchshelf Docker's full stop timeout to shut down. It was killed after 2 seconds.
+- **Torrents** page: sorting, clicking a language, searching and the bulk actions keep your search, filters
+  and sort. They used to start again from the full list.
+
+### Removed
+
+- Goodreads lists (`[[goodreads_list]]` and `goodreads_interval`). Goodreads no longer offers the RSS feeds
+  they were read from.
+- The **Lists** page, which only ever showed Goodreads lists.
+
 ## 2026.10.2 - 2026-10-29
 
 A safety fix for `dry_run`, and Notion lists of any size.

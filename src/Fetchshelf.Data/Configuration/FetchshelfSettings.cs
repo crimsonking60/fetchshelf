@@ -3,13 +3,13 @@ using YamlDotNet.Serialization;
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>
-/// Top-level configuration settings, Fetchshelf-spec.md §4.1. Default values are expressed as property
+/// Top-level configuration settings. Default values are expressed as property
 /// initializers so that a setting absent from the config file (and not overridden by environment
-/// variable) takes the spec's documented default.
+/// variable) takes its documented default.
 /// </summary>
 public sealed class FetchshelfSettings
 {
-    /// <summary>MaM session id (cookie value). Required for background jobs to run (§4).</summary>
+    /// <summary>MaM session id (cookie value). Required for background jobs to run.</summary>
     public string MamId { get; set; } = string.Empty;
 
     public string WebHost { get; set; } = "0.0.0.0";
@@ -38,13 +38,6 @@ public sealed class FetchshelfSettings
 
     public int ImportInterval { get; set; } = 135;
 
-    /// <summary>Alias for <see cref="ImportInterval"/> (spec §4.1: "alias `goodreads_interval`").</summary>
-    public int GoodreadsInterval
-    {
-        get => ImportInterval;
-        set => ImportInterval = value;
-    }
-
     public List<string> IgnoreTorrents { get; set; } = [];
 
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
@@ -56,36 +49,33 @@ public sealed class FetchshelfSettings
     public List<string> RadioTypes { get; set; } = ["mp3"];
 
     /// <summary>
-    /// Repeatable `[[qbittorrent]]` connection entries (§4.2). Explicit alias since the irregular
+    /// Repeatable `[[qbittorrent]]` connection entries. Explicit alias since the irregular
     /// "QBittorrent" casing is not safely reconstructible by the underscored naming convention.
     /// </summary>
     [YamlMember(Alias = "qbittorrent")]
     public List<QBittorrentConnection> QBittorrent { get; set; } = [];
 
-    /// <summary>Repeatable `[[library]]` entries (§4.2, §8.1).</summary>
+    /// <summary>Repeatable `[[library]]` entries.</summary>
     public List<Library> Library { get; set; } = [];
 
-    /// <summary>Repeatable `[[autograb]]` entries (§4.2, §7.1).</summary>
+    /// <summary>Repeatable `[[autograb]]` entries.</summary>
     public List<AutogrebEntry> Autograb { get; set; } = [];
 
-    /// <summary>Repeatable `[[tag]]` entries (§4.2, §7.5).</summary>
+    /// <summary>Repeatable `[[tag]]` entries.</summary>
     public List<TagRuleEntry> Tag { get; set; } = [];
 
-    /// <summary>Repeatable `[[snatchlist]]` entries (§4.2, §7.7).</summary>
+    /// <summary>Repeatable `[[snatchlist]]` entries.</summary>
     public List<SnatchlistEntry> Snatchlist { get; set; } = [];
 
-    /// <summary>Repeatable `[[goodreads_list]]` entries (§4.2, §7.8).</summary>
-    public List<GoodreadsListEntry> GoodreadsList { get; set; } = [];
-
-    /// <summary>Repeatable `[[notion_list]]` entries (§4.2, §7.8).</summary>
+    /// <summary>Repeatable `[[notion_list]]` entries.</summary>
     public List<NotionListEntry> NotionList { get; set; } = [];
 
-    /// <summary>Optional `[search]` section (§4.2, §9.7).</summary>
+    /// <summary>Optional `[search]` section.</summary>
     public SearchSettings Search { get; set; } = new();
 
-    /// <summary>Optional `[audiobookshelf]` section (§4.1, §4.2, §9). Null when not configured.</summary>
+    /// <summary>Optional `[audiobookshelf]` section. Null when not configured.</summary>
     public AudiobookshelfSettings? Audiobookshelf { get; set; }
 
-    /// <summary>When true, background jobs must not be scheduled or run (§4: "if `mam_id` is empty ... runs no background jobs").</summary>
+    /// <summary>False while `mam_id` is empty: then no background job is scheduled or run.</summary>
     public bool BackgroundJobsEnabled => !string.IsNullOrWhiteSpace(MamId);
 }

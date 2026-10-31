@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>One row of a snatch list page, Fetchshelf-spec.md §5.1.</summary>
+/// <summary>One row of a snatch list page.</summary>
 public sealed record MamSnatchlistRow
 {
     public required long MamId { get; init; }

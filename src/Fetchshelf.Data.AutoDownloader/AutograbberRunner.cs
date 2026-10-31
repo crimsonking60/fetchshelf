@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
-/// <summary>Runs one `[[autograb]]` entry's periodic search-and-select cycle, Fetchshelf-spec.md §7.1.</summary>
+/// <summary>Runs one `[[autograb]]` entry's periodic search-and-select cycle.</summary>
 public sealed class AutograbberRunner(
     MamClient mamClient,
     MamAccessGate accessGate,

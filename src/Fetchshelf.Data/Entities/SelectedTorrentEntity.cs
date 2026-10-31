@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Entities;
 
-/// <summary>A torrent that has passed filters and is queued for download, Fetchshelf-spec.md §3.2.</summary>
+/// <summary>A torrent that has passed filters and is queued for download.</summary>
 public sealed class SelectedTorrentEntity
 {
     public int Id { get; set; }

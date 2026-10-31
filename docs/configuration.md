@@ -17,7 +17,6 @@ to `6-everything.toml`, which uses every option.
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
 - [`[[snatchlist]]`](#snatchlist)
-- [`[[goodreads_list]]`](#goodreads_list)
 - [`[[notion_list]]`](#notion_list)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
@@ -66,8 +65,7 @@ Fetchshelf has two halves that can be used independently.
 **Auto-downloader** — finds torrents on MaM and adds them to qBittorrent:
 
 ```
-[[autograb]]        search MaM on a schedule        ─┐
-[[goodreads_list]]  look up books from a shelf       ├─▶ selection ─▶ download ─▶ qBittorrent
+[[autograb]]        search MaM on a schedule        ─┬─▶ selection ─▶ download ─▶ qBittorrent
 [[notion_list]]     look up books from a database   ─┘      ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
 ```
@@ -115,7 +113,7 @@ These go at the top of the file, before any section.
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
-| `import_interval` | `135` | Minutes between runs of each Goodreads and Notion list. Overridable per list. Also accepted as `goodreads_interval`. |
+| `import_interval` | `135` | Minutes between runs of each Notion list. Overridable per list. |
 | `ignore_torrents` | `[]` | MaM torrent ids that must never be selected, as strings. |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
@@ -153,14 +151,15 @@ Optional. Leave the section out to turn the integration off.
 
 | Setting | Default | Description |
 |---|---|---|
-| `url` | (required) | Base URL of your Audiobookshelf server. |
+| `url` | (required) | Base URL of your Audiobookshelf server. Also used for the links to Audiobookshelf on torrent pages, so use the address you open it at in a browser, such as `http://192.168.1.10:13378`, rather than a Docker service name. |
 | `token` | (required) | API token for Audiobookshelf. Treat it as a secret. |
 | `interval` | `10` | Minutes between runs of the matcher. |
 
 What it does:
 
 - The **matcher** looks for linked torrents that have no Audiobookshelf id yet, finds the Audiobookshelf
-  library whose folders contain the book's library path, and stores the matching item's id.
+  library whose folders contain the book's library path, and stores the matching item's id. Audiobookshelf
+  must therefore see the library at the same path as Fetchshelf.
 - After linking, and after a metadata refresh, updated metadata is pushed to matched items.
 - When a lesser format is retired, the old Audiobookshelf item is deleted.
 - The torrent pages link to the matched Audiobookshelf item.
@@ -203,7 +202,7 @@ tags = ["superseded"]
 
 ## The shared torrent filter
 
-`[[autograb]]`, `[[snatchlist]]`, `[[tag]]` and every `grab` block of a Goodreads or Notion list share one
+`[[autograb]]`, `[[snatchlist]]`, `[[tag]]` and every `grab` block of a Notion list share one
 set of optional filter fields. A torrent matches only if it satisfies **every** field that is set. A field
 that is not set imposes no restriction (except `categories`, which always has defaults).
 
@@ -346,35 +345,6 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |
 
-## `[[goodreads_list]]`
-
-Repeatable. Reads a Goodreads shelf and looks up each book on MaM.
-
-| Setting | Default | Description |
-|---|---|---|
-| `url` | (required) | The shelf's RSS feed URL. |
-| `name` | unset | Label for the list. |
-| `prefer_format` | unset | `"audio"` or `"ebook"`. When both formats of a book are found, the other one is marked not wanted. |
-| `grab` | (at least one required) | One or more [`grab` blocks](#grab-blocks). |
-| `search_interval` | `import_interval` | Minutes between runs. |
-| `unsat_buffer` | global | Overrides the global buffer for this list. |
-| `wedge_buffer` | global | Overrides the global buffer for this list. |
-| `dry_run` | `false` | Log only. |
-
-The list's identity is the Goodreads user id plus the shelf name, taken from the URL.
-
-How a run works, for each book on the shelf:
-
-1. Books that already have both formats found, or their preferred format found, are skipped.
-2. Your library is checked with fuzzy title and author matching. Formats you own count as existing.
-3. For each `grab` block in order, MaM is searched for the title and author, and that block's filter is
-   applied. For each format (audio, ebook), the first block that finds a hit wins.
-4. The best hit per format is chosen. If `prefer_format` is set and both formats were found, the other
-   one is dropped.
-5. The result is selected using the winning block's `cost`.
-
-Series information is read from titles such as `Title (Series, #3)`.
-
 ## `[[notion_list]]`
 
 Repeatable. Reads rows from a Notion data source and fetches the MaM torrents they point to.
@@ -397,19 +367,18 @@ rows and MaM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened
 
 ### `grab` blocks
 
-Used inside `[[goodreads_list]]` and `[[notion_list]]` as `[[goodreads_list.grab]]` and
-`[[notion_list.grab]]`.
+Used inside `[[notion_list]]` as `[[notion_list.grab]]`.
 
 A `grab` block is a [`cost`](#cost) plus the full [shared filter](#the-shared-torrent-filter). Blocks are
 tried in order and the **first matching block wins**, so put the more specific block first:
 
 ```toml
-[[goodreads_list.grab]]
+[[notion_list.grab]]
 cost = "all"             # small files: pay with ratio
 languages = ["English"]
 max_size = "15 MiB"
 
-[[goodreads_list.grab]]
+[[notion_list.grab]]
 cost = "wedge"           # everything else English: use a wedge
 languages = ["English"]
 ```
@@ -577,7 +546,7 @@ audio_types = ["m4b", "mp3"]
 wedge_over = "100 MiB"
 
 [audiobookshelf]
-url = "http://audiobookshelf:13378"
+url = "http://192.168.1.10:13378"
 token = "abs-api-token"
 
 [[qbittorrent]]

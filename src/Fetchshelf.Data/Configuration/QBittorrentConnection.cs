@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>One `[[qbittorrent]]` connection entry (Fetchshelf-spec.md §4.2).</summary>
+/// <summary>One `[[qbittorrent]]` connection entry.</summary>
 public sealed class QBittorrentConnection
 {
     public string Url { get; set; } = string.Empty;

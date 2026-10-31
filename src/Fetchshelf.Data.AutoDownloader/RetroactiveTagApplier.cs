@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Applies one `[[tag]]` rule to already-stored library torrents on demand, Fetchshelf-spec.md §10.5.
+/// Applies one `[[tag]]` rule to already-stored library torrents on demand.
 /// Distinct from grab-time tag resolution (<see cref="TagRuleResolver"/>), which runs inside
 /// <see cref="SelectionRunner"/> instead.
 /// </summary>

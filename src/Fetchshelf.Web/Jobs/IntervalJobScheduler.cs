@@ -4,8 +4,8 @@ using Microsoft.Extensions.Hosting;
 namespace Fetchshelf.Web.Jobs;
 
 /// <summary>
-/// Triggers a registered job on its configured interval (Fetchshelf-spec.md §4.1: "An interval of 0 means
-/// 'run only when triggered from the UI'"). On-demand triggering (the Jobs page's "Run now") calls
+/// Triggers a registered job on its configured interval. An interval of 0 means the job only runs when
+/// triggered from the UI. On-demand triggering (the Jobs page's "Run now") calls
 /// <see cref="IJobRegistry.TriggerAsync"/> directly and needs no part of this class.
 /// </summary>
 public sealed class IntervalJobScheduler(IJobRegistry jobRegistry, string jobName, TimeSpan interval) : BackgroundService

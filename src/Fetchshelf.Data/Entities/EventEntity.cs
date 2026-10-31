@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Entities;
 
-/// <summary>The five event payload shapes, Fetchshelf-spec.md §3.3.</summary>
+/// <summary>The five event payload shapes.</summary>
 public enum EventKind
 {
     Grabbed,
@@ -11,7 +11,7 @@ public enum EventKind
 }
 
 /// <summary>
-/// An immutable audit entry, Fetchshelf-spec.md §3.3. Modeled as one entity with a <see cref="Kind"/>
+/// An immutable audit entry. Modeled as one entity with a <see cref="Kind"/>
 /// discriminator and nullable per-kind payload fields ("five flat payload shapes with no polymorphic
 /// behavior"), rather than EF Core table-per-hierarchy inheritance.
 /// </summary>

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data;
 
-/// <summary>EF Core context for Fetchshelf's persistent store, Fetchshelf-spec.md §3.</summary>
+/// <summary>EF Core context for Fetchshelf's persistent store.</summary>
 public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> options) : DbContext(options)
 {
     public DbSet<TorrentEntity> Torrents => Set<TorrentEntity>();
@@ -15,10 +15,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
     public DbSet<ErroredTorrentEntity> ErroredTorrents => Set<ErroredTorrentEntity>();
 
     public DbSet<EventEntity> Events => Set<EventEntity>();
-
-    public DbSet<ListEntity> Lists => Set<ListEntity>();
-
-    public DbSet<ListItemEntity> ListItems => Set<ListItemEntity>();
 
     public DbSet<ConfigStoreEntry> ConfigStore => Set<ConfigStoreEntry>();
 
@@ -45,17 +41,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasIndex(e => e.TorrentId);
             entity.HasIndex(e => e.MamId);
-        });
-
-        modelBuilder.Entity<ListEntity>(entity =>
-        {
-            entity.HasKey(l => l.Id);
-        });
-
-        modelBuilder.Entity<ListItemEntity>(entity =>
-        {
-            entity.HasKey(i => new { i.ListId, i.Guid });
-            entity.HasIndex(i => i.ListId);
         });
 
         modelBuilder.Entity<ConfigStoreEntry>(entity =>

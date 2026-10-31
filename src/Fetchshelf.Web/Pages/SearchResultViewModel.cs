@@ -2,7 +2,7 @@ using Fetchshelf.Clients.Mam;
 
 namespace Fetchshelf.Web.Pages;
 
-/// <summary>Display model for one row on the Search page, Fetchshelf-spec.md §10.4.</summary>
+/// <summary>Display model for one row on the Search page.</summary>
 public sealed record SearchResultViewModel(
     long MamId, string Title, string AuthorsDisplay, long SizeBytes, string SizeDisplay, bool IsFree, bool IsPersonalFreeleech, bool IsVip,
     bool WedgePreHighlighted, MamResultStatus Status, string MediaTypeSlug, string MediaTypeLabel)
@@ -51,7 +51,7 @@ public sealed record SearchResultViewModel(
     /// "ebook"/"audiobook"/"comic"/"other", for the browser-side Ebooks/Audiobooks/Comics filter buttons on the
     /// Search page to match against (see the page's <c>applyMediaFilter</c> script). Mirrors
     /// <c>MamTorrentMapper</c>'s media-type fallback (<c>MediaTypeId</c>, else the old main category,
-    /// Fetchshelf-spec.md §12.1) rather than the record's raw main category alone, so newer
+    /// 1) rather than the record's raw main category alone, so newer
     /// mediatype-only records still classify correctly.
     /// </summary>
     private static string MediaTypeSlugOf(MamTorrentRecord record) => EffectiveMediaTypeId(record) switch
@@ -62,7 +62,7 @@ public sealed record SearchResultViewModel(
         _ => "other",
     };
 
-    /// <summary>Display name for the Media type column, Fetchshelf-spec.md §12.1; "Unknown" for ids it does not list.</summary>
+    /// <summary>Display name for the Media type column; "Unknown" for ids it does not list.</summary>
     private static string MediaTypeLabelOf(MamTorrentRecord record) => EffectiveMediaTypeId(record) switch
     {
         1 => "Audiobook",

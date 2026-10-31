@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Fields a free-text search term can match against, Fetchshelf-spec.md §5.1.</summary>
+/// <summary>Fields a free-text search term can match against.</summary>
 public enum MamSearchField
 {
     Author,

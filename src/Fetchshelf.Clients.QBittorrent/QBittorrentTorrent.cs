@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Fetchshelf.Clients.QBittorrent;
 
-/// <summary>A torrent as reported by qBittorrent's `torrents/info`, Fetchshelf-spec.md §5.2.</summary>
+/// <summary>A torrent as reported by qBittorrent's `torrents/info`.</summary>
 public sealed record QBittorrentTorrent
 {
     [JsonPropertyName("hash")]
@@ -31,6 +31,6 @@ public sealed record QBittorrentTorrent
         ? []
         : Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-    /// <summary>A torrent is finished when, and only when, its progress is 100% (Fetchshelf-spec.md §5.2).</summary>
+    /// <summary>A torrent is finished when, and only when, its progress is 100%.</summary>
     public bool IsFinished => Progress >= 1.0;
 }

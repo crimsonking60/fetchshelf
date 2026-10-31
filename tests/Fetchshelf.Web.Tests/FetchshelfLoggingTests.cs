@@ -88,6 +88,9 @@ public sealed class FetchshelfLoggingTests : IDisposable
     [InlineData("Microsoft.EntityFrameworkCore.Database.Command")]
     [InlineData("Microsoft.AspNetCore.Hosting.Diagnostics")]
     [InlineData("Microsoft.AspNetCore.Routing.EndpointMiddleware")]
+    [InlineData("System.Net.Http.HttpClient.mam.LogicalHandler")]
+    [InlineData("System.Net.Http.HttpClient.mam.ClientHandler")]
+    [InlineData("Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService")]
     public void Build_FrameworkSource_KeepsWarningsButDropsInformation(string sourceContext)
     {
         var output = CaptureStderr(null, logger =>

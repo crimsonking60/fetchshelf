@@ -3,7 +3,7 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>Display model for one row on the Torrents page, Fetchshelf-spec.md §10.2.</summary>
+/// <summary>Display model for one row on the Torrents page.</summary>
 public sealed record TorrentListItemViewModel(
     string Id,
     string Title,

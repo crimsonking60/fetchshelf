@@ -2,7 +2,7 @@ using Fetchshelf.Core.AutoDownloader;
 
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>Snatch-list kind for a `[[snatchlist]]` entry, Fetchshelf-spec.md §7.7.</summary>
+/// <summary>Snatch-list kind for a `[[snatchlist]]` entry.</summary>
 public enum SnatchlistType
 {
     Unsat,
@@ -14,7 +14,7 @@ public enum SnatchlistType
 }
 
 /// <summary>
-/// One `[[snatchlist]]` entry, Fetchshelf-spec.md §4.2, §7.7. `cost` is restricted to `metadata_only`/
+/// One `[[snatchlist]]` entry. `cost` is restricted to `metadata_only`/
 /// `metadata_only_add`; `languages` and the upload-date fields are not allowed (both enforced by
 /// `ConfigLoader`).
 /// </summary>

@@ -5,11 +5,15 @@
 }
 
 <h2>Torrents</h2>
-@await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, sort, or select several at once to clean, refresh, or remove them in bulk. Check qBittorrent asks the client for the current state of every tracked torrent and updates the Client status column.")
+@await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, sort by title, click a media type or language to show only those, or select several at once to clean, refresh, or remove them in bulk. Check qBittorrent asks the client for the current state of every tracked torrent and updates the Client status column.")
 
 <div class="toolbar-bar">
     <form method="get" class="toolbar">
         <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" />
+        @foreach (var (name, value) in (Model.Query with { Q = null }).ToRouteValues())
+        {
+            <input type="hidden" name="@name" value="@value" />
+        }
         <button type="submit">Search</button>
     </form>
 
@@ -31,6 +35,12 @@
 
 <form method="post" asp-page-handler="Bulk">
     @Html.AntiForgeryToken()
+    @* So the list comes back with the same search, filters, sort and page after a bulk action. *@
+    @foreach (var (name, value) in Model.Query.ToRouteValues())
+    {
+        <input type="hidden" name="@name" value="@value" />
+    }
+    <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
     <div class="results-wrap">
         <div id="torrent-list-body">
             @await Html.PartialAsync("_TorrentListPartial", Model)

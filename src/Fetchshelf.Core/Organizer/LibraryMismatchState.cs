@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>Library mismatch states for an already-linked torrent, Fetchshelf-spec.md §8.5.</summary>
+/// <summary>Library mismatch states for an already-linked torrent.</summary>
 public enum LibraryMismatchState
 {
     None,
@@ -9,7 +9,7 @@ public enum LibraryMismatchState
     NewPath,
 }
 
-/// <summary>Computes a linked torrent's library mismatch state, Fetchshelf-spec.md §8.5.</summary>
+/// <summary>Computes a linked torrent's library mismatch state.</summary>
 public static class LibraryMismatchCalculator
 {
     /// <summary>

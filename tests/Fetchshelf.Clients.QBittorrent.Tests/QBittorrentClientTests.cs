@@ -238,9 +238,10 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task AddTorrentAsync_StoppedFlagSet_PostsPausedTrue()
+    public async Task AddTorrentAsync_StoppedFlagSet_PostsPausedAndStoppedTrue()
     {
         string? capturedPaused = null;
+        string? capturedStopped = null;
         var client = CreateClient(request =>
         {
             if (request.RequestUri!.AbsolutePath == "/api/v2/auth/login")
@@ -253,9 +254,14 @@ public class QBittorrentClientTests
                 var multipart = (MultipartFormDataContent)request.Content!;
                 foreach (var part in multipart)
                 {
-                    if (part.Headers.ContentDisposition?.Name?.Trim('"') == "paused")
+                    switch (part.Headers.ContentDisposition?.Name?.Trim('"'))
                     {
-                        capturedPaused = part.ReadAsStringAsync().Result;
+                        case "paused":
+                            capturedPaused = part.ReadAsStringAsync().Result;
+                            break;
+                        case "stopped":
+                            capturedStopped = part.ReadAsStringAsync().Result;
+                            break;
                     }
                 }
 
@@ -268,6 +274,7 @@ public class QBittorrentClientTests
         await client.AddTorrentAsync(Encoding.UTF8.GetBytes("fake"), category: "", tags: [], addStopped: true);
 
         Assert.Equal("true", capturedPaused);
+        Assert.Equal("true", capturedStopped);
     }
 
     [Fact]

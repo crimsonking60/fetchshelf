@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Cleaning rules applied to every record built from MaM data, Fetchshelf-spec.md §6.4.</summary>
+/// <summary>Cleaning rules applied to every record built from MaM data.</summary>
 public static partial class MamMetadataCleaner
 {
     [GeneratedRegex(@"\(Digital\)\s*$|\(Light Novel\)\s*$", RegexOptions.IgnoreCase)]
@@ -18,13 +18,13 @@ public static partial class MamMetadataCleaner
     [GeneratedRegex(@"-\s*\d+\.epub\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex EpubSuffixNoisePattern();
 
-    /// <summary>Decodes HTML entities in a name or series string (§6.4).</summary>
+    /// <summary>Decodes HTML entities in a name or series string.</summary>
     public static string DecodeHtmlEntities(string text) => WebUtility.HtmlDecode(text);
 
     /// <summary>
     /// Normalizes casing for an author/narrator name: for each space-separated word longer than 3
     /// characters, an all-caps word is lower-cased after its first letter, and an all-lowercase word
-    /// gets its first letter capitalized (§6.4).
+    /// gets its first letter capitalized.
     /// </summary>
     public static string NormalizeNameCasing(string name)
     {
@@ -66,13 +66,13 @@ public static partial class MamMetadataCleaner
         return word;
     }
 
-    /// <summary>Strips a trailing "(Digital)" or "(Light Novel)" suffix from a series name (§6.4).</summary>
+    /// <summary>Strips a trailing "(Digital)" or "(Light Novel)" suffix from a series name.</summary>
     public static string StripSeriesSuffix(string seriesName) =>
         SeriesSuffixPattern().Replace(seriesName, "").TrimEnd();
 
     /// <summary>
     /// Reclassifies an Ebook-typed record as Audiobook when its legacy category belongs to the
-    /// audio category list (§6.4).
+    /// audio category list.
     /// </summary>
     public static MediaType ReclassifyMediaType(MediaType mediaType, LegacyCategory legacyCategory)
     {
@@ -87,7 +87,7 @@ public static partial class MamMetadataCleaner
     /// <summary>
     /// Strips a trailing " by &lt;Author&gt;" / " - &lt;Author&gt;" or leading "&lt;Author&gt; - "
     /// from the title, matching any of the record's authors, unless the record is a periodical with
-    /// exactly one author (§6.4).
+    /// exactly one author.
     /// </summary>
     public static string StripAuthorReference(string title, IReadOnlyList<string> authors, MediaType mediaType)
     {
@@ -121,7 +121,7 @@ public static partial class MamMetadataCleaner
         return title;
     }
 
-    /// <summary>Removes known noise patterns from a title and trims the result (§6.4).</summary>
+    /// <summary>Removes known noise patterns from a title and trims the result.</summary>
     public static string RemoveTitleNoise(string title)
     {
         var withoutSubtitleNoise = SubtitleNoisePattern().Replace(title, "");

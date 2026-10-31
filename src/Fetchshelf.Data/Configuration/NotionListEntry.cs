@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>One `[[notion_list]]` entry, Fetchshelf-spec.md §4.2, §7.8.</summary>
+/// <summary>One `[[notion_list]]` entry.</summary>
 public sealed class NotionListEntry
 {
     public string DataSource { get; set; } = string.Empty;

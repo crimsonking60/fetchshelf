@@ -2,7 +2,7 @@ namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
 /// Everything needed to recreate a `SelectedTorrentEntity` from a Grabber-stage error, so the
-/// Errors page's "restore the selection" action (Fetchshelf-spec.md §10.4) doesn't lose the original
+/// Errors page's "restore the selection" action doesn't lose the original
 /// cost/category/tags/grabber when `DownloadRunner` removes a selection it couldn't download.
 /// Serialized into `ErroredTorrentEntity.DisplayMetadataJson`.
 /// </summary>

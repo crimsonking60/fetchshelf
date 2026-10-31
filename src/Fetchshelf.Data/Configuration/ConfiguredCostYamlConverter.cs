@@ -5,7 +5,7 @@ using YamlDotNet.Serialization;
 
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>Reads a `cost` value, Fetchshelf-spec.md §7.4: `free`, `wedge`, `try_wedge`, `ratio` (alias `all`), `metadata_only`, `metadata_only_add`.</summary>
+/// <summary>Reads a `cost` value: `free`, `wedge`, `try_wedge`, `ratio` (alias `all`), `metadata_only`, `metadata_only_add`.</summary>
 public sealed class ConfiguredCostYamlConverter : IYamlTypeConverter
 {
     public bool Accepts(Type type) => type == typeof(ConfiguredCost);

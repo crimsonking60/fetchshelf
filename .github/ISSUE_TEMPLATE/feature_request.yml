@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a concrete change. For an idea you'd like feedback on first, start a discussion instead.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are for concrete, actionable work. If your idea is still open-ended, or you'd like to hear what others think first, start a discussion in [Ideas](https://github.com/crimsonking60/fetchshelf/discussions/categories/ideas) instead. When it turns into agreed work, it becomes an issue.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should Fetchshelf do? Include the settings or pages it would affect, if you know.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways to solve it, or how you work around it now.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and discussions, including closed ones.
+          required: true

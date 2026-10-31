@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.AutoDownloader;
 
-/// <summary>What happened to one candidate processed by <see cref="SelectionRunner"/>, Fetchshelf-spec.md §7.2.</summary>
+/// <summary>What happened to one candidate processed by <see cref="SelectionRunner"/>.</summary>
 public enum SelectionOutcome
 {
     Ignored,

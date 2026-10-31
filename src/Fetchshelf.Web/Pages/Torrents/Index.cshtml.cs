@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>The Torrents page, Fetchshelf-spec.md §10.2.</summary>
+/// <summary>The Torrents page.</summary>
 public class IndexModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker) : PageModel
@@ -37,6 +37,8 @@ public class IndexModel(
 
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = DefaultPageSize;
+
+    public TorrentListQuery Query => new(Q, Language, MediaType, Sort, Dir, PageSize);
 
     public IReadOnlyList<TorrentListItemViewModel> Torrents { get; private set; } = [];
 
@@ -120,7 +122,7 @@ public class IndexModel(
                 break;
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
     }
 
     private async Task<List<TorrentListItemViewModel>> LoadAsync()
@@ -129,7 +131,7 @@ public class IndexModel(
 
         if (!string.IsNullOrWhiteSpace(Q))
         {
-            // Fuzzy match over title/authors/series (§10.2): Title is indexed; Authors/Series live
+            // Fuzzy match over title/authors/series: Title is indexed; Authors/Series live
             // inside the serialized metadata blob, so a plain substring search covers them too.
             query = query.Where(t => t.Title.Contains(Q) || t.MetadataJson.Contains(Q));
         }

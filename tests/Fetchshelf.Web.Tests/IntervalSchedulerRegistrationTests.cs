@@ -8,12 +8,14 @@ public class IntervalSchedulerRegistrationTests
         link_interval = 10
         search_interval = 15
 
-        [[goodreads_list]]
-        url = "https://www.goodreads.com/review/list_rss/1?shelf=to-read"
-        name = "my-goodreads-list"
+        [[notion_list]]
+        data_source = "abc123"
+        token = "secret"
+        name = "my-notion-list"
+        mam_fields = ["MaM"]
         search_interval = 20
 
-        [[goodreads_list.grab]]
+        [[notion_list.grab]]
         cost = "free"
         """;
 
@@ -26,6 +28,6 @@ public class IntervalSchedulerRegistrationTests
 
         Assert.NotNull(fixture.JobRegistry.Get("Link")!.NextScheduledRun);
         Assert.NotNull(fixture.JobRegistry.Get("Download")!.NextScheduledRun);
-        Assert.NotNull(fixture.JobRegistry.Get("my-goodreads-list")!.NextScheduledRun);
+        Assert.NotNull(fixture.JobRegistry.Get("my-notion-list")!.NextScheduledRun);
     }
 }

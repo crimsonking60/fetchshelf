@@ -57,8 +57,7 @@ public sealed partial class MamClient(
 
     /// <summary>
     /// Reads account state (ratio, upload/download totals, wedges, unsat count/limit) from
-    /// `GET /jsonLoad.php?snatch_summary=true`, caching the result for about 60 seconds
-    /// (Fetchshelf-spec.md §5.1).
+    /// `GET /jsonLoad.php?snatch_summary=true`, caching the result for about 60 seconds.
     /// </summary>
     public async Task<MamAccountState> GetAccountStateAsync(CancellationToken cancellationToken = default)
     {
@@ -104,7 +103,7 @@ public sealed partial class MamClient(
         };
     }
 
-    /// <summary>Validates the active cookie against `GET /json/checkCookie.php` (Fetchshelf-spec.md §5.1).</summary>
+    /// <summary>Validates the active cookie against `GET /json/checkCookie.php`.</summary>
     private async Task<bool> CheckCookieAsync(CancellationToken cancellationToken)
     {
         using var response = await SendAsync(
@@ -115,7 +114,7 @@ public sealed partial class MamClient(
 
     /// <summary>
     /// Sends a request with the configured `mam_id` cookie attached. Any cookie MaM sets in the
-    /// response is ignored. Backs off on HTTP 429 and throws on HTTP 406 (Fetchshelf-spec.md §5.1).
+    /// response is ignored. Backs off on HTTP 429 and throws on HTTP 406.
     /// An HTTP 403 throws <see cref="MamForbiddenException"/> and, unless <paramref name="pauseOnForbidden"/> is
     /// false, pauses all further MaM calls for <see cref="ForbiddenPause"/>. Torrent downloads opt out of the pause,
     /// since one refused download does not show that the session itself is dead.

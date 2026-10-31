@@ -118,14 +118,16 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.False(settings.JobExplanations);
     }
 
-    [Fact]
-    public void Load_GoodreadsIntervalAlias_SetsImportInterval()
+    [Theory]
+    [InlineData("goodreads_interval = 42\n", "goodreads_interval")]
+    [InlineData("[[goodreads_list]]\nurl = \"https://www.goodreads.com/review/list_rss/1?shelf=to-read\"\n", "goodreads_list")]
+    public void Load_RemovedGoodreadsSettings_AreRejectedByName(string toml, string key)
     {
-        File.WriteAllText(ConfigPath, "mam_id = \"\"\ngoodreads_interval = 42\n");
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n" + toml);
 
-        var settings = ConfigLoader.Load(ConfigPath);
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
 
-        Assert.Equal(42, settings.ImportInterval);
+        Assert.Contains(key, exception.Message);
     }
 
     [Fact]

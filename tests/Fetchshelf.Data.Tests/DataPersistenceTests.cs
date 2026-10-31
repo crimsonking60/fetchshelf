@@ -42,12 +42,16 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events", "Lists", "ListItems", "ConfigStore",
+            "Events", "ConfigStore",
         ];
         foreach (var expected in expectedTables)
         {
             Assert.Contains(expected, tableNames);
         }
+
+        // The Goodreads list tables are dropped again by a later migration.
+        Assert.DoesNotContain("Lists", tableNames);
+        Assert.DoesNotContain("ListItems", tableNames);
     }
 
     [Fact]
@@ -117,22 +121,6 @@ public sealed class DataPersistenceTests : IDisposable
                 LinkerName = "main-library",
                 LibraryPath = "/library/Author/Title",
             });
-            context.Lists.Add(new ListEntity
-            {
-                Id = "goodreads:42:to-read",
-                Name = "To Read",
-                ListType = "goodreads",
-                CreatedAt = now,
-            });
-            context.ListItems.Add(new ListItemEntity
-            {
-                ListId = "goodreads:42:to-read",
-                Guid = "https://www.goodreads.com/review/show/1",
-                BookTitle = "Some Title",
-                AuthorsJson = "[]",
-                CoverUrl = string.Empty,
-                CreatedAt = now,
-            });
             context.ConfigStore.Add(new ConfigStoreEntry { Key = "mam_cookie", Value = "cookie-value" });
 
             context.SaveChanges();
@@ -145,8 +133,6 @@ public sealed class DataPersistenceTests : IDisposable
             Assert.Equal(torrentId, context.DuplicateTorrents.Single(d => d.MamId == 3).DuplicateOfTorrentId);
             Assert.Equal("boom", context.ErroredTorrents.Single(e => e.Key == torrentId).ErrorText);
             Assert.Equal("/library/Author/Title", context.Events.Single(e => e.TorrentId == torrentId).LibraryPath);
-            Assert.Equal("To Read", context.Lists.Single(l => l.Id == "goodreads:42:to-read").Name);
-            Assert.Equal("Some Title", context.ListItems.Single(i => i.ListId == "goodreads:42:to-read").BookTitle);
             Assert.Equal("cookie-value", context.ConfigStore.Single(c => c.Key == "mam_cookie").Value);
         }
     }

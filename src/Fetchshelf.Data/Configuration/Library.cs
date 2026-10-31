@@ -1,7 +1,7 @@
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>
-/// One `[[library]]` entry (Fetchshelf-spec.md §4.2, §8.1): maps finished torrents to an output folder.
+/// One `[[library]]` entry: maps finished torrents to an output folder.
 /// Exactly one of <see cref="Category"/> or <see cref="DownloadDir"/> must be set, never both.
 /// </summary>
 public sealed class Library

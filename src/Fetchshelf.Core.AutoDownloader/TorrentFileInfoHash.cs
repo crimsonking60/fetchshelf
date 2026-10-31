@@ -5,7 +5,7 @@ namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
 /// Computes a `.torrent` file's info-hash: the SHA1 of the raw bencoded bytes of its top-level
-/// `info` dictionary value, Fetchshelf-spec.md §7.3 ("Compute the info-hash"). No bencode/BitTorrent
+/// `info` dictionary value. No bencode/BitTorrent
 /// library is already a dependency of this solution, so this is a minimal from-scratch decoder -
 /// it only ever needs to locate the `info` value's byte span, never build a full object model.
 /// </summary>

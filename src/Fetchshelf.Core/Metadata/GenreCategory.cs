@@ -1,9 +1,9 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// Tracker genre categories (newer taxonomy), Fetchshelf-spec.md §12.4. Numeric ids match the tracker's
+/// Tracker genre categories (newer taxonomy). Numeric ids match the tracker's
 /// real category ids (confirmed against the original Rust implementation's reference data,
-/// `mlm_db::Category`), which include two entries beyond Fetchshelf-spec.md §12.4's list: "Sheet
+/// `mlm_db::Category`), which include two entries beyond's list: "Sheet
 /// Collection MP3" (48, between Sheet Collection and Sports) and "Occult / Metaphysical
 /// Practices"/"Slice of Life" (61/62).
 /// </summary>
@@ -73,7 +73,7 @@ public enum GenreCategory
     SliceOfLife = 62,
 }
 
-/// <summary>Display-name exceptions for genre categories, Fetchshelf-spec.md §12.4. Ids the tracker added after our list was written display as "Unknown Category (id: N)".</summary>
+/// <summary>Display-name exceptions for genre categories. Ids the tracker added after our list was written display as "Unknown Category (id: N)".</summary>
 public static class GenreCategoryDisplay
 {
     public static string DisplayName(GenreCategory category) => category switch

@@ -1,5 +1,7 @@
 # Fetchshelf contributors guide
 
+> **Work in progress.** This guide is incomplete and may change.
+
 This guide is for volunteers who want to help develop Fetchshelf. It covers getting the code, setting up a
 Linux development machine, building and testing, and the fork, branch, commit and pull request workflow on
 GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md) instead.
@@ -33,7 +35,6 @@ GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md)
 - [gh command reference](#gh-command-reference)
 - [Secrets and privacy](#secrets-and-privacy)
 - [License of contributions](#license-of-contributions)
-- [Open items for this guide](#open-items-for-this-guide)
 
 ## Ways to contribute
 
@@ -357,7 +358,6 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.Mam` | HTTP client for MyAnonamouse. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
-| `Fetchshelf.Clients.Goodreads` | Goodreads shelf (RSS) reading. |
 | `Fetchshelf.Clients.Notion` | Notion list reading. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
 | `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, list imports. |
@@ -545,7 +545,8 @@ gh pr ready
 
 To finish the pull request in the browser instead, add `--web`.
 
-A good description covers:
+A good description covers the following. The pull request template has a section for each, and the checklist
+from [Before you open one](#before-you-open-one):
 
 - **What and why:** the problem, and how the change solves it.
 - **Issue:** `Fixes #123` or `Refs #123`.
@@ -652,7 +653,9 @@ gh issue create --repo crimsonking60/fetchshelf --label bug \
   --body-file bug-report.md
 ```
 
-or open the form in your browser with `gh issue create --repo crimsonking60/fetchshelf --web`.
+or open the form in your browser with `gh issue create --repo crimsonking60/fetchshelf --web`. In the browser,
+the **Bug report** and **Feature request** forms ask for everything above; questions and ideas are sent to
+Discussions, and security problems to private vulnerability reporting.
 
 Labels in use:
 
@@ -685,8 +688,20 @@ concrete task:
 - design proposals for larger changes;
 - sharing setups and configurations that work well.
 
+Pick the category that fits: **Q&A** for questions, **Ideas** for feature ideas and design proposals, and
+**General** for everything else, such as setups worth sharing. **Announcements** is for maintainers, and
+**Polls** for asking the community to choose between options.
+
 When a discussion turns into agreed, concrete work, a maintainer converts it into an issue or opens one that
 links back to it.
+
+In short:
+
+| You have | Where it goes |
+| --- | --- |
+| A question or an idea | [Discussions](https://github.com/crimsonking60/fetchshelf/discussions) |
+| A bug or a concrete feature request | [Issues](#issues), with the matching form |
+| A security problem | The **Security** tab, privately; see [Security problems](#security-problems) |
 
 `gh` has no built-in command for discussions, so use the web page. To jump to it from the terminal:
 
@@ -699,7 +714,8 @@ then open the **Discussions** tab.
 ### Security problems
 
 Don't report security problems in public issues or discussions. Use the repository's **Security** tab and
-choose **Report a vulnerability**, so the report stays private until a fix is out.
+choose **Report a vulnerability**, so the report stays private until a fix is out. The
+[security policy](../SECURITY.md) says what to include and what happens next.
 
 ## gh command reference
 
@@ -732,8 +748,7 @@ requests, discussions, screenshots or logs:
 
 - `mam_id` (your MaM session);
 - qBittorrent usernames and passwords;
-- Audiobookshelf and Notion tokens;
-- private Goodreads feed URLs.
+- Audiobookshelf and Notion tokens.
 
 Replace them with placeholders such as `replace-with-your-mam-session-id` before you share a config. Also
 check logs and screenshots for private paths, usernames and library contents you'd rather not publish.
@@ -745,39 +760,3 @@ or rotate the token. Removing it from Git history afterwards does not make it sa
 
 Fetchshelf is released under the [MIT License](../LICENSE). By submitting a pull request, you agree that your
 contribution is released under the same license.
-
-## Open items for this guide
-
-Tick each item when it is done. "You" means decisions or facts only the project owner can supply. "Me" means
-work I can do on request.
-
-### Decisions
-
-- [ ] **You:** Make the repository public. It is private today, so volunteers can't fork it, open issues or
-  join discussions yet.
-- [ ] **You:** Enable Discussions and decide the categories (for example Q&A, Ideas, Show and tell,
-  Development), then update [Discussions](#discussions).
-- [ ] **You:** Enable private vulnerability reporting under the repository's security settings, which
-  [Security problems](#security-problems) relies on.
-- [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
-  `develop` into `main` with a merge commit. Setting it up is tracked in the
-  [maintainer guide](maintainer-guide.md#to-do).
-- [ ] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
-  Origin) or a contributor license agreement.
-- [ ] **You:** Decide whether to adopt a code of conduct, for example the Contributor Covenant.
-- [ ] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
-  from Code Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no
-  direct pushes. The [maintainer guide](maintainer-guide.md#to-do) has a proposal.
-
-### Work
-
-- [x] **Me:** Add a continuous integration workflow that runs `dotnet build`, `dotnet test` and
-  `dotnet format --verify-no-changes` on every pull request.
-- [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
-  checklist from [Before you open one](#before-you-open-one).
-- [x] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile is back to
-  the project template's default, with no machine-specific paths.
-- [x] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues
-  and pull requests.
-- [x] **Me:** Link this guide from `README.md`.
-- [x] **Me:** Add `.github/CODEOWNERS`.

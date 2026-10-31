@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Parses a series' comma-separated entry list, Fetchshelf-spec.md §6.3.</summary>
+/// <summary>Parses a series' comma-separated entry list.</summary>
 public static partial class SeriesParser
 {
     [GeneratedRegex(@"^\s*(\d*\.\d+|\d+)\s*$")]
@@ -18,7 +18,7 @@ public static partial class SeriesParser
     /// <summary>
     /// Parses <paramref name="entriesText"/> into a <see cref="Series"/>. If any entry cannot be
     /// parsed as a number, range, or part, the result has no entries and
-    /// <see cref="Series.HadParseWarning"/> set, rather than throwing (§6.3: "warn, don't fail").
+    /// <see cref="Series.HadParseWarning"/> set, rather than throwing.
     /// </summary>
     public static Series Parse(string name, string? entriesText)
     {

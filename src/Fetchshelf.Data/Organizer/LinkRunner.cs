@@ -12,8 +12,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.Organizer;
 
 /// <summary>
-/// Runs the link run (Fetchshelf-spec.md §8.2), linking (§8.3), library mismatch detection (§8.5), refresh
-/// (§8.8), and manual metadata override (§6.5).
+/// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
 /// </summary>
 public sealed class LinkRunner(
     FetchshelfDbContext dbContext,
@@ -68,7 +67,7 @@ public sealed class LinkRunner(
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrent.Hash, cancellationToken);
 
         // The library match needs only the client's category, save path and tags, so it comes before
-        // the MaM lookup (Fetchshelf-spec.md §8.2 steps 3-4): a torrent no library claims must cost no request.
+        // the MaM lookup: a torrent no library claims must cost no request.
         var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
         var libraryRules = libraries.Select(ToMatchRule).ToList();
         var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(libraryRules, torrent.Category, mappedSavePath, torrent.TagList);
@@ -96,7 +95,7 @@ public sealed class LinkRunner(
         {
             if (matchedIndex is null)
             {
-                return; // no library matches; ignored (§8.2 step 3)
+                return; // no library matches; ignored
             }
 
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
@@ -212,7 +211,7 @@ public sealed class LinkRunner(
         existing.LibraryMismatchState = state == LibraryMismatchState.None ? null : state.ToString();
     }
 
-    /// <summary>Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event (§8.8).</summary>
+    /// <summary>Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event.</summary>
     public async Task<bool> RefreshAsync(string torrentId, bool relink, CancellationToken cancellationToken = default)
     {
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
@@ -282,7 +281,7 @@ public sealed class LinkRunner(
         return true;
     }
 
-    /// <summary>Applies a manual metadata override (§6.5), creating the Torrent record if it does not yet exist.</summary>
+    /// <summary>Applies a manual metadata override, creating the Torrent record if it does not yet exist.</summary>
     public async Task SetManualMetadataAsync(string torrentId, TorrentMetadata metadata, CancellationToken cancellationToken = default)
     {
         var manualMetadata = metadata with { MetadataSource = MetadataSource.Manual };
