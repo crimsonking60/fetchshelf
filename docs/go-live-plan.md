@@ -38,9 +38,9 @@ These decisions change what is published, so make them before anything becomes p
   checklist from [Before you open one](contributors-guide.md#before-you-open-one). Done: issue forms in
   `.github/ISSUE_TEMPLATE/`, with blank issues turned off and links to Discussions and private vulnerability
   reporting, and `.github/pull_request_template.md`.
-- [ ] **You:** Open **Issues → New issue** once and check that both forms and the two links appear. GitHub
+- [x] **You:** Open **Issues → New issue** once and check that both forms and the two links appear. GitHub
   shows an error there if a form doesn't validate. The vulnerability reporting link only works once the
-  repository is public.
+  repository is public. Checked on 2026-10-31.
 - [ ] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
   vulnerability**; it should say what `CONTRIBUTING.md` already says about reporting security problems.
 - [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
