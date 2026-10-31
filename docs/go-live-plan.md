@@ -73,7 +73,7 @@ These decisions change what is published, so make them before anything becomes p
   **Restore branch** on that pull request.
 
 - [x] **You:** Description and topics, shown on the repository page and in search. Done on 2026-10-31: the
-  description is "Self-hosted bridge between MyAnonamouse, qBittorrent and Audiobookshelf". Decided: no
+  description is "Self-hosted bridge between MaM, qBittorrent and Audiobookshelf". Decided: no
   topics.
 
 - [x] **You:** Turn off **Projects** (unused). Done on 2026-10-31.

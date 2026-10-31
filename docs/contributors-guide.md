@@ -63,7 +63,7 @@ here is my plan" saves you from building something that doesn't fit.
 | qBittorrent | A version MaM currently allows, with the Web UI enabled | Optional. Needed to try downloading and linking end to end. `qbittorrent-nox` (no GUI) is enough. MaM only allows certain client versions and changes the list over time, so check MaM's current list of approved clients before you install one. A distribution's package can be too new or too old. |
 | SQLite command-line tool | 3.x | Optional. Handy for looking inside the database. |
 | Docker with Compose | Current | Optional. Needed only to test the container image. |
-| A MyAnonamouse account | | Optional. Needed only for features that talk to MaM. Much of the web UI, and all tests, work without one. |
+| A MaM account | | Optional. Needed only for features that talk to MaM. Much of the web UI, and all tests, work without one. |
 
 Windows and macOS are not supported as development platforms at the moment. WSL2 with a Linux distribution
 works the same as the Linux instructions below.
@@ -355,7 +355,7 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | --- | --- |
 | `Fetchshelf.Core` | Pure domain logic with no I/O: metadata normalization and duplicate detection, series parsing, folder naming, library matching, the in-memory job registry. |
 | `Fetchshelf.Core.AutoDownloader` | Pure auto-downloader logic: cost policy, selection budget and ranking, torrent filter matching, tag rules, format preferences. |
-| `Fetchshelf.Clients.Mam` | HTTP client for MyAnonamouse. |
+| `Fetchshelf.Clients.Mam` | HTTP client for MaM. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
 | `Fetchshelf.Clients.Notion` | Notion list reading. |
@@ -415,7 +415,7 @@ Never edit a migration that is already on `develop` or `main`. Add a new one ins
 
 ## Working with MaM responsibly
 
-MyAnonamouse is a private tracker with rules about automated access, and Fetchshelf runs against real
+MaM is a private tracker with rules about automated access, and Fetchshelf runs against real
 people's accounts. When you work on anything that talks to MaM:
 
 - Keep the existing politeness: rate-limit back-off, pauses between search pages, and one MaM job at a time.

@@ -35,10 +35,9 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 
 ## What is Fetchshelf?
 
-Fetchshelf is a self-hosted service that connects the private book tracker
-[MyAnonamouse](https://www.myanonamouse.net) (MaM) with the BitTorrent client qBittorrent and, optionally,
-[Audiobookshelf](https://www.audiobookshelf.org). It runs in the background, has a web interface for
-looking at what it is doing, and is configured with a single text file.
+Fetchshelf is a self-hosted service that connects MaM with the BitTorrent client qBittorrent and,
+optionally, [Audiobookshelf](https://www.audiobookshelf.org). It runs in the background, has a web interface
+for looking at what it is doing, and is configured with a single text file.
 
 It has two halves that you can use together or separately:
 

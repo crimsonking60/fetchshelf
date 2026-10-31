@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Typed client for the MyAnonamouse (MaM) HTTP API.
+/// Typed client for the MaM HTTP API.
 /// </summary>
 public sealed partial class MamClient(
     HttpClient httpClient,
