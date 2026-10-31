@@ -16,6 +16,8 @@
 <h2>Config</h2>
 @await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber or apply a tag rule directly from here.")
 
+<p id="app-version">Fetchshelf version <strong>@Fetchshelf.Web.AppVersion.Current</strong></p>
+
 <section>
     <h3>Settings</h3>
     <table>

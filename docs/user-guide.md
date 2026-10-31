@@ -783,9 +783,9 @@ longer need and use **Remove selected**.
 
 ### Config
 
-Shows the settings in effect. For each autograb there is a **Run now** button that runs that block once.
-For each `[[tag]]` rule there is **Apply to existing torrents**, which sets the rule's category and tags on
-torrents you already have.
+Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
+runs that block once. For each `[[tag]]` rule there is **Apply to existing torrents**, which sets the rule's
+category and tags on torrents you already have.
 
 ## Background jobs
 
@@ -1013,7 +1013,8 @@ the first. Linking works against all of them.
 ## Getting help
 
 - **Questions and bug reports:** `<support channel to be decided>`.
-- **Include in a report:** the Fetchshelf version, what you expected and what happened, the relevant lines
-  from the log, and your configuration with the secrets removed.
+- **Include in a report:** the Fetchshelf version (shown on the **Config** page, and in the first line of the
+  log, `Fetchshelf 2026.10.2 starting`), what you expected and what happened, the relevant lines from the
+  log, and your configuration with the secrets removed.
 - **Remove secrets first:** replace `mam_id`, passwords and tokens with placeholders such as
   `replace-with-your-token`. Also check log lines for private paths and names.

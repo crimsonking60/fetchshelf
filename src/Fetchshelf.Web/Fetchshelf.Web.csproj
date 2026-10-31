@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Image builds pass Version (releases) or InformationalVersion (develop images); anything else is a local build. -->
+    <InformationalVersion Condition="'$(Version)' == '' And '$(InformationalVersion)' == ''">dev</InformationalVersion>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Fetchshelf.Core\Fetchshelf.Core.csproj" />
     <ProjectReference Include="..\Fetchshelf.Core.AutoDownloader\Fetchshelf.Core.AutoDownloader.csproj" />

@@ -25,6 +25,7 @@ if (args.Contains(HealthProbe.Argument))
 Log.Logger = FetchshelfLogging
     .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
+Log.Information("Fetchshelf {Version} starting", AppVersion.Current);
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(dispose: true);
