@@ -356,6 +356,10 @@ Release when `develop` has something worth shipping and:
    A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
    bypassing the branch rules, after making sure `develop` builds.
 
+   The repository deletes a pull request's head branch after merging, except for protected branches and the
+   default branch. If `main` is not protected yet, merging this pull request deletes it: press **Restore
+   branch** on the merged pull request straight away.
+
    Pull `develop` before you continue working on it: `git switch develop && git pull`.
 
 2. **Pull the new image** on your own setup and check that it starts and upgrades your database.

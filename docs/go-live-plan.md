@@ -65,13 +65,12 @@ These decisions change what is published, so make them before anything becomes p
 
 ### Repository settings that already work while private
 
-- [ ] **You:** Merge settings: allow squash merging and merge commits, turn off rebase merging, and delete head
-  branches automatically after merging (protected branches such as `develop` are never deleted):
-
-  ```sh
-  gh repo edit crimsonking60/fetchshelf \
-    --enable-squash-merge --enable-merge-commit --enable-rebase-merge=false --delete-branch-on-merge
-  ```
+- [x] **You:** Merge settings: allow squash merging and merge commits, turn off rebase merging, and delete head
+  branches automatically after merging (protected branches such as `develop` are never deleted). Done on
+  2026-10-31. GitHub never deletes the default branch (`develop`), but `main` is not protected until the
+  rulesets in [Branch protection](#branch-protection) exist. Until then, merging a pull request from `main`
+  into `develop` (the release workflow's fallback for its back-merge) deletes `main`; restore it with
+  **Restore branch** on that pull request.
 
 - [x] **You:** Description and topics, shown on the repository page and in search. Done on 2026-10-31: the
   description is "Self-hosted bridge between MyAnonamouse, qBittorrent and Audiobookshelf". Decided: no
