@@ -327,7 +327,7 @@ automatically on first start.
 | --- | --- | --- |
 | `FETCHSHELF_CONFIG_FILE` | Path to `config.toml`. | A platform-specific config path, else `config.toml` in the working directory. |
 | `FETCHSHELF_DATA_FILE` | Path to the SQLite database. | `data.db` in the working directory. |
-| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`. | `Debug` |
+| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`. | `Information` |
 | `FETCHSHELF_LOG_DIR` | If set, also write daily log files to this folder. | Console only. |
 
 Logs go to the terminal (stderr). Database queries and per-request framework messages are only logged at

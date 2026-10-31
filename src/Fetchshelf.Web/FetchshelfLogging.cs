@@ -7,13 +7,13 @@ namespace Fetchshelf.Web;
 /// <summary>
 /// Builds Fetchshelf's Serilog configuration: console output goes to stderr only;
 /// a daily-rotating file sink is added when a log directory is configured; the minimum level
-/// defaults to Debug and can be overridden by an environment-sourced level name.
+/// defaults to Information and can be overridden by an environment-sourced level name.
 /// </summary>
 public static class FetchshelfLogging
 {
     public static LoggerConfiguration Build(string? logDirEnv, string? logLevelEnv)
     {
-        var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Debug);
+        var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
         if (!string.IsNullOrWhiteSpace(logLevelEnv) && Enum.TryParse<LogEventLevel>(logLevelEnv, ignoreCase: true, out var level))
         {
             levelSwitch.MinimumLevel = level;

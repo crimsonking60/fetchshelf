@@ -143,7 +143,7 @@ Other environment variables you can set:
 |---|---|---|
 | `FETCHSHELF_CONFIG_FILE` | `/config/config.toml` | Where the configuration file is. |
 | `FETCHSHELF_DATA_FILE` | `/data/data.db` | Where the database is. |
-| `FETCHSHELF_LOG` | `debug` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. |
+| `FETCHSHELF_LOG` | `information` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. |
 | `FETCHSHELF_LOG_DIR` | empty | If set, also write daily rotating log files to this folder. Logs always go to the container output. |
 | `FETCHSHELF_CONF_<setting>` | | Override a configuration setting. See [Configuring Fetchshelf](#configuring-fetchshelf). |
 
@@ -902,9 +902,10 @@ fix the ownership of the copied files.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
-  reply. At the default level, `debug`, they also contain the title of every search result an autograb
-  rejects. Error messages can name hosts, folders and files on your system. Read a log before you share it
-  and remove anything you consider private. Set `FETCHSHELF_LOG=information` to leave out the titles.
+  reply. At the `debug` level they also contain the titles of the torrents each job looks at, including
+  every search result an autograb rejects; the default level, `information`, leaves those out, but a
+  `dry_run` block logs its titles at any level. Error messages can name hosts, folders and files on your
+  system. Read a log before you share it and remove anything you consider private.
 
 ## Troubleshooting
 
@@ -982,8 +983,8 @@ Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `inte
 
 ### Getting more detail
 
-Set `FETCHSHELF_LOG=debug` (the default) and, for a file you can attach to a report, set
-`FETCHSHELF_LOG_DIR=/data/logs` and restart.
+Set `FETCHSHELF_LOG=debug` (the default is `information`) and, for a file you can attach to a report, set
+`FETCHSHELF_LOG_DIR=/data/logs` and restart. Set it back afterwards: `debug` logs a lot more.
 
 ## Frequently asked questions
 

@@ -365,7 +365,7 @@ Repeatable. Reads rows from a Notion data source and fetches the MAM torrents th
 
 Every row of the data source is read, however many there are. MAM ids that are already known are skipped.
 The others are fetched from MAM and passed through the first matching `grab` block. Each run logs how many
-rows and MAM links it read and, at the default `debug` log level, what happened to each torrent.
+rows and MAM links it read; set `FETCHSHELF_LOG=debug` to also see what happened to each torrent.
 
 ### `grab` blocks
 

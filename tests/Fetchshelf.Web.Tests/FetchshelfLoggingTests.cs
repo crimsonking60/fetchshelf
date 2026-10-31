@@ -39,7 +39,7 @@ public sealed class FetchshelfLoggingTests : IDisposable
     }
 
     [Fact]
-    public void Build_UnsetLevel_DefaultsToDebug()
+    public void Build_UnsetLevel_DefaultsToInformation()
     {
         var originalError = Console.Error;
         try
@@ -48,9 +48,15 @@ public sealed class FetchshelfLoggingTests : IDisposable
             Console.SetError(writer);
             var logger = FetchshelfLogging.Build(null, null).CreateLogger();
 
-            LogAndFlush(logger, l => l.Write(LogEventLevel.Debug, "debug-message"));
+            LogAndFlush(logger, l =>
+            {
+                l.Write(LogEventLevel.Debug, "debug-message");
+                l.Write(LogEventLevel.Information, "information-message");
+            });
 
-            Assert.Contains("debug-message", writer.ToString());
+            var output = writer.ToString();
+            Assert.DoesNotContain("debug-message", output);
+            Assert.Contains("information-message", output);
         }
         finally
         {
@@ -179,7 +185,7 @@ public sealed class FetchshelfLoggingTests : IDisposable
     }
 
     [Fact]
-    public void Build_UnparseableLevel_FallsBackToDebugRatherThanThrowing()
+    public void Build_UnparseableLevel_FallsBackToInformationRatherThanThrowing()
     {
         var originalError = Console.Error;
         try
@@ -188,9 +194,15 @@ public sealed class FetchshelfLoggingTests : IDisposable
             Console.SetError(writer);
             var logger = FetchshelfLogging.Build(null, "not-a-real-level").CreateLogger();
 
-            LogAndFlush(logger, l => l.Write(LogEventLevel.Debug, "debug-message"));
+            LogAndFlush(logger, l =>
+            {
+                l.Write(LogEventLevel.Debug, "debug-message");
+                l.Write(LogEventLevel.Information, "information-message");
+            });
 
-            Assert.Contains("debug-message", writer.ToString());
+            var output = writer.ToString();
+            Assert.DoesNotContain("debug-message", output);
+            Assert.Contains("information-message", output);
         }
         finally
         {
