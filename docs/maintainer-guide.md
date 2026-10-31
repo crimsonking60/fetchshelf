@@ -25,7 +25,6 @@ workflow in the [contributors guide](contributors-guide.md).
 - [Hotfixes](#hotfixes)
 - [When a release goes wrong](#when-a-release-goes-wrong)
 - [Maintainer gh command reference](#maintainer-gh-command-reference)
-- [To do](#to-do)
 
 ## Branches
 
@@ -421,39 +420,3 @@ release.
 | Watch the release workflow | `gh run list --workflow release.yml`, `gh run watch` |
 | See a release | `gh release view v2026.10.0` |
 | Close an issue as not planned | `gh issue close 123 --reason "not planned" --comment "..."` |
-
-## To do
-
-Tick each item when it is done. "You" means decisions or facts only the project owner can supply. "Me" means
-work I can do on request.
-
-### Decisions
-
-- [x] **You:** Version format: `YYYY.MM.N` with a two-digit month, and a `v` prefix on Git tags.
-- [x] **You:** Container images are published to the GitHub Container Registry,
-  `ghcr.io/crimsonking60/fetchshelf`.
-- [x] **You:** Publish an image of every push to `develop`, tagged `develop`.
-- [x] **You:** Releases are announced in `README.md`, linking to `RELEASES.md`, which lists every release with
-  its changes, newest first.
-- [x] **You:** No other maintainers for now. When there are, add them to `.github/CODEOWNERS`.
-
-### Repository setup
-
-- [x] **You:** Create the `develop` branch from `main` and make it the default branch.
-- [ ] **You:** Going public: protect `develop` and `main`, set the merge settings, make the container package
-  public and turn on the security settings. All of it is in the [go-live plan](go-live-plan.md), including
-  ready-made commands for the branch protection rulesets.
-
-### Work
-
-- [x] **Me:** Add `RELEASES.md` and a "Latest release" section to `README.md`.
-- [x] **Me:** Add the check workflow (`.github/workflows/checks.yml`): build, test and format check on every
-  pull request into `develop` or `main`, and before anything is published.
-- [x] **Me:** Add the release workflow (`.github/workflows/release.yml`).
-- [x] **Me:** Add the develop image workflow (`.github/workflows/develop-image.yml`).
-- [x] **Me:** Pass the version into the image build (the `FETCHSHELF_VERSION` build argument in the
-  `Dockerfile`; `develop` images get `develop-<commit>`).
-- [x] **Me:** Automate the back-merge of `main` into `develop` at the end of the release workflow.
-- [x] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
-  `ghcr.io/crimsonking60/fetchshelf`, and fill in "Updating Fetchshelf" with the tags and a link to
-  `RELEASES.md`, once the first release exists.

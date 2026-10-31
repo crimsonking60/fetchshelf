@@ -32,9 +32,10 @@ These decisions change what is published, so make them before anything becomes p
 
 ### Content
 
-- [ ] **Me:** Move the internal to-do lists out of the published guides: "Open items for this guide" in the
+- [x] **Me:** Move the internal to-do lists out of the published guides: "Open items for this guide" in the
   user guide, "Open items" in the contributors guide and "To do" in the maintainer guide. They address "You"
-  and "Me" and are notes for us, not for readers. Unresolved items move into this plan or into GitHub issues.
+  and "Me" and are notes for us, not for readers. Done on 2026-10-31: the sections are removed, and every
+  item still open was already in this plan.
 - [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
   checklist from [Before you open one](contributors-guide.md#before-you-open-one).
 - [ ] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a

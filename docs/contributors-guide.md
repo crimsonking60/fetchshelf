@@ -35,7 +35,6 @@ GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md)
 - [gh command reference](#gh-command-reference)
 - [Secrets and privacy](#secrets-and-privacy)
 - [License of contributions](#license-of-contributions)
-- [Open items for this guide](#open-items-for-this-guide)
 
 ## Ways to contribute
 
@@ -745,35 +744,3 @@ or rotate the token. Removing it from Git history afterwards does not make it sa
 
 Fetchshelf is released under the [MIT License](../LICENSE). By submitting a pull request, you agree that your
 contribution is released under the same license.
-
-## Open items for this guide
-
-Tick each item when it is done. "You" means decisions or facts only the project owner can supply. "Me" means
-work I can do on request.
-
-### Decisions
-
-- [ ] **You:** Make the repository public. It is private today, so volunteers can't fork it, open issues or
-  join discussions yet. Everything that goes with it, including Discussions, private vulnerability
-  reporting, branch protection and issue templates, is in the
-  [go-live plan](go-live-plan.md).
-- [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
-  `develop` into `main` with a merge commit. Setting it up is in the [go-live plan](go-live-plan.md).
-- [x] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
-  Origin) or a contributor license agreement. Decided: neither for now. Contributions are made under the
-  project's MIT license; a DCO check can be added later if the project grows.
-- [x] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
-  from Code Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no
-  direct pushes. Decided: a pull request and the check on both, code-owner review on `develop`, with admin
-  bypass; see the [go-live plan](go-live-plan.md#branch-protection).
-
-### Work
-
-- [x] **Me:** Add a continuous integration workflow that runs `dotnet build`, `dotnet test` and
-  `dotnet format --verify-no-changes` on every pull request.
-- [x] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile is back to
-  the project template's default, with no machine-specific paths.
-- [x] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues
-  and pull requests.
-- [x] **Me:** Link this guide from `README.md`.
-- [x] **Me:** Add `.github/CODEOWNERS`.
