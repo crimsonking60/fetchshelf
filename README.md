@@ -33,7 +33,7 @@ This project is under active, incremental development.
 
 ## Latest release
 
-**2026.10.2** (2026-10-29). See [RELEASES.md](RELEASES.md#2026102---2026-10-29) for what changed, and for
+**2026.10.3** (2026-10-31). See [RELEASES.md](RELEASES.md#2026103---2026-10-31) for what changed, and for
 every earlier release.
 
 ## Contributing
