@@ -12,7 +12,7 @@ public class IntervalSchedulerRegistrationTests
         data_source = "abc123"
         token = "secret"
         name = "my-notion-list"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
         search_interval = 20
 
         [[notion_list.grab]]

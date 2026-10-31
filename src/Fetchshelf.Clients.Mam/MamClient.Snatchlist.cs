@@ -7,7 +7,7 @@ public sealed partial class MamClient
     /// <summary>
     /// Reads one page of a snatch list from `GET {CdnBaseUrl}/json/loadUserDetailsTorrents.php`,
     /// served from a separate CDN host (confirmed against the original Rust
-    /// implementation's `mlm_mam::api::MaM::snatchlist`). `page` is 0-based; keep `cacheTimestamp`
+    /// implementation's `mlm_mam::api::MAM::snatchlist`). `page` is 0-based; keep `cacheTimestamp`
     /// constant across a single multi-page listing.
     /// </summary>
     public async Task<IReadOnlyList<MamSnatchlistRow>> GetSnatchListAsync(

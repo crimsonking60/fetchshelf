@@ -94,7 +94,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         Assert.Equal(0, created);
         Assert.Empty(context.Torrents);
         var messages = logger.Messages(LogLevel.Information);
-        Assert.Contains(messages, m => m.Contains("MaM torrent 1 \"The Way of Kings\" would be recorded as owned"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 1 \"The Way of Kings\" would be recorded as owned"));
         Assert.Contains(messages, m => m.Contains("read 1 snatch list rows, 1 would have been recorded as owned (dry run)"));
     }
 }

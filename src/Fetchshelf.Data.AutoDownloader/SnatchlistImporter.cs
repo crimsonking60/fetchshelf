@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Imports a `[[snatchlist]]` entry: pages the user's MaM snatch list and creates/updates
+/// Imports a `[[snatchlist]]` entry: pages the user's MAM snatch list and creates/updates
 /// metadata-only Torrent records so those torrents count as owned for duplicate detection.
 /// </summary>
 public sealed class SnatchlistImporter(
@@ -79,7 +79,7 @@ public sealed class SnatchlistImporter(
         var metadata = await mamClient.LookupAsync(row.MamId, cancellationToken);
         if (metadata is null)
         {
-            _logger.Log(detailLevel, "Snatchlist {Name}: MaM torrent {MamId} was not found on MaM, skipped", name, row.MamId);
+            _logger.Log(detailLevel, "Snatchlist {Name}: MAM torrent {MamId} was not found on MAM, skipped", name, row.MamId);
             return false;
         }
 
@@ -93,7 +93,7 @@ public sealed class SnatchlistImporter(
         };
         if (!TorrentFilterMatcher.Matches(filter, candidate))
         {
-            _logger.Log(detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" does not pass the filter, skipped", name, row.MamId, metadata.Title);
+            _logger.Log(detailLevel, "Snatchlist {Name}: MAM torrent {MamId} \"{Title}\" does not pass the filter, skipped", name, row.MamId, metadata.Title);
             return false;
         }
 
@@ -101,7 +101,7 @@ public sealed class SnatchlistImporter(
         if (existing is not null)
         {
             _logger.Log(
-                detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" is already known, {Action}",
+                detailLevel, "Snatchlist {Name}: MAM torrent {MamId} \"{Title}\" is already known, {Action}",
                 name, row.MamId, metadata.Title, dryRun ? "its metadata would be refreshed" : "metadata refreshed");
             if (dryRun)
             {
@@ -115,7 +115,7 @@ public sealed class SnatchlistImporter(
         }
 
         _logger.Log(
-            detailLevel, "Snatchlist {Name}: MaM torrent {MamId} \"{Title}\" {Action}",
+            detailLevel, "Snatchlist {Name}: MAM torrent {MamId} \"{Title}\" {Action}",
             name, row.MamId, metadata.Title, dryRun ? "would be recorded as owned" : "recorded as owned");
         if (dryRun)
         {

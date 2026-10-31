@@ -1,7 +1,7 @@
 # Fetchshelf example 5 of 6: reading lists and Audiobookshelf
 #
-# Instead of searching, you keep a list of the torrents you want (a Notion database with links to MaM)
-# and Fetchshelf looks each one up on MaM. Audiobookshelf is connected so linked books show up there and
+# Instead of searching, you keep a list of the torrents you want (a Notion database with links to MAM)
+# and Fetchshelf looks each one up on MAM. Audiobookshelf is connected so linked books show up there and
 # are kept up to date.
 #
 # Reference for every setting: docs/configuration.md (see "[[notion_list]]", "grab blocks" and
@@ -15,7 +15,7 @@ min_ratio = 2
 unsat_buffer = 10
 wedge_buffer = 3
 
-# Minutes between runs of each list. Lists are slow on purpose: they look up every linked torrent on MaM.
+# Minutes between runs of each list. Lists are slow on purpose: they look up every linked torrent on MAM.
 import_interval = 180
 
 audio_types = ["m4b", "m4a", "mp3"]
@@ -30,13 +30,13 @@ password = "replace-with-your-qbittorrent-admin-password"
 "/downloads" = "/data/torrents"
 
 # --- Notion ------------------------------------------------------------------------------------------
-# A Notion database whose rows contain links to MaM torrents. The trailing number of each link is taken
-# as the MaM torrent id. Ids already known to Fetchshelf are skipped.
+# A Notion database whose rows contain links to MAM torrents. The trailing number of each link is taken
+# as the MAM torrent id. Ids already known to Fetchshelf are skipped.
 [[notion_list]]
 name = "Notion wishlist"
 data_source = "00000000-0000-0000-0000-000000000000" # the data source id
 token = "replace-with-your-notion-integration-token"
-mam_fields = ["Audiobook link", "Ebook link"]        # names of the URL properties that hold MaM links
+mam_fields = ["Audiobook link", "Ebook link"]        # names of the URL properties that hold MAM links
 # A list can set its own timing and buffers, overriding the global ones.
 search_interval = 120
 unsat_buffer = 15
@@ -64,7 +64,7 @@ languages = ["English"]
 name = "Notion favourites"
 data_source = "11111111-1111-1111-1111-111111111111"
 token = "replace-with-your-notion-integration-token"
-mam_fields = ["MaM link"]
+mam_fields = ["MAM link"]
 dry_run = true
 
 [[notion_list.grab]]

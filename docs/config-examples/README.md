@@ -29,7 +29,7 @@ points back to it.
 ## Things to know
 
 - Each example builds on the one before it, so you can follow them in order.
-- The files contain placeholder credentials. Fetchshelf starts with them, but nothing can reach MaM,
+- The files contain placeholder credentials. Fetchshelf starts with them, but nothing can reach MAM,
   qBittorrent or Audiobookshelf until you fill in real values. Never commit your real `config.toml`.
 - Example 6 sets many options that overlap on purpose, so each one can be shown. It is not a sensible
   config to run as it is.

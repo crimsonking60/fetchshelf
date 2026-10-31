@@ -47,7 +47,7 @@ public partial class ErrorsIndexPageTests
 
         Assert.Contains("Download", html);
         Assert.Contains("stale", html);
-        Assert.Contains("MaM id 1", html);
+        Assert.Contains("MAM id 1", html);
     }
 
     [Fact]

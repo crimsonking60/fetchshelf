@@ -9,7 +9,7 @@ namespace Fetchshelf.Data.Configuration;
 /// </summary>
 public sealed class FetchshelfSettings
 {
-    /// <summary>MaM session id (cookie value). Required for background jobs to run.</summary>
+    /// <summary>MAM session id (cookie value). Required for background jobs to run.</summary>
     public string MamId { get; set; } = string.Empty;
 
     public string WebHost { get; set; } = "0.0.0.0";

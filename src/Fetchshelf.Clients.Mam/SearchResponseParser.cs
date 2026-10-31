@@ -22,7 +22,7 @@ internal static class SearchResponseParser
                 return new MamSearchResult { PerPage = 0, Start = 0, Total = 0, Found = 0, Data = [] };
             }
 
-            throw new InvalidOperationException($"MaM search failed: {errorMessage}");
+            throw new InvalidOperationException($"MAM search failed: {errorMessage}");
         }
 
         var data = new List<MamTorrentRecord>();
@@ -220,7 +220,7 @@ internal static class SearchResponseParser
         }, []);
 
     /// <summary>
-    /// Some MaM fields are JSON-encoded as a string containing JSON rather than a nested object/array
+    /// Some MAM fields are JSON-encoded as a string containing JSON rather than a nested object/array
     /// directly (confirmed against the reference implementation's `json_or_default`/`serde_nested_json`
     /// usage). Falls back to <paramref name="fallback"/> on any shape the parser doesn't recognize.
     /// </summary>

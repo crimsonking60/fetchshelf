@@ -81,7 +81,7 @@ public sealed class AutograbberRunner(
                 }
                 catch (UnrecognizedReferenceDataException ex)
                 {
-                    _logger.Log(detailLevel, "Autograb {Name}: MaM torrent {MamId} could not be read ({Reason}), skipped", name, record.MamId, ex.Message);
+                    _logger.Log(detailLevel, "Autograb {Name}: MAM torrent {MamId} could not be read ({Reason}), skipped", name, record.MamId, ex.Message);
                     continue;
                 }
 
@@ -96,7 +96,7 @@ public sealed class AutograbberRunner(
 
                 if (!TorrentFilterMatcher.Matches(filter, candidate))
                 {
-                    _logger.LogDebug("Autograb {Name}: MaM torrent {MamId} \"{Title}\" does not pass the filter", name, record.MamId, metadata.Title);
+                    _logger.LogDebug("Autograb {Name}: MAM torrent {MamId} \"{Title}\" does not pass the filter", name, record.MamId, metadata.Title);
                     continue;
                 }
 
@@ -104,7 +104,7 @@ public sealed class AutograbberRunner(
                     record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name, unsatBuffer, wedgeBuffer,
                     dryRun: entry.DryRun, cancellationToken: cancellationToken);
                 _logger.Log(
-                    detailLevel, "Autograb {Name}: MaM torrent {MamId} \"{Title}\": {Outcome}",
+                    detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",
                     name, record.MamId, metadata.Title, outcome.Describe(entry.DryRun));
 
                 if (outcome == SelectionOutcome.Selected)

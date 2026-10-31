@@ -55,7 +55,7 @@ public sealed class NotionListImporterTests : IDisposable
             {
                 "id": "row-{{index}}",
                 "properties": {
-                    "MaM": { "id": "prop-{{index}}", "type": "url", "url": "https://www.myanonamouse.net/t/{{mamId}}" }
+                    "MAM": { "id": "prop-{{index}}", "type": "url", "url": "https://www.myanonamouse.net/t/{{mamId}}" }
                 }
             }
             """);
@@ -117,7 +117,7 @@ public sealed class NotionListImporterTests : IDisposable
         DataSource = "data-source-1",
         Token = "secret-token",
         Name = "Want to read",
-        MamFields = ["MaM"],
+        MamFields = ["MAM"],
         Grab = grab.Length == 0 ? [new GrabEntry { Cost = ConfiguredCost.Free }] : [.. grab],
     };
 
@@ -213,8 +213,8 @@ public sealed class NotionListImporterTests : IDisposable
         // what matters here is that the second page's id was read and reached selection at all.
         Assert.Equal(2, harness.SearchRequestPaths.Count);
         var details = harness.Logger.Messages(LogLevel.Debug);
-        Assert.Contains(details, m => m.Contains("MaM torrent 1 \"Mistborn\", grab block 1 (cost Ratio): selected"));
-        Assert.Contains(details, m => m.Contains("MaM torrent 2 \"Mistborn\", grab block 1 (cost Ratio): duplicate of an equal or better selected torrent"));
+        Assert.Contains(details, m => m.Contains("MAM torrent 1 \"Mistborn\", grab block 1 (cost Ratio): selected"));
+        Assert.Contains(details, m => m.Contains("MAM torrent 2 \"Mistborn\", grab block 1 (cost Ratio): duplicate of an equal or better selected torrent"));
     }
 
     [Fact]
@@ -229,8 +229,8 @@ public sealed class NotionListImporterTests : IDisposable
         Assert.Equal(0, selectedCount);
         Assert.Empty(harness.Context.SelectedTorrents);
         var messages = harness.Logger.Messages(LogLevel.Information);
-        Assert.Contains(messages, m => m.Contains("read 1 rows with 1 MaM links") && m.Contains("dry run"));
-        Assert.Contains(messages, m => m.Contains("MaM torrent 5 \"Mistborn\", grab block 2 (cost Ratio): would be selected"));
+        Assert.Contains(messages, m => m.Contains("read 1 rows with 1 MAM links") && m.Contains("dry run"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 5 \"Mistborn\", grab block 2 (cost Ratio): would be selected"));
         Assert.Contains(messages, m => m.Contains("1 torrents would have been selected"));
     }
 
@@ -254,8 +254,8 @@ public sealed class NotionListImporterTests : IDisposable
         await harness.Importer.RunAsync(entry, globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
 
         var messages = harness.Logger.Messages(LogLevel.Information);
-        Assert.Contains(messages, m => m.Contains("MaM torrent 9 \"Mistborn\" matches no grab block"));
-        Assert.Contains(messages, m => m.Contains("MaM torrent 42 is already known"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 9 \"Mistborn\" matches no grab block"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 42 is already known"));
         Assert.Contains(messages, m => m.Contains("0 torrents would have been selected"));
     }
 
@@ -266,7 +266,7 @@ public sealed class NotionListImporterTests : IDisposable
 
         await harness.Importer.RunAsync(Entry(new GrabEntry { Cost = ConfiguredCost.Ratio }), globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
 
-        Assert.Contains(harness.Logger.Messages(LogLevel.Debug), m => m.Contains("MaM torrent 1 \"Mistborn\", grab block 1 (cost Ratio): selected"));
-        Assert.DoesNotContain(harness.Logger.Messages(LogLevel.Information), m => m.Contains("MaM torrent 1"));
+        Assert.Contains(harness.Logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 1 \"Mistborn\", grab block 1 (cost Ratio): selected"));
+        Assert.DoesNotContain(harness.Logger.Messages(LogLevel.Information), m => m.Contains("MAM torrent 1"));
     }
 }

@@ -285,7 +285,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);
             }
-        }, "Searches MaM for new matches and queues them for download.");
+        }, "Searches MAM for new matches and queues them for download.");
     }
 
     for (var i = 0; i < settings.Snatchlist.Count; i++)
@@ -297,7 +297,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
             await importer.RunAsync(entry, ct);
-        }, "Imports your MaM snatchlist so those torrents count as owned.");
+        }, "Imports your MAM snatchlist so those torrents count as owned.");
     }
 
     for (var i = 0; i < settings.NotionList.Count; i++)

@@ -20,7 +20,7 @@ public sealed class NotionListConfigTests : IDisposable
             data_source = "abc123"
             token = "secret_token"
             name = "Want to read"
-            mam_fields = ["MaM"]
+            mam_fields = ["MAM"]
 
             [[notion_list.grab]]
             cost = "free"
@@ -31,7 +31,7 @@ public sealed class NotionListConfigTests : IDisposable
         Assert.Equal("abc123", entry.DataSource);
         Assert.Equal("secret_token", entry.Token);
         Assert.Equal("Want to read", entry.Name);
-        Assert.Equal(["MaM"], entry.MamFields);
+        Assert.Equal(["MAM"], entry.MamFields);
         Assert.Single(entry.Grab);
     }
 
@@ -42,7 +42,7 @@ public sealed class NotionListConfigTests : IDisposable
         [[notion_list]]
         token = "secret_token"
         name = "Want to read"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
 
         [[notion_list.grab]]
         cost = "free"
@@ -53,7 +53,7 @@ public sealed class NotionListConfigTests : IDisposable
         [[notion_list]]
         data_source = "abc123"
         name = "Want to read"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
 
         [[notion_list.grab]]
         cost = "free"
@@ -64,7 +64,7 @@ public sealed class NotionListConfigTests : IDisposable
         [[notion_list]]
         data_source = "abc123"
         token = "secret_token"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
 
         [[notion_list.grab]]
         cost = "free"
@@ -108,7 +108,7 @@ public sealed class NotionListConfigTests : IDisposable
             data_source = "abc123"
             token = "secret_token"
             name = "Want to read"
-            mam_fields = ["MaM"]
+            mam_fields = ["MAM"]
             """);
 
         var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
@@ -126,7 +126,7 @@ public sealed class NotionListConfigTests : IDisposable
             data_source = "abc123"
             token = "secret_token"
             name = "Want to read"
-            mam_fields = ["MaM"]
+            mam_fields = ["MAM"]
             not_a_real_field = 1
 
             [[notion_list.grab]]

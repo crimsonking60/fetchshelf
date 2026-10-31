@@ -1,6 +1,6 @@
 # Fetchshelf example 4 of 6: targeted searches
 #
-# Autograbs are not limited to bookmarks. This example watches MaM for new content by author, mines the
+# Autograbs are not limited to bookmarks. This example watches MAM for new content by author, mines the
 # freeleech list, keeps an eye on one uploader, and imports your snatch lists so books you already own
 # are never downloaded twice.
 #
@@ -22,14 +22,14 @@ username = "admin"
 password = "replace-with-your-qbittorrent-admin-password"
 
 # --- Searching by text ------------------------------------------------------------------------------
-# type = "new" (also spelled "torrents") searches ALL torrents on MaM, newest first. The name refers to
+# type = "new" (also spelled "torrents") searches ALL torrents on MAM, newest first. The name refers to
 # the default ordering, not to a separate set of "new" torrents. 'type' decides which pool of torrents
 # is searched, 'sort_by' decides their order within it.
 [[autograb]]
 name = "New Terry Pratchett ebooks"
 type = "new"
 cost = "all"                  # pay with ratio; the default "free" would only take freeleech
-query = '"Terry Pratchett"'   # MaM search syntax: quotes match the exact phrase
+query = '"Terry Pratchett"'   # MAM search syntax: quotes match the exact phrase
 search_in = ["author"]        # match the query against authors only, not descriptions or titles
 media_type = ["Ebook"]
 languages = ["English"]
@@ -57,7 +57,7 @@ search_interval = 0
 dry_run = true
 
 # --- Searching the freeleech list --------------------------------------------------------------------
-# Everything on MaM's global freeleech list that matches the filters. Good for seeding up ratio.
+# Everything on MAM's global freeleech list that matches the filters. Good for seeding up ratio.
 # Several filters combine: a torrent must satisfy every field that is set.
 [[autograb]]
 name = "Popular freeleech audiobooks"
@@ -77,15 +77,15 @@ unsat_buffer = 20            # this block keeps more slots free than the global 
 wedge_buffer = 0
 
 # --- Other pools -------------------------------------------------------------------------------------
-# One uploader's torrents, by MaM user id. 'exclude_uploader' does the opposite for a name list.
+# One uploader's torrents, by MAM user id. 'exclude_uploader' does the opposite for a name list.
 [[autograb]]
 name = "Favourite uploader"
 type = { uploader = 12345 }
 cost = "free"
 uploaded_after = "2026-01-01"
 
-# Your own uploads, kept as metadata only so they count as owned. mark_removed also asks MaM about
-# torrents it has stored that have vanished from the results, and marks them removed from MaM.
+# Your own uploads, kept as metadata only so they count as owned. mark_removed also asks MAM about
+# torrents it has stored that have vanished from the results, and marks them removed from MAM.
 [[autograb]]
 name = "My uploads"
 type = "mine"

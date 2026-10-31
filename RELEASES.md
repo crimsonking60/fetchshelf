@@ -33,7 +33,7 @@ whether Fetchshelf is healthy.
 - The version is shown on the **Config** page and in the first log line, for bug reports.
 - The **Jobs** page lists the kinds of job you haven't configured.
 - **Selected** page: change the cost of a queued torrent to `Ratio`, `TryWedge` or `UseWedge`.
-- Torrent page: change the torrent's category and tags in qBittorrent, and a link to the torrent on MaM.
+- Torrent page: change the torrent's category and tags in qBittorrent, and a link to the torrent on MAM.
 - **Torrents** page: click a media type to show only that kind. The filters in use are listed above the
   table, each with a link to remove it.
 - The log shows when each job starts and finishes, and why a job failed. Failures were only shown on the
@@ -41,7 +41,7 @@ whether Fetchshelf is healthy.
 
 ### Fixed
 
-- MaM download links contain a personal download key, and they were written to the log. They aren't any
+- MAM download links contain a personal download key, and they were written to the log. They aren't any
   more, and neither is the address of every other web request Fetchshelf makes. Logs from earlier versions
   can contain these links, so don't share them unedited.
 - `add_torrents_stopped = true` works with qBittorrent 5. Torrents were added started.
@@ -126,6 +126,6 @@ development, so expect rough edges.
   every page hang during Link runs.
 - Musicology torrents are linked using `music_types` and Radio torrents using `radio_types`, so, for
   example, a Musicology torrent of flac files is no longer refused.
-- An autograb's `search_in` is now passed on to the MaM search instead of being ignored.
-- MaM failures on the Search page are shown as plain messages with a Try again button.
+- An autograb's `search_in` is now passed on to the MAM search instead of being ignored.
+- MAM failures on the Search page are shown as plain messages with a Try again button.
 - The Jobs page columns no longer shift every time the page refreshes.

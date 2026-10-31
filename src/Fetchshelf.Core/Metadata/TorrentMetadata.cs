@@ -53,7 +53,7 @@ public sealed record TorrentMetadata
 
     /// <summary>
     /// Not one of the shared metadata fields; added for `metadata.json`. Absent until a
-    /// metadata source (MaM lookup, or a future manual-edit extension) populates it.
+    /// metadata source (MAM lookup, or a future manual-edit extension) populates it.
     /// </summary>
     public string? Description { get; init; }
 

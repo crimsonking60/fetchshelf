@@ -67,7 +67,7 @@ public sealed class LinkRunner(
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrent.Hash, cancellationToken);
 
         // The library match needs only the client's category, save path and tags, so it comes before
-        // the MaM lookup: a torrent no library claims must cost no request.
+        // the MAM lookup: a torrent no library claims must cost no request.
         var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
         var libraryRules = libraries.Select(ToMatchRule).ToList();
         var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(libraryRules, torrent.Category, mappedSavePath, torrent.TagList);
@@ -101,7 +101,7 @@ public sealed class LinkRunner(
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
             if (looked is null)
             {
-                await RecordLinkerErrorAsync(torrent, "MaM has no torrent with this info-hash.", cancellationToken);
+                await RecordLinkerErrorAsync(torrent, "MAM has no torrent with this info-hash.", cancellationToken);
                 return;
             }
 

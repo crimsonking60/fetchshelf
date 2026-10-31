@@ -141,7 +141,7 @@ public partial class IndexPageTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("id=\"search-error\"", html);
-        Assert.Contains("MaM did not answer within 30 seconds", html);
+        Assert.Contains("MAM did not answer within 30 seconds", html);
         Assert.Contains("Try again", html);
     }
 
@@ -182,7 +182,7 @@ public partial class IndexPageTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful responses
         Assert.Contains("class=\"notice error\"", body);
-        Assert.Contains("Download failed: MaM did not answer within 30 seconds", body);
+        Assert.Contains("Download failed: MAM did not answer within 30 seconds", body);
         Assert.DoesNotContain("<template>", body);
     }
 
@@ -195,7 +195,7 @@ public partial class IndexPageTests
 
         var landingPage = await (await PostDownloadAsync(client, token, fromHtmx: false)).Content.ReadAsStringAsync();
 
-        Assert.Contains("Download failed: MaM did not answer within 30 seconds", landingPage);
+        Assert.Contains("Download failed: MAM did not answer within 30 seconds", landingPage);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public partial class IndexPageTests
 
         var html = await client.GetStringAsync("/?handler=Results&Q=kings");
 
-        Assert.Contains("Test sent a real MaM request", html);
+        Assert.Contains("Test sent a real MAM request", html);
     }
 
     [Fact]
@@ -257,7 +257,7 @@ public partial class IndexPageTests
         var shell = await client.GetStringAsync("/");
         var results = await client.GetStringAsync("/?handler=Results");
 
-        Assert.Contains("Newest on MaM", shell);
+        Assert.Contains("Newest on MAM", shell);
         Assert.Contains("The Way of Kings", results);
     }
 
@@ -386,7 +386,7 @@ public partial class IndexPageTests
     public async Task Get_Search_NeverSendsMainCategoryFilterToMam()
     {
         // The Ebooks/Audiobooks "Show" filter is applied browser-side against each row's
-        // data-media-type attribute, not via a MaM-side main_cat query, so every media type is
+        // data-media-type attribute, not via a MAM-side main_cat query, so every media type is
         // always fetched regardless of which button the page shows as selected.
         string? capturedBody = null;
         using var fixture = new FetchshelfWebAppFixture(mamHandler: CapturingMamHandler(SearchResponseJson(large: false), body => capturedBody = body));

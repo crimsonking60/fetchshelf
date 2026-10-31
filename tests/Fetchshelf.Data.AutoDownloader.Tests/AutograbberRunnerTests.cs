@@ -143,8 +143,8 @@ public sealed class AutograbberRunnerTests : IDisposable
         Assert.Empty(context.SelectedTorrents);
         var messages = logger.Messages(LogLevel.Information);
         Assert.Contains(messages, m => m.Contains("Autograb Bookmarks: dry run"));
-        Assert.Contains(messages, m => m.Contains("MaM torrent 1 \"High Seeders\": would be selected"));
-        Assert.Contains(messages, m => m.Contains("MaM torrent 2 \"Low Seeders\": would be selected"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 1 \"High Seeders\": would be selected"));
+        Assert.Contains(messages, m => m.Contains("MAM torrent 2 \"Low Seeders\": would be selected"));
         Assert.Contains(messages, m => m.Contains("2 search results, 2 would have been selected (dry run)"));
     }
 
@@ -162,7 +162,7 @@ public sealed class AutograbberRunnerTests : IDisposable
 
         Assert.Equal(1, selectedCount);
         Assert.Contains(logger.Messages(LogLevel.Information), m => m.Contains("2 search results, 1 selected"));
-        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MaM torrent 1 \"High Seeders\": selected"));
-        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MaM torrent 2 \"Low Seeders\" does not pass the filter"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 1 \"High Seeders\": selected"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 2 \"Low Seeders\" does not pass the filter"));
     }
 }

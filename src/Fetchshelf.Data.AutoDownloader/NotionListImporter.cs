@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Imports a `[[notion_list]]` entry: queries the configured Notion data source, reads a MaM id from
+/// Imports a `[[notion_list]]` entry: queries the configured Notion data source, reads a MAM id from
 /// each row's configured URL properties, and feeds newly-seen torrents through the existing selection
 /// pipeline.8 "Notion list". Stateless - no persisted `List`/`ListItem` rows, keyed
 /// off the existing Torrents table to skip ids already known.
@@ -54,7 +54,7 @@ public sealed class NotionListImporter(
         var rows = await notionClient.QueryAllRowsAsync(entry.DataSource, entry.Token, cancellationToken);
         var mamIds = rows.SelectMany(row => NotionMamIdExtractor.ExtractMamIds(row, entry.MamFields)).ToList();
         _logger.LogInformation(
-            "Notion list {ListName}: read {RowCount} rows with {LinkCount} MaM links{DryRun}",
+            "Notion list {ListName}: read {RowCount} rows with {LinkCount} MAM links{DryRun}",
             entry.Name, rows.Count, mamIds.Count, entry.DryRun ? " (dry run: nothing will be selected)" : string.Empty);
 
         var grabFilters = entry.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
@@ -72,7 +72,7 @@ public sealed class NotionListImporter(
             var alreadyKnown = await dbContext.Torrents.AnyAsync(t => t.MamId == mamId, cancellationToken);
             if (alreadyKnown)
             {
-                _logger.Log(detailLevel, "Notion list {ListName}: MaM torrent {MamId} is already known, skipped", entry.Name, mamId);
+                _logger.Log(detailLevel, "Notion list {ListName}: MAM torrent {MamId} is already known, skipped", entry.Name, mamId);
                 continue;
             }
 
@@ -106,7 +106,7 @@ public sealed class NotionListImporter(
         var record = searchResult.Data.FirstOrDefault();
         if (record is null)
         {
-            _logger.Log(detailLevel, "Notion list {ListName}: MaM torrent {MamId} was not found on MaM, skipped", entry.Name, mamId);
+            _logger.Log(detailLevel, "Notion list {ListName}: MAM torrent {MamId} was not found on MAM, skipped", entry.Name, mamId);
             return ProcessOutcome.Skipped;
         }
 
@@ -117,7 +117,7 @@ public sealed class NotionListImporter(
         }
         catch (UnrecognizedReferenceDataException ex)
         {
-            _logger.Log(detailLevel, "Notion list {ListName}: MaM torrent {MamId} could not be read ({Reason}), skipped", entry.Name, mamId, ex.Message);
+            _logger.Log(detailLevel, "Notion list {ListName}: MAM torrent {MamId} could not be read ({Reason}), skipped", entry.Name, mamId, ex.Message);
             return ProcessOutcome.Skipped;
         }
 
@@ -141,14 +141,14 @@ public sealed class NotionListImporter(
                 record, metadata, ignoreTorrents, entry.Grab[i].Cost, autogrebCategory: null, grabberName: entry.Name,
                 unsatBuffer, wedgeBuffer, dryRun: entry.DryRun, cancellationToken: cancellationToken);
             _logger.Log(
-                detailLevel, "Notion list {ListName}: MaM torrent {MamId} \"{Title}\", grab block {BlockNumber} (cost {Cost}): {Outcome}",
+                detailLevel, "Notion list {ListName}: MAM torrent {MamId} \"{Title}\", grab block {BlockNumber} (cost {Cost}): {Outcome}",
                 entry.Name, mamId, metadata.Title, i + 1, entry.Grab[i].Cost, outcome.Describe(entry.DryRun));
             return outcome != SelectionOutcome.Selected ? ProcessOutcome.Skipped
                 : entry.DryRun ? ProcessOutcome.WouldSelect
                 : ProcessOutcome.Selected;
         }
 
-        _logger.Log(detailLevel, "Notion list {ListName}: MaM torrent {MamId} \"{Title}\" matches no grab block, skipped", entry.Name, mamId, metadata.Title);
+        _logger.Log(detailLevel, "Notion list {ListName}: MAM torrent {MamId} \"{Title}\" matches no grab block, skipped", entry.Name, mamId, metadata.Title);
         return ProcessOutcome.Skipped;
     }
 

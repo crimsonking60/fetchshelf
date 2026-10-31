@@ -5,7 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Fetchshelf.Web;
 
 /// <summary>
-/// Healthy when the database can be opened. Deliberately the only check: MaM, qBittorrent and Audiobookshelf being
+/// Healthy when the database can be opened. Deliberately the only check: MAM, qBittorrent and Audiobookshelf being
 /// down is reported by the jobs, and must not mark Fetchshelf itself as unhealthy.
 /// </summary>
 public sealed class DatabaseHealthCheck(IDbContextFactory<FetchshelfDbContext> dbContextFactory) : IHealthCheck

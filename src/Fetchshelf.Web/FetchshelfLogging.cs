@@ -28,7 +28,7 @@ public static class FetchshelfLogging
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", frameworkLevel)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Migrations", AtLeast(levelSwitch.MinimumLevel, LogEventLevel.Information))
             .MinimumLevel.Override("Microsoft.AspNetCore", frameworkLevel)
-            // HttpClient logs each request's URL path, and MaM download paths contain the personal download hash.
+            // HttpClient logs each request's URL path, and MAM download paths contain the personal download hash.
             .MinimumLevel.Override("System.Net.Http", frameworkLevel)
             // The container health check calls /health every 30 seconds; its debug lines would bury everything else.
             .MinimumLevel.Override("Microsoft.Extensions.Diagnostics.HealthChecks", frameworkLevel)

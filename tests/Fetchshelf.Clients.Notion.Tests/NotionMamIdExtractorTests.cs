@@ -10,10 +10,10 @@ public class NotionMamIdExtractorTests
     {
         var row = BuildRow(new Dictionary<string, NotionProperty>
         {
-            ["MaM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/123456" },
+            ["MAM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/123456" },
         });
 
-        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MaM"]);
+        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MAM"]);
 
         Assert.Equal([123456L], ids);
     }
@@ -23,10 +23,10 @@ public class NotionMamIdExtractorTests
     {
         var row = BuildRow(new Dictionary<string, NotionProperty>
         {
-            ["MaM"] = new NotionTitleProperty(),
+            ["MAM"] = new NotionTitleProperty(),
         });
 
-        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MaM"]);
+        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MAM"]);
 
         Assert.Empty(ids);
     }
@@ -36,10 +36,10 @@ public class NotionMamIdExtractorTests
     {
         var row = BuildRow(new Dictionary<string, NotionProperty>
         {
-            ["MaM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/not-a-number" },
+            ["MAM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/not-a-number" },
         });
 
-        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MaM"]);
+        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MAM"]);
 
         Assert.Empty(ids);
     }
@@ -49,7 +49,7 @@ public class NotionMamIdExtractorTests
     {
         var row = BuildRow(new Dictionary<string, NotionProperty>());
 
-        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MaM"]);
+        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MAM"]);
 
         Assert.Empty(ids);
     }
@@ -59,11 +59,11 @@ public class NotionMamIdExtractorTests
     {
         var row = BuildRow(new Dictionary<string, NotionProperty>
         {
-            ["MaM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/111" },
+            ["MAM"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/111" },
             ["Alt"] = new NotionUrlProperty { Url = "https://www.myanonamouse.net/t/222" },
         });
 
-        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MaM", "Alt"]);
+        var ids = NotionMamIdExtractor.ExtractMamIds(row, ["MAM", "Alt"]);
 
         Assert.Equal([111L, 222L], ids);
     }

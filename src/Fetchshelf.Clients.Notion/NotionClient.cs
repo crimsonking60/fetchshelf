@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Fetchshelf.Clients.Notion;
 
 /// <summary>
-/// Typed client for querying a Notion data source. Unlike the MaM/Audiobookshelf
+/// Typed client for querying a Notion data source. Unlike the MAM/Audiobookshelf
 /// clients, the bearer token is per-`[[notion_list]]` config entry rather than a single app-wide
 /// credential, so it is passed per call rather than set once on the <see cref="HttpClient"/>.
 /// </summary>

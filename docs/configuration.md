@@ -62,10 +62,10 @@ to `6-everything.toml`, which uses every option.
 
 Fetchshelf has two halves that can be used independently.
 
-**Auto-downloader** — finds torrents on MaM and adds them to qBittorrent:
+**Auto-downloader** — finds torrents on MAM and adds them to qBittorrent:
 
 ```
-[[autograb]]        search MaM on a schedule        ─┬─▶ selection ─▶ download ─▶ qBittorrent
+[[autograb]]        search MAM on a schedule        ─┬─▶ selection ─▶ download ─▶ qBittorrent
 [[notion_list]]     look up books from a database   ─┘      ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
 ```
@@ -103,7 +103,7 @@ These go at the top of the file, before any section.
 
 | Setting | Default | Description |
 |---|---|---|
-| `mam_id` | (required) | MaM session id: the cookie value created under your MaM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
+| `mam_id` | (required) | MAM session id: the cookie value created under your MAM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
@@ -114,7 +114,7 @@ These go at the top of the file, before any section.
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `import_interval` | `135` | Minutes between runs of each Notion list. Overridable per list. |
-| `ignore_torrents` | `[]` | MaM torrent ids that must never be selected, as strings. |
+| `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
@@ -232,7 +232,7 @@ max_authors = 3
 
 How the filter is applied:
 
-- Where possible the filter is translated into MaM search parameters so MaM narrows the results, and the
+- Where possible the filter is translated into MAM search parameters so MAM narrows the results, and the
   **full filter is then applied again locally** to every result. The local check is what counts.
 - Because `categories` defaults to "audio and ebook, nothing else", a block without `categories` never
   matches Musicology or Radio. To include them, set `categories = { musicology = true }` or the
@@ -241,12 +241,12 @@ How the filter is applied:
   wants ebooks.
 - Several `flags` may be set at once, so one block can both require and forbid flags.
 - A `[[tag]]` rule can also be applied to torrents you already have, from the Config page. In that case
-  fields that need live data (uploader, seeders, leechers, snatched counts) are looked up from MaM
+  fields that need live data (uploader, seeders, leechers, snatched counts) are looked up from MAM
   for each torrent.
 
 ## `[[autograb]]`
 
-Repeatable. An autograb is a scheduled MaM search. Each run searches, filters the results, selects what
+Repeatable. An autograb is a scheduled MAM search. Each run searches, filters the results, selects what
 qualifies within your budget, and hands the selection to the downloader.
 
 Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
@@ -255,8 +255,8 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 |---|---|---|
 | `type` | (required) | What to search. See below. |
 | `cost` | `"free"` | How to pay for matching torrents. See [cost](#cost). |
-| `query` | unset | Free-text search. Supports MaM's search syntax. |
-| `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MaM's default fields. |
+| `query` | unset | Free-text search. Supports MAM's search syntax. |
+| `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MAM's default fields. |
 | `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
 | `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run. A page is 100 results (fixed). Paging stops early when a page comes back short. |
 | `search_interval` | global `search_interval` | Minutes between runs. `0` means UI-triggered only. |
@@ -264,18 +264,18 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `wedge_buffer` | global | Overrides the global buffer for this block. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
-| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MaM directly, and mark the torrent as removed from MaM if it is gone. |
+| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
 ### `type`
 
 | Value | Searches |
 |---|---|
-| `"bookmarks"` | Your MaM bookmarks. |
+| `"bookmarks"` | Your MAM bookmarks. |
 | `"freeleech"` | The global freeleech list. |
-| `"new"` (alias `"torrents"`) | **All torrents** on MaM. The name refers to the default newest-first ordering, not to a separate set of torrents. |
+| `"new"` (alias `"torrents"`) | **All torrents** on MAM. The name refers to the default newest-first ordering, not to a separate set of torrents. |
 | `"mine"` | Your own uploads. |
-| `{ uploader = 12345 }` | One uploader's torrents, by MaM user id. |
+| `{ uploader = 12345 }` | One uploader's torrents, by MAM user id. |
 
 `type` is required and has no default. `type` chooses the pool of torrents; `sort_by` chooses their order
 within it.
@@ -292,7 +292,7 @@ within it.
 - **Duplicates.** A candidate that is the same book as something already selected or already in the
   library is skipped unless its format ranks better; a better format is selected and the older copy is
   retired by the cleaner later.
-- **Several blocks.** Blocks run on their own timers, and only one MaM-talking job runs at a time.
+- **Several blocks.** Blocks run on their own timers, and only one MAM-talking job runs at a time.
   A book that one block has already selected is not selected again by another.
 - **Never on a schedule.** `search_interval = 0` makes a block run only when you press **Run now**.
 
@@ -331,7 +331,7 @@ max_size = "30 MiB"
 
 ## `[[snatchlist]]`
 
-Repeatable. Imports your MaM snatch lists as metadata-only entries so that torrents you already have count
+Repeatable. Imports your MAM snatch lists as metadata-only entries so that torrents you already have count
 as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
 
 Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`, `uploaded_after` and
@@ -347,23 +347,23 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 
 ## `[[notion_list]]`
 
-Repeatable. Reads rows from a Notion data source and fetches the MaM torrents they point to.
+Repeatable. Reads rows from a Notion data source and fetches the MAM torrents they point to.
 
 | Setting | Default | Description |
 |---|---|---|
 | `data_source` | (required) | The Notion data source id. |
 | `token` | (required) | Notion integration token. Treat it as a secret. |
 | `name` | (required) | Label for the list. |
-| `mam_fields` | (required, non-empty) | Names of the row properties that hold MaM URLs. The trailing number of each URL is the MaM id. |
+| `mam_fields` | (required, non-empty) | Names of the row properties that hold MAM URLs. The trailing number of each URL is the MAM id. |
 | `grab` | (at least one required) | One or more [`grab` blocks](#grab-blocks). |
 | `search_interval` | `import_interval` | Minutes between runs. |
 | `unsat_buffer` | global | Overrides the global buffer. |
 | `wedge_buffer` | global | Overrides the global buffer. |
-| `dry_run` | `false` | Look each new torrent up on MaM and run the selection checks, but select nothing. What each torrent would get is logged. |
+| `dry_run` | `false` | Look each new torrent up on MAM and run the selection checks, but select nothing. What each torrent would get is logged. |
 
-Every row of the data source is read, however many there are. MaM ids that are already known are skipped.
-The others are fetched from MaM and passed through the first matching `grab` block. Each run logs how many
-rows and MaM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened to each torrent.
+Every row of the data source is read, however many there are. MAM ids that are already known are skipped.
+The others are fetched from MAM and passed through the first matching `grab` block. Each run logs how many
+rows and MAM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened to each torrent.
 
 ### `grab` blocks
 

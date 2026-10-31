@@ -38,7 +38,7 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
     }
 
     /// <summary>
-    /// The costs a selection can be changed to. The free costs only describe what MaM reported when the torrent was
+    /// The costs a selection can be changed to. The free costs only describe what MAM reported when the torrent was
     /// selected; picking one by hand would let a paid torrent skip the ratio budget, so they are never offered.
     /// </summary>
     public static readonly IReadOnlyList<string> ChangeableCosts =

@@ -6,14 +6,14 @@
   Fetchshelf
 </h1>
 
-Fetchshelf is a self-hosted service that connects MaM with a BitTorrent client (qBittorrent) and,
+Fetchshelf is a self-hosted service that connects MAM with a BitTorrent client (qBittorrent) and,
 optionally, [Audiobookshelf](https://www.audiobookshelf.org). It is a C# reimplementation of
 MLM ("MyAnonamouse Library Manager"), an abandoned Rust
 application.
 
 Fetchshelf has two independent, optional halves:
 
-1. **Auto-downloader** — finds torrents on MaM matching user-defined rules and adds them to
+1. **Auto-downloader** — finds torrents on MAM matching user-defined rules and adds them to
    qBittorrent, while protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge
    supply.
 2. **Library organizer** — watches qBittorrent for finished torrents and links the wanted files into
@@ -22,7 +22,7 @@ Fetchshelf has two independent, optional halves:
 ## Getting started
 
 Fetchshelf runs in Docker. The [user guide](docs/user-guide.md) walks you through installing it with
-Docker or Docker Compose, connecting it to MaM, qBittorrent and Audiobookshelf, and setting up your
+Docker or Docker Compose, connecting it to MAM, qBittorrent and Audiobookshelf, and setting up your
 library and automatic downloads. For every setting, see the
 [configuration reference](docs/configuration.md).
 

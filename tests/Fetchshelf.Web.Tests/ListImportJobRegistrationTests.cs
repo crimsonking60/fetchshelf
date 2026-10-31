@@ -10,7 +10,7 @@ public class ListImportJobRegistrationTests
         data_source = "abc123"
         token = "secret"
         name = "my-notion-list"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
 
         [[notion_list.grab]]
         cost = "free"
@@ -19,7 +19,7 @@ public class ListImportJobRegistrationTests
         data_source = "def456"
         token = "secret"
         name = "on-demand-list"
-        mam_fields = ["MaM"]
+        mam_fields = ["MAM"]
         search_interval = 0
 
         [[notion_list.grab]]

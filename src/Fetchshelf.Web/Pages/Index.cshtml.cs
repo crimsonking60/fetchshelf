@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages;
 
 /// <summary>
-/// The Search page: manual MaM search with the shared filter, cost badges, and
+/// The Search page: manual MAM search with the shared filter, cost badges, and
 /// download / download-with-wedge actions that start a selection via tag rules. Also serves as the
 /// application's home page ("/").
 /// </summary>
@@ -31,11 +31,11 @@ public class IndexModel(
     /// <summary>False while the page shell is rendered; the results arrive afterwards via <see cref="OnGetResultsAsync"/>.</summary>
     public bool ResultsLoaded { get; private set; }
 
-    /// <summary>Set when the MaM search failed, so the results panel can say why instead of staying empty.</summary>
+    /// <summary>Set when the MAM search failed, so the results panel can say why instead of staying empty.</summary>
     public string? SearchError { get; private set; }
 
     /// <summary>
-    /// Renders the page shell without waiting on MaM; the browser then fetches the table through
+    /// Renders the page shell without waiting on MAM; the browser then fetches the table through
     /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it.
     /// </summary>
     public void OnGet()
@@ -72,7 +72,7 @@ public class IndexModel(
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
             // htmx does not swap error responses, so a thrown exception would leave the panel blank: say what went wrong instead.
-            logger.LogWarning(ex, "Search on MaM failed");
+            logger.LogWarning(ex, "Search on MAM failed");
             SearchError = MamErrorDescriber.Describe(ex, mamOptions.Timeout);
         }
 
@@ -81,7 +81,7 @@ public class IndexModel(
     }
 
     /// <summary>
-    /// Resolves each given MaM id to where it stands in Fetchshelf's pipeline: linked into the
+    /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the
     /// library, downloaded but not yet linked, or still queued as a selection.
     /// </summary>
     private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds)
@@ -133,17 +133,17 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
                     unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
-                logger.LogInformation("Manual download of MaM id {MamId} ended with outcome {Outcome}", mamId, outcome);
+                logger.LogInformation("Manual download of MAM id {MamId} ended with outcome {Outcome}", mamId, outcome);
                 message = DescribeOutcome(outcome, metadata, settings);
             }
             else
             {
-                message = $"MaM returned no torrent with id {mamId}.";
+                message = $"MAM returned no torrent with id {mamId}.";
             }
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
-            logger.LogWarning(ex, "Manual download of MaM id {MamId} failed", mamId);
+            logger.LogWarning(ex, "Manual download of MAM id {MamId} failed", mamId);
             failed = true;
             record = null;
             message = $"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}";

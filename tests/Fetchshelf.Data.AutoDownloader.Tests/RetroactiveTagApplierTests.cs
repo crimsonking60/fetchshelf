@@ -154,7 +154,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var tagCalls = new List<(string, string)>();
         var qbClient = CreateQBittorrentClient(knownHash: null, categoryCalls, tagCalls);
 
-        // Even a filter that would require a live MaM fetch must never be evaluated for a metadata-only record.
+        // Even a filter that would require a live MAM fetch must never be evaluated for a metadata-only record.
         var rule = MatchAllRule() with { Filter = new TorrentFilter { MinSeeders = 1 } };
         var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
 

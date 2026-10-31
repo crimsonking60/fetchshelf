@@ -31,7 +31,7 @@ search_interval = 30     # default for every autograb and snatchlist block
 link_interval = 10       # how often finished torrents are scanned and linked
 import_interval = 135    # default for every Notion list
 
-# MaM torrent ids that must never be selected, as strings.
+# MAM torrent ids that must never be selected, as strings.
 ignore_torrents = ["123456", "234567"]
 
 # Wanted file types per kind of media, best first. A torrent is only downloaded if it has at least one
@@ -92,7 +92,7 @@ username = "admin"
 password = "replace-with-your-qbittorrent-admin-password"
 
 # =====================================================================================================
-# [[autograb]]: repeatable. A scheduled MaM search.
+# [[autograb]]: repeatable. A scheduled MAM search.
 # =====================================================================================================
 
 # This block sets every autograb option and every field of the shared torrent filter. The same filter
@@ -111,7 +111,7 @@ unsat_buffer = 15      # overrides the global buffer for this block
 wedge_buffer = 5       # overrides the global buffer for this block
 max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
 dry_run = false        # true: do everything except write or download, and only log
-mark_removed = false   # true: mark stored torrents that MaM no longer has as removed
+mark_removed = false   # true: mark stored torrents that MAM no longer has as removed
 category = "ebooks"    # force this qBittorrent category, overriding [[tag]] rules
 
 # --- shared torrent filter (all fields) ---
@@ -189,7 +189,7 @@ max_size = "10 GiB"
 name = "Notion wishlist"
 data_source = "00000000-0000-0000-0000-000000000000"
 token = "replace-with-your-notion-integration-token"
-mam_fields = ["Audiobook link", "Ebook link"] # URL properties whose trailing number is a MaM id
+mam_fields = ["Audiobook link", "Ebook link"] # URL properties whose trailing number is a MAM id
 search_interval = 240    # overrides import_interval
 unsat_buffer = 15
 wedge_buffer = 5

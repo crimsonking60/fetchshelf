@@ -1,12 +1,12 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Connection details for the MaM client.</summary>
+/// <summary>Connection details for the MAM client.</summary>
 public sealed record MamClientOptions
 {
     public string BaseUrl { get; init; } = "https://www.myanonamouse.net";
 
     /// <summary>Snatch lists are served from a separate host (confirmed against
-    /// the original Rust implementation's `mlm_mam::api::MaM::snatchlist`).</summary>
+    /// the original Rust implementation's `mlm_mam::api::MAM::snatchlist`).</summary>
     public string CdnBaseUrl { get; init; } = "https://cdn.myanonamouse.net";
 
     /// <summary>The configured `mam_id` (session cookie value), used when no stored cookie exists

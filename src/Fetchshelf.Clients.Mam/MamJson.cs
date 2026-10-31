@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// MaM's JSON responses encode some fields as either a string or a number depending on context
+/// MAM's JSON responses encode some fields as either a string or a number depending on context
 /// (confirmed against the original Rust implementation's `serde::{bool_string_or_number,
 /// num_string_or_number, string_or_number}`). These helpers tolerate either encoding.
 /// </summary>

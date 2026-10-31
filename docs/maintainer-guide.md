@@ -83,8 +83,8 @@ Then read the diff (`gh pr diff 42`) with these questions in mind:
   [Testing the head of develop](#testing-the-head-of-develop)).
 - **Configuration:** setting names are part of the user-facing contract. Renamed or removed settings break
   users' files; new settings must be documented in [configuration.md](configuration.md).
-- **MaM safety:** the ratio, unsatisfied-slot and wedge checks must not be weakened, request politeness must
-  be kept, and any new job that calls MaM must take the `MamAccessGate`.
+- **MAM safety:** the ratio, unsatisfied-slot and wedge checks must not be weakened, request politeness must
+  be kept, and any new job that calls MAM must take the `MamAccessGate`.
 - **Event log:** events are only ever appended, never updated or deleted.
 - **Documentation:** user-visible changes are reflected in the [user guide](user-guide.md) or the
   [configuration reference](configuration.md).
@@ -136,7 +136,7 @@ gh pr close 42 --comment "Closing for now since it has been quiet; feel free to 
 ## Testing the head of develop
 
 Automated tests prove the code is correct, not that the app works with real torrents, a real library and a
-real MaM account. Maintainers run the head of `develop` on their own setups between releases, so problems are
+real MAM account. Maintainers run the head of `develop` on their own setups between releases, so problems are
 found before users see them.
 
 Keep a local clone of the main repository (not a fork) for this:

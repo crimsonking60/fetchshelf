@@ -22,21 +22,21 @@ public class MamErrorDescriberTests
 
     [Fact]
     public void Describe_HttpErrorStatus_NamesTheStatus() =>
-        Assert.Equal("MaM answered with HTTP 503 (ServiceUnavailable).",
+        Assert.Equal("MAM answered with HTTP 503 (ServiceUnavailable).",
             MamErrorDescriber.Describe(new HttpRequestException("x", null, HttpStatusCode.ServiceUnavailable), Timeout));
 
     [Fact]
     public void Describe_ConnectionFailure_SaysMamCouldNotBeReached() =>
-        Assert.Equal("MaM could not be reached (Name or service not known).",
+        Assert.Equal("MAM could not be reached (Name or service not known).",
             MamErrorDescriber.Describe(new HttpRequestException("Connection failed", new IOException("Name or service not known")), Timeout));
 
     [Fact]
     public void Describe_MamSpecificException_UsesItsOwnMessage() =>
-        Assert.Equal("MaM rate limit hit (HTTP 429).", MamErrorDescriber.Describe(new MamRateLimitedException("MaM rate limit hit (HTTP 429)."), Timeout));
+        Assert.Equal("MAM rate limit hit (HTTP 429).", MamErrorDescriber.Describe(new MamRateLimitedException("MAM rate limit hit (HTTP 429)."), Timeout));
 
     [Fact]
     public void Describe_UnreadableResponse_SaysSo() =>
-        Assert.Equal("MaM sent a response Fetchshelf could not read.", MamErrorDescriber.Describe(new JsonException("bad"), Timeout));
+        Assert.Equal("MAM sent a response Fetchshelf could not read.", MamErrorDescriber.Describe(new JsonException("bad"), Timeout));
 
     [Fact]
     public void Describe_AnythingElse_IsReportedAsUnexpected() =>

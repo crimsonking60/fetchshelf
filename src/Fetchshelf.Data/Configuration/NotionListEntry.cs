@@ -9,7 +9,7 @@ public sealed class NotionListEntry
 
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Names of the row's URL-type properties that encode a MaM id as their trailing path segment.</summary>
+    /// <summary>Names of the row's URL-type properties that encode a MAM id as their trailing path segment.</summary>
     public List<string> MamFields { get; set; } = [];
 
     public List<GrabEntry> Grab { get; set; } = [];

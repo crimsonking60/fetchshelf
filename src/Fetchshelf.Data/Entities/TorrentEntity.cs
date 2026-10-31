@@ -8,7 +8,7 @@ namespace Fetchshelf.Data.Entities;
 /// </summary>
 public sealed class TorrentEntity
 {
-    /// <summary>Info-hash; for metadata-only entries, a string derived from the MaM id.</summary>
+    /// <summary>Info-hash; for metadata-only entries, a string derived from the MAM id.</summary>
     public required string Id { get; set; }
 
     public required long MamId { get; set; }

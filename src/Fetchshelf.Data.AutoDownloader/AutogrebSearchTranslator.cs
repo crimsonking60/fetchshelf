@@ -8,7 +8,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <summary>
 /// Translates an `[[autograb]]`/`[[snatchlist]]` entry's `type`/`sort_by`/shared filter into a
 /// `MamSearchQuery`. The server-side translation is a best-effort narrowing
-/// of what MaM returns - the full shared filter is always re-applied locally afterward (see
+/// of what MAM returns - the full shared filter is always re-applied locally afterward (see
 /// `AutograbberRunner`), so an imperfect translation here cannot produce an incorrect selection.
 /// </summary>
 public static class AutogrebSearchTranslator

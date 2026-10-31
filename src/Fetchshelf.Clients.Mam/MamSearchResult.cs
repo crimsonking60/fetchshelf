@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>A page of MaM search results.</summary>
+/// <summary>A page of MAM search results.</summary>
 public sealed record MamSearchResult
 {
     public required int PerPage { get; init; }
@@ -14,7 +14,7 @@ public sealed record MamSearchResult
     public required IReadOnlyList<MamTorrentRecord> Data { get; init; }
 }
 
-/// <summary>One raw MaM torrent record, as documented (before cleaning).</summary>
+/// <summary>One raw MAM torrent record, as documented (before cleaning).</summary>
 public sealed record MamTorrentRecord
 {
     public required long MamId { get; init; }

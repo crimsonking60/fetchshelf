@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Typed client for the MaM HTTP API.
+/// Typed client for the MAM HTTP API.
 /// </summary>
 public sealed partial class MamClient(
     HttpClient httpClient,
@@ -24,7 +24,7 @@ public sealed partial class MamClient(
     private static readonly TimeSpan RateLimitBackoff = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// How long to stop calling MaM after an HTTP 403. Retrying a rejected `mam_id` every job interval gains nothing and
+    /// How long to stop calling MAM after an HTTP 403. Retrying a rejected `mam_id` every job interval gains nothing and
     /// risks a longer block; fixing `mam_id` means editing config.toml and restarting, which also clears this pause.
     /// </summary>
     private static readonly TimeSpan ForbiddenPause = TimeSpan.FromMinutes(30);
@@ -44,14 +44,14 @@ public sealed partial class MamClient(
     private (DateTimeOffset FetchedAt, MamAccountState Value)? _cachedAccountState;
 
     /// <summary>
-    /// Verifies that the configured `mam_id` is accepted by MaM. The configured cookie is always
+    /// Verifies that the configured `mam_id` is accepted by MAM. The configured cookie is always
     /// the one sent; nothing is persisted or rotated.
     /// </summary>
     public async Task EnsureAuthenticatedAsync(CancellationToken cancellationToken = default)
     {
         if (!await CheckCookieAsync(cancellationToken))
         {
-            throw new MamAuthenticationException("MaM authentication failed: the configured mam_id was rejected.");
+            throw new MamAuthenticationException("MAM authentication failed: the configured mam_id was rejected.");
         }
     }
 
@@ -113,10 +113,10 @@ public sealed partial class MamClient(
     }
 
     /// <summary>
-    /// Sends a request with the configured `mam_id` cookie attached. Any cookie MaM sets in the
+    /// Sends a request with the configured `mam_id` cookie attached. Any cookie MAM sets in the
     /// response is ignored. Backs off on HTTP 429 and throws on HTTP 406.
     /// An HTTP 403 throws <see cref="MamForbiddenException"/> and, unless <paramref name="pauseOnForbidden"/> is
-    /// false, pauses all further MaM calls for <see cref="ForbiddenPause"/>. Torrent downloads opt out of the pause,
+    /// false, pauses all further MAM calls for <see cref="ForbiddenPause"/>. Torrent downloads opt out of the pause,
     /// since one refused download does not show that the session itself is dead.
     /// </summary>
     internal async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken, bool pauseOnForbidden = true)
@@ -140,13 +140,13 @@ public sealed partial class MamClient(
         {
             _rateLimitedUntil = _timeProvider.GetUtcNow() + RateLimitBackoff;
             response.Dispose();
-            throw new MamRateLimitedException("MaM rate limit hit (HTTP 429).");
+            throw new MamRateLimitedException("MAM rate limit hit (HTTP 429).");
         }
 
         if ((int)response.StatusCode == 406)
         {
             response.Dispose();
-            throw new MamAccountBlockedException("MaM account is temporarily blocked (HTTP 406).");
+            throw new MamAccountBlockedException("MAM account is temporarily blocked (HTTP 406).");
         }
 
         if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
@@ -178,15 +178,15 @@ public sealed partial class MamClient(
 
     private static string ForbiddenMessage(DateTimeOffset? pausedUntil)
     {
-        const string cause = "MaM refused the request (HTTP 403). The mam_id may have been invalidated or be locked to a different IP address, or the account may be blocked.";
+        const string cause = "MAM refused the request (HTTP 403). The mam_id may have been invalidated or be locked to a different IP address, or the account may be blocked.";
         return pausedUntil is { } until
-            ? $"{cause} MaM calls are paused until {until:HH:mm} UTC; fix mam_id in config.toml and restart Fetchshelf to resume sooner."
+            ? $"{cause} MAM calls are paused until {until:HH:mm} UTC; fix mam_id in config.toml and restart Fetchshelf to resume sooner."
             : cause;
     }
 
     /// <summary>
     /// Logs why a call failed. The body is only read for the statuses SendAsync turns into exceptions (and so disposes anyway):
-    /// it tells a Cloudflare block page from a MaM message. Other failures are returned for the caller to read.
+    /// it tells a Cloudflare block page from a MAM message. Other failures are returned for the caller to read.
     /// </summary>
     private async Task LogFailedResponseAsync(HttpRequestMessage request, HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -196,7 +196,7 @@ public sealed partial class MamClient(
 
         if (status is not (403 or 406 or 429))
         {
-            _logger.LogWarning("MaM {Method} {Endpoint} returned HTTP {Status} ({ContentType})", request.Method, endpoint, status, contentType);
+            _logger.LogWarning("MAM {Method} {Endpoint} returned HTTP {Status} ({ContentType})", request.Method, endpoint, status, contentType);
             return;
         }
 
@@ -217,7 +217,7 @@ public sealed partial class MamClient(
         }
 
         _logger.LogWarning(
-            "MaM {Method} {Endpoint} returned HTTP {Status} ({ContentType}): {BodyStart}", request.Method, endpoint, status, contentType, snippet);
+            "MAM {Method} {Endpoint} returned HTTP {Status} ({ContentType}): {BodyStart}", request.Method, endpoint, status, contentType, snippet);
     }
 
     /// <summary>The hash in `/tor/download.php/&lt;hash&gt;` is a personal download token; keep it out of logs.</summary>

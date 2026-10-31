@@ -10,7 +10,7 @@ namespace Fetchshelf.Data.Organizer;
 public static class SelectionRetirement
 {
     /// <summary>
-    /// Marks every started, not yet removed selection for the given MaM ids as removed now. The caller saves.
+    /// Marks every started, not yet removed selection for the given MAM ids as removed now. The caller saves.
     /// Returns how many were retired.
     /// </summary>
     public static async Task<int> RetireStartedAsync(

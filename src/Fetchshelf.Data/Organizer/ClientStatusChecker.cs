@@ -8,7 +8,7 @@ namespace Fetchshelf.Data.Organizer;
 public static class ClientStatuses
 {
     public const string NotInClient = "not in client";
-    public const string RemovedFromMam = "removed from MaM";
+    public const string RemovedFromMam = "removed from MAM";
 }
 
 /// <param name="Checked">Tracked torrents looked at.</param>

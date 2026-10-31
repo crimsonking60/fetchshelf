@@ -3,7 +3,7 @@
 > **Work in progress.** This guide is incomplete and may change.
 
 This guide is for people who run Fetchshelf. It assumes you use Docker, optionally with Docker Compose,
-are comfortable editing a text file, and know how MaM works: ratio, unsatisfied snatches, freeleech, wedges
+are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
 
 ## Contents
@@ -14,7 +14,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Installing with Docker Compose](#installing-with-docker-compose)
 - [First start](#first-start)
 - [Configuring Fetchshelf](#configuring-fetchshelf)
-- [Connecting to MaM](#connecting-to-mam)
+- [Connecting to MAM](#connecting-to-mam)
 - [Connecting to qBittorrent](#connecting-to-qbittorrent)
 - [Setting up your library](#setting-up-your-library)
 - [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)
@@ -35,13 +35,13 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 
 ## What is Fetchshelf?
 
-Fetchshelf is a self-hosted service that connects MaM with the BitTorrent client qBittorrent and,
+Fetchshelf is a self-hosted service that connects MAM with the BitTorrent client qBittorrent and,
 optionally, [Audiobookshelf](https://www.audiobookshelf.org). It runs in the background, has a web interface
 for looking at what it is doing, and is configured with a single text file.
 
 It has two halves that you can use together or separately:
 
-- **The auto-downloader** finds torrents on MaM that match rules you write (your bookmarks, a favourite
+- **The auto-downloader** finds torrents on MAM that match rules you write (your bookmarks, a favourite
   author, a Notion reading list, and so on) and adds them to qBittorrent. While doing so it protects your
   account: it keeps your ratio above a limit, leaves some unsatisfied-snatch slots free and holds back a
   number of freeleech wedges.
@@ -60,11 +60,11 @@ Fetchshelf is **not** a torrent client (qBittorrent does the downloading), not a
 
 You need:
 
-- **A MaM account in good standing.** Fetchshelf acts on your behalf. You remain responsible for following
-  MaM's rules, including ratio, seeding and unsatisfied-snatch requirements. Start with conservative
+- **A MAM account in good standing.** Fetchshelf acts on your behalf. You remain responsible for following
+  MAM's rules, including ratio, seeding and unsatisfied-snatch requirements. Start with conservative
   settings (see [Protecting your account](#protecting-your-account)).
-- **qBittorrent** with its Web UI enabled, reachable from the machine that runs Fetchshelf. MaM only allows
-  certain client versions and changes the list over time, so check MaM's current list of approved clients
+- **qBittorrent** with its Web UI enabled, reachable from the machine that runs Fetchshelf. MAM only allows
+  certain client versions and changes the list over time, so check MAM's current list of approved clients
   before you install or upgrade qBittorrent.
 - **Docker**, and optionally Docker Compose.
 - **Audiobookshelf**, optional.
@@ -151,7 +151,7 @@ Other environment variables you can set:
 
 The image has a built-in health check. Every 30 seconds Docker asks Fetchshelf whether it is running and can
 open its database, and `docker ps` shows the container as `healthy` or `unhealthy`. The check follows
-`web_port`, so it keeps working if you change the port. It does not check MaM, qBittorrent or
+`web_port`, so it keeps working if you change the port. It does not check MAM, qBittorrent or
 Audiobookshelf: problems with those show up on the **Jobs** and **Errors** pages instead.
 
 The same check is available at `http://<your-host>:3157/health` for monitoring tools and reverse proxies.
@@ -198,7 +198,7 @@ book at the same path as Fetchshelf, which it needs to match them.
 ```yaml
 services:
   qbittorrent:
-    # Use a version tag from MaM's list of approved clients instead of latest.
+    # Use a version tag from MAM's list of approved clients instead of latest.
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     restart: unless-stopped
@@ -296,12 +296,12 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   as `mam_id` out of a file you share. Sections such as `[[qbittorrent]]` cannot be overridden this way.
 - **Intervals** are in minutes. `0` means "never on a schedule, only when I press **Run now**".
 
-## Connecting to MaM
+## Connecting to MAM
 
-Fetchshelf logs in to MaM with a session id, the value of a session cookie that you create yourself.
+Fetchshelf logs in to MAM with a session id, the value of a session cookie that you create yourself.
 
-1. Sign in to MaM and open your security preferences.
-2. Create a new session. MaM ties a session to an address, so choose how it is locked to match where
+1. Sign in to MAM and open your security preferences.
+2. Create a new session. MAM ties a session to an address, so choose how it is locked to match where
    Fetchshelf runs. If your home IP address changes, pick the option that tolerates that.
 3. Copy the session id and put it in `config.toml`:
 
@@ -311,17 +311,17 @@ Fetchshelf logs in to MaM with a session id, the value of a session cookie that 
 
 4. Restart the container. The jobs now start.
 
-For more about sessions and how MaM locks them, see MaM's own documentation.
+For more about sessions and how MAM locks them, see MAM's own documentation.
 
 Things to know:
 
-- **Treat `mam_id` like a password.** Anyone who has it can act as you on MaM.
-- **MaM rotates the cookie.** Fetchshelf stores the newest one it receives and prefers it on the next
+- **Treat `mam_id` like a password.** Anyone who has it can act as you on MAM.
+- **MAM rotates the cookie.** Fetchshelf stores the newest one it receives and prefers it on the next
   start, falling back to the one in your file if the stored one stops working.
-- **Rate limits.** If MaM answers "too many requests", the job fails with an error and tries again at its
+- **Rate limits.** If MAM answers "too many requests", the job fails with an error and tries again at its
   next interval.
-- **Blocked account.** If MaM temporarily blocks the account, any running download aborts. Wait, then
-  check the account on MaM before running jobs again.
+- **Blocked account.** If MAM temporarily blocks the account, any running download aborts. Wait, then
+  check the account on MAM before running jobs again.
 - **Expired or invalid session.** If jobs fail with an authentication error, create a new session and
   update `mam_id`.
 
@@ -475,10 +475,10 @@ integration off.
 
 ## Finding and downloading books
 
-The **Search** page is also the home page. Use it to search MaM yourself and download a book by hand.
+The **Search** page is also the home page. Use it to search MAM yourself and download a book by hand.
 
-- **Search** looks for your text in the title and author of every torrent on MaM. With the box empty, the
-  page shows the newest torrents on MaM instead. Either way you get at most the 100 newest matches; there
+- **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
+  page shows the newest torrents on MAM instead. Either way you get at most the 100 newest matches; there
   are no further pages, so make the search more specific if what you want is not there.
 - **Hide downloaded torrents** hides every result that has a status (see below), so only torrents Fetchshelf
   has not handled yet remain.
@@ -493,7 +493,7 @@ The **Search** page is also the home page. Use it to search MaM yourself and dow
   | Other | Everything else, such as musicology and radio. |
 
   These two filters only hide rows in the results already on the page. They do not change what is asked
-  of MaM, so they cannot bring in more results, and they are reset when you run a new search.
+  of MAM, so they cannot bring in more results, and they are reset when you run a new search.
 - Each result shows its title, authors, media type, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
   library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. It does not
@@ -537,9 +537,9 @@ max_authors = 3
 
 | `type` | Searches |
 |---|---|
-| `"bookmarks"` | Your MaM bookmarks. |
-| `"freeleech"` | MaM's global freeleech list. |
-| `"new"` (or `"torrents"`) | All torrents on MaM, newest first. |
+| `"bookmarks"` | Your MAM bookmarks. |
+| `"freeleech"` | MAM's global freeleech list. |
+| `"new"` (or `"torrents"`) | All torrents on MAM, newest first. |
 | `"mine"` | Your own uploads. |
 | `{ uploader = 12345 }` | One uploader's torrents. |
 
@@ -602,7 +602,7 @@ Instead of searching, you can keep a list of the torrents you want and let Fetch
 
 ### Notion
 
-A Notion database whose rows contain links to MaM torrents:
+A Notion database whose rows contain links to MAM torrents:
 
 ```toml
 [[notion_list]]
@@ -621,7 +621,7 @@ cost = "wedge"
 languages = ["English"]
 ```
 
-- `mam_fields` names the URL properties that hold MaM links. The number at the end of each link is the MaM
+- `mam_fields` names the URL properties that hold MAM links. The number at the end of each link is the MAM
   torrent id. Ids Fetchshelf already knows are skipped.
 - `grab` blocks decide what is acceptable and how to pay. For each linked torrent they are tried **in
   order, and the first block whose filter matches decides the cost**, so put the most specific one first.
@@ -630,7 +630,7 @@ languages = ["English"]
 
 ### Snatchlists
 
-A `[[snatchlist]]` imports one of your MaM snatch lists as records of what you already own, without
+A `[[snatchlist]]` imports one of your MAM snatch lists as records of what you already own, without
 downloading anything. This stops Fetchshelf downloading a book you got some other way. See
 [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
@@ -641,7 +641,7 @@ Fetchshelf will not start a download that would break these limits.
 | Setting | Default | What it protects |
 |---|---|---|
 | `min_ratio` | `2` | Your upload/download ratio. A download that would push you below it is skipped. |
-| `unsat_buffer` | `10` | Unsatisfied-snatch slots. MaM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
+| `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. This many are never spent automatically. |
 
 Each autograb and each list can override `unsat_buffer` and `wedge_buffer` for itself.
@@ -660,7 +660,7 @@ next run.
 Other safeguards:
 
 - `max_active_downloads` caps unfinished downloads per autograb.
-- `ignore_torrents = ["123456"]` lists MaM ids that must never be selected.
+- `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
   before they start.
 - Fetchshelf only removes files it linked itself, and never overwrites another torrent's files.
@@ -714,7 +714,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 
 | Page | What it is for |
 |---|---|
-| **Search** (home) | Search MaM and download books by hand. |
+| **Search** (home) | Search MAM and download books by hand. |
 | **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. Below them, the kinds of job you have not configured. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
@@ -728,7 +728,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 Shows each queued torrent with its cost, category, tags, what chose it (an autograb, a list or a manual
 search), and when it was queued and started. You can remove entries, or change a queued torrent's cost,
 category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge`; the free
-costs only record what MaM reported, so they cannot be chosen by hand.
+costs only record what MAM reported, so they cannot be chosen by hand.
 
 ### Torrents
 
@@ -742,18 +742,18 @@ costs only record what MaM reported, so they cannot be chosen by hand.
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
   metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected** or **Remove selected**.
-  *Clean* retires a torrent's library files, *Refresh* re-reads its metadata from MaM, and *Remove* deletes
+  *Clean* retires a torrent's library files, *Refresh* re-reads its metadata from MAM, and *Remove* deletes
   Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
-  torrent on MaM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
+  torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
   show a library mismatch and, for a replaced book, a link to the torrent that replaced it. Actions:
   **Clean**, **Refresh**, **Refresh and relink**, **Start** and **Stop** in qBittorrent, **Remove from
   qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear replaced marker**. While
   qBittorrent has the torrent, you can also change its category and tags there: untick a tag to remove it,
   type new ones separated by commas, and press **Set category and tags**.
-- **Edit.** If MaM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
+- **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
   until you explicitly refresh it.
 
@@ -768,7 +768,7 @@ changed field.
 
 One entry per torrent and job, showing the job that ran into the problem (Download, Link or Clean), the
 torrent, the error and when it last failed. The Link job tries a failed torrent again on every run: the
-entry is updated while it keeps failing and disappears once it links. A queued download whose MaM link
+entry is updated while it keeps failing and disappears once it links. A queued download whose MAM link
 went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
 Tick the entries you have dealt with and use **Remove selected**.
 
@@ -776,8 +776,8 @@ Tick the entries you have dealt with and use **Remove selected**.
 
 Torrents that an autograb, list or manual download skipped because you already have, or have already
 selected, the same book in an equal or better format. A selection that was dropped for a better copy is
-listed here too. Each entry links to the skipped torrent on MaM and shows what it duplicates: the torrent's
-page when Fetchshelf has it, otherwise the queued selection or the torrent on MaM. Tick the entries you no
+listed here too. Each entry links to the skipped torrent on MAM and shows what it duplicates: the torrent's
+page when Fetchshelf has it, otherwise the queued selection or the torrent on MAM. Tick the entries you no
 longer need and use **Remove selected**.
 
 ### Config
@@ -792,7 +792,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 
 | Job | What it does | Runs |
 |---|---|---|
-| Autograb (one per `[[autograb]]`) | Searches MaM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
+| Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Imports your snatch list as owned books. | Same. |
 | Notion list (one per `[[notion_list]]`) | Looks up each linked torrent and selects what qualifies. | Every `import_interval` minutes, or the list's own interval. |
 | Download | Starts selected torrents in qBittorrent within your limits. | After autograbs and list runs select something, and every `search_interval` minutes. |
@@ -806,7 +806,7 @@ lists each kind of optional job you have not configured, such as *Snatchlist is 
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - An interval of `0` means the job never runs by itself.
-- Only one job talks to MaM at a time. If you press **Run now** while another is running, it waits its
+- Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows success or the error. A failed job tries again at its next interval. One failing
   torrent never stops the others.
@@ -892,12 +892,12 @@ files.
 - **Secrets in `config.toml`:** `mam_id`, qBittorrent and Audiobookshelf credentials and a Notion token.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not.
-- **What leaves your machine.** Fetchshelf talks to MaM (searches, downloads, your account state),
+- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state),
   qBittorrent and Audiobookshelf (on your network), and, if you use it, Notion. It sends no usage data anywhere
   else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
-  names of your autograbs and lists, MaM torrent ids, and, when MaM refuses a request, the start of MaM's
+  names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
   reply. At the default level, `debug`, they also contain the title of every search result an autograb
   rejects. Error messages can name hosts, folders and files on your system. Read a log before you share it
   and remove anything you consider private. Set `FETCHSHELF_LOG=information` to leave out the titles.
@@ -928,11 +928,11 @@ use `--user` or `user:` instead, make sure that user can write to both folders.
 An empty `mam_id` means no jobs run. Also check the interval: `0` means the job only runs when you press
 **Run now**.
 
-### MaM login fails, or "too many requests", or the account is blocked
+### MAM login fails, or "too many requests", or the account is blocked
 
 An authentication error means the session has expired or does not match your address. Create a new session
 and update `mam_id`. For rate limiting, wait: the job tries again at its next interval. A blocked account (HTTP 406) aborts
-downloads; wait and check your account on MaM.
+downloads; wait and check your account on MAM.
 
 ### qBittorrent cannot be reached
 

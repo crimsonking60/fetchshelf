@@ -1,13 +1,13 @@
 namespace Fetchshelf.Clients.Notion;
 
 /// <summary>
-/// Extracts MaM ids from a Notion row's configured URL properties: "the trailing
-/// number of each URL is taken as MaM id."
+/// Extracts MAM ids from a Notion row's configured URL properties: "the trailing
+/// number of each URL is taken as MAM id."
 /// </summary>
 public static class NotionMamIdExtractor
 {
     /// <summary>
-    /// Returns the MaM id parsed from each of <paramref name="mamFields"/> that names a URL property
+    /// Returns the MAM id parsed from each of <paramref name="mamFields"/> that names a URL property
     /// with a parseable trailing path segment, skipping fields that are absent, not URL-typed, have
     /// no URL value, or whose trailing segment is not an integer.
     /// </summary>

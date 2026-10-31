@@ -11,7 +11,7 @@ public sealed class NotionClientTests
             {
               "id": "page-1",
               "properties": {
-                "MaM": { "id": "abc", "type": "url", "url": "https://www.myanonamouse.net/t/123456" },
+                "MAM": { "id": "abc", "type": "url", "url": "https://www.myanonamouse.net/t/123456" },
                 "Name": { "id": "title", "type": "title", "title": [] },
                 "Status": { "id": "status", "type": "status", "status": { "name": "Reading" } },
                 "Tags": { "id": "tags", "type": "multi_select", "multi_select": [] },
@@ -42,7 +42,7 @@ public sealed class NotionClientTests
 
         var row = Assert.Single(rows);
         Assert.Equal("page-1", row.Id);
-        var mamProperty = Assert.IsType<NotionUrlProperty>(row.Properties["MaM"]);
+        var mamProperty = Assert.IsType<NotionUrlProperty>(row.Properties["MAM"]);
         Assert.Equal("https://www.myanonamouse.net/t/123456", mamProperty.Url);
         Assert.IsType<NotionTitleProperty>(row.Properties["Name"]);
         Assert.IsType<NotionStatusProperty>(row.Properties["Status"]);
