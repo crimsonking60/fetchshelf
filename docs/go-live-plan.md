@@ -73,13 +73,9 @@ These decisions change what is published, so make them before anything becomes p
     --enable-squash-merge --enable-merge-commit --enable-rebase-merge=false --delete-branch-on-merge
   ```
 
-- [ ] **You:** Description and topics, shown on the repository page and in search:
-
-  ```sh
-  gh repo edit crimsonking60/fetchshelf \
-    --description "Self-hosted bridge between MyAnonamouse, qBittorrent and Audiobookshelf" \
-    --add-topic audiobookshelf --add-topic qbittorrent --add-topic myanonamouse --add-topic self-hosted
-  ```
+- [x] **You:** Description and topics, shown on the repository page and in search. Done on 2026-10-31: the
+  description is "Self-hosted bridge between MyAnonamouse, qBittorrent and Audiobookshelf". Decided: no
+  topics.
 
 - [x] **You:** Turn off **Projects** (unused). Done on 2026-10-31.
 - [x] **You:** Issues: already enabled.
