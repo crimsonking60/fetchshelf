@@ -119,17 +119,25 @@ requests. GitHub never lets an author approve their own pull request, so code-ow
 otherwise be met while the owner is the only code owner. A bypass also skips the required check, so look at
 the checks before merging that way.
 
+GitHub Actions may also bypass the `develop` ruleset, so the release workflow can push its merge of `main`
+back into `develop`. Without that, the workflow opens a pull request for the merge instead. Workflows run
+from forks only ever get a read-only token, so they cannot use this.
+
 - [ ] **You:** Create the rulesets:
 
   ```sh
-  ruleset() {  # name, branch, require code-owner review (true/false)
+  ruleset() {  # name, branch, require code-owner review (true/false), let GitHub Actions bypass (true/false)
+    bypass='{ "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }'
+    if [ "$4" = true ]; then
+      bypass="$bypass, { \"actor_id\": 15368, \"actor_type\": \"Integration\", \"bypass_mode\": \"always\" }"
+    fi
     gh api --method POST repos/crimsonking60/fetchshelf/rulesets --input - <<EOF
   {
     "name": "$1",
     "target": "branch",
     "enforcement": "active",
     "conditions": { "ref_name": { "include": ["refs/heads/$2"], "exclude": [] } },
-    "bypass_actors": [ { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" } ],
+    "bypass_actors": [ $bypass ],
     "rules": [
       { "type": "deletion" },
       { "type": "non_fast_forward" },
@@ -146,11 +154,12 @@ the checks before merging that way.
   }
   EOF
   }
-  ruleset "Protect develop" develop true
-  ruleset "Protect main" main false
+  ruleset "Protect develop" develop true true
+  ruleset "Protect main" main false false
   ```
 
-  `actor_id` 5 is the built-in Repository admin role. The required check is named `Build, test and format`
+  `actor_id` 5 is the built-in Repository admin role, and the `Integration` with id 15368 is the GitHub
+  Actions app. The required check is named `Build, test and format`
   on pull requests; on pushes the same job shows as `checks / Build, test and format`, because the develop
   image and release workflows call it. If the check on the first pull request stays at "Expected — Waiting
   for status to be reported", edit the check's name in **Settings → Rules → Rulesets** to match the name

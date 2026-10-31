@@ -325,8 +325,9 @@ Release when `develop` has something worth shipping and:
 
 4. **Watch the release workflow.** The push to `main` starts it. It reads the version from `RELEASES.md`, stops
    if that version's tag already exists or doesn't match `YYYY.MM.N`, builds and tests, publishes the container
-   image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, tags the commit, and creates the GitHub
-   release with the `RELEASES.md` section as its description.
+   image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, tags the commit, creates the GitHub
+   release with the `RELEASES.md` section as its description, and merges `main` back into `develop` (see
+   [After the release](#after-the-release)).
 
    ```sh
    gh run list --workflow release.yml --limit 3
@@ -342,13 +343,21 @@ Release when `develop` has something worth shipping and:
 
 ### After the release
 
-1. **Merge `main` back into `develop`,** so `main` stays an ancestor of `develop`:
+1. **Check that `main` was merged back into `develop`.** The release workflow's last job does this, so `main`
+   stays an ancestor of `develop`: it pushes a merge commit "Merge release 2026.10.0 back into develop" to
+   `develop`. If it can't, because the merge has conflicts, `develop` moved on during the release, or branch
+   protection refused the push, it opens a pull request from `main` into `develop` instead and says why in a
+   warning on the workflow run. Resolve any conflicts and merge that pull request with a merge commit:
 
    ```sh
-   gh pr create --repo crimsonking60/fetchshelf --base develop --head main \
-     --title "Merge release 2026.10.0 back into develop" --body "Back-merge after release."
+   gh pr list --repo crimsonking60/fetchshelf --base develop --head main
    gh pr merge <number> --merge
    ```
+
+   A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
+   bypassing the branch rules, after making sure `develop` builds.
+
+   Pull `develop` before you continue working on it: `git switch develop && git pull`.
 
 2. **Pull the new image** on your own setup and check that it starts and upgrades your database.
 3. **Close the milestone,** if you used one, and move anything unfinished to the next.
@@ -374,8 +383,9 @@ When the current release has a bug that can't wait, and `develop` holds changes 
 
 2. Review it as usual, but keep it minimal: only the fix, its test and the release notes.
 3. Squash-merge it into `main`. That publishes the release.
-4. Merge `main` back into `develop` as in [After the release](#after-the-release), so the fix and its release
-   notes aren't lost.
+4. The release workflow merges `main` back into `develop`, so the fix and its release notes aren't lost. A
+   hotfix is the likeliest release to conflict with `develop`; if it does, finish the merge as in
+   [After the release](#after-the-release).
 
 If `develop` is ready to release anyway, skip the hotfix branch: fix it on `develop` and make a normal
 release.
@@ -443,7 +453,7 @@ work I can do on request.
 - [x] **Me:** Add the develop image workflow (`.github/workflows/develop-image.yml`).
 - [x] **Me:** Pass the version into the image build (the `FETCHSHELF_VERSION` build argument in the
   `Dockerfile`; `develop` images get `develop-<commit>`).
-- [ ] **Me:** Optionally, automate the back-merge of `main` into `develop` at the end of the release workflow.
+- [x] **Me:** Automate the back-merge of `main` into `develop` at the end of the release workflow.
 - [x] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
   `ghcr.io/crimsonking60/fetchshelf`, and fill in "Updating Fetchshelf" with the tags and a link to
   `RELEASES.md`, once the first release exists.
