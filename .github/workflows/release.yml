@@ -16,6 +16,8 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/crimsonking60/fetchshelf
+  # Every architecture the .NET base images support. The Dockerfile cross-compiles, so no emulation is needed.
+  PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
 
 jobs:
   checks:
@@ -74,6 +76,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: ${{ env.PLATFORMS }}
           push: true
           build-args: FETCHSHELF_VERSION=${{ steps.release.outputs.version }}
           tags: |
