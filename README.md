@@ -6,10 +6,9 @@
   Fetchshelf
 </h1>
 
-Fetchshelf is a self-hosted service that connects the private book tracker
-[MyAnonamouse](https://www.myanonamouse.net) (MaM) with a BitTorrent client (qBittorrent) and,
+Fetchshelf is a self-hosted service that connects MaM with a BitTorrent client (qBittorrent) and,
 optionally, [Audiobookshelf](https://www.audiobookshelf.org). It is a C# reimplementation of
-[MLM](https://en.wikipedia.org/wiki/MyAnonamouse) ("MyAnonamouse Library Manager"), an abandoned Rust
+MLM ("MyAnonamouse Library Manager"), an abandoned Rust
 application.
 
 Fetchshelf has two independent, optional halves:
