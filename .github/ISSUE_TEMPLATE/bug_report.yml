@@ -1,0 +1,77 @@
+name: Bug report
+description: Something in Fetchshelf doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please search the [existing issues](https://github.com/crimsonking60/fetchshelf/issues?q=is%3Aissue), including closed ones, first.
+
+        - Questions and ideas belong in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions).
+        - Security problems must not be reported here: use [Report a vulnerability](https://github.com/crimsonking60/fetchshelf/security/advisories/new) instead.
+        - **Remove secrets** from anything you paste: your `mam_id`, qBittorrent password, and Audiobookshelf and Notion tokens.
+
+  - type: input
+    id: version
+    attributes:
+      label: Fetchshelf version
+      description: >-
+        Shown on the Config page and in the first log line (`Fetchshelf 2026.10.2 starting`). If you built it
+        yourself, the commit (`git rev-parse --short HEAD`).
+      placeholder: 2026.10.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How do you run it?
+      options:
+        - Docker
+        - Docker Compose
+        - From source
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can make it happen again, how?
+      placeholder: |
+        1. Configure ...
+        2. Press ...
+        3. See ...
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: From `docker logs fetchshelf` or your log file, with secrets, private paths and names removed.
+      render: text
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant part of config.toml
+      description: With secrets replaced by placeholders such as `replace-with-your-token`.
+      render: toml
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues, including closed ones.
+          required: true
+        - label: I removed secrets from everything I pasted.
+          required: true

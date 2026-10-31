@@ -545,7 +545,8 @@ gh pr ready
 
 To finish the pull request in the browser instead, add `--web`.
 
-A good description covers:
+A good description covers the following. The pull request template has a section for each, and the checklist
+from [Before you open one](#before-you-open-one):
 
 - **What and why:** the problem, and how the change solves it.
 - **Issue:** `Fixes #123` or `Refs #123`.
@@ -652,7 +653,9 @@ gh issue create --repo crimsonking60/fetchshelf --label bug \
   --body-file bug-report.md
 ```
 
-or open the form in your browser with `gh issue create --repo crimsonking60/fetchshelf --web`.
+or open the form in your browser with `gh issue create --repo crimsonking60/fetchshelf --web`. In the browser,
+the **Bug report** and **Feature request** forms ask for everything above; questions and ideas are sent to
+Discussions, and security problems to private vulnerability reporting.
 
 Labels in use:
 

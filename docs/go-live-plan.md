@@ -34,15 +34,20 @@ These decisions change what is published, so make them before anything becomes p
   user guide, "Open items" in the contributors guide and "To do" in the maintainer guide. They address "You"
   and "Me" and are notes for us, not for readers. Done on 2026-10-31: the sections are removed, and every
   item still open was already in this plan.
-- [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
-  checklist from [Before you open one](contributors-guide.md#before-you-open-one).
+- [x] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
+  checklist from [Before you open one](contributors-guide.md#before-you-open-one). Done: issue forms in
+  `.github/ISSUE_TEMPLATE/`, with blank issues turned off and links to Discussions and private vulnerability
+  reporting, and `.github/pull_request_template.md`.
+- [ ] **You:** Open **Issues → New issue** once and check that both forms and the two links appear. GitHub
+  shows an error there if a form doesn't validate. The vulnerability reporting link only works once the
+  repository is public.
 - [ ] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
   vulnerability**; it should say what `CONTRIBUTING.md` already says about reporting security problems.
 - [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
   [Discussions](contributors-guide.md#discussions) in the contributors guide: Discussions for questions and
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
-- [ ] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
-  about.
+- [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
+  about. Done: on the Config page, and as the first log line.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](user-guide.md#importing-reading-lists) and the
   Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
 - [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
