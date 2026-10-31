@@ -755,7 +755,7 @@ work I can do on request.
 
 - [ ] **You:** Make the repository public. It is private today, so volunteers can't fork it, open issues or
   join discussions yet. Everything that goes with it, including Discussions, private vulnerability
-  reporting, a code of conduct, branch protection and issue templates, is in the
+  reporting, branch protection and issue templates, is in the
   [go-live plan](go-live-plan.md).
 - [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
   `develop` into `main` with a merge commit. Setting it up is in the [go-live plan](go-live-plan.md).

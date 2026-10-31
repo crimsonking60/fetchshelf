@@ -13,18 +13,14 @@ work I can do on request.
 
 These decisions change what is published, so make them before anything becomes public.
 
-- [ ] **You:** Commit email. Every commit so far is authored as `crimsonking60@tutamail.com`, and that address
-  becomes public with the history. Either accept that, or use GitHub's private `noreply` address for future
-  commits (**Settings → Emails → Keep my email addresses private**, then
-  `git config user.email <id>+crimsonking60@users.noreply.github.com` in this repository). Hiding it in the
-  existing history means rewriting every commit and the `v2026.10.*` tags and releases, so do that, if at
-  all, before going public.
+- [x] **You:** Commit email. Every commit so far is authored as `crimsonking60@tutamail.com`, and that address
+  becomes public with the history. Decided: that is fine, the address is meant to be public.
 - [ ] **You:** Decide whether `Fetchshelf-spec.md` and the references to the original application in
   `README.md` stay in the public repository.
-- [ ] **You:** Support channel: GitHub Discussions, issues only, or something else. This fills in
-  [Getting help](user-guide.md#getting-help) in the user guide and [Discussions](contributors-guide.md#discussions)
-  in the contributors guide.
-- [ ] **You:** Code of conduct: adopt one (for example the Contributor Covenant) or not.
+- [x] **You:** Support channel. Decided: both GitHub Discussions (questions, ideas) and issues (bugs, feature
+  requests), plus private vulnerability reports for security problems, all enabled before the project is
+  announced.
+- [x] **You:** Code of conduct. Decided: "Don't be a dick", in `CODE_OF_CONDUCT.md`.
 - [ ] **You:** Images for 64-bit ARM (`linux/arm64`) as well as `linux/amd64`, for Raspberry Pi and ARM-based
   NAS users.
 - [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
@@ -40,6 +36,9 @@ These decisions change what is published, so make them before anything becomes p
   checklist from [Before you open one](contributors-guide.md#before-you-open-one).
 - [ ] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
   vulnerability**; it should say what `CONTRIBUTING.md` already says about reporting security problems.
+- [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
+  [Discussions](contributors-guide.md#discussions) in the contributors guide: Discussions for questions and
+  ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [ ] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](user-guide.md#importing-reading-lists) and the
@@ -75,8 +74,11 @@ These decisions change what is published, so make them before anything becomes p
   ```
 
 - [ ] **You:** Turn off **Projects** (unused): `gh repo edit crimsonking60/fetchshelf --enable-projects=false`.
-- [ ] **You:** Enable Discussions if that is the chosen support channel, and set up the categories (for example
-  Q&A, Ideas, Show and tell, Development): `gh repo edit crimsonking60/fetchshelf --enable-discussions`.
+- [x] **You:** Issues: already enabled.
+- [x] **You:** Enable Discussions. Done on 2026-10-31; GitHub created the default categories Announcements,
+  General, Ideas, Polls, Q&A and Show and tell.
+- [ ] **You:** Adjust the Discussions categories under the **Discussions** tab if the defaults don't fit, for
+  example add Development or remove Polls.
 
 ## 3. Go public
 
@@ -86,6 +88,14 @@ These decisions change what is published, so make them before anything becomes p
   until changed: open the `fetchshelf` package from the repository's **Packages** sidebar, then **Package
   settings → Danger Zone → Change package visibility → Public**. The image already carries the
   `org.opencontainers.image.source` label, so the package is linked to the repository.
+- [ ] **You:** Right away, turn on private vulnerability reporting, which
+  [Security problems](contributors-guide.md#security-problems) and `CONTRIBUTING.md` rely on. GitHub only
+  offers it for public repositories (it answers "Not Found" while the repository is private), so it cannot
+  be done earlier:
+
+  ```sh
+  gh api --method PUT repos/crimsonking60/fetchshelf/private-vulnerability-reporting
+  ```
 
 ## 4. Turn on what needs a public repository
 
@@ -148,8 +158,6 @@ the checks before merging that way.
 These are free for public repositories, under **Settings → Advanced Security** (named **Code security** on
 some accounts).
 
-- [ ] **You:** Turn on **Private vulnerability reporting**, which [Security problems](contributors-guide.md#security-problems)
-  and `CONTRIBUTING.md` rely on.
 - [ ] **You:** Turn on **Secret scanning** and **Push protection**, so a pushed token is caught.
 - [ ] **You:** Turn on **Dependabot alerts** and **Dependabot security updates** for the NuGet packages and the
   workflow actions.
@@ -180,7 +188,6 @@ some accounts).
 
 ## 6. Follow up
 
-- [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) and [Discussions](contributors-guide.md#discussions)
-  with the chosen support channel, and remove the "repository is private" wording from the contributors guide.
+- [ ] **Me:** Remove the "repository is private" wording from the contributors guide.
 - [ ] **You:** Tell people about it, if and where you want to.
 - [ ] **Me:** Delete this plan once everything in it is done, or keep it as a record.

@@ -1029,8 +1029,9 @@ work I can do on request.
   and [Updating Fetchshelf](#updating-fetchshelf).
 - [x] **You:** Decide the tagging scheme (`latest`, version numbers, release channels) and where release
   notes live, then update [Updating Fetchshelf](#updating-fetchshelf).
-- [ ] **You:** Decide the support channel (issue tracker, forum thread, chat) and fill in
-  [Getting help](#getting-help). Tracked in the [go-live plan](go-live-plan.md).
+- [x] **You:** Decide the support channel (issue tracker, forum thread, chat) and fill in
+  [Getting help](#getting-help). Decided: GitHub Discussions and issues; filling in the section is tracked in
+  the [go-live plan](go-live-plan.md).
 - [x] **You:** Decide whether the guide should say the project has no stable release yet, and where.
   Decided: no such note, the releases are stable.
 - [x] **You:** Decide whether the image should get a `HEALTHCHECK`. If so, document it. The image has none

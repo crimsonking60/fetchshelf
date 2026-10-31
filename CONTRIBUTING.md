@@ -1,6 +1,7 @@
 # Contributing to Fetchshelf
 
-Thanks for wanting to help. Bug reports, ideas, documentation fixes, code and reviews are all welcome.
+Thanks for wanting to help. Bug reports, ideas, documentation fixes, code and reviews are all welcome. One
+rule applies everywhere: see the [code of conduct](CODE_OF_CONDUCT.md).
 
 The full [contributors guide](docs/contributors-guide.md) covers setting up a development machine (apt and
 dnf distributions), building and testing, and the fork, branch, commit and pull request workflow, with `gh`
