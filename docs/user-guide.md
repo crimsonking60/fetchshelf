@@ -1012,7 +1012,13 @@ the first. Linking works against all of them.
 
 ## Getting help
 
-- **Questions and bug reports:** `<support channel to be decided>`.
+- **Questions and ideas:** ask in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions):
+  **Q&A** for questions about using Fetchshelf, **Ideas** for suggestions you'd like feedback on.
+- **Bugs and feature requests:** [open an issue](https://github.com/crimsonking60/fetchshelf/issues/new/choose)
+  with the **Bug report** or **Feature request** form. Search the existing issues first, including closed
+  ones.
+- **Security problems:** never in public. Use **Report a vulnerability** on the repository's **Security** tab;
+  see the [security policy](../SECURITY.md).
 - **Include in a report:** the Fetchshelf version (shown on the **Config** page, and in the first line of the
   log, `Fetchshelf 2026.10.2 starting`), what you expected and what happened, the relevant lines from the
   log, and your configuration with the secrets removed.

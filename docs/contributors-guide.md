@@ -688,8 +688,20 @@ concrete task:
 - design proposals for larger changes;
 - sharing setups and configurations that work well.
 
+Pick the category that fits: **Q&A** for questions, **Ideas** for feature ideas and design proposals, and
+**General** for everything else, such as setups worth sharing. **Announcements** is for maintainers, and
+**Polls** for asking the community to choose between options.
+
 When a discussion turns into agreed, concrete work, a maintainer converts it into an issue or opens one that
 links back to it.
+
+In short:
+
+| You have | Where it goes |
+| --- | --- |
+| A question or an idea | [Discussions](https://github.com/crimsonking60/fetchshelf/discussions) |
+| A bug or a concrete feature request | [Issues](#issues), with the matching form |
+| A security problem | The **Security** tab, privately; see [Security problems](#security-problems) |
 
 `gh` has no built-in command for discussions, so use the web page. To jump to it from the terminal:
 

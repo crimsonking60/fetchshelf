@@ -44,7 +44,7 @@ These decisions change what is published, so make them before anything becomes p
 - [x] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
   vulnerability**; it should say what `CONTRIBUTING.md` already says about reporting security problems.
   Done: it also says which versions get fixes, what to include, and that the missing login is by design.
-- [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
+- [x] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
   [Discussions](contributors-guide.md#discussions) in the contributors guide: Discussions for questions and
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
@@ -206,6 +206,7 @@ some accounts).
 
 ## 6. Follow up
 
-- [ ] **Me:** Remove the "repository is private" wording from the contributors guide.
+- [x] **Me:** Remove the "repository is private" wording from the contributors guide. It was only in the
+  guide's open items, which were removed on 2026-10-31.
 - [ ] **You:** Tell people about it, if and where you want to.
 - [ ] **Me:** Delete this plan once everything in it is done, or keep it as a record.
