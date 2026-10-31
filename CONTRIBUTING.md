@@ -34,7 +34,7 @@ your configuration. See [Issues](docs/contributors-guide.md#issues) for details.
 ## Security problems
 
 Don't report them in public issues or discussions. Use the repository's **Security** tab and choose
-**Report a vulnerability**.
+**Report a vulnerability**. See the [security policy](SECURITY.md) for details.
 
 ## License
 

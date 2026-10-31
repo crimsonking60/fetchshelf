@@ -41,8 +41,9 @@ These decisions change what is published, so make them before anything becomes p
 - [x] **You:** Open **Issues → New issue** once and check that both forms and the two links appear. GitHub
   shows an error there if a form doesn't validate. The vulnerability reporting link only works once the
   repository is public. Checked on 2026-10-31.
-- [ ] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
+- [x] **Me:** Add a `SECURITY.md`. GitHub shows it on the **Security** tab and next to **Report a
   vulnerability**; it should say what `CONTRIBUTING.md` already says about reporting security problems.
+  Done: it also says which versions get fixes, what to include, and that the missing login is by design.
 - [ ] **Me:** Fill in [Getting help](user-guide.md#getting-help) in the user guide and
   [Discussions](contributors-guide.md#discussions) in the contributors guide: Discussions for questions and
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.

@@ -702,7 +702,8 @@ then open the **Discussions** tab.
 ### Security problems
 
 Don't report security problems in public issues or discussions. Use the repository's **Security** tab and
-choose **Report a vulnerability**, so the report stays private until a fix is out.
+choose **Report a vulnerability**, so the report stays private until a fix is out. The
+[security policy](../SECURITY.md) says what to include and what happens next.
 
 ## gh command reference
 
