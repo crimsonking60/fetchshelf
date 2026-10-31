@@ -6,7 +6,7 @@ using Fetchshelf.Data.Organizer;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>Display model for the Torrent detail page, Fetchshelf-spec.md §10.3.</summary>
+/// <summary>Display model for the Torrent detail page.</summary>
 public sealed record TorrentDetailViewModel(
     string Id,
     TorrentMetadata Metadata,

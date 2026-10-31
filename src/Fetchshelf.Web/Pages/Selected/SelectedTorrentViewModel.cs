@@ -4,7 +4,7 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Pages.Selected;
 
-/// <summary>Display model for one row on the Selected page, Fetchshelf-spec.md §10.4.</summary>
+/// <summary>Display model for one row on the Selected page.</summary>
 public sealed record SelectedTorrentViewModel(
     int Id,
     long MamId,

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Fetchshelf.Data.Organizer;
 
 /// <summary>
-/// Computes where a chosen file lands inside a torrent's destination folder, Fetchshelf-spec.md §8.3: a
+/// Computes where a chosen file lands inside a torrent's destination folder: a
 /// disc-numbered source sub-folder is preserved as `Disc N`; any other source structure is flattened.
 /// </summary>
 public static partial class LinkFilePlacer

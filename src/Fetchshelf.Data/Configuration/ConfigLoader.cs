@@ -8,7 +8,7 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>
-/// Loads and validates Fetchshelf-spec.md §4 configuration from a TOML file, applying
+/// Loads and validates configuration from a TOML file, applying
 /// <c>FETCHSHELF_CONF_&lt;setting&gt;</c> environment-variable overrides.
 /// </summary>
 public static class ConfigLoader
@@ -46,7 +46,7 @@ public static class ConfigLoader
 
     /// <summary>
     /// Loads settings from <paramref name="configFilePath"/>, creating a minimal file (empty
-    /// <c>mam_id</c>) if none exists (§4), then applying environment-variable overrides. The path
+    /// <c>mam_id</c>) if none exists, then applying environment-variable overrides. The path
     /// must have a <c>.toml</c> extension.
     /// </summary>
     public static FetchshelfSettings Load(string configFilePath)

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Implements the "same book" equivalence test, Fetchshelf-spec.md §6.2.</summary>
+/// <summary>Implements the "same book" equivalence test.</summary>
 public static class SameBookComparer
 {
     /// <summary>

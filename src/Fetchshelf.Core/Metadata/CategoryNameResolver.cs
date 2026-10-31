@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>The four main types a shared-filter `categories` entry is scoped to, Fetchshelf-spec.md §4.3.</summary>
+/// <summary>The four main types a shared-filter `categories` entry is scoped to.</summary>
 public enum FilterMainType
 {
     Audio,

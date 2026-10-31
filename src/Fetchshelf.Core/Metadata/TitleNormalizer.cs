@@ -5,8 +5,7 @@ using System.Text.RegularExpressions;
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// Derives the normalized title key ("title_search") used as the "same book" lookup key,
-/// Fetchshelf-spec.md §6.1.
+/// Derives the normalized title key ("title_search") used as the "same book" lookup key.
 /// </summary>
 public static partial class TitleNormalizer
 {
@@ -23,7 +22,7 @@ public static partial class TitleNormalizer
     private static partial Regex MultipleSpacesPattern();
 
     /// <summary>
-    /// Normalizes <paramref name="title"/> per §6.1: transliterate to ASCII, lowercase, replace
+    /// Normalizes <paramref name="title"/>: transliterate to ASCII, lowercase, replace
     /// " &amp; " with " and ", remove a leading "the "/"a "/"an ", remove all characters that are not
     /// letters, digits, underscore or space, then remove the words "volume" and "vol".
     /// </summary>

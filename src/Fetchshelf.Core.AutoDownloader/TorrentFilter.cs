@@ -3,8 +3,8 @@ using Fetchshelf.Core.Metadata;
 namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
-/// One main type's category constraint within a shared filter's `categories` field, Fetchshelf-spec.md
-/// §4.3: <c>null</c> means "all categories of this type" (`true`), an empty set means "none of this
+/// One main type's category constraint within a shared filter's `categories` field:
+/// <c>null</c> means "all categories of this type" (`true`), an empty set means "none of this
 /// type" (`false`), and a non-empty set means "only these categories".
 /// </summary>
 public sealed record MainTypeCategoryFilter
@@ -17,8 +17,8 @@ public sealed record MainTypeCategoryFilter
 }
 
 /// <summary>
-/// The `categories` field's per-main-type structure, Fetchshelf-spec.md §4.3. Defaults match the spec's own
-/// documented default: audio and ebook all, musicology and radio none.
+/// The `categories` field's per-main-type structure. Defaults match the documented default: audio and
+/// ebook all, musicology and radio none.
 /// </summary>
 public sealed record CategoryFilter
 {
@@ -32,7 +32,7 @@ public sealed record CategoryFilter
 }
 
 /// <summary>
-/// The shared torrent filter fields, Fetchshelf-spec.md §4.3. A torrent matches only if every field that is
+/// The shared torrent filter fields. A torrent matches only if every field that is
 /// set is satisfied; unset fields impose no constraint, except <see cref="Categories"/> which always
 /// applies its own (possibly default) per-main-type rule. Field shapes are config-source-agnostic;
 /// translation from YAML text happens in `Fetchshelf.Data.Configuration`.
@@ -74,7 +74,7 @@ public sealed record TorrentFilter
     public int? MaxAuthors { get; init; }
 }
 
-/// <summary>Maps a media type onto the shared filter's four main-type groups, Fetchshelf-spec.md §4.3.</summary>
+/// <summary>Maps a media type onto the shared filter's four main-type groups.</summary>
 public static class FilterMainTypeMapper
 {
     public static FilterMainType FromMediaType(MediaType mediaType) => mediaType switch

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Where a torrent's metadata came from, Fetchshelf-spec.md §3.1.</summary>
+/// <summary>Where a torrent's metadata came from.</summary>
 public enum MetadataSource
 {
     Mam,
@@ -8,7 +8,7 @@ public enum MetadataSource
 }
 
 /// <summary>
-/// The metadata fields shared by every torrent Fetchshelf knows about, Fetchshelf-spec.md §3.1. This is
+/// The metadata fields shared by every torrent Fetchshelf knows about. This is
 /// a plain value object with no persistence or I/O dependency, used by the metadata-normalization
 /// domain logic (title normalization, same-book test, cleaning) and mapped to/from storage by
 /// Fetchshelf.Data.
@@ -52,7 +52,7 @@ public sealed record TorrentMetadata
     public required DateTimeOffset UploadTime { get; init; }
 
     /// <summary>
-    /// Not part of Fetchshelf-spec.md §3.1's shared fields; added for `metadata.json` (§8.7). Absent until a
+    /// Not one of the shared metadata fields; added for `metadata.json`. Absent until a
     /// metadata source (MaM lookup, or a future manual-edit extension) populates it.
     /// </summary>
     public string? Description { get; init; }

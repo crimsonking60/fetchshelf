@@ -1,8 +1,7 @@
 namespace Fetchshelf.Data.Entities;
 
 /// <summary>
-/// A candidate skipped because an equal-or-better torrent for the same book already exists,
-/// Fetchshelf-spec.md §3.2.
+/// A candidate skipped because an equal-or-better torrent for the same book already exists.
 /// </summary>
 public sealed class DuplicateTorrentEntity
 {

@@ -3,7 +3,7 @@ using Fetchshelf.Core.Metadata;
 namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
-/// Evaluates the shared torrent filter against a candidate, Fetchshelf-spec.md §4.3. A torrent matches only
+/// Evaluates the shared torrent filter against a candidate. A torrent matches only
 /// if every field the filter sets is satisfied; unset fields impose no constraint.
 /// </summary>
 public static class TorrentFilterMatcher

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Notion;
 
-/// <summary>A Notion data source query response, Fetchshelf-spec.md §5.4.</summary>
+/// <summary>A Notion data source query response.</summary>
 public sealed record NotionDataSourceResponse
 {
     public IReadOnlyList<NotionRow> Results { get; init; } = [];

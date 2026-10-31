@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>How a linked file is placed into the library, Fetchshelf-spec.md §8.1.</summary>
+/// <summary>How a linked file is placed into the library.</summary>
 public enum LibraryLinkMethod
 {
     Hardlink,

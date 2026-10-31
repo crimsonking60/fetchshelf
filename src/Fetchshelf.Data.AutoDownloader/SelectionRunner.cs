@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Runs selection against one candidate, Fetchshelf-spec.md §7.2. One call processes one search result;
+/// Runs selection against one candidate. One call processes one search result;
 /// the caller (<see cref="AutograbberRunner"/>) loops over results and stops once the run's budget
 /// of <see cref="SelectionOutcome.Selected"/> outcomes is reached.
 /// </summary>
@@ -273,7 +273,7 @@ public sealed class SelectionRunner(
             }
 
             // Candidate is better; proceed without touching the library entry - the cleaner
-            // (library-organizer) retires it later (Fetchshelf-spec.md §7.2 step 7, §8.6).
+            // (library-organizer) retires it later.
         }
 
         return false;

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Extracts an edition phrase from title or tags text, Fetchshelf-spec.md §6.4.</summary>
+/// <summary>Extracts an edition phrase from title or tags text.</summary>
 public static partial class EditionExtractor
 {
     // The descriptor before "Edition"/"ed." is bounded to known ordinal shapes (optionally followed
@@ -55,7 +55,7 @@ public static partial class EditionExtractor
 
     /// <summary>
     /// Removes the matched edition phrase from <paramref name="title"/>. Any text that followed the
-    /// phrase becomes a ": subtitle" suffix on the remaining text (§6.4).
+    /// phrase becomes a ": subtitle" suffix on the remaining text.
     /// </summary>
     public static string RemoveFromTitle(string title, EditionMatch match)
     {

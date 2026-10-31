@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 namespace Fetchshelf.Clients.QBittorrent;
 
 /// <summary>
-/// Typed client for the qBittorrent WebUI API v2, Fetchshelf-spec.md §5.2. One instance should be used per
+/// Typed client for the qBittorrent WebUI API v2. One instance should be used per
 /// configured qBittorrent connection (see <see cref="QBittorrentClientFactory"/>).
 /// </summary>
 public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOptions options)
@@ -16,7 +16,7 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
     public QBittorrentClientOptions Options => options;
 
     /// <summary>
-    /// Authenticates with qBittorrent (§5.2). Success is detected by the presence of a session
+    /// Authenticates with qBittorrent. Success is detected by the presence of a session
     /// cookie in the response, since the login response body's content ("Ok."/"Fails.") is not
     /// consistent across qBittorrent versions. A successful login with no cookie is accepted only
     /// when qBittorrent then serves an authenticated endpoint without a session, which is what
@@ -132,7 +132,7 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
 
     /// <summary>
     /// Creates a qBittorrent category if it does not already exist, caching known categories per
-    /// client instance so it is never created more than once (Fetchshelf-spec.md §5.2).
+    /// client instance so it is never created more than once.
     /// </summary>
     public async Task EnsureCategoryExistsAsync(string category, CancellationToken cancellationToken = default)
     {
@@ -188,7 +188,7 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
 
     /// <summary>
     /// Sends a request, logging in first if no session exists yet, and re-authenticating once if the
-    /// session has expired (Fetchshelf-spec.md §5.2).
+    /// session has expired.
     /// </summary>
     private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, CancellationToken cancellationToken)
     {

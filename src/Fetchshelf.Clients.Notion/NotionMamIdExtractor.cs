@@ -1,7 +1,7 @@
 namespace Fetchshelf.Clients.Notion;
 
 /// <summary>
-/// Extracts MaM ids from a Notion row's configured URL properties, Fetchshelf-spec.md §7.8: "the trailing
+/// Extracts MaM ids from a Notion row's configured URL properties: "the trailing
 /// number of each URL is taken as MaM id."
 /// </summary>
 public static class NotionMamIdExtractor

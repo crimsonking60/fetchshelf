@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>The "kind" filter (e.g. freeleech, free-or-VIP), Fetchshelf-spec.md §5.1.</summary>
+/// <summary>The "kind" filter (e.g. freeleech, free-or-VIP).</summary>
 public enum MamSearchKind
 {
     Freeleech,

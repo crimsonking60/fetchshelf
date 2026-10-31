@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data;
 
-/// <summary>Reads and writes the persistent key/value Config store, Fetchshelf-spec.md §3.2.</summary>
+/// <summary>Reads and writes the persistent key/value Config store.</summary>
 public sealed class ConfigStoreRepository(FetchshelfDbContext dbContext)
 {
     public async Task SetAsync(string key, string value, CancellationToken cancellationToken = default)

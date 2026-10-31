@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>The Torrent detail page, Fetchshelf-spec.md §10.3.</summary>
+/// <summary>The Torrent detail page.</summary>
 public class DetailModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions) : PageModel
@@ -158,7 +158,7 @@ public class DetailModel(
         }
         catch (HttpRequestException)
         {
-            // qBittorrent unreachable: detail page still shows stored state (§10.3: "when available").
+            // qBittorrent unreachable: the detail page still shows the stored state.
         }
 
         return TorrentDetailViewModel.From(entity, events, clientState, settings.Audiobookshelf?.Url, mamOptions.BaseUrl);

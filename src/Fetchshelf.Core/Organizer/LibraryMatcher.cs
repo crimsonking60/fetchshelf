@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>The matching-relevant fields of a configured `[[library]]` entry, Fetchshelf-spec.md §8.1.</summary>
+/// <summary>The matching-relevant fields of a configured `[[library]]` entry.</summary>
 public sealed record LibraryMatchRule
 {
     public string? Category { get; init; }
@@ -12,7 +12,7 @@ public sealed record LibraryMatchRule
     public IReadOnlyList<string> DenyTags { get; init; } = [];
 }
 
-/// <summary>Matches a finished torrent to a configured library, Fetchshelf-spec.md §8.1.</summary>
+/// <summary>Matches a finished torrent to a configured library.</summary>
 public static class LibraryMatcher
 {
     /// <summary>

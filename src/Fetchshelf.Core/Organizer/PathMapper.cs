@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>Translates a qBittorrent-seen path through `path_mapping`, Fetchshelf-spec.md §4.2, §8.3.</summary>
+/// <summary>Translates a qBittorrent-seen path through `path_mapping`.</summary>
 public static class PathMapper
 {
     /// <summary>Longest-prefix match; replaces the matched prefix. Returns the path unchanged if no prefix matches.</summary>

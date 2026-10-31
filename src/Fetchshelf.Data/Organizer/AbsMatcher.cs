@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.Organizer;
 
 /// <summary>
-/// Matches linked torrents to their Audiobookshelf library item, Fetchshelf-spec.md §9. Distinct from the
+/// Matches linked torrents to their Audiobookshelf library item. Distinct from the
 /// metadata-push hooks in <see cref="LinkRunner"/>, which act only once a torrent already has a
 /// stored id.
 /// </summary>

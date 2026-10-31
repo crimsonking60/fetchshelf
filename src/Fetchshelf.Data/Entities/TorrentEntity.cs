@@ -1,14 +1,14 @@
 namespace Fetchshelf.Data.Entities;
 
 /// <summary>
-/// A torrent Fetchshelf knows about, Fetchshelf-spec.md §3.2. <see cref="MetadataJson"/> holds the
-/// serialized shared metadata fields (§3.1, <c>Fetchshelf.Core.Metadata.TorrentMetadata</c>); the
+/// A torrent Fetchshelf knows about. <see cref="MetadataJson"/> holds the
+/// serialized shared metadata fields (<c>Fetchshelf.Core.Metadata.TorrentMetadata</c>); the
 /// library-organizer fields below are schema placeholders populated by a later change, not by
 /// Foundation.
 /// </summary>
 public sealed class TorrentEntity
 {
-    /// <summary>Info-hash; for metadata-only entries, a string derived from the MaM id (§3.2).</summary>
+    /// <summary>Info-hash; for metadata-only entries, a string derived from the MaM id.</summary>
     public required string Id { get; set; }
 
     public required long MamId { get; set; }

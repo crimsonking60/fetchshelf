@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>What a search looks through (bookmarks, new torrents, own uploads, or a specific uploader), Fetchshelf-spec.md §5.1.</summary>
+/// <summary>What a search looks through (bookmarks, new torrents, own uploads, or a specific uploader).</summary>
 public sealed record MamSearchTarget
 {
     public static readonly MamSearchTarget Bookmarks = new("bookmarks");

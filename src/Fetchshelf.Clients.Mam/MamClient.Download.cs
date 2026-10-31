@@ -10,7 +10,7 @@ public sealed partial class MamClient
     /// <summary>
     /// Downloads a torrent's `.torrent` file from `GET /tor/download.php/&lt;dlHash&gt;?tid=&lt;mamId&gt;[&amp;fl]`,
     /// applying the 1s-between-downloads politeness rule. `tid` is required even though the hash is
-    /// in the path; `fl` spends a freeleech wedge on the download (Fetchshelf-spec.md §5.1, confirmed
+    /// in the path; `fl` spends a freeleech wedge on the download (confirmed
     /// against the original Rust implementation's `torrent_file_url`).
     /// </summary>
     public async Task<byte[]> DownloadTorrentFileAsync(string dlHash, long mamId, bool wedge = false, CancellationToken cancellationToken = default)

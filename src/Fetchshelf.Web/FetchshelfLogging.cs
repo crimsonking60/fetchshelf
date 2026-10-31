@@ -5,7 +5,7 @@ using Serilog.Events;
 namespace Fetchshelf.Web;
 
 /// <summary>
-/// Builds Fetchshelf's Serilog configuration, Fetchshelf-spec.md §11: console output goes to stderr only;
+/// Builds Fetchshelf's Serilog configuration: console output goes to stderr only;
 /// a daily-rotating file sink is added when a log directory is configured; the minimum level
 /// defaults to Debug and can be overridden by an environment-sourced level name.
 /// </summary>

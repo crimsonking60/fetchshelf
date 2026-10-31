@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Fetchshelf.Clients.QBittorrent;
 
-/// <summary>A file belonging to a torrent, as reported by qBittorrent's `torrents/files`, Fetchshelf-spec.md §5.2.</summary>
+/// <summary>A file belonging to a torrent, as reported by qBittorrent's `torrents/files`.</summary>
 public sealed record QBittorrentFile
 {
     [JsonPropertyName("name")]

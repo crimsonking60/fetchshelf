@@ -6,7 +6,7 @@ using Fetchshelf.Core.Organizer;
 namespace Fetchshelf.Clients.Abs;
 
 /// <summary>
-/// Typed client for the Audiobookshelf API, Fetchshelf-spec.md §5.3. Every request is bearer-authenticated
+/// Typed client for the Audiobookshelf API. Every request is bearer-authenticated
 /// with the configured token.
 /// </summary>
 public sealed class AbsClient

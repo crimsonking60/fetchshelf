@@ -1,7 +1,7 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// The kind of a series entry, Fetchshelf-spec.md §6.3. Declared in sort-tie-break order: when two entries
+/// The kind of a series entry. Declared in sort-tie-break order: when two entries
 /// share the same <see cref="SeriesEntry.FirstNumber"/>, a single number sorts before a part, which
 /// sorts before a range.
 /// </summary>
@@ -14,7 +14,7 @@ public enum SeriesEntryKind
 
 /// <summary>
 /// One entry in a series: a number ("3", "1.5", ".5"), a range ("1-3"), or a part ("2p1" = book 2
-/// part 1). Fetchshelf-spec.md §6.3.
+/// part 1).
 /// </summary>
 public sealed record SeriesEntry
 {

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Abs;
 
-/// <summary>Connection details for the Audiobookshelf client, Fetchshelf-spec.md §4.2, §5.3.</summary>
+/// <summary>Connection details for the Audiobookshelf client.</summary>
 public sealed record AbsClientOptions
 {
     public required string BaseUrl { get; init; }

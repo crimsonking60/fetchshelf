@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>VIP / freeleech status of a torrent, Fetchshelf-spec.md §2 ("Freeleech / VIP") and §3.1.</summary>
+/// <summary>VIP / freeleech status of a torrent.</summary>
 public enum VipStatusKind
 {
     NotVip,

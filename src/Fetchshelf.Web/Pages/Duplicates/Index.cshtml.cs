@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Duplicates;
 
-/// <summary>The Duplicates page, Fetchshelf-spec.md §10.4: torrents skipped because an equal or better copy exists.</summary>
+/// <summary>The Duplicates page: torrents skipped because an equal or better copy exists.</summary>
 public class IndexModel(FetchshelfDbContext dbContext, MamClientOptions mamOptions) : PageModel
 {
     public IReadOnlyList<DuplicateViewModel> Duplicates { get; private set; } = [];

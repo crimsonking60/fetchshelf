@@ -6,7 +6,7 @@ namespace Fetchshelf.Web.Pages.Duplicates;
 /// <summary>What a skipped torrent duplicates: a known torrent (linked to its page), a selection, or only a MaM id.</summary>
 public sealed record DuplicateOfViewModel(string Text, string? TorrentId, string? MamLink);
 
-/// <summary>Display model for one row on the Duplicates page, Fetchshelf-spec.md §10.4.</summary>
+/// <summary>Display model for one row on the Duplicates page.</summary>
 public sealed record DuplicateViewModel(
     int Id, string Title, string Authors, string MamLink, DuplicateOfViewModel DuplicateOf, DateTimeOffset CreatedAt)
 {

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>Format preference ranking, Fetchshelf-spec.md §7.6.</summary>
+/// <summary>Format preference ranking.</summary>
 public static class FormatRanker
 {
     /// <summary>Rank assigned when no extension from the preference list is present.</summary>

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>The optional `[audiobookshelf]` section, Fetchshelf-spec.md §4.1, §4.2, §9. Absent entirely (null
+/// <summary>The optional `[audiobookshelf]` section. Absent entirely (null
 /// on <see cref="FetchshelfSettings.Audiobookshelf"/>) means the integration is off.</summary>
 public sealed class AudiobookshelfSettings
 {

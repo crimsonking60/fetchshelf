@@ -15,9 +15,9 @@ public static class MamTorrentMapper
 
     /// <summary>
     /// Maps and cleans <paramref name="record"/>. Throws <see cref="UnrecognizedReferenceDataException"/>
-    /// if any reference-data field is unrecognized, matching Fetchshelf-spec.md §6.4 ("rejected with a
-    /// descriptive error ... logged/shown rather than silently dropped") — callers are expected to
-    /// catch and log it rather than let it crash the caller's own flow.
+    /// if any reference-data field is unrecognized, so the record is rejected with a descriptive error
+    /// rather than silently dropped. Callers are expected to catch and log it rather than let it crash the
+    /// caller's own flow.
     /// </summary>
     public static TorrentMetadata Map(MamTorrentRecord record)
     {
@@ -97,7 +97,7 @@ public static class MamTorrentMapper
         return metadata;
     }
 
-    /// <summary>Older records carry only the old main category (13-16), which maps to media types 1-4 (Fetchshelf-spec.md §12.1).</summary>
+    /// <summary>Older records carry only the old main category (13-16), which maps to media types 1-4.</summary>
     private static int OldMainCategoryToMediaTypeId(int oldMainCategoryId) => oldMainCategoryId switch
     {
         13 => 1, // Audiobook

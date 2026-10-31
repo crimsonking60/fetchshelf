@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>A selected torrent's resolved cost decision, Fetchshelf-spec.md §7.4.</summary>
+/// <summary>A selected torrent's resolved cost decision.</summary>
 public enum SelectedTorrentCost
 {
     Vip,
@@ -11,7 +11,7 @@ public enum SelectedTorrentCost
     Ratio,
 }
 
-/// <summary>The configured `cost` setting on an `[[autograb]]`/`[[snatchlist]]`/`[[tag]]` grab block, Fetchshelf-spec.md §7.4.</summary>
+/// <summary>The configured `cost` setting on an `[[autograb]]`/`[[snatchlist]]`/`[[tag]]` grab block.</summary>
 public enum ConfiguredCost
 {
     Free,

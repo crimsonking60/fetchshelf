@@ -3,7 +3,7 @@ using Fetchshelf.Core.Metadata;
 namespace Fetchshelf.Core.Organizer;
 
 /// <summary>
-/// Looks up a torrent's metadata by info-hash, Fetchshelf-spec.md §8.2 step 4. No implementation is
+/// Looks up a torrent's metadata by info-hash. No implementation is
 /// registered until the MaM client lands (build-order step 4) — see <see cref="NullMetadataLookup"/>.
 /// </summary>
 public interface IMetadataLookup

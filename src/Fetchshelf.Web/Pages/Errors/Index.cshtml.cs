@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Errors;
 
-/// <summary>The Errors page, Fetchshelf-spec.md §10.4: per-stage error list.</summary>
+/// <summary>The Errors page: per-stage error list.</summary>
 public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 {
     public IReadOnlyList<ErroredTorrentViewModel> Errors { get; private set; } = [];

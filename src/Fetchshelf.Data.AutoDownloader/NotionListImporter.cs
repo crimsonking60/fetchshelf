@@ -12,7 +12,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <summary>
 /// Imports a `[[notion_list]]` entry: queries the configured Notion data source, reads a MaM id from
 /// each row's configured URL properties, and feeds newly-seen torrents through the existing selection
-/// pipeline, Fetchshelf-spec.md §7.8 "Notion list". Stateless - no persisted `List`/`ListItem` rows, keyed
+/// pipeline.8 "Notion list". Stateless - no persisted `List`/`ListItem` rows, keyed
 /// off the existing Torrents table to skip ids already known.
 /// </summary>
 public sealed class NotionListImporter(

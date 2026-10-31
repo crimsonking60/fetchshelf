@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data;
 
 /// <summary>
-/// Append-only access to the Event log, Fetchshelf-spec.md §3.3. Deliberately exposes no update operation -
+/// Append-only access to the Event log. Deliberately exposes no update operation -
 /// once written, an event's stored fields are never changed.
 /// </summary>
 public sealed class EventStore(FetchshelfDbContext dbContext)

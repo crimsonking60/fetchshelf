@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Fetchshelf.Clients.Notion;
 
 /// <summary>
-/// A Notion page property, discriminated by its <c>type</c> field, Fetchshelf-spec.md §5.4. Only
+/// A Notion page property, discriminated by its <c>type</c> field. Only
 /// <see cref="NotionUrlProperty"/> carries data this client acts on (MaM ids are read from URL
 /// properties); the others are modeled so the row's full property set deserializes without error.
 /// Deserialized by <see cref="NotionPropertyConverter"/> rather than attribute-based polymorphism:

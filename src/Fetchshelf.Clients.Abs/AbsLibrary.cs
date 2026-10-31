@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Fetchshelf.Clients.Abs;
 
-/// <summary>`GET /api/libraries` response, Fetchshelf-spec.md §5.3.</summary>
+/// <summary>`GET /api/libraries` response.</summary>
 public sealed record AbsLibrariesResponse
 {
     [JsonPropertyName("libraries")]

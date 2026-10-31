@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Selected;
 
-/// <summary>The Selected page, Fetchshelf-spec.md §10.4: the download queue.</summary>
+/// <summary>The Selected page: the download queue.</summary>
 public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 {
     public IReadOnlyList<SelectedTorrentViewModel> Selections { get; private set; } = [];

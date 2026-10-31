@@ -1,7 +1,7 @@
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>
-/// An `[[autograb]]` entry's `type` (Fetchshelf-spec.md §7.1): `bookmarks`, `freeleech`, `new`, `mine`, or
+/// An `[[autograb]]` entry's `type`: `bookmarks`, `freeleech`, `new`, `mine`, or
 /// `{ uploader = &lt;id&gt; }`. Deserialized by <see cref="AutogrebTypeYamlConverter"/> since YAML
 /// allows either a string scalar or a one-key mapping here.
 /// </summary>

@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Fetchshelf.Clients.Abs;
 
-/// <summary>`GET /api/libraries/{id}/search?q=` response, Fetchshelf-spec.md §5.3.</summary>
+/// <summary>`GET /api/libraries/{id}/search?q=` response.</summary>
 public sealed record AbsSearchResponse
 {
     [JsonPropertyName("authors")]
@@ -19,7 +19,7 @@ public sealed record AbsAuthor
     public required string Name { get; init; }
 }
 
-/// <summary>`GET /api/authors/{id}?include=items` response, Fetchshelf-spec.md §5.3.</summary>
+/// <summary>`GET /api/authors/{id}?include=items` response.</summary>
 public sealed record AbsAuthorResponse
 {
     [JsonPropertyName("id")]

@@ -91,7 +91,7 @@ public static class AutogrebSearchTranslator
     }
 
     /// <summary>
-    /// Mirrors the reference implementation's `Categories::get_main_cats` (Fetchshelf-spec.md §4.3/§12.1):
+    /// Mirrors the reference implementation's `Categories::get_main_cats` (/):
     /// used only when no main type has an explicit non-empty category list (otherwise specific
     /// category ids carry the filter instead, see <see cref="ToCategoryIds"/>), and only for the
     /// main types set to "all" - unless every type is "all", in which case no filter is needed.

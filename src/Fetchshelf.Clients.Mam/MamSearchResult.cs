@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>A page of MaM search results, Fetchshelf-spec.md §5.1.</summary>
+/// <summary>A page of MaM search results.</summary>
 public sealed record MamSearchResult
 {
     public required int PerPage { get; init; }
@@ -14,7 +14,7 @@ public sealed record MamSearchResult
     public required IReadOnlyList<MamTorrentRecord> Data { get; init; }
 }
 
-/// <summary>One raw MaM torrent record, as documented in Fetchshelf-spec.md §5.1 (before cleaning).</summary>
+/// <summary>One raw MaM torrent record, as documented (before cleaning).</summary>
 public sealed record MamTorrentRecord
 {
     public required long MamId { get; init; }
@@ -27,14 +27,14 @@ public sealed record MamTorrentRecord
 
     public required IReadOnlyList<MamSeriesInfo> Series { get; init; }
 
-    /// <summary>Plain ISBN, or an ASIN prefixed with "ASIN:" (Fetchshelf-spec.md §5.1).</summary>
+    /// <summary>Plain ISBN, or an ASIN prefixed with "ASIN:".</summary>
     public string? Isbn { get; init; }
 
     public string? Description { get; init; }
 
     public required int MediaTypeId { get; init; }
 
-    /// <summary>The old main-category fallback used when <see cref="MediaTypeId"/> is absent/zero (Fetchshelf-spec.md §12.1).</summary>
+    /// <summary>The old main-category fallback used when <see cref="MediaTypeId"/> is absent/zero.</summary>
     public required int OldMainCategoryId { get; init; }
 
     public required int FictionCategoryId { get; init; }
@@ -52,7 +52,7 @@ public sealed record MamTorrentRecord
 
     public required int FileCount { get; init; }
 
-    /// <summary>Raw size string, e.g. "1.23 GiB" (Fetchshelf-spec.md §12.6).</summary>
+    /// <summary>Raw size string, e.g. "1.23 GiB".</summary>
     public required string SizeRaw { get; init; }
 
     public required string TagsRaw { get; init; }
@@ -77,10 +77,10 @@ public sealed record MamTorrentRecord
 
     public required bool IsVip { get; init; }
 
-    /// <summary>Unix timestamp; 0 means permanent VIP (Fetchshelf-spec.md §5.1).</summary>
+    /// <summary>Unix timestamp; 0 means permanent VIP.</summary>
     public required long VipExpireUnixSeconds { get; init; }
 
-    /// <summary>The hash used to build a download URL (Fetchshelf-spec.md §5.1's "download hash").</summary>
+    /// <summary>The hash used to build a download URL.</summary>
     public string? DownloadHash { get; init; }
 }
 

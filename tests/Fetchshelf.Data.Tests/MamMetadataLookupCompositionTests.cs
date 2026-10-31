@@ -12,7 +12,7 @@ namespace Fetchshelf.Data.Tests;
 /// <summary>
 /// Proves the library organizer's link run now receives real metadata from MaM through
 /// <see cref="MamMetadataLookup"/>/<see cref="MamClient"/>, where previously every lookup missed
-/// with <c>NullMetadataLookup</c> (Fetchshelf-spec.md §8.2 step 4).
+/// with <c>NullMetadataLookup</c>.
 /// </summary>
 public sealed class MamMetadataLookupCompositionTests : IDisposable
 {

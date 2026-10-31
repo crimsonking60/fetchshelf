@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>Derives a selected torrent's cost decision, Fetchshelf-spec.md §7.4.</summary>
+/// <summary>Derives a selected torrent's cost decision.</summary>
 public static class CostPolicy
 {
     /// <summary>

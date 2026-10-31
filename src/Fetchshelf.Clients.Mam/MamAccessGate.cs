@@ -1,7 +1,7 @@
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Ensures at most one autograbber and one list import talk to MaM at a time (Fetchshelf-spec.md §5.1).
+/// Ensures at most one autograbber and one list import talk to MaM at a time.
 /// Register as a singleton; the autograbber and list-import features (later roadmap steps) both
 /// acquire it around their MaM calls.
 /// </summary>

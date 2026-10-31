@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Jobs;
 
-/// <summary>The Jobs page, Fetchshelf-spec.md §10.1.</summary>
+/// <summary>The Jobs page.</summary>
 public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings) : PageModel
 {
     public IReadOnlyList<JobStatusViewModel> Jobs { get; private set; } = [];

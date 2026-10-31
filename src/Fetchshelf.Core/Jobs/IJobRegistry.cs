@@ -1,8 +1,7 @@
 namespace Fetchshelf.Core.Jobs;
 
 /// <summary>
-/// Registers named background jobs, tracks their last run, and triggers them on demand, Fetchshelf-spec.md
-/// §10.1 and §11.
+/// Registers named background jobs, tracks their last run, and triggers them on demand.
 /// </summary>
 public interface IJobRegistry
 {

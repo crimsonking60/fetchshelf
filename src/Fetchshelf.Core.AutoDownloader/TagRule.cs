@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>One `[[tag]]` rule's matching-relevant fields, Fetchshelf-spec.md §7.5.</summary>
+/// <summary>One `[[tag]]` rule's matching-relevant fields.</summary>
 public sealed record TagRule
 {
     public required TorrentFilter Filter { get; init; }
@@ -10,7 +10,7 @@ public sealed record TagRule
     public IReadOnlyList<string> Tags { get; init; } = [];
 }
 
-/// <summary>Resolves a selected torrent's category and tags from tag rules, Fetchshelf-spec.md §7.2 step 8, §7.5.</summary>
+/// <summary>Resolves a selected torrent's category and tags from tag rules.</summary>
 public static class TagRuleResolver
 {
     /// <summary>

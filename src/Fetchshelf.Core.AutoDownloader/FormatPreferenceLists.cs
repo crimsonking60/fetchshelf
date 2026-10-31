@@ -2,7 +2,7 @@ using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>The four per-media-type format preference lists, Fetchshelf-spec.md §4.1, §7.6.</summary>
+/// <summary>The four per-media-type format preference lists.</summary>
 public sealed record FormatPreferenceLists
 {
     public required IReadOnlyList<string> AudioTypes { get; init; }

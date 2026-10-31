@@ -5,7 +5,7 @@ namespace Fetchshelf.Data.Tests;
 
 /// <summary>
 /// Confirms config loading and the persistent store can be wired together in one process, sharing a
-/// base directory without colliding (Fetchshelf-spec.md §11: config and database live alongside each other).
+/// base directory without colliding (config and database live alongside each other).
 /// </summary>
 public sealed class CompositionTests : IDisposable
 {

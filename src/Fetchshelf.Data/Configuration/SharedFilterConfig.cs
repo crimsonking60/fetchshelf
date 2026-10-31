@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Configuration;
 
-/// <summary>The `categories` field's four main-type entries, Fetchshelf-spec.md §4.3.</summary>
+/// <summary>The `categories` field's four main-type entries.</summary>
 public sealed class CategoriesConfig
 {
     public CategoryListOrBool Audio { get; set; } = CategoryListOrBool.All;
@@ -13,7 +13,7 @@ public sealed class CategoriesConfig
 }
 
 /// <summary>
-/// The shared torrent filter's config-shaped fields, Fetchshelf-spec.md §4.3, embedded into
+/// The shared torrent filter's config-shaped fields, embedded into
 /// `[[autograb]]`/`[[tag]]`/`[[snatchlist]]` blocks.
 /// </summary>
 public class SharedFilterConfig

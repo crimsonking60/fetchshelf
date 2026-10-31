@@ -1,6 +1,6 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Snatch list kinds, Fetchshelf-spec.md §5.1.</summary>
+/// <summary>Snatch list kinds.</summary>
 public enum MamSnatchlistKind
 {
     Unsat,

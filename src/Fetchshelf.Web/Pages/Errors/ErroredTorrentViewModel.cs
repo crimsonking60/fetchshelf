@@ -5,7 +5,7 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Pages.Errors;
 
-/// <summary>Display model for one row on the Errors page, Fetchshelf-spec.md §10.4.</summary>
+/// <summary>Display model for one row on the Errors page.</summary>
 public sealed record ErroredTorrentViewModel(
     int Id,
     string Job,

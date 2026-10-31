@@ -15,8 +15,6 @@ These decisions change what is published, so make them before anything becomes p
 
 - [x] **You:** Commit email. Every commit so far is authored as `crimsonking60@tutamail.com`, and that address
   becomes public with the history. Decided: that is fine, the address is meant to be public.
-- [ ] **You:** Decide whether `Fetchshelf-spec.md` and the references to the original application in
-  `README.md` stay in the public repository.
 - [x] **You:** Support channel. Decided: both GitHub Discussions (questions, ideas) and issues (bugs, feature
   requests), plus private vulnerability reports for security problems, all enabled before the project is
   announced.

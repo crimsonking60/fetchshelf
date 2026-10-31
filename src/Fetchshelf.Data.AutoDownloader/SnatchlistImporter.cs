@@ -12,8 +12,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
 /// Imports a `[[snatchlist]]` entry: pages the user's MaM snatch list and creates/updates
-/// metadata-only Torrent records so those torrents count as owned for duplicate detection,
-/// Fetchshelf-spec.md §7.7.
+/// metadata-only Torrent records so those torrents count as owned for duplicate detection.
 /// </summary>
 public sealed class SnatchlistImporter(
     FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, ILogger<SnatchlistImporter>? logger = null)

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data;
 
-/// <summary>EF Core context for Fetchshelf's persistent store, Fetchshelf-spec.md §3.</summary>
+/// <summary>EF Core context for Fetchshelf's persistent store.</summary>
 public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> options) : DbContext(options)
 {
     public DbSet<TorrentEntity> Torrents => Set<TorrentEntity>();

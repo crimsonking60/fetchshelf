@@ -2,7 +2,7 @@ using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Core.Organizer;
 
-/// <summary>Computes a torrent's destination library folder, Fetchshelf-spec.md §8.4.</summary>
+/// <summary>Computes a torrent's destination library folder.</summary>
 public static class FolderNameComputer
 {
     /// <summary>

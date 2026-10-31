@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>Computes an autograbber run's selection budget, Fetchshelf-spec.md §7.1 step 2.</summary>
+/// <summary>Computes an autograbber run's selection budget.</summary>
 public static class SelectionBudget
 {
     /// <summary>

@@ -1,6 +1,6 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Tracker media types, Fetchshelf-spec.md §12.1.</summary>
+/// <summary>Tracker media types.</summary>
 public enum MediaType
 {
     Audiobook = 1,
@@ -13,7 +13,7 @@ public enum MediaType
     PeriodicalAudiobook = 8,
 }
 
-/// <summary>Fiction / non-fiction main category, Fetchshelf-spec.md §12.1.</summary>
+/// <summary>Fiction / non-fiction main category.</summary>
 public enum FictionCategory
 {
     Fiction = 1,

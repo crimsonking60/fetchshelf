@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages;
 
 /// <summary>
-/// The Search page, Fetchshelf-spec.md §10.4: manual MaM search with the shared filter, cost badges, and
+/// The Search page: manual MaM search with the shared filter, cost badges, and
 /// download / download-with-wedge actions that start a selection via tag rules. Also serves as the
 /// application's home page ("/").
 /// </summary>

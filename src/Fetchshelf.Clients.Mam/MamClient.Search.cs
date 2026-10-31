@@ -17,7 +17,7 @@ public sealed partial class MamClient
 
     /// <summary>
     /// Searches MaM torrents against `POST /tor/js/loadSearchJSONbasic.php`, applying the
-    /// 400ms-between-pages politeness rule (Fetchshelf-spec.md §5.1).
+    /// 400ms-between-pages politeness rule.
     /// </summary>
     public async Task<MamSearchResult> SearchAsync(MamSearchQuery query, CancellationToken cancellationToken = default)
     {

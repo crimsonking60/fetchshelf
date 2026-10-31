@@ -9,7 +9,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
-/// the library, and handing an approved grab to qBittorrent, Fetchshelf-spec.md §7.3, §13.
+/// the library, and handing an approved grab to qBittorrent.
 /// </summary>
 public sealed class DownloadRunner(
     FetchshelfDbContext dbContext,
