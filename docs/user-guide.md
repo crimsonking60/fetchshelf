@@ -289,7 +289,11 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   required value, or an unrecognized name (for example a misspelled language). The error message names the
   problem. Check `docker logs fetchshelf`.
 - **Changes need a restart.** Fetchshelf reads the file when it starts. After editing it, restart the
-  container.
+  container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
+  in the database and picked up again after the restart. A job that the restart cuts off does its work on
+  its next run, and a download that already reached qBittorrent is recognised there rather than added
+  twice. Two things start fresh: the **Jobs** page forgets each job's last run, and each scheduled job
+  waits one full interval before its first run. Use **Run now** if you don't want to wait.
 - **Environment overrides.** Any simple top-level setting can be set through an environment variable named
   `FETCHSHELF_CONF_<setting>` with the setting name in lower case, for example
   `FETCHSHELF_CONF_mam_id`. Environment variables win over the file. This is useful for keeping a secret such
