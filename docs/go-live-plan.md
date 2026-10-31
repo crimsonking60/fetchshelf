@@ -79,8 +79,8 @@ These decisions change what is published, so make them before anything becomes p
 - [x] **You:** Issues: already enabled.
 - [x] **You:** Enable Discussions. Done on 2026-10-31; GitHub created the default categories Announcements,
   General, Ideas, Polls, Q&A and Show and tell.
-- [ ] **You:** Adjust the Discussions categories under the **Discussions** tab if the defaults don't fit, for
-  example add Development or remove Polls.
+- [x] **You:** Adjust the Discussions categories under the **Discussions** tab if the defaults don't fit, for
+  example add Development or remove Polls. Decided: keep the defaults.
 
 ## 3. Go public
 
