@@ -426,64 +426,13 @@ work I can do on request.
 - [x] **You:** Releases are announced in `README.md`, linking to `RELEASES.md`, which lists every release with
   its changes, newest first.
 - [x] **You:** No other maintainers for now. When there are, add them to `.github/CODEOWNERS`.
-- [ ] **You:** Decide whether to publish images for 64-bit ARM (`linux/arm64`) as well, for Raspberry Pi and
-  ARM-based NAS users. Images are currently built for `linux/amd64` only.
-- [ ] **You:** Make the container package public once the repository is public. Packages published from a
-  private repository are private, so nobody else can pull them.
 
 ### Repository setup
 
 - [x] **You:** Create the `develop` branch from `main` and make it the default branch.
-
-- [ ] **You:** Protect `develop`: require a pull request, the "Build, test and format" check and code-owner
-  review; block force pushes and deletion.
-- [ ] **You:** Protect `main`: require a pull request and the "Build, test and format" check; block force pushes
-  and deletion.
-
-  Both need GitHub Pro, or the repository to be public: on the free plan GitHub refuses rulesets for private
-  repositories. Once that is the case, the commands below create both rulesets. Repository admins may bypass
-  them, so the owner can still push directly and merge their own pull requests (GitHub never lets an author
-  approve their own pull request, so code-owner review cannot otherwise be met when the owner is the only
-  code owner). A bypass also skips the required check, so look at the checks before merging that way.
-
-  ```sh
-  ruleset() {  # name, branch, require code-owner review (true/false)
-    gh api --method POST repos/crimsonking60/fetchshelf/rulesets --input - <<EOF
-  {
-    "name": "$1",
-    "target": "branch",
-    "enforcement": "active",
-    "conditions": { "ref_name": { "include": ["refs/heads/$2"], "exclude": [] } },
-    "bypass_actors": [ { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" } ],
-    "rules": [
-      { "type": "deletion" },
-      { "type": "non_fast_forward" },
-      { "type": "pull_request", "parameters": {
-          "required_approving_review_count": 0,
-          "require_code_owner_review": $3,
-          "dismiss_stale_reviews_on_push": false,
-          "require_last_push_approval": false,
-          "required_review_thread_resolution": false } },
-      { "type": "required_status_checks", "parameters": {
-          "strict_required_status_checks_policy": false,
-          "required_status_checks": [ { "context": "Build, test and format" } ] } }
-    ]
-  }
-  EOF
-  }
-  ruleset "Protect develop" develop true
-  ruleset "Protect main" main false
-  ```
-
-  `actor_id` 5 is the built-in Repository admin role. The required check is named `Build, test and format`
-  on pull requests; on pushes the same job shows as `checks / Build, test and format`, because the develop
-  image and release workflows call it. On the first pull request after setting this up, check that the
-  required check is reported and not stuck at "Expected — Waiting for status to be reported". If it is,
-  edit the context name in **Settings → Rules → Rulesets** to match the check's name on the pull request.
-- [ ] **You:** In the repository's merge settings, allow squash merging and merge commits, and turn off rebase
-  merging.
-- [ ] **You:** Turn on "Automatically delete head branches". Protected branches such as `develop` are never
-  deleted by it.
+- [ ] **You:** Going public: protect `develop` and `main`, set the merge settings, make the container package
+  public and turn on the security settings. All of it is in the [go-live plan](go-live-plan.md), including
+  ready-made commands for the branch protection rulesets.
 
 ### Work
 
@@ -494,8 +443,6 @@ work I can do on request.
 - [x] **Me:** Add the develop image workflow (`.github/workflows/develop-image.yml`).
 - [x] **Me:** Pass the version into the image build (the `FETCHSHELF_VERSION` build argument in the
   `Dockerfile`; `develop` images get `develop-<commit>`).
-- [ ] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
-  about.
 - [ ] **Me:** Optionally, automate the back-merge of `main` into `develop` at the end of the release workflow.
 - [x] **Me:** Replace the `<registry>/<image>:<tag>` placeholders in the user guide with
   `ghcr.io/crimsonking60/fetchshelf`, and fill in "Updating Fetchshelf" with the tags and a link to

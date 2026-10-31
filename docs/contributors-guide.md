@@ -754,28 +754,23 @@ work I can do on request.
 ### Decisions
 
 - [ ] **You:** Make the repository public. It is private today, so volunteers can't fork it, open issues or
-  join discussions yet.
-- [ ] **You:** Enable Discussions and decide the categories (for example Q&A, Ideas, Show and tell,
-  Development), then update [Discussions](#discussions).
-- [ ] **You:** Enable private vulnerability reporting under the repository's security settings, which
-  [Security problems](#security-problems) relies on.
+  join discussions yet. Everything that goes with it, including Discussions, private vulnerability
+  reporting, a code of conduct, branch protection and issue templates, is in the
+  [go-live plan](go-live-plan.md).
 - [x] **You:** Decide the merge strategy: pull requests are squash-merged into `develop`, and releases merge
-  `develop` into `main` with a merge commit. Setting it up is tracked in the
-  [maintainer guide](maintainer-guide.md#to-do).
+  `develop` into `main` with a merge commit. Setting it up is in the [go-live plan](go-live-plan.md).
 - [x] **You:** Decide whether contributions need a sign-off (`git commit -s`, Developer Certificate of
   Origin) or a contributor license agreement. Decided: neither for now. Contributions are made under the
   project's MIT license; a DCO check can be added later if the project grows.
-- [ ] **You:** Decide whether to adopt a code of conduct, for example the Contributor Covenant.
-- [ ] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
+- [x] **You:** Decide branch protection for `develop` and `main`: required reviews (optionally "Require review
   from Code Owners", which makes `.github/CODEOWNERS` binding rather than advisory), required checks, no
-  direct pushes. The [maintainer guide](maintainer-guide.md#to-do) has a proposal.
+  direct pushes. Decided: a pull request and the check on both, code-owner review on `develop`, with admin
+  bypass; see the [go-live plan](go-live-plan.md#branch-protection).
 
 ### Work
 
 - [x] **Me:** Add a continuous integration workflow that runs `dotnet build`, `dotnet test` and
   `dotnet format --verify-no-changes` on every pull request.
-- [ ] **Me:** Add issue templates for bug reports and feature requests, and a pull request template with the
-  checklist from [Before you open one](#before-you-open-one).
 - [x] **Me:** Make `src/Fetchshelf.Web/Properties/launchSettings.json` portable. Its `http` profile is back to
   the project template's default, with no machine-specific paths.
 - [x] **Me:** Add a `CONTRIBUTING.md` at the repository root that links here, so GitHub shows it on new issues

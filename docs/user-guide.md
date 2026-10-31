@@ -1030,7 +1030,7 @@ work I can do on request.
 - [x] **You:** Decide the tagging scheme (`latest`, version numbers, release channels) and where release
   notes live, then update [Updating Fetchshelf](#updating-fetchshelf).
 - [ ] **You:** Decide the support channel (issue tracker, forum thread, chat) and fill in
-  [Getting help](#getting-help).
+  [Getting help](#getting-help). Tracked in the [go-live plan](go-live-plan.md).
 - [x] **You:** Decide whether the guide should say the project has no stable release yet, and where.
   Decided: no such note, the releases are stable.
 - [x] **You:** Decide whether the image should get a `HEALTHCHECK`. If so, document it. The image has none
@@ -1048,12 +1048,13 @@ work I can do on request.
 - [x] **You:** Confirm the statement on following MaM's rules, and add a link to the rules page if you
   want one. Confirmed; no link, since the rules are in a private area of MaM.
 - [ ] **You:** Check the Notion steps in [Importing reading lists](#importing-reading-lists). They do not yet
-  explain creating an integration, sharing the database with it, or finding the data source id.
+  explain creating an integration, sharing the database with it, or finding the data source id. Tracked in
+  the [go-live plan](go-live-plan.md).
 - [x] **You:** Decide whether to replace or remove the Goodreads integration now that Goodreads has no RSS
   feeds, then rewrite or remove the Goodreads section in [Importing reading lists](#importing-reading-lists).
   Decided: removed.
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](#connecting-to-audiobookshelf),
-  especially how to create the API token.
+  especially how to create the API token. Tracked in the [go-live plan](go-live-plan.md).
 - [x] **Me:** Run the three-service Compose example against real qBittorrent and Audiobookshelf images and
   fix anything that does not work. Run with qBittorrent 5.3.0 and Audiobookshelf 2.37.1: linking and
   Audiobookshelf matching work. MaM itself was not part of the run.
@@ -1078,3 +1079,4 @@ work I can do on request.
 - [x] **Me:** Add a short glossary (ratio, unsatisfied snatch, wedge, freeleech, VIP) if you want one for
   readers new to MaM. Decided against: MaM documents these terms, and the guide assumes readers know them.
 - [ ] **Me:** Final read-through for consistency with the configuration reference, then check all links.
+  Tracked in the [go-live plan](go-live-plan.md).
