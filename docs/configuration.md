@@ -82,7 +82,7 @@ Fetchshelf has two halves that can be used independently.
 **Library organizer** — turns finished downloads into a tidy folder tree:
 
 ```
-qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Title folder ─▶ Audiobookshelf
+qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Title folder + metadata.json
           │                         by category or            ▲
           │                         download_dir              │ path_mapping translates the
           └─ category/tags set by [[tag]] rules ─────────────┘ client's paths to Fetchshelf's
@@ -92,8 +92,10 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
   autograb `category` sets) or by their **save path** (`download_dir`).
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
+- Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
+  book's files, readable by any app or script.
 - `[audiobookshelf]` is optional; without it Audiobookshelf can still pick the books up from the
-  `metadata.json` Fetchshelf writes next to the files.
+  `metadata.json` files.
 - When a better format of a book is linked, the old copy is retired, and `on_cleaned` on the
   `[[qbittorrent]]` entry says what to do to it in the client.
 
@@ -473,7 +475,9 @@ library, in file order, that accepts it is used.
   every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened.
-- A `metadata.json` that Audiobookshelf understands is written next to the files.
+- A `metadata.json` is written next to the files, for every media type. It is plain JSON in the format
+  Audiobookshelf reads; see [`metadata.json`](user-guide.md#metadatajson) in the user guide for its
+  fields.
 - A torrent without any author cannot be linked and is reported on the Errors page.
 
 ### Folder naming

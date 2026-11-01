@@ -35,9 +35,10 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 
 ## What is Fetchshelf?
 
-Fetchshelf is a self-hosted service that connects MAM with the BitTorrent client qBittorrent and,
-optionally, [Audiobookshelf](https://www.audiobookshelf.org). It runs in the background, has a web interface
-for looking at what it is doing, and is configured with a single text file.
+Fetchshelf is a self-hosted service that connects MAM with the BitTorrent client qBittorrent. It downloads
+and organizes anything MAM carries: ebooks, audiobooks, comics and manga, periodicals, musicology and radio.
+It runs in the background, has a web interface for looking at what it is doing, and is configured with a
+single text file.
 
 It has two halves that you can use together or separately:
 
@@ -45,15 +46,24 @@ It has two halves that you can use together or separately:
   author, a Notion reading list, and so on) and adds them to qBittorrent. While doing so it protects your
   account: it keeps your ratio above a limit, leaves some unsatisfied-snatch slots free and holds back a
   number of freeleech wedges.
-- **The library organizer** watches qBittorrent for finished torrents and links the book files into a tidy
-  `Author/Series/Title` folder tree, with a `metadata.json` that Audiobookshelf can read. When a better
-  format of a book arrives, it retires the older copy.
+- **The library organizer** watches qBittorrent for finished torrents and links the files into a tidy
+  `Author/Series/Title` folder tree. Next to every title it writes a `metadata.json` file with the
+  authors, series, description, ISBN, genres and more, taken from MAM (see
+  [`metadata.json`](#metadatajson)). When a better format of a title arrives, it retires the older copy.
 
 If you only want a tidy library, skip the auto-downloader. If you only want automatic downloads, skip the
 organizer.
 
-Fetchshelf is **not** a torrent client (qBittorrent does the downloading), not a media player
-(Audiobookshelf or similar does the reading and listening) and has no user accounts of its own. See
+The library is plain folders and files, so you can point whatever you like at it: an ebook or comic
+reader, an audiobook or music player, a file manager, a backup tool or your own scripts. Fetchshelf also
+has an optional integration with [Audiobookshelf](https://www.audiobookshelf.org) (see
+[Connecting to Audiobookshelf](#connecting-to-audiobookshelf)), but nothing else in Fetchshelf depends on
+it.
+
+This guide says **book** for any title on MAM, whatever its media type.
+
+Fetchshelf is **not** a torrent client (qBittorrent does the downloading), not a reader or player (the apps
+you point at your library do that) and has no user accounts of its own. See
 [Security and privacy](#security-and-privacy).
 
 ## Before you start
@@ -67,7 +77,8 @@ You need:
   certain client versions and changes the list over time, so check MAM's current list of approved clients
   before you install or upgrade qBittorrent.
 - **Docker**, and optionally Docker Compose.
-- **Audiobookshelf**, optional.
+- **Audiobookshelf**, only if you want Fetchshelf to keep it up to date. Any other app that reads your
+  library needs nothing from Fetchshelf.
 - **Disk layout that allows hardlinks**, if you want files to appear in the library without using extra
   space. Hardlinks only work when the download folder and the library folder are on the **same
   filesystem**. Otherwise use the copy or symlink link methods (see
@@ -130,7 +141,7 @@ What the options mean:
 | `-p 3157:3157` | The web interface listens on port 3157 inside the container. Change the left number to use another port on the host. |
 | `/config` volume | Holds `config.toml`. |
 | `/data` volume | Holds the database (`data.db`), where Fetchshelf remembers torrents, selections and events. |
-| `/media` volume | Not required by Fetchshelf itself. A folder that holds both your downloads and your library, so linking can work. Use the same host folder, mounted at the same path, in qBittorrent and Audiobookshelf. |
+| `/media` volume | Not required by Fetchshelf itself. A folder that holds both your downloads and your library, so linking can work. Use the same host folder, mounted at the same path, in qBittorrent and, if you use it, Audiobookshelf. |
 | `PUID` / `PGID` | The user and group id that Fetchshelf runs as inside the container. Set them to the owner of your config, data and media folders (run `id` on the host to see yours) so files are created with the right owner. Both default to `1000`. |
 
 The container starts as root only to adjust ownership of `/config` and `/data`, then runs Fetchshelf as the
@@ -193,7 +204,8 @@ Common commands, run in the folder that contains the file:
 If you run all three in one Compose project, mount your media folder at `/media` in every container. Then
 the path that qBittorrent reports for a download is also valid inside Fetchshelf, so no `path_mapping` is
 needed, hardlinks work because downloads and library share one filesystem, and Audiobookshelf sees each
-book at the same path as Fetchshelf, which it needs to match them.
+book at the same path as Fetchshelf, which it needs to match them. If you do not use Audiobookshelf, leave
+out its service. Any other app that reads your library just needs access to `/srv/media/library`.
 
 ```yaml
 services:
@@ -456,6 +468,25 @@ category = "audiobooks"
 The first matching rule that sets a category decides the category. Tags from every matching rule are
 added. An `[[autograb]]` can also force a category with its own `category` setting.
 
+Libraries are not limited to audiobooks and ebooks: add one for anything you want kept apart. For
+example, to give comics and manga their own folder, put this rule **before** the ebooks rule, so it
+claims them first:
+
+```toml
+[[tag]]
+media_type = ["ComicBook", "Manga"]
+category = "comics"
+
+[[library]]
+name = "Comics"
+category = "comics"
+library_dir = "/media/library/comics"
+```
+
+Rules leave out Musicology and Radio unless you include them, so a rule for those needs both the media
+type and the category switch, for example `media_type = ["Radio"]` with `categories = { radio = true }`
+(see the [shared torrent filter](configuration.md#the-shared-torrent-filter)).
+
 You can narrow a library with `allow_tags` (the torrent needs at least one) and `deny_tags` (the torrent
 is rejected if it has any), and give it its own `audio_types` / `ebook_types` to control which files are
 linked into it.
@@ -478,8 +509,11 @@ them.
 
 ## Connecting to Audiobookshelf
 
-This is optional. Without it, Audiobookshelf still reads the `metadata.json` file that Fetchshelf writes
-next to every book. With it, Fetchshelf also:
+Skip this section if you do not use Audiobookshelf. It is the one app Fetchshelf talks to directly, but
+the library and its `metadata.json` files are the same with or without it.
+
+Even without this section, Audiobookshelf reads the `metadata.json` file that Fetchshelf writes next to
+every book. With it, Fetchshelf also:
 
 - finds each linked book in Audiobookshelf and stores the link, shown on the torrent's page;
 - pushes updated metadata to Audiobookshelf after linking or a refresh;
@@ -797,8 +831,54 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
   A torrent with no author cannot be linked and shows up on the **Errors** page.
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
-- **`metadata.json`.** Written next to the files, with authors, narrators, series, title, description,
-  language and more, in the format Audiobookshelf reads.
+- **`metadata.json`.** Written next to the files of every book, whatever its media type. See below.
+
+### `metadata.json`
+
+Every book folder gets a `metadata.json` file describing the book, built from MAM's information about the
+torrent. It is plain JSON, so any program can read it: use it to search or catalogue your library, feed a
+script, import into another app, or just look up what a folder is. Audiobookshelf reads it as it is. For
+example:
+
+```json
+{
+  "authors": [
+    "Brandon Sanderson"
+  ],
+  "narrators": [],
+  "series": [
+    "Stormlight Archive #1"
+  ],
+  "title": "The Way of Kings",
+  "subtitle": null,
+  "description": "The first book of The Stormlight Archive.",
+  "isbn": "9780765326355",
+  "asin": null,
+  "tags": [],
+  "genres": [
+    "Fantasy"
+  ],
+  "language": "English",
+  "explicit": false,
+  "abridged": false
+}
+```
+
+| Field | Contents |
+|---|---|
+| `authors`, `narrators` | Lists of names. `narrators` is empty for anything that is not read aloud. |
+| `series` | Each series with its number, such as `Stormlight Archive #1`. |
+| `title`, `subtitle` | A title with a colon is split at the colon, unless the part before it is shorter than 4 characters. |
+| `description` | The torrent's description on MAM. |
+| `isbn`, `asin` | When MAM has them; otherwise `null`. |
+| `genres` | The torrent's MAM category and genres, such as `Fantasy` or `Science Fiction`. |
+| `tags` | `LGBT` when MAM flags the torrent so; otherwise empty. |
+| `language` | The language, such as `English`. |
+| `explicit`, `abridged` | From MAM's flags. |
+
+The file is rewritten when you **Refresh and relink** a book, and removed with the book's other files when a
+better copy replaces it. With the `no_link` method no files are placed, so no `metadata.json` is written
+either.
 
 ### Better formats replace worse ones
 
@@ -1119,8 +1199,12 @@ Set `FETCHSHELF_LOG=debug` (the default is `information`) and, for a file you ca
 
 ## Frequently asked questions
 
-**Does it work without Audiobookshelf?** Yes. Audiobookshelf can still read the `metadata.json` files, or
-you can use any other player.
+**Does it work without Audiobookshelf?** Yes. Fetchshelf downloads and organizes every kind of book the same
+way without it, and writes the same `metadata.json` files. Use any reader, player or other app you like
+with the library; Audiobookshelf can still read the files if you add it later.
+
+**Is it only for audiobooks?** No. It handles ebooks, comics and manga, periodicals, musicology and radio as
+well. Audiobookshelf is just the one app it has a direct integration with.
 
 **Can I use it without qBittorrent?** No. Both halves work through qBittorrent.
 
