@@ -1213,8 +1213,20 @@ and empty folders, `cover.jpg` and `metadata.json` in a book's own library folde
 deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
 and then confirm.
 
-**How do I stop it downloading?** Press the stop button on the container, or set the interval of the
-autograbs to `0`. To pause only new downloads, set `add_torrents_stopped = true`.
+**How do I stop it downloading?** There are two ways:
+
+- **Right away, without changing the configuration:** stop the container with `docker stop fetchshelf` (or
+  `docker compose stop fetchshelf`). While it is stopped, nothing new is sent to qBittorrent, and finished
+  downloads are not linked either. Start it again with `docker start fetchshelf` (or
+  `docker compose start fetchshelf`).
+- **Keep Fetchshelf running, but download nothing on its own:** in `config.toml`, set
+  `search_interval = 0` and `import_interval = 0`, set any `search_interval` on an individual
+  `[[autograb]]` or `[[notion_list]]` to `0` as well, and restart. Autograbs and lists then run only when
+  you press **Run now**, and linking carries on as before.
+
+Either way, torrents already in qBittorrent keep downloading; pause them in qBittorrent if you want them to
+stop too. To keep downloading but review each torrent before it starts, set `add_torrents_stopped = true`
+instead: new torrents then arrive in qBittorrent stopped.
 
 **How do I download only audiobooks, or only ebooks?** Set `media_type = ["Audiobook"]` (or `["Ebook"]`) on
 your autograbs, or `categories = { audio = true, ebook = false }`.
