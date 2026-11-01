@@ -41,13 +41,20 @@ public sealed class DownloadRunner(
         foreach (var selected in pending)
         {
             DownloadOutcome outcome;
+            bool wedgeSpent;
             try
             {
-                outcome = await ProcessOneAsync(selected, unsatLimit, unsatCount, wedgesAvailable, ratioBudgetBytes, cancellationToken);
+                (outcome, wedgeSpent) = await ProcessOneAsync(selected, unsatLimit, unsatCount, wedgesAvailable, ratioBudgetBytes, cancellationToken);
             }
             catch (MamAccountBlockedException)
             {
                 break;
+            }
+
+            // MAM spends the wedge when the torrent file is fetched, whatever happens to the torrent after that.
+            if (wedgeSpent)
+            {
+                wedgesAvailable--;
             }
 
             if (outcome == DownloadOutcome.Started)
@@ -55,11 +62,6 @@ public sealed class DownloadRunner(
                 startedCount++;
                 unsatCount++;
                 var metadata = TorrentMetadataSerializer.Deserialize(selected.MetadataJson);
-                if (selected.CostDecision == nameof(SelectedTorrentCost.UseWedge))
-                {
-                    wedgesAvailable--;
-                }
-
                 if (selected.CostDecision is nameof(SelectedTorrentCost.Ratio) or nameof(SelectedTorrentCost.UseWedge) or nameof(SelectedTorrentCost.TryWedge))
                 {
                     ratioBudgetBytes -= metadata.TotalSizeBytes;
@@ -83,7 +85,8 @@ public sealed class DownloadRunner(
         return startedNonFree.Sum(json => TorrentMetadataSerializer.Deserialize(json).TotalSizeBytes);
     }
 
-    private async Task<DownloadOutcome> ProcessOneAsync(
+    /// <summary>The outcome, and whether the torrent file was fetched with a wedge (which spends it on MAM).</summary>
+    private async Task<(DownloadOutcome Outcome, bool WedgeSpent)> ProcessOneAsync(
         SelectedTorrentEntity selected, long unsatLimit, long unsatCount, long wedgesAvailable, long ratioBudgetBytes, CancellationToken cancellationToken)
     {
         var metadata = TorrentMetadataSerializer.Deserialize(selected.MetadataJson);
@@ -91,13 +94,13 @@ public sealed class DownloadRunner(
 
         if (!DownloadBudget.HasFreeUnsatSlot(unsatLimit, unsatCount, selected.UnsatBuffer))
         {
-            return DownloadOutcome.NoUnsatSlot;
+            return (DownloadOutcome.NoUnsatSlot, false);
         }
 
         return await ProcessWithinBudgetsAsync(selected, metadata, cost, wedgesAvailable, ratioBudgetBytes, cancellationToken);
     }
 
-    private async Task<DownloadOutcome> ProcessWithinBudgetsAsync(
+    private async Task<(DownloadOutcome Outcome, bool WedgeSpent)> ProcessWithinBudgetsAsync(
         SelectedTorrentEntity selected,
         Fetchshelf.Core.Metadata.TorrentMetadata metadata,
         SelectedTorrentCost cost,
@@ -107,7 +110,7 @@ public sealed class DownloadRunner(
     {
         if (!DownloadBudget.FitsRatioBudget(cost, metadata.TotalSizeBytes, ratioBudgetBytes))
         {
-            return DownloadOutcome.OverRatioBudget;
+            return (DownloadOutcome.OverRatioBudget, false);
         }
 
         var useWedge = false;
@@ -123,7 +126,7 @@ public sealed class DownloadRunner(
             var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, selected.WedgeBuffer, isAlreadyFree);
             if (decision == WedgeDecision.Fail)
             {
-                return DownloadOutcome.WedgeUnavailable;
+                return (DownloadOutcome.WedgeUnavailable, false);
             }
 
             useWedge = decision == WedgeDecision.UseWedge;
@@ -132,7 +135,7 @@ public sealed class DownloadRunner(
         var torrentBytes = await FetchTorrentFileAsync(selected, useWedge, cancellationToken);
         if (torrentBytes is null)
         {
-            return DownloadOutcome.LinkStillStaleAfterRefresh;
+            return (DownloadOutcome.LinkStillStaleAfterRefresh, false);
         }
 
         var hash = TorrentFileInfoHash.Compute(torrentBytes);
@@ -140,7 +143,7 @@ public sealed class DownloadRunner(
         var dedupOutcome = await CheckExistingAsync(selected, metadata, hash, cancellationToken);
         if (dedupOutcome is not null)
         {
-            return dedupOutcome.Value;
+            return (dedupOutcome.Value, useWedge);
         }
 
         if (cost is SelectedTorrentCost.Vip or SelectedTorrentCost.PersonalFreeleech or SelectedTorrentCost.GlobalFreeleech)
@@ -149,12 +152,12 @@ public sealed class DownloadRunner(
             var stillFree = current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);
             if (!stillFree)
             {
-                return DownloadOutcome.NoLongerFree;
+                return (DownloadOutcome.NoLongerFree, useWedge);
             }
         }
 
         await AddToQBittorrentAsync(selected, metadata, hash, torrentBytes, cost, useWedge, cancellationToken);
-        return DownloadOutcome.Started;
+        return (DownloadOutcome.Started, useWedge);
     }
 
     private async Task<MamTorrentRecord?> FetchCurrentRecordAsync(long mamId, CancellationToken cancellationToken)

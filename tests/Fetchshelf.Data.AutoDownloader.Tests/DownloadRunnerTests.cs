@@ -395,6 +395,88 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_TryWedgeTorrentsInOneRun_StopUsingWedgesAtTheBuffer()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge, downloadLink: "dl1", wedgeBuffer: 5));
+        await Task.Delay(1);
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.TryWedge, downloadLink: "dl2", wedgeBuffer: 5));
+        await context.SaveChangesAsync();
+
+        // 6 wedges and a buffer of 5: only one wedge may be used.
+        const string accountJson = """
+            {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":6,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+            """;
+        var wedgedDownloads = new List<string>();
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php"))
+            {
+                var dlHash = path.Split("download.php/")[1];
+                if (request.RequestUri.Query.Contains("&fl"))
+                {
+                    wedgedDownloads.Add(dlHash);
+                }
+
+                return DownloadResponse(dlHash == "dl1" ? TorrentBytes1 : TorrentBytes2);
+            }
+
+            return path.Contains("loadSearchJSONbasic.php")
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(DownloadTestSupport.TorrentRecordJson(1, "dl1")) }
+                : null;
+        });
+        var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
+
+        var started = await runner.RunAsync();
+
+        Assert.Equal(2, started);
+        Assert.Equal(["dl1"], wedgedDownloads);
+    }
+
+    [Fact]
+    public async Task RunAsync_WedgeSpentOnTorrentAlreadyInClient_CountsAgainstTheBuffer()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, downloadLink: "dl1", wedgeBuffer: 5));
+        await Task.Delay(1);
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.UseWedge, downloadLink: "dl2", wedgeBuffer: 5));
+        await context.SaveChangesAsync();
+
+        const string accountJson = """
+            {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":6,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+            """;
+        var wedgedDownloads = new List<string>();
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (!path.Contains("download.php"))
+            {
+                return null;
+            }
+
+            var dlHash = path.Split("download.php/")[1];
+            if (request.RequestUri.Query.Contains("&fl"))
+            {
+                wedgedDownloads.Add(dlHash);
+            }
+
+            return DownloadResponse(dlHash == "dl1" ? TorrentBytes1 : TorrentBytes2);
+        });
+
+        // The first torrent turns out to be in qBittorrent already, after its file was fetched with a wedge.
+        var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5 };
+        var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
+
+        await runner.RunAsync();
+
+        Assert.Equal(["dl1"], wedgedDownloads);
+        Assert.Null(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
+    }
+
+    [Fact]
     public async Task RunAsync_SecondTorrentInSameRun_SeesFirstsUnsatConsumption_WithoutSecondAccountFetch()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

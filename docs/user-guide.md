@@ -678,7 +678,7 @@ Fetchshelf will not start a download that would break these limits.
 |---|---|---|
 | `min_ratio` | `2` | Your upload/download ratio. A download that would push you below it is skipped. |
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
-| `wedge_buffer` | `0` | Freeleech wedges. This many are never spent automatically. |
+| `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
 Each autograb and each list can override `unsat_buffer` and `wedge_buffer` for itself.
 
@@ -688,7 +688,7 @@ How a run works out how much it may download:
   most torrents one run may select.
 - **Ratio:** free torrents cost nothing. For the others, the size must fit within
   `(uploaded − downloaded − data still being downloaded) / min_ratio`.
-- **Wedges:** a wedge is used only if more than `wedge_buffer` remain.
+- **Wedges:** a wedge is used only while more than `wedge_buffer` remain, so you never drop below it.
 
 When a limit is reached, the remaining torrents stay selected on the **Selected** page and are tried on the
 next run.

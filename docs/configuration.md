@@ -108,7 +108,7 @@ These go at the top of the file, before any section.
 | `web_port` | `3157` | Port the web UI listens on. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
 | `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb and per list. |
-| `wedge_buffer` | `0` | Number of freeleech wedges always left unused. Can be overridden per autograb and per list. |
+| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb and per list. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
