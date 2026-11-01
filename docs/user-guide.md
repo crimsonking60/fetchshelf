@@ -623,19 +623,29 @@ Torrents that are already free are always treated as free, so wedges are never w
 Blocks are independent, so a common pattern is one block per cost level:
 
 ```toml
-[[autograb]]            # take everything that is free
+[[autograb]]
+name = "Free bookmarks"         # take everything that is free
 type = "bookmarks"
 cost = "free"
 
-[[autograb]]            # small files cost little ratio
+[[autograb]]
+name = "Small bookmarks"        # small files cost little ratio
 type = "bookmarks"
 cost = "all"
 max_size = "30 MiB"
 
-[[autograb]]            # use wedges for the rest
+[[autograb]]
+name = "Other bookmarks"        # use wedges for the rest
 type = "bookmarks"
 cost = "try_wedge"
 ```
+
+Give each block a `name`. Each block is its own job, and the **Jobs** page lists it, with its **Run now**
+button, under that name, so you can tell "Free bookmarks" from "Small bookmarks" at a glance. Without
+names the jobs are only called `autograb[0]`, `autograb[1]` and so on, by their position in the file. The
+name also shows on the **Selected** page and in **Events** as what chose each torrent, and in the log
+lines of each run. Without a name the log only gives the block's `type`, which is the same for all three
+blocks above.
 
 ### Trying a block out safely
 
