@@ -709,8 +709,12 @@ Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` o
 Every `link_interval` minutes (default 10), Fetchshelf looks for torrents in
 qBittorrent that are 100% complete, finds the matching library and links the wanted files in.
 
-- **Which files.** Only files with an extension in your `audio_types` / `ebook_types` lists are linked.
-  Other files are left alone.
+- **Which files.** From each torrent Fetchshelf links the files of at most two formats: the best audio
+  format and the best ebook format it contains, where best means earliest in your format lists. The audio
+  format comes from `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
+  else; the ebook format always comes from `ebook_types`. With the default lists, a torrent with both
+  `m4b` and `mp3` files gets only its `m4b` files linked, and an audiobook that comes with a PDF gets the
+  PDF as well. Other files are left alone.
 - **Folder names.** Under `library_dir`:
 
   | Book | Folder |
@@ -730,9 +734,10 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
 
 ### Better formats replace worse ones
 
-Your `audio_types` and `ebook_types` lists are in order of preference. If two copies of the same book are
-linked, the one whose format comes earlier in the list is kept, and ties go to the larger one. With
-`ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book.
+Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
+preference. If two copies of the same book are linked, the one whose format comes earlier in the list is
+kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
+same book.
 
 The replaced copy has its linked files, its folder (if empty), `cover.jpg` and `metadata.json` removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is shown as *replaced*. The downloaded data
@@ -987,7 +992,8 @@ container name rather than `localhost`, and make sure both containers share a ne
 - *No library matched.* The torrent has no category your libraries accept. Check your `[[tag]]` rules and
   `[[library]]` entries.
 - *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
-- *No wanted file type.* The torrent has no extension from your `audio_types` / `ebook_types`.
+- *No wanted file type.* None of the torrent's files has an extension from the format list for its media
+  type: `audio_types`, `ebook_types`, `music_types` or `radio_types`.
 
 ### Nothing is being downloaded
 
@@ -1045,7 +1051,8 @@ your autograbs, or `categories = { audio = true, ebook = false }`.
 **Can I use more than one qBittorrent?** Yes, list several `[[qbittorrent]]` entries. New downloads go to
 the first. Linking works against all of them.
 
-**Can I prefer one format over another?** Yes, with the order of `audio_types` and `ebook_types`.
+**Can I prefer one format over another?** Yes, with the order of the format lists: `audio_types`,
+`ebook_types`, `music_types` and `radio_types`.
 
 **Do config changes need a restart?** Yes.
 

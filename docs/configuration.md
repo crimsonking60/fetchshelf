@@ -125,7 +125,8 @@ These go at the top of the file, before any section.
 Notes:
 
 - **Format lists do three jobs.** A torrent is only downloaded if it contains at least one listed
-  extension, only listed extensions are linked into a library, and the list order ranks competing copies
+  extension, only its best listed formats are linked into a library (see [`[[library]]`](#library)), and
+  the list order ranks competing copies
   of the same book: the copy whose first listed extension comes earliest wins, and between two linked
   copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
@@ -445,8 +446,10 @@ library, in file order, that accepts it is used.
 | `symlink` | Symbolic link. |
 | `no_link` | Record metadata only; no files are placed. |
 
-- Only files with a wanted extension are linked, and the library's own `audio_types` / `ebook_types`
-  decide what that means for it.
+- From each torrent, only the files of its best audio format and its best ebook format are linked. The
+  audio side uses `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
+  else; the ebook side uses `ebook_types`. A library's own `audio_types` replaces the audio-side list for
+  every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened.
 - A `metadata.json` that Audiobookshelf understands is written next to the files.
