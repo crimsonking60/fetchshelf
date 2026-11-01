@@ -2,6 +2,7 @@ using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.Tests;
 
+[Collection(EnvironmentVariableCollection.Name)]
 public sealed class ConfigLoaderTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-config-tests-").FullName;
