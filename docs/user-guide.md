@@ -983,9 +983,8 @@ docker compose up -d fetchshelf
     they are, not linked a second time.
   - **The download queue.** A torrent queued before the backup but started after it shows on the
     **Selected** page as waiting again. The next download run sees it is already in qBittorrent and
-    marks it as started, so nothing is downloaded twice. To get the torrent file, though, it asks MAM
-    again, which for a torrent that was to use a wedge may cost another one. If wedges matter to you,
-    look at the **Selected** page right after starting and remove anything already in qBittorrent.
+    marks it as started, so nothing is downloaded twice. It does fetch the torrent file from MAM again
+    to recognise it, but MAM does not charge a second wedge for a torrent you already used one on.
   - **Lost for good:** events, errors and duplicates recorded after the backup, and metadata you edited by
     hand since then. A re-found torrent gets MAM's metadata again, so redo such edits and use **Refresh
     and relink**.
