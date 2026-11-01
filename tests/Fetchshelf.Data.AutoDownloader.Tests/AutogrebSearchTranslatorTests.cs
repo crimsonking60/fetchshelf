@@ -16,6 +16,9 @@ public class AutogrebSearchTranslatorTests
     [InlineData(null, MamSortOrder.NewestFirst)]
     [InlineData("newest_first", MamSortOrder.NewestFirst)]
     [InlineData("oldest_first", MamSortOrder.OldestFirst)]
+    [InlineData("random", MamSortOrder.Random)]
+    [InlineData("low_seeders", MamSortOrder.LowestSeeders)]
+    [InlineData("low_snatches", MamSortOrder.LowestSnatches)]
     public void SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
     {
         var entry = Entry(AutogrebType.New);

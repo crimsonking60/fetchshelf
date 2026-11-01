@@ -36,7 +36,7 @@ languages = ["English"]
 max_authors = 3               # skips anthologies, but keeps co-authored books like Good Omens
 max_size = "30 MiB"
 # Only read the newest 100 matches per run (the default for this type). Raise max_pages to look
-# further back, or use sort_by = "oldest_first" to work through the back catalogue instead.
+# further back; the backfill block below combines that with sort_by = "oldest_first".
 max_pages = 1
 sort_by = "newest_first"      # the default; spelled out for clarity
 

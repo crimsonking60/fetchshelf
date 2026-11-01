@@ -35,7 +35,7 @@ to `6-everything.toml`, which uses every option.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section, including keys inside `grab` blocks.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
-  flags, media types, costs) are checked at startup. A config that fails validation is rejected as a whole.
+  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that fails validation is rejected as a whole.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.

@@ -553,6 +553,19 @@ max_authors = 3
 default ordering. Each run reads the newest 100 matches (one page), so it keeps up with new uploads but does
 not go back through the whole catalogue unless you raise `max_pages`.
 
+`sort_by` changes that order:
+
+| `sort_by` | Order |
+|---|---|
+| `"newest_first"` (default) | Newest uploads first. |
+| `"oldest_first"` | Oldest uploads first. Together with a higher `max_pages`, good for a one-off backfill. |
+| `"random"` | A different random selection on every run. |
+| `"low_seeders"` | Fewest seeders first: torrents that need seeding most. |
+| `"low_snatches"` | Fewest completed downloads first. |
+
+`type` decides which torrents are searched, `sort_by` their order. Because a run reads only `max_pages`
+pages, the order decides which matches it reaches.
+
 ### Filtering
 
 Every autograb can use the same filter fields: media type, categories, languages, flags such as `explicit`

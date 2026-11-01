@@ -6,7 +6,7 @@ using Fetchshelf.Data.Configuration;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// Translates an `[[autograb]]`/`[[snatchlist]]` entry's `type`/`sort_by`/shared filter into a
+/// Translates an `[[autograb]]` entry's `type`/`search_in`/`sort_by`/shared filter into a
 /// `MamSearchQuery`. The server-side translation is a best-effort narrowing
 /// of what MAM returns - the full shared filter is always re-applied locally afterward (see
 /// `AutograbberRunner`), so an imperfect translation here cannot produce an incorrect selection.
@@ -64,19 +64,15 @@ public static class AutogrebSearchTranslator
     };
 
     private static MamSearchField ParseSearchField(string name) =>
-        Enum.TryParse<MamSearchField>(name.Replace("_", "", StringComparison.Ordinal), ignoreCase: true, out var field)
+        AutogrebSearchOptions.TryParseSearchField(name, out var field)
             ? field
             : throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown search_in field.");
 
-    private static MamSortOrder ToSortOrder(string? sortBy) => sortBy?.ToLowerInvariant() switch
-    {
-        null or "newest_first" => MamSortOrder.NewestFirst,
-        "oldest_first" => MamSortOrder.OldestFirst,
-        "random" => MamSortOrder.Random,
-        "low_seeders" => MamSortOrder.LowestSeeders,
-        "low_snatches" => MamSortOrder.LowestSnatches,
-        _ => throw new ArgumentOutOfRangeException(nameof(sortBy)),
-    };
+    // ConfigLoader rejects unknown values at startup, so these throws only guard entries built in code.
+    private static MamSortOrder ToSortOrder(string? sortBy) =>
+        AutogrebSearchOptions.TryParseSortBy(sortBy, out var sortOrder)
+            ? sortOrder
+            : throw new ArgumentOutOfRangeException(nameof(sortBy), sortBy, "Unknown sort_by value.");
 
     internal static bool? ToShowFlags(IReadOnlyDictionary<BookFlags, bool>? flags)
     {

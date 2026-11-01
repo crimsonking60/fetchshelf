@@ -60,6 +60,64 @@ public sealed class AutogrebConfigTests : IDisposable
         Assert.Equal(3, settings.Autograb[0].MaxAuthors);
     }
 
+    [Theory]
+    [InlineData("newest_first")]
+    [InlineData("oldest_first")]
+    [InlineData("random")]
+    [InlineData("low_seeders")]
+    [InlineData("low_snatches")]
+    [InlineData("Oldest_First")]
+    public void Load_KnownSortBy_Loads(string sortBy)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[autograb]]
+            type = "new"
+            sort_by = "{sortBy}"
+            """);
+
+        var entry = Assert.Single(ConfigLoader.Load(ConfigPath).Autograb);
+
+        Assert.Equal(sortBy, entry.SortBy);
+    }
+
+    [Fact]
+    public void Load_UnknownSortBy_ThrowsNamingTheValue()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "new"
+            sort_by = "oldest"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains("'sort_by' value 'oldest'", exception.Message);
+        Assert.Contains("oldest_first", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("isbn")]
+    [InlineData("3")]
+    public void Load_UnknownSearchInField_ThrowsNamingTheField(string field)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[autograb]]
+            type = "new"
+            search_in = ["author", "{field}"]
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains($"'search_in' field '{field}'", exception.Message);
+        Assert.Contains("file_types", exception.Message);
+    }
+
     [Fact]
     public void Load_MaxActiveDownloadsWithoutName_Throws()
     {
