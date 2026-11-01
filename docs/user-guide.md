@@ -784,8 +784,14 @@ reported, so they cannot be chosen by hand.
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
   metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected** or **Remove selected**.
-  *Clean* retires a torrent's library files, *Refresh* re-reads its metadata from MAM, and *Remove* deletes
-  Fetchshelf's record (not the files).
+  - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
+    the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
+    Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
+    `cover.jpg` and `metadata.json`, and its folder if that is then empty. The downloaded data in
+    qBittorrent is left alone. If no other copy of the book is linked, *Clean* does nothing. The Clean job
+    does the same automatically after every link run.
+  - *Refresh* re-reads its metadata from MAM.
+  - *Remove* deletes Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
