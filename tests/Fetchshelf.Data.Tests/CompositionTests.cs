@@ -28,11 +28,11 @@ public sealed class CompositionTests : IDisposable
         using var dbContext = new FetchshelfDbContext(options);
         DatabaseMigrator.Migrate(dbContext);
 
-        await new ConfigStoreRepository(dbContext).SetAsync("mam_cookie", "rotated-cookie-value");
+        await new ConfigStoreRepository(dbContext).SetAsync("example_key", "example-value");
 
         Assert.True(settings.BackgroundJobsEnabled);
         Assert.True(File.Exists(configPath));
         Assert.True(File.Exists(dbPath));
-        Assert.Equal("rotated-cookie-value", await new ConfigStoreRepository(dbContext).GetAsync("mam_cookie"));
+        Assert.Equal("example-value", await new ConfigStoreRepository(dbContext).GetAsync("example_key"));
     }
 }

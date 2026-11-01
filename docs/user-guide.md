@@ -320,8 +320,8 @@ For more about sessions and how MAM locks them, see MAM's own documentation.
 Things to know:
 
 - **Treat `mam_id` like a password.** Anyone who has it can act as you on MAM.
-- **MAM rotates the cookie.** Fetchshelf stores the newest one it receives and prefers it on the next
-  start, falling back to the one in your file if the stored one stops working.
+- **Fetchshelf always uses the `mam_id` from your configuration.** It does not store or switch to a newer
+  session id, so the one you set is the one it sends until you change it and restart.
 - **Rate limits.** If MAM answers "too many requests", the job fails with an error and tries again at its
   next interval.
 - **Blocked account.** If MAM temporarily blocks the account, any running download aborts. Wait, then

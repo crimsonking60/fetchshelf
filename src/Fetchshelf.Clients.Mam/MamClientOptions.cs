@@ -9,8 +9,7 @@ public sealed record MamClientOptions
     /// the original Rust implementation's `mlm_mam::api::MAM::snatchlist`).</summary>
     public string CdnBaseUrl { get; init; } = "https://cdn.myanonamouse.net";
 
-    /// <summary>The configured `mam_id` (session cookie value), used when no stored cookie exists
-    /// or the stored cookie is rejected.</summary>
+    /// <summary>The configured `mam_id` (session cookie value), sent with every MAM request.</summary>
     public required string MamId { get; init; }
 
     public string UserAgent { get; init; } = "Fetchshelf/0.1.0";
