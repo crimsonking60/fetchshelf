@@ -321,7 +321,7 @@ max_size = "30 MiB"
 | `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
-| `metadata_only_add` | Like `metadata_only`, but also creates a metadata-only entry if the torrent is not in the library yet. |
+| `metadata_only_add` | Like `metadata_only`, but also creates a metadata-only entry if the torrent is not in the library yet. Duplicate checks then treat that book as already in the library, so only a better format of it is downloaded. |
 
 - A torrent that is VIP, personal freeleech or globally freeleech is **always** treated as free, whatever
   `cost` says, so wedges are never wasted.
@@ -342,7 +342,7 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | Setting | Default | Description |
 |---|---|---|
 | `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
-| `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as owned. No other cost is allowed. |
+| `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
 | `max_pages` | 50 | Pages of 250 rows to read. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |

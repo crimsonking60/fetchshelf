@@ -582,7 +582,7 @@ you set. The details are in the [configuration reference](configuration.md#the-s
 | `wedge` | Always use a wedge on torrents that are not already free. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
 | `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
-| `metadata_only_add` | Like `metadata_only`, but also records books Fetchshelf does not have yet, so they count as owned. |
+| `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
 
 Torrents that are already free are always treated as free, so wedges are never wasted.
 
