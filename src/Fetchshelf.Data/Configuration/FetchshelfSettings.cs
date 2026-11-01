@@ -9,8 +9,14 @@ namespace Fetchshelf.Data.Configuration;
 /// </summary>
 public sealed class FetchshelfSettings
 {
-    /// <summary>MAM session id (cookie value). Required for background jobs to run.</summary>
+    /// <summary>
+    /// MAM session id (cookie value). Required for background jobs to run. When <see cref="MamIdFile"/> is
+    /// set, <c>ConfigLoader</c> fills this from that file.
+    /// </summary>
     public string MamId { get; set; } = string.Empty;
+
+    /// <summary>Full path of a file holding the MAM session id; an alternative to setting <see cref="MamId"/>.</summary>
+    public string? MamIdFile { get; set; }
 
     public string WebHost { get; set; } = "0.0.0.0";
 

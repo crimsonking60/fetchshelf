@@ -149,6 +149,40 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Load_MamIdFileFromEnvironmentVariable_ReadsTheFile()
+    {
+        var secretPath = Path.Combine(Path.GetDirectoryName(ConfigPath)!, "mam_id");
+        File.WriteAllText(secretPath, "from-file\n");
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", secretPath);
+        try
+        {
+            Assert.Equal("from-file", ConfigLoader.Load(ConfigPath).MamId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", null);
+        }
+    }
+
+    [Fact]
+    public void Load_MamIdFileFromEnvironmentVariableWithMamIdInFile_Throws()
+    {
+        var secretPath = Path.Combine(Path.GetDirectoryName(ConfigPath)!, "mam_id");
+        File.WriteAllText(secretPath, "from-file");
+        File.WriteAllText(ConfigPath, "mam_id = \"from-config\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", secretPath);
+        try
+        {
+            Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", null);
+        }
+    }
+
+    [Fact]
     public void Load_EnvironmentVariableOverridesDefaultValue()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");

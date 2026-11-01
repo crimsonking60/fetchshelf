@@ -18,6 +18,7 @@ public static class ConfigLoader
     private static readonly Dictionary<string, Action<FetchshelfSettings, string>> EnvironmentOverrides = new()
     {
         ["mam_id"] = (s, v) => s.MamId = v,
+        ["mam_id_file"] = (s, v) => s.MamIdFile = v,
         ["web_host"] = (s, v) => s.WebHost = v,
         ["web_port"] = (s, v) => s.WebPort = int.Parse(v, CultureInfo.InvariantCulture),
         ["min_ratio"] = (s, v) => s.MinRatio = double.Parse(v, CultureInfo.InvariantCulture),
@@ -57,6 +58,7 @@ public static class ConfigLoader
         var yaml = ConvertTomlToYaml(text);
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
+        ResolveMamIdFile(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
@@ -213,6 +215,45 @@ public static class ConfigLoader
             {
                 setter(settings, value);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reads <c>mam_id</c> from the file <c>mam_id_file</c> names, if set. Runs after environment overrides so that
+    /// a conflict is caught wherever each value came from. Blank counts as unset, as it does for <c>mam_id</c>.
+    /// </summary>
+    private static void ResolveMamIdFile(FetchshelfSettings settings)
+    {
+        var path = settings.MamIdFile;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.MamId))
+        {
+            throw new ConfigurationException("Invalid configuration: set either 'mam_id' or 'mam_id_file', not both.");
+        }
+
+        if (!Path.IsPathFullyQualified(path))
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: 'mam_id_file' must be a full path, such as /run/secrets/mam_id; got '{path}'.");
+        }
+
+        if (!File.Exists(path))
+        {
+            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' does not exist.");
+        }
+
+        try
+        {
+            // Secret files usually end with a newline, which is not part of the session id.
+            settings.MamId = File.ReadAllText(path).Trim();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' could not be read: {ex.Message}", ex);
         }
     }
 

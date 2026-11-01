@@ -296,8 +296,10 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   waits one full interval before its first run. Use **Run now** if you don't want to wait.
 - **Environment overrides.** Any simple top-level setting can be set through an environment variable named
   `FETCHSHELF_CONF_<setting>` with the setting name in lower case, for example
-  `FETCHSHELF_CONF_mam_id`. Environment variables win over the file. This is useful for keeping a secret such
-  as `mam_id` out of a file you share. Sections such as `[[qbittorrent]]` cannot be overridden this way.
+  `FETCHSHELF_CONF_mam_id`. Environment variables win over the file. This is one way to keep a secret such
+  as `mam_id` out of a file you share; `mam_id_file` is another (see
+  [Keeping the session id in a separate file](#keeping-the-session-id-in-a-separate-file)). Sections such
+  as `[[qbittorrent]]` cannot be overridden this way.
 - **Intervals** are in minutes. `0` means "never on a schedule, only when I press **Run now**".
 
 ## Connecting to MAM
@@ -317,6 +319,36 @@ Fetchshelf logs in to MAM with a session id, the value of a session cookie that 
 
 For more about sessions and how MAM locks them, see MAM's own documentation.
 
+### Keeping the session id in a separate file
+
+Instead of `mam_id`, you can set `mam_id_file` to the full path of a file that holds only the session id.
+That keeps it out of `config.toml`, so you can share the config file without it. Set one or the other:
+setting both stops Fetchshelf from starting. A trailing newline in the file is fine.
+
+With Docker Compose, a secret is a convenient way to provide the file. Save the session id in
+`/srv/fetchshelf/secrets/mam_id` on the host, make it readable by the `PUID` user, and add:
+
+```yaml
+services:
+  fetchshelf:
+    # ...as before...
+    secrets:
+      - mam_id
+
+secrets:
+  mam_id:
+    file: /srv/fetchshelf/secrets/mam_id
+```
+
+Compose makes the secret available inside the container as `/run/secrets/mam_id`, so `config.toml` has:
+
+```toml
+mam_id_file = "/run/secrets/mam_id"
+```
+
+With `docker run`, mount the file yourself: `-v /srv/fetchshelf/secrets/mam_id:/run/secrets/mam_id:ro`.
+Fetchshelf reads the file when it starts, so after changing it, restart the container.
+
 Things to know:
 
 - **Treat `mam_id` like a password.** Anyone who has it can act as you on MAM.
@@ -326,8 +358,8 @@ Things to know:
   next interval.
 - **Blocked account.** If MAM temporarily blocks the account, any running download aborts. Wait, then
   check the account on MAM before running jobs again.
-- **Expired or invalid session.** If jobs fail with an authentication error, create a new session and
-  update `mam_id`.
+- **Expired or invalid session.** If jobs fail with an authentication error, create a new session, update
+  `mam_id` (or the file `mam_id_file` points to) and restart.
 
 ## Connecting to qBittorrent
 
@@ -939,7 +971,8 @@ fix the ownership of the copied files.
   put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet.
 - **Secrets in `config.toml`:** `mam_id`, qBittorrent and Audiobookshelf credentials and a Notion token.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
-  The **Config** page hides secrets, but the file itself does not.
+  The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
+  in its own file instead; protect that file the same way.
 - **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state),
   qBittorrent and Audiobookshelf (on your network), and, if you use it, Notion. It sends no usage data anywhere
   else.

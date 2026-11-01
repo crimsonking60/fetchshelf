@@ -15,6 +15,8 @@
 # =====================================================================================================
 
 mam_id = "replace-with-your-mam-session-id" # required for any background job to run
+# mam_id_file = "/run/secrets/mam_id"       # alternative to mam_id: read the session id from this file.
+                                             # Set one or the other, not both.
 web_host = "0.0.0.0"                         # where the web UI listens
 web_port = 3157
 

@@ -48,6 +48,7 @@ setup. If you use one, please report how it went, good or bad (see
 - [Refresh and relink](docs/user-guide.md#when-the-folder-no-longer-matches) after a metadata or
   configuration change.
 - The [Audiobookshelf integration](docs/configuration.md#audiobookshelf).
+- Reading the session id from a file with [`mam_id_file`](docs/configuration.md#reading-mam_id-from-a-file).
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release

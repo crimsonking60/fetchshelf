@@ -31,7 +31,7 @@ to `6-everything.toml`, which uses every option.
   `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/data` are mounted volumes.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
-- **No `mam_id`.** With an empty `mam_id` the web UI runs but no background job runs.
+- **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section, including keys inside `grab` blocks.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
@@ -103,7 +103,8 @@ These go at the top of the file, before any section.
 
 | Setting | Default | Description |
 |---|---|---|
-| `mam_id` | (required) | MAM session id: the cookie value created under your MAM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
+| `mam_id` | (required, or `mam_id_file`) | MAM session id: the cookie value created under your MAM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
+| `mam_id_file` | unset | Full path of a file that holds the MAM session id, instead of writing it in `mam_id`. See [below](#reading-mam_id-from-a-file). |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
@@ -126,9 +127,8 @@ Notes:
 
 - **Format lists do three jobs.** A torrent is only downloaded if it contains at least one listed
   extension, only its best listed formats are linked into a library (see [`[[library]]`](#library)), and
-  the list order ranks competing copies
-  of the same book: the copy whose first listed extension comes earliest wins, and between two linked
-  copies that rank the same, the larger one is kept. With
+  the list order ranks competing copies of the same book: the copy whose first listed extension comes
+  earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
 - **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer, and so
@@ -138,6 +138,27 @@ Notes:
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
   budget, `(uploaded − downloaded − bytes already downloading) / min_ratio`, covers their size.
+
+### Reading `mam_id` from a file
+
+`mam_id_file` keeps the session id out of `config.toml`, for example in a Docker secret:
+
+```toml
+mam_id_file = "/run/secrets/mam_id"
+```
+
+- **One or the other.** Setting both `mam_id` and `mam_id_file` is an error. An empty `mam_id = ""`, as in
+  the file Fetchshelf creates on first start, does not count as set.
+- **Full path.** The value must be a full path. Fetchshelf reads the file at startup, so a changed session
+  id takes effect after a restart.
+- **Contents.** The file holds only the session id. Spaces and line breaks around it are ignored, so a
+  trailing newline is fine. An empty file is the same as an empty `mam_id`: the web UI runs but no job
+  does.
+- **Errors.** A file that does not exist or cannot be read stops Fetchshelf from starting, and the error
+  names the path.
+- **Environment.** Like `mam_id`, it can be set with `FETCHSHELF_CONF_mam_id_file`. The check for both
+  being set happens after environment overrides, wherever each value comes from.
+- **Config page.** The Config page shows the path; the session id itself stays hidden.
 
 ## `[search]`
 
