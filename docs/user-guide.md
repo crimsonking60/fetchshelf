@@ -581,11 +581,40 @@ max_authors = 3
 | `"mine"` | Your own uploads. |
 | `{ uploader = 12345 }` | One uploader's torrents. |
 
-`type` is required. The name `new` is misleading: it searches **all** torrents, and "new" only describes the
-default ordering. Each run reads the newest 100 matches (one page), so it keeps up with new uploads but does
-not go back through the whole catalogue unless you raise `max_pages`.
+`type` is required. The name `new` is misleading: it searches **all** torrents on MAM, and "new" only
+describes the default ordering, newest first.
 
-`sort_by` changes that order:
+### How much a run reads: `max_pages`
+
+MAM returns search results in pages of 100. `max_pages` is the most pages one run reads:
+
+| `type` | Default `max_pages` | So a run reads at most |
+|---|---|---|
+| `"bookmarks"`, `"freeleech"`, `"mine"` | 50 | 5,000 results, in practice the whole list |
+| `"new"`, `{ uploader = ... }` | 1 | the first 100 results |
+
+A run reads page 1, then page 2 and so on. It stops early when a page comes back with fewer than 100
+results, because there are no more, or when it has selected as many torrents as it may (see
+[Protecting your account](#protecting-your-account)). Each page is one search request to MAM.
+
+- **Results are not yet matches.** Fetchshelf asks MAM to narrow the search with your `query` and as much of
+  the filter as MAM supports, then checks the full filter itself. A page of 100 results can therefore hold
+  fewer than 100 torrents that pass your filter.
+- **Every run starts again from page 1.** Fetchshelf does not remember where the last run stopped.
+  Torrents it has already selected or has in your library are recognised and skipped, but they still take
+  up room on the page.
+- **One page keeps up with new uploads.** With the default order and one page, each run sees the 100
+  newest results. That is enough for a block that runs every few minutes or hours, as long as fewer than
+  100 new results can appear between two runs. It never looks further back.
+- **More pages look further back,** for example for a backfill. Each extra page is one more request to MAM
+  on every run, so use as few as do the job. A block with many pages that you only need once is best
+  run by hand with `search_interval = 0` (see [Trying a block out safely](#trying-a-block-out-safely)).
+
+`[[snatchlist]]` blocks have a `max_pages` of their own, with pages of 250 rows and a default of 50.
+
+### In what order: `sort_by`
+
+`sort_by` decides the order of the results, and with it which ones a run reaches within its `max_pages`:
 
 | `sort_by` | Order |
 |---|---|
@@ -594,9 +623,6 @@ not go back through the whole catalogue unless you raise `max_pages`.
 | `"random"` | A different random selection on every run. |
 | `"low_seeders"` | Fewest seeders first: torrents that need seeding most. |
 | `"low_snatches"` | Fewest completed downloads first. |
-
-`type` decides which torrents are searched, `sort_by` their order. Because a run reads only `max_pages`
-pages, the order decides which matches it reaches.
 
 ### Filtering
 
