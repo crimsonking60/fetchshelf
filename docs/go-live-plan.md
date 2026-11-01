@@ -22,8 +22,11 @@ These decisions change what is published, so make them before anything becomes p
 - [x] **You:** Images for 64-bit ARM (`linux/arm64`) as well as `linux/amd64`, for Raspberry Pi and ARM-based
   NAS users. Decided: `linux/amd64`, `linux/arm64` and `linux/arm/v7`, every platform the .NET base images
   support.
-- [ ] **You:** Run an ARM image on a real ARM device once one is published. The images are checked to contain
-  the right native code for each architecture, but only the `linux/amd64` image has been started.
+- [x] **You:** Run the `linux/arm64` image on a real ARM device. Done on 2026-11-01: `latest` on an NVIDIA
+  DGX Spark worked as expected.
+- [ ] **You:** Run the `linux/arm/v7` image on a real 32-bit ARM device, for example a Raspberry Pi with a
+  32-bit operating system. The image is checked to contain the right native code, but has never been
+  started.
 - [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
 
 ## 2. Prepare while still private
