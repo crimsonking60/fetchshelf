@@ -30,6 +30,26 @@ library and automatic downloads. For every setting, see the
 
 This project is under active, incremental development.
 
+## Untested
+
+These features are built and covered by automated tests, but have not yet been confirmed working on a real
+setup. If you use one, please report how it went, good or bad (see
+[Getting help](docs/user-guide.md#getting-help)).
+
+- Scheduled searches: [`[[autograb]]`](docs/configuration.md#autograb) blocks. Downloads started from the
+  Search page are confirmed.
+- [Notion lists](docs/configuration.md#notion_list).
+- [Snatchlists](docs/configuration.md#snatchlist).
+- More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
+- The [link methods](docs/configuration.md#library) other than `hardlink`: `copy`, `symlink`,
+  `hardlink_or_copy`, `hardlink_or_symlink` and `no_link`.
+- [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
+  `on_cleaned`.
+- [Refresh and relink](docs/user-guide.md#when-the-folder-no-longer-matches) after a metadata or
+  configuration change.
+- The [Audiobookshelf integration](docs/configuration.md#audiobookshelf).
+- The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
+
 ## Latest release
 
 **2026.10.3** (2026-10-31). See [RELEASES.md](RELEASES.md#2026103---2026-10-31) for what changed, and for
