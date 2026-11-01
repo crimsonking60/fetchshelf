@@ -607,9 +607,21 @@ cost = "try_wedge"
 
 ### Trying a block out safely
 
-- `dry_run = true` runs the whole search and selection but downloads and records nothing. It only logs what
-  it would do. Look at the log, then remove it. Your ratio, unsatisfied-snatch slots and wedges are only
-  checked when a download starts, so "would be selected" means it would be queued, not necessarily started.
+- `dry_run = true` runs the whole search and selection but selects, records and downloads nothing. It only
+  logs what it would do. To try out a new block:
+
+  1. Add `dry_run = true` to the block and restart Fetchshelf.
+  2. On the **Jobs** page, press **Run now** for the block, so you do not have to wait for its interval.
+  3. Read the log (`docker logs fetchshelf`). There is a line for each search result that passes the
+     filter, saying whether it would be selected or why it would be skipped (for example a duplicate, or
+     not free), and a last line with how many would have been selected. Results the filter rejects are
+     only listed at the `debug` log level.
+  4. If the list is not what you want, change the block's settings, restart and run it again.
+  5. When it is, remove `dry_run`, restart, and press **Run now** to start the first real run, or wait
+     for the block's interval.
+
+  "Would be selected" means the torrent would be queued. Your ratio, unsatisfied-snatch slots and wedges
+  are only checked when a download starts, so a queued torrent can still wait on the **Selected** page.
 - `search_interval = 0` stops the block running by itself. Start it from the **Jobs** page with **Run now**.
   Use both for a one-off backfill.
 - `max_active_downloads` (which needs a `name`) caps how many unfinished downloads one block may have.
