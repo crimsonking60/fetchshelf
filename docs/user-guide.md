@@ -623,7 +623,9 @@ cost = "try_wedge"
   "Would be selected" means the torrent would be queued. Your ratio, unsatisfied-snatch slots and wedges
   are only checked when a download starts, so a queued torrent can still wait on the **Selected** page.
 - `search_interval = 0` stops the block running by itself. Start it from the **Jobs** page with **Run now**.
-  Use both for a one-off backfill.
+  This suits a one-off backfill: a block that runs only when you press **Run now**, usually with
+  `sort_by = "oldest_first"` and a higher `max_pages`. Check it with `dry_run = true` first, as above, then
+  remove `dry_run`, restart and press **Run now** once.
 - `max_active_downloads` (which needs a `name`) caps how many unfinished downloads one block may have.
 
 Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
