@@ -972,7 +972,25 @@ docker compose up -d fetchshelf
 - **Going back to an older version is not supported.** The upgrade changes the database and nothing undoes
   those changes. An older version starts on the changed database without any warning, but can then fail.
   To go back, stop Fetchshelf, restore the backup you took before upgrading, and start the older version.
-  Anything that happened after the upgrade is lost.
+
+  Restoring the backup winds back only Fetchshelf's own records, in `data.db`, to the moment you took it.
+  Everything outside it stays as it is: the downloads in qBittorrent, the files in your library,
+  Audiobookshelf, and your MAM account, including any wedges spent. Fetchshelf catches up with most of it
+  by itself:
+
+  - **Downloads and library files.** The Link job finds the finished torrents in qBittorrent that it no
+    longer knows and that one of your libraries accepts, looks them up on MAM and records them again. Files already in the library are kept as
+    they are, not linked a second time.
+  - **The download queue.** A torrent queued before the backup but started after it shows on the
+    **Selected** page as waiting again. The next download run sees it is already in qBittorrent and
+    marks it as started, so nothing is downloaded twice. To get the torrent file, though, it asks MAM
+    again, which for a torrent that was to use a wedge may cost another one. If wedges matter to you,
+    look at the **Selected** page right after starting and remove anything already in qBittorrent.
+  - **Lost for good:** events, errors and duplicates recorded after the backup, and metadata you edited by
+    hand since then. A re-found torrent gets MAM's metadata again, so redo such edits and use **Refresh
+    and relink**.
+  - Torrents selected after the backup but not yet started are forgotten; an autograb that still matches
+    them selects them again on its next run.
 - To avoid surprise upgrades, use a version tag such as `ghcr.io/crimsonking60/fetchshelf:2026.10.2` instead of
   `latest`. To update, change the tag to the new version, then pull and recreate the container as above.
 - After updating, open **Jobs** and check that the jobs run and finish without errors.
