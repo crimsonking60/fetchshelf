@@ -344,8 +344,10 @@ Things to know:
 3. Restart Fetchshelf and look at the log or the **Torrents** page. The **Check qBittorrent** button on
    the Torrents page asks qBittorrent about every torrent Fetchshelf knows and shows how many were found.
 
-New downloads go to the **first** `[[qbittorrent]]` entry. Linking runs against every entry, so you can
-list a second client for torrents that finish elsewhere.
+New downloads go to the **first** `[[qbittorrent]]` entry, but linking checks every entry. If you also
+run another qBittorrent, for example on a second machine, add it as another entry: the torrents you add
+there yourself are then linked into your library too. Fetchshelf must be able to reach that client's
+download folder, directly or through that entry's own `path_mapping`.
 
 ### Paths: `path_mapping`
 
