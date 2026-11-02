@@ -44,18 +44,6 @@ public sealed partial class MamClient(
     private (DateTimeOffset FetchedAt, MamAccountState Value)? _cachedAccountState;
 
     /// <summary>
-    /// Verifies that the configured `mam_id` is accepted by MAM. The configured cookie is always
-    /// the one sent; nothing is persisted or rotated.
-    /// </summary>
-    public async Task EnsureAuthenticatedAsync(CancellationToken cancellationToken = default)
-    {
-        if (!await CheckCookieAsync(cancellationToken))
-        {
-            throw new MamAuthenticationException("MAM authentication failed: the configured mam_id was rejected.");
-        }
-    }
-
-    /// <summary>
     /// Reads account state (ratio, upload/download totals, wedges, unsat count/limit) from
     /// `GET /jsonLoad.php?snatch_summary=true`, caching the result for about 60 seconds.
     /// </summary>
@@ -101,15 +89,6 @@ public sealed partial class MamClient(
             UnsatCount = MamJson.GetInt64(unsat.GetProperty("count")),
             UnsatLimit = MamJson.GetInt64(unsat.GetProperty("limit")),
         };
-    }
-
-    /// <summary>Validates the active cookie against `GET /json/checkCookie.php`.</summary>
-    private async Task<bool> CheckCookieAsync(CancellationToken cancellationToken)
-    {
-        using var response = await SendAsync(
-            new HttpRequestMessage(HttpMethod.Get, BuildUrl("/json/checkCookie.php")), cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        return body.Contains("\"Success\":true", StringComparison.Ordinal);
     }
 
     /// <summary>

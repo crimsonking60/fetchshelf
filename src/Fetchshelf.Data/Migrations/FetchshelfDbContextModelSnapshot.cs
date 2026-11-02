@@ -17,20 +17,6 @@ namespace Fetchshelf.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
-            modelBuilder.Entity("Fetchshelf.Data.Entities.ConfigStoreEntry", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("ConfigStore");
-                });
-
             modelBuilder.Entity("Fetchshelf.Data.Entities.DuplicateTorrentEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -161,9 +147,6 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("GrabberName")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("InfoHash")
-                        .HasColumnType("TEXT");
-
                     b.Property<long>("MamId")
                         .HasColumnType("INTEGER");
 
@@ -227,9 +210,6 @@ namespace Fetchshelf.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LinkerName")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ListItemReference")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("MamId")

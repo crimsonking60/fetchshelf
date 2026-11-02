@@ -1,4 +1,5 @@
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Tests;
@@ -28,11 +29,11 @@ public sealed class CompositionTests : IDisposable
         using var dbContext = new FetchshelfDbContext(options);
         DatabaseMigrator.Migrate(dbContext);
 
-        await new ConfigStoreRepository(dbContext).SetAsync("example_key", "example-value");
+        await new EventStore(dbContext).AppendAsync(new EventEntity { OccurredAt = DateTimeOffset.UtcNow, Kind = EventKind.RemovedFromMam, MamId = 7 });
 
         Assert.True(settings.BackgroundJobsEnabled);
         Assert.True(File.Exists(configPath));
         Assert.True(File.Exists(dbPath));
-        Assert.Equal("example-value", await new ConfigStoreRepository(dbContext).GetAsync("example_key"));
+        Assert.Equal(7, (await dbContext.Events.AsNoTracking().SingleAsync()).MamId);
     }
 }

@@ -14,7 +14,6 @@ public static class MamErrorDescriber
         // HttpClient reports its own Timeout as a TaskCanceledException; a request the browser abandoned is rethrown by the caller before getting here.
         OperationCanceledException or TimeoutException =>
             $"MAM did not answer within {timeout.TotalSeconds:0} seconds. It may be slow or down - try again in a moment.",
-        MamAuthenticationException => "MAM did not accept the configured mam_id. Create a new session on MAM and update mam_id.",
         MamRateLimitedException => "MAM is limiting requests from this account. Wait a few minutes and try again.",
         MamAccountBlockedException => "MAM has temporarily blocked this account. Wait a while before trying again.",
         // Already says why, what to do, and until when MAM calls are paused.
@@ -31,7 +30,7 @@ public static class MamErrorDescriber
     /// </summary>
     public static string DescribeAmong(Exception exception, string services) => exception switch
     {
-        MamAuthenticationException or MamRateLimitedException or MamAccountBlockedException or MamForbiddenException =>
+        MamRateLimitedException or MamAccountBlockedException or MamForbiddenException =>
             Describe(exception, TimeSpan.Zero),
         OperationCanceledException or TimeoutException => $"{services} did not answer in time. Try again in a moment.",
         _ => $"{services} could not be reached or answered with an error. The log has the details.",

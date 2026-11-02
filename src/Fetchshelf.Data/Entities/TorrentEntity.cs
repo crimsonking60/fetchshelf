@@ -42,6 +42,4 @@ public sealed class TorrentEntity
     public string? LibraryMismatchState { get; set; }
 
     public string? ClientStatus { get; set; }
-
-    public string? ListItemReference { get; set; }
 }

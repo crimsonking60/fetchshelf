@@ -42,7 +42,7 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events", "ConfigStore",
+            "Events",
         ];
         foreach (var expected in expectedTables)
         {
@@ -119,6 +119,27 @@ public sealed class DataPersistenceTests : IDisposable
         Assert.Equal("boom", context.ErroredTorrents.Single().ErrorText);
     }
 
+    [Fact]
+    public void Migrate_UnusedStorageFromBeforeItsRemoval_DropsItAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261030222248_RemoveGoodreadsLists");
+        context.Database.ExecuteSql($"INSERT INTO ConfigStore (Key, Value) VALUES ('mam_cookie', 'cookie-value')");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+        context.Database.ExecuteSql(
+            $$"""
+            INSERT INTO SelectedTorrents (MamId, DownloadLink, InfoHash, CostDecision, UnsatBuffer, WedgeBuffer, MetadataJson, NormalizedTitleKey, CreatedAt)
+            VALUES (2, 'https://example.test/download/2', 'hash2', 'Ratio', 0, 0, '{}', 'kept selected', '2026-10-31 10:00:00+00:00')
+            """);
+
+        DatabaseMigrator.Migrate(context);
+
+        var tableNames = context.Database.SqlQueryRaw<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
+        Assert.DoesNotContain("ConfigStore", tableNames);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        Assert.Equal("kept selected", context.SelectedTorrents.Single().NormalizedTitleKey);
+    }
+
     private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>
         context.Database.ExecuteSql(
             $"INSERT INTO Torrents (Id, MamId, NormalizedTitleKey, Title, MetadataJson, CreatedAt) VALUES ({id}, 1, {title.ToLowerInvariant()}, {title}, '{{}}', '2026-10-22 10:00:00+00:00')");
@@ -173,7 +194,6 @@ public sealed class DataPersistenceTests : IDisposable
                 LinkerName = "main-library",
                 LibraryPath = "/library/Author/Title",
             });
-            context.ConfigStore.Add(new ConfigStoreEntry { Key = "mam_cookie", Value = "cookie-value" });
 
             context.SaveChanges();
         }
@@ -185,40 +205,7 @@ public sealed class DataPersistenceTests : IDisposable
             Assert.Equal(torrentId, context.DuplicateTorrents.Single(d => d.MamId == 3).DuplicateOfTorrentId);
             Assert.Equal("boom", context.ErroredTorrents.Single(e => e.Key == torrentId).ErrorText);
             Assert.Equal("/library/Author/Title", context.Events.Single(e => e.TorrentId == torrentId).LibraryPath);
-            Assert.Equal("cookie-value", context.ConfigStore.Single(c => c.Key == "mam_cookie").Value);
         }
-    }
-
-    [Fact]
-    public async Task ConfigStoreRepository_WriteThenReopen_ValueRoundTrips()
-    {
-        using (var context = CreateContext())
-        {
-            DatabaseMigrator.Migrate(context);
-            var repository = new ConfigStoreRepository(context);
-            await repository.SetAsync("mam_cookie", "first-value");
-        }
-
-        using (var context = CreateContext())
-        {
-            var repository = new ConfigStoreRepository(context);
-            var value = await repository.GetAsync("mam_cookie");
-
-            Assert.Equal("first-value", value);
-        }
-    }
-
-    [Fact]
-    public async Task ConfigStoreRepository_SetAsyncTwice_OverwritesExistingValue()
-    {
-        using var context = CreateContext();
-        DatabaseMigrator.Migrate(context);
-        var repository = new ConfigStoreRepository(context);
-
-        await repository.SetAsync("mam_cookie", "first-value");
-        await repository.SetAsync("mam_cookie", "second-value");
-
-        Assert.Equal("second-value", await repository.GetAsync("mam_cookie"));
     }
 
     [Fact]
@@ -248,7 +235,7 @@ public sealed class DataPersistenceTests : IDisposable
             MamId = 7,
         });
 
-        var events = await store.GetAllAsync();
+        var events = await context.Events.AsNoTracking().ToListAsync();
         Assert.Single(events);
         Assert.Equal(EventKind.RemovedFromMam, events[0].Kind);
         Assert.Equal(7, events[0].MamId);

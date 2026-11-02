@@ -14,7 +14,4 @@ public sealed class EventStore(FetchshelfDbContext dbContext)
         dbContext.Events.Add(@event);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
-
-    public async Task<IReadOnlyList<EventEntity>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        await dbContext.Events.AsNoTracking().ToListAsync(cancellationToken);
 }

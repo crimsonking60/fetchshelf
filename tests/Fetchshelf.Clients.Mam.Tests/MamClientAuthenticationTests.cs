@@ -9,34 +9,8 @@ public class MamClientAuthenticationTests
     private static MamClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> handler, string mamId = "configured-mam-id") =>
         new(new HttpClient(new FakeHttpMessageHandler(handler)), new MamClientOptions { MamId = mamId });
 
-    private static HttpResponseMessage CheckCookieResponse(bool success) =>
-        new(HttpStatusCode.OK) { Content = new StringContent(success ? "{\"Success\":true}" : "{\"Success\":false}") };
-
     [Fact]
-    public async Task EnsureAuthenticatedAsync_ConfiguredCookieAccepted_SendsConfiguredCookie()
-    {
-        string? cookieSent = null;
-        var client = CreateClient(request =>
-        {
-            cookieSent = request.Headers.TryGetValues("Cookie", out var values) ? values.First() : null;
-            return CheckCookieResponse(success: true);
-        });
-
-        await client.EnsureAuthenticatedAsync();
-
-        Assert.Equal("mam_id=configured-mam-id", cookieSent);
-    }
-
-    [Fact]
-    public async Task EnsureAuthenticatedAsync_ConfiguredCookieRejected_ThrowsMamAuthenticationException()
-    {
-        var client = CreateClient(_ => CheckCookieResponse(success: false));
-
-        await Assert.ThrowsAsync<MamAuthenticationException>(() => client.EnsureAuthenticatedAsync());
-    }
-
-    [Fact]
-    public async Task SearchAsync_WithoutEnsureAuthenticated_SendsConfiguredCookie()
+    public async Task SearchAsync_ConfiguredMamId_SendsConfiguredCookie()
     {
         var cookiesSent = new List<string?>();
         var client = CreateClient(request =>
