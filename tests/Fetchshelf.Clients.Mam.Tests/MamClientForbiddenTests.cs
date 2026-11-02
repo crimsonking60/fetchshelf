@@ -62,7 +62,7 @@ public class MamClientForbiddenTests
     }
 
     [Fact]
-    public async Task FailedCall_IsLoggedWithStatusContentTypeAndStartOfTheBody()
+    public async Task SearchAsync_ForbiddenWithBody_LogsStatusContentTypeAndStartOfTheBody()
     {
         var logger = new ListLogger();
         var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)
@@ -94,7 +94,7 @@ public class MamClientForbiddenTests
     }
 
     [Fact]
-    public async Task ServerError_IsLoggedWithoutConsumingTheBodyTheCallerReads()
+    public async Task SearchAsync_ServerError_LogsWithoutConsumingTheBodyTheCallerReads()
     {
         var logger = new ListLogger();
         var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = new StringContent("upstream down") }, logger: logger);

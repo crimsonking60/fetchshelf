@@ -24,7 +24,7 @@ public class MamClientSnatchlistTests
         new(new HttpClient(new FakeHttpMessageHandler(handler)), new MamClientOptions { MamId = "cookie" });
 
     [Fact]
-    public async Task GetSnatchListAsync_RequestsCorrectKindAndOnlyReturnsThoseRows()
+    public async Task GetSnatchListAsync_OneKind_RequestsItAndReturnsOnlyThoseRows()
     {
         string? requestedUrl = null;
         var client = CreateClient(request =>

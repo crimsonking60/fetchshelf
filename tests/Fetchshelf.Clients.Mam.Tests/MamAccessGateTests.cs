@@ -3,7 +3,7 @@ namespace Fetchshelf.Clients.Mam.Tests;
 public class MamAccessGateTests
 {
     [Fact]
-    public async Task AcquireAsync_SecondCallWaitsUntilFirstHandleDisposed()
+    public async Task AcquireAsync_GateAlreadyHeld_WaitsUntilFirstHandleDisposed()
     {
         var gate = new MamAccessGate();
         var firstHandle = await gate.AcquireAsync();

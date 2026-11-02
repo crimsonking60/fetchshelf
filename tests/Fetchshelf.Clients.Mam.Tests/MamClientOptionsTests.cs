@@ -5,7 +5,7 @@ namespace Fetchshelf.Clients.Mam.Tests;
 public class MamClientOptionsTests
 {
     [Fact]
-    public void Defaults_MatchDocumentedValues()
+    public void Constructor_NothingSet_UsesDocumentedDefaults()
     {
         var options = new MamClientOptions { MamId = "session-cookie-value" };
 

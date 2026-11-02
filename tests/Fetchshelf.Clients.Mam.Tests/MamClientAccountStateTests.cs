@@ -25,7 +25,7 @@ public class MamClientAccountStateTests
         new(new HttpClient(new FakeHttpMessageHandler(handler)), new MamClientOptions { MamId = "cookie" }, timeProvider);
 
     [Fact]
-    public async Task GetAccountStateAsync_ParsesAllDocumentedFields()
+    public async Task GetAccountStateAsync_FullResponse_ParsesAllDocumentedFields()
     {
         var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ResponseJson) });
 
