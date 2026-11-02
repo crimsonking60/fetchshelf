@@ -131,7 +131,7 @@ public class IndexModel(
                 var metadata = MamTorrentMapper.Map(record);
                 var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
                 var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
+                    record, metadata, [], cost, autograbCategory: null, grabberName: "Manual search",
                     unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
                 message = DescribeOutcome(outcome, metadata, formatPreferenceLists);

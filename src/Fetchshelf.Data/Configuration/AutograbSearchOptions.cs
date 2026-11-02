@@ -6,7 +6,7 @@ namespace Fetchshelf.Data.Configuration;
 /// The accepted values of an `[[autograb]]` entry's `sort_by` and `search_in`, shared by
 /// `ConfigLoader` (which rejects unknown values at startup) and the search translator.
 /// </summary>
-public static class AutogrebSearchOptions
+public static class AutograbSearchOptions
 {
     public const string SortByNames = "newest_first, oldest_first, random, low_seeders, low_snatches";
 

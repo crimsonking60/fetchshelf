@@ -3,7 +3,7 @@ using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.Tests;
 
-public sealed class AutogrebConfigTests : IDisposable
+public sealed class AutograbConfigTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-autograb-config-tests-").FullName;
 
@@ -40,7 +40,7 @@ public sealed class AutogrebConfigTests : IDisposable
 
         var settings = ConfigLoader.Load(ConfigPath);
 
-        Assert.Same(AutogrebType.New, settings.Autograb[0].Type);
+        Assert.Same(AutograbType.New, settings.Autograb[0].Type);
     }
 
     [Fact]

@@ -18,7 +18,7 @@ public static class ConfigLoader
     private static readonly IYamlTypeConverter[] TypeConverters =
     [
         new CategoryListOrBoolYamlConverter(),
-        new AutogrebTypeYamlConverter(),
+        new AutograbTypeYamlConverter(),
         new ConfiguredCostYamlConverter(),
     ];
 
@@ -346,19 +346,19 @@ public static class ConfigLoader
                     "Invalid configuration: an [[autograb]] section setting 'max_active_downloads' must also set 'name'.");
             }
 
-            if (!AutogrebSearchOptions.TryParseSortBy(autograb.SortBy, out _))
+            if (!AutograbSearchOptions.TryParseSortBy(autograb.SortBy, out _))
             {
                 throw new ConfigurationException(
                     $"Invalid configuration: an [[autograb]] section has an unrecognized 'sort_by' value '{autograb.SortBy}'; " +
-                    $"expected one of {AutogrebSearchOptions.SortByNames}.");
+                    $"expected one of {AutograbSearchOptions.SortByNames}.");
             }
 
-            var unknownField = autograb.SearchIn.FirstOrDefault(f => !AutogrebSearchOptions.TryParseSearchField(f, out _));
+            var unknownField = autograb.SearchIn.FirstOrDefault(f => !AutograbSearchOptions.TryParseSearchField(f, out _));
             if (unknownField is not null)
             {
                 throw new ConfigurationException(
                     $"Invalid configuration: an [[autograb]] section has an unrecognized 'search_in' field '{unknownField}'; " +
-                    $"expected one of {AutogrebSearchOptions.SearchInNames}.");
+                    $"expected one of {AutograbSearchOptions.SearchInNames}.");
             }
         }
     }

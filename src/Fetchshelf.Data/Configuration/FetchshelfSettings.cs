@@ -66,7 +66,7 @@ public sealed class FetchshelfSettings
     public List<Library> Library { get; set; } = [];
 
     /// <summary>Repeatable `[[autograb]]` entries.</summary>
-    public List<AutogrebEntry> Autograb { get; set; } = [];
+    public List<AutograbEntry> Autograb { get; set; } = [];
 
     /// <summary>Repeatable `[[tag]]` entries.</summary>
     public List<TagRuleEntry> Tag { get; set; } = [];

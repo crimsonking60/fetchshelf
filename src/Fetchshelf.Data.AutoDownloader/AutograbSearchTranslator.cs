@@ -11,7 +11,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// of what MAM returns - the full shared filter is always re-applied locally afterward (see
 /// `AutograbberRunner`), so an imperfect translation here cannot produce an incorrect selection.
 /// </summary>
-public static class AutogrebSearchTranslator
+public static class AutograbSearchTranslator
 {
     // Old main-category ids
     private const int AudioMainCategoryId = 13;
@@ -19,7 +19,7 @@ public static class AutogrebSearchTranslator
     private const int MusicologyMainCategoryId = 15;
     private const int RadioMainCategoryId = 16;
 
-    public static MamSearchQuery ToSearchQuery(AutogrebEntry entry, TorrentFilter filter, long pageOffset)
+    public static MamSearchQuery ToSearchQuery(AutograbEntry entry, TorrentFilter filter, long pageOffset)
     {
         var (target, kind) = ToTargetAndKind(entry.Type!);
 
@@ -51,7 +51,7 @@ public static class AutogrebSearchTranslator
         };
     }
 
-    private static (MamSearchTarget Target, MamSearchKind? Kind) ToTargetAndKind(AutogrebType type) => type.Kind switch
+    private static (MamSearchTarget Target, MamSearchKind? Kind) ToTargetAndKind(AutograbType type) => type.Kind switch
     {
         "bookmarks" => (MamSearchTarget.Bookmarks, null),
         "new" => (MamSearchTarget.New, null),
@@ -64,13 +64,13 @@ public static class AutogrebSearchTranslator
     };
 
     private static MamSearchField ParseSearchField(string name) =>
-        AutogrebSearchOptions.TryParseSearchField(name, out var field)
+        AutograbSearchOptions.TryParseSearchField(name, out var field)
             ? field
             : throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown search_in field.");
 
     // ConfigLoader rejects unknown values at startup, so these throws only guard entries built in code.
     private static MamSortOrder ToSortOrder(string? sortBy) =>
-        AutogrebSearchOptions.TryParseSortBy(sortBy, out var sortOrder)
+        AutograbSearchOptions.TryParseSortBy(sortBy, out var sortOrder)
             ? sortOrder
             : throw new ArgumentOutOfRangeException(nameof(sortBy), sortBy, "Unknown sort_by value.");
 

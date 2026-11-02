@@ -31,7 +31,7 @@ public sealed class SelectionRunner(
         TorrentMetadata metadata,
         IReadOnlyList<long> ignoreTorrents,
         ConfiguredCost configuredCost,
-        string? autogrebCategory,
+        string? autograbCategory,
         string? grabberName,
         int unsatBuffer,
         int wedgeBuffer,
@@ -125,7 +125,7 @@ public sealed class SelectionRunner(
             Leechers = record.Leechers,
             TimesCompleted = record.TimesCompleted,
         };
-        var (category, tags) = TagRuleResolver.Resolve(candidate, autogrebCategory, tagRules);
+        var (category, tags) = TagRuleResolver.Resolve(candidate, autograbCategory, tagRules);
 
         var cost = CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, configuredCost);
         if (cost is null)

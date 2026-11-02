@@ -23,7 +23,7 @@ public sealed class AutograbberRunner(
     /// would have selected is only logged.
     /// </summary>
     public async Task<int> RunAsync(
-        AutogrebEntry entry,
+        AutograbEntry entry,
         int globalUnsatBuffer,
         int globalWedgeBuffer,
         IReadOnlyList<long> ignoreTorrents,
@@ -64,7 +64,7 @@ public sealed class AutograbberRunner(
 
         for (var page = 0; page < entry.EffectiveMaxPages; page++)
         {
-            var query = AutogrebSearchTranslator.ToSearchQuery(entry, filter, page * 100L);
+            var query = AutograbSearchTranslator.ToSearchQuery(entry, filter, page * 100L);
             var result = await mamClient.SearchAsync(query, cancellationToken);
             if (result.Data.Count == 0)
             {

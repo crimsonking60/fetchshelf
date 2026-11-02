@@ -86,9 +86,9 @@ public sealed class AutograbberRunnerTests : IDisposable
         return (client, searchRequestPaths);
     }
 
-    private static AutogrebEntry Entry(long? minSeeders = null) => new()
+    private static AutograbEntry Entry(long? minSeeders = null) => new()
     {
-        Type = AutogrebType.Bookmarks,
+        Type = AutograbType.Bookmarks,
         Cost = ConfiguredCost.Ratio,
         MinSeeders = minSeeders,
         MaxPages = 1,

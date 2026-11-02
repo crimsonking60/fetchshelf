@@ -6,9 +6,9 @@ using YamlDotNet.Serialization;
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>Reads an `[[autograb]]` entry's `type` as string-or-`{ uploader = &lt;id&gt; }` mapping.</summary>
-public sealed class AutogrebTypeYamlConverter : IYamlTypeConverter
+public sealed class AutograbTypeYamlConverter : IYamlTypeConverter
 {
-    public bool Accepts(Type type) => type == typeof(AutogrebType);
+    public bool Accepts(Type type) => type == typeof(AutograbType);
 
     public object ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer)
     {
@@ -16,10 +16,10 @@ public sealed class AutogrebTypeYamlConverter : IYamlTypeConverter
         {
             return scalar.Value.ToLowerInvariant() switch
             {
-                "bookmarks" => AutogrebType.Bookmarks,
-                "freeleech" => AutogrebType.Freeleech,
-                "new" or "torrents" => AutogrebType.New,
-                "mine" => AutogrebType.Mine,
+                "bookmarks" => AutograbType.Bookmarks,
+                "freeleech" => AutograbType.Freeleech,
+                "new" or "torrents" => AutograbType.New,
+                "mine" => AutograbType.Mine,
                 _ => throw new ConfigurationException($"Invalid configuration: unrecognized autograb type '{scalar.Value}'."),
             };
         }
@@ -39,7 +39,7 @@ public sealed class AutogrebTypeYamlConverter : IYamlTypeConverter
                 $"Invalid configuration: autograb type 'uploader' needs the uploader's MAM user id, a number, not '{value.Value}'.");
         }
 
-        return AutogrebType.Uploader(uploaderId);
+        return AutograbType.Uploader(uploaderId);
     }
 
     public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer) =>

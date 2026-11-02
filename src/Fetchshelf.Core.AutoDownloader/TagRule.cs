@@ -18,9 +18,9 @@ public static class TagRuleResolver
     /// Tags are the union of tags from every matching rule.
     /// </summary>
     public static (string? Category, IReadOnlySet<string> Tags) Resolve(
-        TorrentFilterCandidate candidate, string? autogrebCategory, IReadOnlyList<TagRule> tagRules)
+        TorrentFilterCandidate candidate, string? autograbCategory, IReadOnlyList<TagRule> tagRules)
     {
-        string? category = autogrebCategory;
+        string? category = autograbCategory;
         var tags = new HashSet<string>();
 
         foreach (var rule in tagRules)

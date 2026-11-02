@@ -31,7 +31,7 @@ public class TagRuleResolverTests
     };
 
     [Fact]
-    public void Resolve_AutogrebCategorySet_OverridesMatchingRuleCategory()
+    public void Resolve_AutograbCategorySet_OverridesMatchingRuleCategory()
     {
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "rule-category") };
@@ -42,7 +42,7 @@ public class TagRuleResolverTests
     }
 
     [Fact]
-    public void FirstMatchingRule_WinsCategory_WhenNoAutogrebCategory()
+    public void FirstMatchingRule_WinsCategory_WhenNoAutograbCategory()
     {
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "first"), MatchAllRule(category: "second") };

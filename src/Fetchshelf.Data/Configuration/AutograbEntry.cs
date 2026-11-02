@@ -7,9 +7,9 @@ namespace Fetchshelf.Data.Configuration;
 /// directly as its own top-level YAML keys, matching the config's flattened
 /// shape, rather than nesting them under a sub-key.
 /// </summary>
-public sealed class AutogrebEntry : SharedFilterConfig
+public sealed class AutograbEntry : SharedFilterConfig
 {
-    public AutogrebType? Type { get; set; }
+    public AutograbType? Type { get; set; }
 
     public ConfiguredCost Cost { get; set; } = ConfiguredCost.Free;
 

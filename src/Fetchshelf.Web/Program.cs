@@ -349,7 +349,7 @@ internal static class JobNames
 /// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>
 internal static class AutoDownloaderJobNames
 {
-    public static string Autograb(AutogrebEntry entry, int index) =>
+    public static string Autograb(AutograbEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"autograb[{index}]" : entry.Name;
 
     public static string Snatchlist(SnatchlistEntry entry, int index) =>

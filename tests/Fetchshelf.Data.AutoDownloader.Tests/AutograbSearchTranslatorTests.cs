@@ -5,9 +5,9 @@ using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
-public class AutogrebSearchTranslatorTests
+public class AutograbSearchTranslatorTests
 {
-    private static AutogrebEntry Entry(AutogrebType type, string? sortBy = null) => new()
+    private static AutograbEntry Entry(AutograbType type, string? sortBy = null) => new()
     {
         Type = type,
     };
@@ -21,10 +21,10 @@ public class AutogrebSearchTranslatorTests
     [InlineData("low_snatches", MamSortOrder.LowestSnatches)]
     public void ToSearchQuery_SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
     {
-        var entry = Entry(AutogrebType.New);
+        var entry = Entry(AutograbType.New);
         entry.SortBy = sortBy;
 
-        var query = AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
 
         Assert.Equal(expected, query.SortOrder);
     }
@@ -32,10 +32,10 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_SearchIn_MapsToSearchFields()
     {
-        var entry = Entry(AutogrebType.New);
+        var entry = Entry(AutograbType.New);
         entry.SearchIn = ["author", "file_types", "Title"];
 
-        var query = AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
 
         Assert.Equal([MamSearchField.Author, MamSearchField.FileTypes, MamSearchField.Title], query.SearchFields);
     }
@@ -43,7 +43,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void SearchIn_Unset_LeavesSearchFieldsEmpty()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.New), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.New), new TorrentFilter(), 0);
 
         Assert.Empty(query.SearchFields);
     }
@@ -51,16 +51,16 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void SearchIn_UnknownField_Throws()
     {
-        var entry = Entry(AutogrebType.New);
+        var entry = Entry(AutograbType.New);
         entry.SearchIn = ["isbn"];
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => AutogrebSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0));
     }
 
     [Fact]
     public void ToSearchQuery_BookmarksType_MapsToBookmarksTarget()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Bookmarks), new TorrentFilter(), 0);
 
         Assert.Equal(MamSearchTarget.Bookmarks, query.Target);
         Assert.Null(query.Kind);
@@ -69,7 +69,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_FreeleechType_MapsToNewTargetWithFreeleechKind()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Freeleech), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Freeleech), new TorrentFilter(), 0);
 
         Assert.Equal(MamSearchTarget.New, query.Target);
         Assert.Equal(MamSearchKind.Freeleech, query.Kind);
@@ -78,7 +78,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_UploaderType_MapsToUploaderTarget()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Uploader(42)), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Uploader(42)), new TorrentFilter(), 0);
 
         Assert.Equal(MamSearchTarget.Uploader(42), query.Target);
     }
@@ -86,7 +86,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_NewType_MapsToNewTarget()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.New), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.New), new TorrentFilter(), 0);
 
         Assert.Equal(MamSearchTarget.New, query.Target);
     }
@@ -94,7 +94,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_MineType_MapsToMineTarget()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Mine), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Mine), new TorrentFilter(), 0);
 
         Assert.Equal(MamSearchTarget.Mine, query.Target);
     }
@@ -118,7 +118,7 @@ public class AutogrebSearchTranslatorTests
             Flags = new Dictionary<BookFlags, bool> { [BookFlags.Explicit] = true },
         };
 
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), filter, pageOffset: 100);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Bookmarks), filter, pageOffset: 100);
 
         Assert.Equal([(int)Language.English], query.LanguageIds);
         Assert.Equal(filter.UploadedAfter, query.StartDate);
@@ -139,7 +139,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_AllCategoriesAllowed_ProducesNoCategoryFilter()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Bookmarks), new TorrentFilter
         {
             Categories = new CategoryFilter
             {
@@ -157,7 +157,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_DefaultCategories_UsesMainCategoryIdsForAudioAndEbook()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter(), 0);
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Bookmarks), new TorrentFilter(), 0);
 
         Assert.Equal([13, 14], query.MainCategoryIds);
         Assert.Empty(query.CategoryIds);
@@ -166,7 +166,7 @@ public class AutogrebSearchTranslatorTests
     [Fact]
     public void ToSearchQuery_ExplicitCategoryList_ExpandsAllOtherTypesToEverySubId()
     {
-        var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter
+        var query = AutograbSearchTranslator.ToSearchQuery(Entry(AutograbType.Bookmarks), new TorrentFilter
         {
             Categories = new CategoryFilter
             {
