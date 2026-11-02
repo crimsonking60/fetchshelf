@@ -6,6 +6,7 @@ using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.Tests;
 
@@ -78,6 +79,37 @@ public sealed class CleanerTests : IDisposable
 
         var cleanedEvent = await context.Events.SingleAsync(e => e.Kind == EventKind.Cleaned);
         Assert.Equal("loser", cleanedEvent.TorrentId);
+    }
+
+    [Fact]
+    public async Task RunAsync_LowerRankedDuplicate_LogsWhatWasDone()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var loserPath = Path.Combine(_root, "loser");
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
+        await AddLinkedTorrentAsync(context, "loser", "mp3", 100, loserPath);
+        var logger = new ListLogger<Cleaner>();
+
+        var summary = await new Cleaner(context, new EventStore(context), Formats, logger: logger).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(Retired: 1, Failed: 0), summary);
+        var message = Assert.Single(logger.Messages(LogLevel.Information));
+        Assert.StartsWith("Retired ", message, StringComparison.Ordinal);
+        Assert.Contains("mp3", message);
+        Assert.EndsWith($"removed 1 file from {loserPath}", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_NoDuplicates_LogsThatThereIsNothingToDo()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "only", "m4b", 100, Path.Combine(_root, "only"));
+        var logger = new ListLogger<Cleaner>();
+
+        var summary = await new Cleaner(context, new EventStore(context), Formats, logger: logger).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(Retired: 0, Failed: 0), summary);
+        Assert.Equal(["No duplicate copies to clean up"], logger.Messages(LogLevel.Information));
     }
 
     [Fact]

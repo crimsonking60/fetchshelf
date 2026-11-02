@@ -7,18 +7,27 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.Organizer;
+
+/// <summary>What one clean run did: superseded copies retired, and copies whose retirement failed.</summary>
+public sealed record CleanRunSummary(int Retired, int Failed);
 
 /// <summary>Retires superseded duplicates among linked torrents</summary>
 public sealed class Cleaner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
     FormatPreferenceLists formatPreferenceLists,
-    AbsClient? absClient = null)
+    AbsClient? absClient = null,
+    ILogger<Cleaner>? logger = null)
 {
+    private readonly ILogger<Cleaner> _logger = logger ?? NullLogger<Cleaner>.Instance;
+
+    /// <summary>Retires every superseded copy; a failure on one is logged and recorded as a clean error, and the run continues.</summary>
     /// <param name="connections">Every configured qBittorrent connection, each paired with its client.</param>
-    public async Task RunAsync(
+    public async Task<CleanRunSummary> RunAsync(
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
         CancellationToken cancellationToken = default)
     {
@@ -26,22 +35,37 @@ public sealed class Cleaner(
             .Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null)
             .ToListAsync(cancellationToken);
 
-        foreach (var group in GroupBySameBook(linked))
+        var duplicateGroups = GroupBySameBook(linked).Where(g => g.Count >= 2).ToList();
+        if (duplicateGroups.Count == 0)
         {
-            if (group.Count < 2)
-            {
-                continue;
-            }
+            _logger.LogInformation("No duplicate copies to clean up");
+            return new CleanRunSummary(0, 0);
+        }
 
+        var (retired, failed) = (0, 0);
+        foreach (var group in duplicateGroups)
+        {
             var keeper = PickKeeper(group);
             foreach (var member in group.Where(m => m.Id != keeper.Id))
             {
                 // The automatic pass only deletes the member's ABS item when the keeper ends
                 // up at a different library path.
                 var forceAbsDeletion = keeper.LibraryPath is not null && keeper.LibraryPath != member.LibraryPath;
-                await ReplaceAsync(member, keeper, connections, forceAbsDeletion, cancellationToken);
+                try
+                {
+                    await ReplaceAsync(member, keeper, connections, forceAbsDeletion, cancellationToken);
+                    retired++;
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // One copy that cannot be retired must not stop the rest; it is tried again next run.
+                    failed++;
+                    await RecordCleanErrorAsync(member, keeper, ex.Message, cancellationToken);
+                }
             }
         }
+
+        return new CleanRunSummary(retired, failed);
     }
 
     /// <summary>Cleans a single torrent against the rest of the currently-linked set (manual "clean" action).</summary>
@@ -147,6 +171,12 @@ public sealed class Cleaner(
             }
         }
 
+        var details = new List<string>();
+        if (onCleaned is not null)
+        {
+            details.Add(owning is null ? "not found in qBittorrent, so on_cleaned was not applied" : "applied on_cleaned in qBittorrent");
+        }
+
         var removedFiles = new List<string>();
         if (member.LibraryPath is not null)
         {
@@ -173,11 +203,14 @@ public sealed class Cleaner(
             {
                 Directory.Delete(member.LibraryPath);
             }
+
+            details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
         }
 
         if (forceAbsDeletion && member.AbsId is not null && absClient is not null)
         {
             await absClient.DeleteItemAsync(member.AbsId, cancellationToken);
+            details.Add($"deleted Audiobookshelf item {member.AbsId}");
         }
 
         var oldLibraryPath = member.LibraryPath;
@@ -199,6 +232,25 @@ public sealed class Cleaner(
             FilesRemovedJson = JsonSerializer.Serialize(removedFiles),
         }, cancellationToken);
 
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Cleaner, member.Id, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Retired {Title} (MAM id {MamId}, {Format}) in favour of MAM id {KeeperMamId} ({KeeperFormat}): {Details}",
+            member.Title, member.MamId, FormatOf(member), keeper.MamId, FormatOf(keeper), string.Join("; ", details));
+    }
+
+    private async Task RecordCleanErrorAsync(TorrentEntity member, TorrentEntity keeper, string errorText, CancellationToken cancellationToken)
+    {
+        _logger.LogError(
+            "Could not retire {Title} (MAM id {MamId}) in favour of MAM id {KeeperMamId}: {Error}",
+            member.Title, member.MamId, keeper.MamId, errorText);
+
+        dbContext.DiscardPendingChanges();
+        await ErrorLog.RecordAsync(dbContext, ErrorStage.Cleaner, member.Id, member.Title, errorText, cancellationToken: cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private static string FormatOf(TorrentEntity torrent) =>
+        torrent.ChosenAudioExtension ?? torrent.ChosenEbookExtension ?? "no format";
 }

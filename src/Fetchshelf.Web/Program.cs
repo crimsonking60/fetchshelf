@@ -117,7 +117,7 @@ builder.Services.AddScoped(sp => new LinkRunner(
     sp.GetRequiredService<ILogger<LinkRunner>>()));
 builder.Services.AddScoped(sp => new Cleaner(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
-    sp.GetService<AbsClient>()));
+    sp.GetService<AbsClient>(), sp.GetRequiredService<ILogger<Cleaner>>()));
 
 var tagRules = settings.Tag
     .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
@@ -280,7 +280,12 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
     {
         using var scope = scopeFactory.CreateScope();
         var cleaner = scope.ServiceProvider.GetRequiredService<Cleaner>();
-        await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
+        var summary = await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
+        if (summary.Failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{summary.Failed} superseded {(summary.Failed == 1 ? "copy" : "copies")} could not be retired; see the Errors page.");
+        }
     }, "Retires superseded duplicate torrents once a newer copy is linked.");
 
     if (settings.Audiobookshelf is not null)
