@@ -212,6 +212,15 @@ public static class ConfigLoader
         {
             return deserializer.Deserialize<FetchshelfSettings>(yaml) ?? new FetchshelfSettings();
         }
+        catch (YamlException ex) when (ex.InnerException is ConfigurationException converterError)
+        {
+            // A type converter's own error; YamlDotNet wraps it as "Exception during deserialization".
+            throw new ConfigurationException(converterError.Message, ex);
+        }
+        catch (YamlException ex) when (ex.InnerException is FormatException or OverflowException)
+        {
+            throw new ConfigurationException($"Invalid configuration: {ex.InnerException.Message}", ex);
+        }
         catch (YamlException ex)
         {
             throw new ConfigurationException($"Invalid configuration: {ex.Message}", ex);

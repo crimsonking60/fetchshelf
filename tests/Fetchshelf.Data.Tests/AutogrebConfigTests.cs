@@ -119,6 +119,55 @@ public sealed class AutogrebConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_MisspelledType_NamesTheValueInsteadOfAGenericDeserializationError()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "freelech"
+            cost = "free"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: unrecognized autograb type 'freelech'.", exception.Message);
+    }
+
+    [Fact]
+    public void Load_MisspelledCost_NamesTheValue()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "freeleech"
+            cost = "fre"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: unrecognized cost 'fre'.", exception.Message);
+    }
+
+    [Fact]
+    public void Load_UploaderIdNotANumber_SaysWhatIsWrong()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = { uploader = "someone" }
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal(
+            "Invalid configuration: autograb type 'uploader' needs the uploader's MAM user id, a number, not 'someone'.",
+            exception.Message);
+    }
+
+    [Fact]
     public void Load_MaxActiveDownloadsWithoutName_Throws()
     {
         File.WriteAllText(ConfigPath, """

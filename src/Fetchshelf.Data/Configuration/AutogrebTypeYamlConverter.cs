@@ -33,7 +33,13 @@ public sealed class AutogrebTypeYamlConverter : IYamlTypeConverter
 
         var value = parser.Consume<Scalar>();
         parser.Consume<MappingEnd>();
-        return AutogrebType.Uploader(long.Parse(value.Value, CultureInfo.InvariantCulture));
+        if (!long.TryParse(value.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var uploaderId))
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: autograb type 'uploader' needs the uploader's MAM user id, a number, not '{value.Value}'.");
+        }
+
+        return AutogrebType.Uploader(uploaderId);
     }
 
     public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer) =>
