@@ -132,8 +132,7 @@ Notes:
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
-- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer, and so
-  does each list. A job with interval `0` is still listed on the Jobs page and can be started with
+- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job with interval `0` is still listed on the Jobs page and can be started with
   **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.

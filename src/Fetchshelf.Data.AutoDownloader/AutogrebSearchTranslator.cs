@@ -87,10 +87,10 @@ public static class AutogrebSearchTranslator
     }
 
     /// <summary>
-    /// Mirrors the reference implementation's `Categories::get_main_cats` (/):
-    /// used only when no main type has an explicit non-empty category list (otherwise specific
-    /// category ids carry the filter instead, see <see cref="ToCategoryIds"/>), and only for the
-    /// main types set to "all" - unless every type is "all", in which case no filter is needed.
+    /// MAM's main category ids for the search. Used only when no main type has an explicit non-empty
+    /// category list (otherwise specific category ids carry the filter instead, see
+    /// <see cref="ToCategoryIds"/>), and only for the main types set to "all" - unless every type is
+    /// "all", in which case no filter is needed.
     /// </summary>
     internal static List<int> ToMainCategoryIds(CategoryFilter categories)
     {
@@ -123,7 +123,10 @@ public static class AutogrebSearchTranslator
         return mainCats.Count == 4 ? [] : mainCats;
     }
 
-    /// <summary>Mirrors the reference implementation's `Categories::get_cats`.</summary>
+    /// <summary>
+    /// MAM's specific category ids for the search. Used only when some main type has an explicit
+    /// category list; a main type set to "all" then contributes every one of its categories.
+    /// </summary>
     internal static List<int> ToCategoryIds(CategoryFilter categories)
     {
         if (!HasAnyExplicitList(categories))

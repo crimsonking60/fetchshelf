@@ -6,8 +6,7 @@ namespace Fetchshelf.Clients.Mam;
 /// <summary>
 /// Parses a raw `loadSearchJSONbasic.php` response into <see cref="MamSearchResult"/>. Field
 /// shapes (including the nested-JSON-string encoding of `author_info`/`narrator_info`/
-/// `series_info`/`categories`) are confirmed against the original Rust implementation's
-/// `mlm_mam::search` module.
+/// `series_info`/`categories`) follow what MAM actually sends.
 /// </summary>
 internal static class SearchResponseParser
 {
@@ -133,7 +132,7 @@ internal static class SearchResponseParser
         return TryGetOwnership(element, out _, out var ownershipName) ? ownershipName : "";
     }
 
-    /// <summary>Falls back to the `ownership` 2-tuple `[id, name]` when `owner`/`owner_name` are absent (mirrors the reference implementation's `fix()`).</summary>
+    /// <summary>Falls back to the `ownership` 2-tuple `[id, name]` when `owner`/`owner_name` are absent, as in some MAM responses.</summary>
     private static bool TryGetOwnership(JsonElement element, out long id, out string name)
     {
         id = 0;
@@ -221,8 +220,7 @@ internal static class SearchResponseParser
 
     /// <summary>
     /// Some MAM fields are JSON-encoded as a string containing JSON rather than a nested object/array
-    /// directly (confirmed against the reference implementation's `json_or_default`/`serde_nested_json`
-    /// usage). Falls back to <paramref name="fallback"/> on any shape the parser doesn't recognize.
+    /// directly. Falls back to <paramref name="fallback"/> on any shape the parser doesn't recognize.
     /// </summary>
     private static T ParseNestedOrDefault<T>(JsonElement element, Func<JsonElement, T> parse, T fallback)
     {

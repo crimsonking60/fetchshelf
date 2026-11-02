@@ -23,7 +23,7 @@ public partial class ExtendListEntities : Migration
             type: "TEXT",
             nullable: true);
 
-        // ListItems was never populated (step 1 scaffolding, unused until this change) - drop and
+        // ListItems was never populated before this migration - drop and
         // recreate with the full shape rather than a long column-by-column migration.
         migrationBuilder.DropTable(
             name: "ListItems");

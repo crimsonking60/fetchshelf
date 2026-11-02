@@ -1,6 +1,6 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers tasks 5.1-5.2: the Torrents list page.</summary>
+/// <summary>The Torrents list page.</summary>
 public class TorrentsIndexPageTests
 {
     [Fact]

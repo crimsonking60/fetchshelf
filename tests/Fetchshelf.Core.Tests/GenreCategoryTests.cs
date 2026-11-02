@@ -4,8 +4,7 @@ namespace Fetchshelf.Core.Tests;
 
 public class GenreCategoryTests
 {
-    // Real tracker ids, confirmed against the original Rust implementation's reference data
-    // (mlm_db::impls::categories::Category::from_id/as_id).
+    // Real tracker ids.
     [Theory]
     [InlineData(GenreCategory.Action, 1)]
     [InlineData(GenreCategory.SheetCollection, 47)]

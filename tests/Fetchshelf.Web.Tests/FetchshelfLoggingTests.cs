@@ -3,7 +3,7 @@ using Serilog.Events;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 1.2: the Serilog configuration helper.</summary>
+/// <summary>The Serilog configuration helper.</summary>
 public sealed class FetchshelfLoggingTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-logging-tests-").FullName;

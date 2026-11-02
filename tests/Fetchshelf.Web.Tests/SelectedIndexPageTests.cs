@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 10.1: the Selected page.</summary>
+/// <summary>The Selected page.</summary>
 public partial class SelectedIndexPageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(

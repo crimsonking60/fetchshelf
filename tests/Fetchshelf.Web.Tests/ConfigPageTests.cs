@@ -4,7 +4,7 @@ using Fetchshelf.Clients.QBittorrent;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers tasks 2.1-2.3: the Config page.</summary>
+/// <summary>The Config page.</summary>
 public class ConfigPageTests
 {
     private const string ConfigToml = """

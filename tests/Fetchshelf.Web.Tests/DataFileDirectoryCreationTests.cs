@@ -1,6 +1,6 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 3.1: the database file's parent directory is created if missing.</summary>
+/// <summary>The database file's parent directory is created if missing.</summary>
 public class DataFileDirectoryCreationTests
 {
     [Fact]

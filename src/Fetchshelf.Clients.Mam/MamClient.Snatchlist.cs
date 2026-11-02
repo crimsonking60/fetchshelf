@@ -6,8 +6,7 @@ public sealed partial class MamClient
 {
     /// <summary>
     /// Reads one page of a snatch list from `GET {CdnBaseUrl}/json/loadUserDetailsTorrents.php`,
-    /// served from a separate CDN host (confirmed against the original Rust
-    /// implementation's `mlm_mam::api::MAM::snatchlist`). `page` is 0-based; keep `cacheTimestamp`
+    /// served from a separate CDN host. `page` is 0-based; keep `cacheTimestamp`
     /// constant across a single multi-page listing.
     /// </summary>
     public async Task<IReadOnlyList<MamSnatchlistRow>> GetSnatchListAsync(
@@ -46,7 +45,7 @@ public sealed partial class MamClient
     };
 
     /// <summary>
-    /// The row's metadata fields, named as in the original Rust implementation's `UserDetailsTorrent`. A row
+    /// The row's metadata fields. A row
     /// without `category` is treated as carrying none of them, so callers fall back to looking the torrent up.
     /// </summary>
     private static MamSnatchlistDetails? ParseDetails(JsonElement row)

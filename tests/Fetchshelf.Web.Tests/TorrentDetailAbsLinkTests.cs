@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 6.2: the Torrent detail page's Audiobookshelf link.</summary>
+/// <summary>The Torrent detail page's Audiobookshelf link.</summary>
 public class TorrentDetailAbsLinkTests
 {
     private const string ConfigToml = """

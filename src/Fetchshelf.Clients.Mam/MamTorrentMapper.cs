@@ -3,10 +3,8 @@ using Fetchshelf.Core.Metadata;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Maps a raw <see cref="MamTorrentRecord"/> to a cleaned <see cref="TorrentMetadata"/>, mirroring
-/// the original Rust implementation's `MaMTorrent::as_meta()` + `clean_meta()`
-/// (`mlm_mam/src/search.rs`, `mlm_mam/src/meta.rs`) using Fetchshelf.Core's existing cleaning
-/// pieces (<see cref="MamMetadataCleaner"/>, <see cref="EditionExtractor"/>,
+/// Maps a raw <see cref="MamTorrentRecord"/> to a cleaned <see cref="TorrentMetadata"/> using
+/// Fetchshelf.Core's cleaning pieces (<see cref="MamMetadataCleaner"/>, <see cref="EditionExtractor"/>,
 /// <see cref="ReferenceDataValidator"/>).
 /// </summary>
 public static class MamTorrentMapper

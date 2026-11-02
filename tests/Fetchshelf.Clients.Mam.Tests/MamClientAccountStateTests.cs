@@ -4,8 +4,7 @@ namespace Fetchshelf.Clients.Mam.Tests;
 
 public class MamClientAccountStateTests
 {
-    // Representative response shape, confirmed against the original Rust implementation's
-    // UserResponse (mlm_mam/src/user_data.rs test fixture).
+    // Representative response shape.
     private const string ResponseJson = """
         {
             "classname": "Power User",

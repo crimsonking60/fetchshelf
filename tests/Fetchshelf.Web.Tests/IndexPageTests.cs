@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 10.3: the Search page, also the application's home page ("/").</summary>
+/// <summary>The Search page, also the application's home page ("/").</summary>
 public partial class IndexPageTests
 {
     [Theory]

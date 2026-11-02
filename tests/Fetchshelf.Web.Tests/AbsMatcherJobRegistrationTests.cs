@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 6.1: the AbsMatcher job is registered and scheduled only when `[audiobookshelf]` is configured.</summary>
+/// <summary>The AbsMatcher job is registered and scheduled only when `[audiobookshelf]` is configured.</summary>
 public class AbsMatcherJobRegistrationTests
 {
     private const string ConfigToml = """

@@ -2,7 +2,7 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 5.6: the Events page.</summary>
+/// <summary>The Events page.</summary>
 public class EventsPageTests
 {
     [Fact]

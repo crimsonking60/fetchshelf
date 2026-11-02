@@ -1,6 +1,6 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Confirms the auto-downloader change's jobs (one per `[[autograb]]`/`[[snatchlist]]` entry, plus "Download") are registered (task 9.1).</summary>
+/// <summary>The auto-downloader's jobs (one per `[[autograb]]`/`[[snatchlist]]` entry, plus "Download") are registered.</summary>
 public class AutoDownloaderJobRegistrationTests
 {
     private const string ConfigToml = """

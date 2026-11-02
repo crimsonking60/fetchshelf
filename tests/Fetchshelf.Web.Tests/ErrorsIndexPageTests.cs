@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 10.2: the Errors page.</summary>
+/// <summary>The Errors page.</summary>
 public partial class ErrorsIndexPageTests
 {
     private static async Task<ErroredTorrentEntity> SeedGrabberErrorAsync(FetchshelfWebAppFixture fixture, bool restorable)

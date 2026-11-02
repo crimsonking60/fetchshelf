@@ -34,7 +34,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_ScalarSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_ScalarSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
 
@@ -54,7 +54,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_ListSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_ListSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
 

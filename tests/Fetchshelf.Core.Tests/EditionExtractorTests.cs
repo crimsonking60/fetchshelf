@@ -12,7 +12,7 @@ public class EditionExtractorTests
     [InlineData("Some Book 2012 Edition", "2012 Edition", 0)]
     [InlineData("Some Book 3rd ed.", "3rd Edition", 3)]
     [InlineData("Some Book UK Edition", "Uk Edition", 0)]
-    public void TryExtract_RecognizesSpecExamples(string text, string expectedLabel, int expectedNumber)
+    public void TryExtract_DocumentedExamples_AreRecognized(string text, string expectedLabel, int expectedNumber)
     {
         var match = EditionExtractor.TryExtract(text);
 

@@ -100,7 +100,7 @@ public sealed class ConfigLoaderTomlTests : IDisposable
     }
 
     [Fact]
-    public void Load_TomlScalarAndListSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_TomlScalarAndListSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(TomlConfigPath, "mam_id = \"\"\n");
 

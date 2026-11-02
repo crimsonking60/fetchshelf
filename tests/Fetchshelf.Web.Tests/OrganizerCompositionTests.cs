@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Fetchshelf.Web.Tests;
 
 /// <summary>
-/// Task 6.1: links a fake-metadata-bearing finished torrent end to end through the real host -
+/// Links a fake-metadata-bearing finished torrent end to end through the real host -
 /// config, the real "Link" job, the library-organizer orchestration, and the Torrents/detail/Events
 /// pages - then exercises refresh-and-relink and confirms the result is visible everywhere.
 /// </summary>

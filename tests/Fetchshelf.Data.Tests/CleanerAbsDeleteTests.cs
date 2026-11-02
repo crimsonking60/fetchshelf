@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.Tests;
 
-/// <summary>Covers task 5.1: deleting a replaced torrent's matched Audiobookshelf item.</summary>
+/// <summary>Deleting a replaced torrent's matched Audiobookshelf item.</summary>
 public sealed class CleanerAbsDeleteTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-cleaner-abs-tests-").FullName;

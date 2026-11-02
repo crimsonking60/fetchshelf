@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Tests;
 
-/// <summary>Covers tasks 4.1-4.2: pushing metadata to a matched Audiobookshelf item on link and refresh.</summary>
+/// <summary>Pushing metadata to a matched Audiobookshelf item on link and refresh.</summary>
 public sealed class LinkRunnerAbsPushTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-link-runner-abs-tests-").FullName;

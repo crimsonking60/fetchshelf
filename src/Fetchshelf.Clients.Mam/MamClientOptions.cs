@@ -5,8 +5,7 @@ public sealed record MamClientOptions
 {
     public string BaseUrl { get; init; } = "https://www.myanonamouse.net";
 
-    /// <summary>Snatch lists are served from a separate host (confirmed against
-    /// the original Rust implementation's `mlm_mam::api::MAM::snatchlist`).</summary>
+    /// <summary>Snatch lists are served from a separate host.</summary>
     public string CdnBaseUrl { get; init; } = "https://cdn.myanonamouse.net";
 
     /// <summary>The configured `mam_id` (session cookie value), sent with every MAM request.</summary>

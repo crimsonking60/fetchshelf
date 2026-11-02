@@ -7,8 +7,7 @@ public sealed record MamSearchTarget
     public static readonly MamSearchTarget New = new("torrents");
     public static readonly MamSearchTarget Mine = new("mine");
 
-    // "allRseed" (not "allReseed") matches the real tracker's expected value exactly, confirmed
-    // against the original Rust implementation's SearchTarget::serialize.
+    // "allRseed" (not "allReseed") is the value MAM actually expects.
     public static readonly MamSearchTarget AllReseed = new("allRseed");
     public static readonly MamSearchTarget MyReseed = new("myReseed");
 

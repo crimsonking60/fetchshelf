@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 5.4's three named scenarios against a fake qBittorrent server.</summary>
+/// <summary>The Torrent detail page's actions that reach qBittorrent, against a fake qBittorrent server.</summary>
 public partial class TorrentDetailActionsTests
 {
     private const string Hash = "hash1";

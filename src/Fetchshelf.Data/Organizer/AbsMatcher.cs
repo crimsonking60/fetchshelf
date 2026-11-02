@@ -125,7 +125,7 @@ public sealed class AbsMatcher(FetchshelfDbContext dbContext, AbsClient absClien
         return null;
     }
 
-    /// <summary>Path-component-aware prefix check (mirrors Rust `Path::starts_with`): a raw string
+    /// <summary>Path-component-aware prefix check: a raw string
     /// prefix would wrongly match e.g. "/data/audio" against "/data/audiobooks2".</summary>
     private static bool IsPathPrefix(string folderPath, string torrentLibraryPath)
     {

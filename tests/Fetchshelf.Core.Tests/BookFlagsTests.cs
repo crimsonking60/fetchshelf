@@ -4,8 +4,7 @@ namespace Fetchshelf.Core.Tests;
 
 public class BookFlagsTests
 {
-    // Real tracker bit positions, confirmed against the original Rust implementation's reference
-    // data (Flags::from_bitfield/as_bitfield). Bit 0 is unused.
+    // Real tracker bit positions. Bit 0 is unused.
     [Theory]
     [InlineData(BookFlags.CrudeLanguage, 1 << 1)]
     [InlineData(BookFlags.Violence, 1 << 2)]

@@ -3,8 +3,8 @@ namespace Fetchshelf.Core.Metadata;
 /// <summary>
 /// Rejects incoming MAM metadata whose media type, category, language, size, or date cannot be
 /// recognized, with a descriptive error rather than silently dropping it. Genre category ids are
-/// deliberately not checked: the tracker keeps adding them, and the original implementation keeps unknown
-/// ids rather than rejecting the record.
+/// deliberately not checked: the tracker keeps adding them, so unknown ids are kept rather than
+/// rejecting the record.
 /// </summary>
 public static class ReferenceDataValidator
 {
