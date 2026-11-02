@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
@@ -56,6 +57,40 @@ public partial class TorrentDetailActionsTests
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Post_Refresh_MamDoesNotFindTheTorrent_SaysNothingWasRefreshed()
+    {
+        using var fixture = new FetchshelfWebAppFixture(metadataLookup: new FakeMetadataLookup(null));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+
+        var html = await PostAsync(client, "Refresh");
+
+        Assert.Contains("MAM did not find this torrent, so nothing was refreshed.", html);
+        Assert.DoesNotContain("Refreshed from MAM", html);
+    }
+
+    [Fact]
+    public async Task Post_Refresh_MamRateLimits_ShowsAPlainMessageOnTheTorrentPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: _ => new HttpResponseMessage((HttpStatusCode)429));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+
+        var html = await PostAsync(client, "Refresh");
+
+        Assert.Contains("Refresh failed: MAM is limiting requests from this account. Wait a few minutes and try again.", html);
+    }
+
+    private static async Task<string> PostAsync(HttpClient client, string handler)
+    {
+        var detailHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(detailHtml) });
+        var response = await client.PostAsync($"/torrents/{Hash}?handler={handler}", form);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
     }
 
     [Fact]

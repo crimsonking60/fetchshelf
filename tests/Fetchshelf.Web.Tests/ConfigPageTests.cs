@@ -99,6 +99,25 @@ public class ConfigPageTests
         Assert.Equal("hash1", tagCall.Hash);
         Assert.Equal("retro-applied", tagCall.Tags);
         Assert.Empty(categoryCalls); // the configured rule has no category, only tags
+        Assert.Contains("Applied the tag rule to 1 torrent.", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Post_ApplyTagRule_QBittorrentFails_ShowsAPlainMessageOnTheConfigPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigToml, qbittorrentHandler: _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+
+        var token = ExtractAntiforgeryToken(await (await client.GetAsync("/config")).Content.ReadAsStringAsync());
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
+        var response = await client.PostAsync("/config?handler=ApplyTagRule&ruleIndex=0", form);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains(
+            "Applying the tag rule stopped part-way: MAM or qBittorrent could not be reached or answered with an error.",
+            await response.Content.ReadAsStringAsync());
     }
 
     private static Func<HttpRequestMessage, HttpResponseMessage> RecordingQBittorrentServer(

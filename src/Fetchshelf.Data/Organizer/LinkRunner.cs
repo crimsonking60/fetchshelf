@@ -19,6 +19,14 @@ public sealed record LinkRunSummary(int Linked, int Failed);
 /// <summary>Whether Refresh and relink placed the torrent's files again, and a message saying what happened.</summary>
 public sealed record RelinkResult(bool Succeeded, string Message);
 
+/// <summary>What a Refresh found: changed details, the same details, or no torrent on MAM to refresh from.</summary>
+public enum RefreshOutcome
+{
+    Changed,
+    Unchanged,
+    NotFoundOnMam,
+}
+
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
 /// </summary>
@@ -275,9 +283,9 @@ public sealed class LinkRunner(
 
     /// <summary>
     /// Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event and pushing them to
-    /// Audiobookshelf. Returns whether anything changed.
+    /// Audiobookshelf.
     /// </summary>
-    public async Task<bool> RefreshAsync(string torrentId, CancellationToken cancellationToken = default)
+    public async Task<RefreshOutcome> RefreshAsync(string torrentId, CancellationToken cancellationToken = default)
     {
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
             ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
@@ -285,7 +293,7 @@ public sealed class LinkRunner(
         var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
         if (looked is null)
         {
-            return false;
+            return RefreshOutcome.NotFoundOnMam;
         }
 
         var changed = await ApplyRefreshedMetadataAsync(existing, looked, cancellationToken);
@@ -295,7 +303,7 @@ public sealed class LinkRunner(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return changed;
+        return changed ? RefreshOutcome.Changed : RefreshOutcome.Unchanged;
     }
 
     /// <summary>

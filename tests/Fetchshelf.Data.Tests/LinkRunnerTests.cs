@@ -345,9 +345,9 @@ public sealed class LinkRunnerTests : IDisposable
         var refreshLookup = new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" });
         var refreshRunner = CreateRunner(context, refreshLookup, libraries);
 
-        var changed = await refreshRunner.RefreshAsync("hash1");
+        var outcome = await refreshRunner.RefreshAsync("hash1");
 
-        Assert.True(changed);
+        Assert.Equal(RefreshOutcome.Changed, outcome);
         var updatedEvent = await context.Events.SingleAsync(e => e.Kind == EventKind.Updated);
         Assert.Contains("Refreshed Title", updatedEvent.FieldChangesJson);
     }

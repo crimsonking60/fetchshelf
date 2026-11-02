@@ -19,9 +19,11 @@ public sealed class RetroactiveTagApplier(
     MamAccessGate accessGate,
     IReadOnlyList<QBittorrentClient> qbittorrentClients)
 {
-    public async Task ApplyAsync(TagRule rule, CancellationToken cancellationToken = default)
+    /// <summary>Returns the number of torrents whose category or tags were set in qBittorrent.</summary>
+    public async Task<int> ApplyAsync(TagRule rule, CancellationToken cancellationToken = default)
     {
         var torrents = await dbContext.Torrents.ToListAsync(cancellationToken);
+        var applied = 0;
 
         foreach (var torrent in torrents)
         {
@@ -49,7 +51,10 @@ public sealed class RetroactiveTagApplier(
             }
 
             await owning.AddTagsAsync(torrent.Id, rule.Tags, cancellationToken);
+            applied++;
         }
+
+        return applied;
     }
 
     private async Task<TorrentFilterCandidate> BuildCandidateAsync(

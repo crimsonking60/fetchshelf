@@ -139,9 +139,9 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var refreshRunner = CreateRunner(
             context, new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" }), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1");
+        var outcome = await refreshRunner.RefreshAsync("hash1");
 
-        Assert.True(changed);
+        Assert.Equal(RefreshOutcome.Changed, outcome);
         Assert.Equal(["item1"], patchedItemIds);
     }
 
@@ -165,9 +165,9 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var absClient = CreateAbsClient(patchedItemIds);
         var refreshRunner = CreateRunner(context, new FakeMetadataLookup(metadata), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1");
+        var outcome = await refreshRunner.RefreshAsync("hash1");
 
-        Assert.False(changed);
+        Assert.Equal(RefreshOutcome.Unchanged, outcome);
         Assert.Empty(patchedItemIds);
     }
 
@@ -189,9 +189,9 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var refreshRunner = CreateRunner(
             context, new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" }), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1");
+        var outcome = await refreshRunner.RefreshAsync("hash1");
 
-        Assert.True(changed);
+        Assert.Equal(RefreshOutcome.Changed, outcome);
         Assert.Empty(patchedItemIds);
     }
 

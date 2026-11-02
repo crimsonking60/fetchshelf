@@ -206,7 +206,8 @@ public partial class IndexPageTests
 
         var html = await client.GetStringAsync("/?handler=Results&Q=kings");
 
-        Assert.Contains("Test sent a real MAM request", html);
+        // The fixture's guard throws a plain exception, which the page reports without its text.
+        Assert.Contains("Something went wrong while talking to MAM. The log has the details.", html);
     }
 
     [Fact]
