@@ -587,11 +587,11 @@ Maintainers merge approved pull requests into `develop`, squashing each into one
 ### After the merge
 
 ```sh
-git switch develop
-git pull upstream develop
-git push origin develop
-git branch -d fix/123-errors-page-duplicates
-git push origin --delete fix/123-errors-page-duplicates
+git switch develop                                        # go back to your local develop
+git pull upstream develop                                 # fetch develop with your merged change in it
+git push origin develop                                   # bring your fork's develop up to date too
+git branch -D fix/123-errors-page-duplicates              # delete the finished branch locally (-D: squash-merged, so Git can't tell it was merged)
+git push origin --delete fix/123-errors-page-duplicates   # delete it from your fork on GitHub
 ```
 
 ## Keeping your fork up to date
