@@ -14,7 +14,17 @@ public sealed class Library
 
     public string? Name { get; set; }
 
-    public LibraryLinkMethod Method { get; set; } = LibraryLinkMethod.Hardlink;
+    private LibraryLinkMethod? _method;
+
+    /// <summary>How files are placed. Falls back to the global `link_method` when the library sets none.</summary>
+    public LibraryLinkMethod Method
+    {
+        get => _method ?? LibraryLinkMethod.Hardlink;
+        set => _method = value;
+    }
+
+    /// <summary>True when this library's own `method` was set, so the global `link_method` must not replace it.</summary>
+    internal bool HasOwnMethod => _method is not null;
 
     public List<string> AllowTags { get; set; } = [];
 

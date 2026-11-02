@@ -114,6 +114,7 @@ These go at the top of the file, before any section.
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb and per list. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
+| `link_method` | `"hardlink"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `import_interval` | `135` | Minutes between runs of each Notion list. Overridable per list. |
@@ -222,8 +223,9 @@ tags = ["superseded"]
   Without a mapping, the paths qBittorrent reports are used as they are.
 - **Categories** named in `on_cleaned`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
   automatically if they do not exist.
-- Hardlinks only work when the download folder and the library folder are on the same filesystem. See
-  [`method`](#library).
+- Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
+  Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
+  on one disk. See [`method`](#library).
 
 ## The shared torrent filter
 
@@ -449,7 +451,7 @@ library, in file order, that accepts it is used.
 | `category` | | Accept torrents with this qBittorrent category. |
 | `download_dir` | | Accept torrents whose save path is under this folder. |
 | `name` | unset | Label for the library. |
-| `method` | `"hardlink"` | How files are placed. See below. |
+| `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |

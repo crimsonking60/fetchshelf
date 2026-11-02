@@ -35,6 +35,7 @@ public static class ConfigLoader
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
+        ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["import_interval"] = (s, v) => s.ImportInterval = int.Parse(v, CultureInfo.InvariantCulture),
@@ -66,6 +67,7 @@ public static class ConfigLoader
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
         ResolveMamIdFile(settings);
+        ApplyGlobalLinkMethod(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
@@ -288,6 +290,16 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException("Invalid configuration: a [[qbittorrent]] section is missing 'password'.");
             }
+        }
+    }
+
+    /// <summary>Gives every library without its own <c>method</c> the global <c>link_method</c>. Runs after environment
+    /// overrides, so <c>FETCHSHELF_CONF_link_method</c> reaches those libraries too.</summary>
+    private static void ApplyGlobalLinkMethod(FetchshelfSettings settings)
+    {
+        foreach (var library in settings.Library.Where(l => !l.HasOwnMethod))
+        {
+            library.Method = settings.LinkMethod;
         }
     }
 

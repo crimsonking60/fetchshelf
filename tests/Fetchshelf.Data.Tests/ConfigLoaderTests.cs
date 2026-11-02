@@ -198,4 +198,27 @@ public sealed class ConfigLoaderTests : IDisposable
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_min_ratio", null);
         }
     }
+
+    [Fact]
+    public void Load_LinkMethodFromEnvironment_AppliesToLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            """);
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_link_method", "hardlink_or_copy");
+        try
+        {
+            var settings = ConfigLoader.Load(ConfigPath);
+
+            Assert.Equal(LibraryLinkMethod.HardlinkOrCopy, Assert.Single(settings.Library).Method);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_link_method", null);
+        }
+    }
 }

@@ -546,6 +546,13 @@ linked into it.
 Seeding keeps working with hardlinks and symlinks, because the original files stay where qBittorrent put
 them.
 
+To use the same method for all your libraries, set it once at the top of the file instead of in each
+`[[library]]`. A library's own `method` still wins:
+
+```toml
+link_method = "hardlink_or_copy"
+```
+
 ## Connecting to Audiobookshelf
 
 Skip this section if you do not use Audiobookshelf. It is the one app Fetchshelf talks to directly, but

@@ -38,6 +38,9 @@ public sealed class FetchshelfSettings
 
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
+    /// <summary>The `method` of every `[[library]]` that does not set its own.</summary>
+    public LibraryLinkMethod LinkMethod { get; set; } = LibraryLinkMethod.Hardlink;
+
     public int SearchInterval { get; set; } = 30;
 
     public int LinkInterval { get; set; } = 10;
