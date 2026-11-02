@@ -913,8 +913,13 @@ itself is not deleted. You can still relink a replaced torrent later.
 ### When the folder no longer matches
 
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
-from where it is. The torrent is then flagged on the **Torrents** page as `NoLibrary`, `NewLibraryDir` or
-`NewPath`. Open it and choose **Refresh and relink**.
+from where it is. The torrent is then flagged in the *Mismatch* column on the **Torrents** page:
+
+- **No library:** no library accepts the torrent any more.
+- **Different library:** it now belongs in another library.
+- **Different folder:** it belongs in the same library, but in a different folder.
+
+Open it and choose **Refresh and relink**.
 
 **Refresh and relink** links a book again from the download in qBittorrent. It picks the library from the
 torrent's current category, save path and tags, removes the files Fetchshelf placed before, and places the

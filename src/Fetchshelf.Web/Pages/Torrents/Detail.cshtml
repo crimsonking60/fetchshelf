@@ -23,7 +23,7 @@
     </div>
     @if (torrent.LibraryMismatchState is not null)
     {
-        <p id="mismatch-state" class="notice">Library mismatch: @torrent.LibraryMismatchState</p>
+        <p id="mismatch-state" class="notice">Library mismatch: @LibraryMismatchLabel.For(torrent.LibraryMismatchState)</p>
     }
     @if (torrent.ReplacedWithTorrentId is not null)
     {
@@ -91,7 +91,7 @@
     <ul>
         @foreach (var e in torrent.Events)
         {
-            <li><local-time value="e.OccurredAt" /> - @e.Kind</li>
+            <li><local-time value="e.OccurredAt" /> - @Fetchshelf.Web.Pages.Events.EventLabels.For(e.Kind)</li>
         }
     </ul>
 }
