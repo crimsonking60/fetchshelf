@@ -15,6 +15,13 @@ public static class ConfigLoader
 {
     private const string EnvironmentVariablePrefix = "FETCHSHELF_CONF_";
 
+    private static readonly IYamlTypeConverter[] TypeConverters =
+    [
+        new CategoryListOrBoolYamlConverter(),
+        new AutogrebTypeYamlConverter(),
+        new ConfiguredCostYamlConverter(),
+    ];
+
     private static readonly Dictionary<string, Action<FetchshelfSettings, string>> EnvironmentOverrides = new()
     {
         ["mam_id"] = (s, v) => s.MamId = v,
@@ -110,6 +117,7 @@ public static class ConfigLoader
             throw new ConfigurationException($"Invalid configuration: {ex.Message}", ex);
         }
 
+        TomlTableShapeValidator.Validate(model, typeof(FetchshelfSettings), type => TypeConverters.Any(c => c.Accepts(type)));
         return new SerializerBuilder().Build().Serialize(model);
     }
 
@@ -188,13 +196,15 @@ public static class ConfigLoader
 
     private static FetchshelfSettings Deserialize(string yaml)
     {
-        var deserializer = new DeserializerBuilder()
+        var builder = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
-            .WithTypeConverter(new CategoryListOrBoolYamlConverter())
-            .WithTypeConverter(new AutogrebTypeYamlConverter())
-            .WithTypeConverter(new ConfiguredCostYamlConverter())
-            .Build();
+            .WithEnumNamingConvention(UnderscoredNamingConvention.Instance);
+        foreach (var converter in TypeConverters)
+        {
+            builder.WithTypeConverter(converter);
+        }
+
+        var deserializer = builder.Build();
 
         try
         {

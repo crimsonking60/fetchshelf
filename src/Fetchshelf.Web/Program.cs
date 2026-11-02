@@ -31,7 +31,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(dispose: true);
 
 var configFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath();
-var settings = ConfigLoader.Load(configFilePath);
+FetchshelfSettings settings;
+try
+{
+    settings = ConfigLoader.Load(configFilePath);
+}
+catch (ConfigurationException ex)
+{
+    Log.Fatal("Cannot start with {ConfigFile}: {Reason:l}", configFilePath, ex.Message);
+    await Log.CloseAndFlushAsync();
+    Environment.ExitCode = 1;
+    return;
+}
+
 var dataFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_DATA_FILE") ?? "data.db";
 var dataFileDirectory = Path.GetDirectoryName(Path.GetFullPath(dataFilePath));
 if (!string.IsNullOrEmpty(dataFileDirectory))
