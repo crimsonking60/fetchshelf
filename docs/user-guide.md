@@ -1121,6 +1121,7 @@ What matters:
 |---|---|---|
 | `config.toml` | the `/config` folder | Your settings and secrets. |
 | `data.db` | the `/data` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
+| `keys` | the `/data` folder | Keys that protect the web interface's forms. Not essential: without them, a page that was open before is refused once, and works again after a reload. |
 
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.

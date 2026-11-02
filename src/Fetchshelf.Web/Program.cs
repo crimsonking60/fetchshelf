@@ -11,6 +11,7 @@ using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web;
 using Fetchshelf.Web.Jobs;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -50,6 +51,12 @@ if (!string.IsNullOrEmpty(dataFileDirectory))
 {
     Directory.CreateDirectory(dataFileDirectory);
 }
+
+// Keep the keys that encrypt antiforgery cookies next to the database: the default location is inside the
+// container, so a new container (every image update) would otherwise reject the cookie browsers still hold.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Fetchshelf")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory ?? ".", "keys")));
 
 builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
