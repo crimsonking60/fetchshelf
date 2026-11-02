@@ -35,7 +35,9 @@ public sealed class Cleaner(
             .Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null)
             .ToListAsync(cancellationToken);
 
-        var duplicateGroups = GroupBySameBook(linked).Where(g => g.Count >= 2).ToList();
+        var duplicateGroups = DuplicateCopies.GroupBySameBook(linked, t => TorrentMetadataSerializer.Deserialize(t.MetadataJson))
+            .Where(g => g.Count >= 2)
+            .ToList();
         if (duplicateGroups.Count == 0)
         {
             _logger.LogInformation("No duplicate copies to clean up");
@@ -102,31 +104,8 @@ public sealed class Cleaner(
         return false;
     }
 
-    private List<List<TorrentEntity>> GroupBySameBook(IReadOnlyList<TorrentEntity> linked)
-    {
-        var metadataById = linked.ToDictionary(t => t.Id, t => TorrentMetadataSerializer.Deserialize(t.MetadataJson));
-        var groups = new List<List<TorrentEntity>>();
-
-        foreach (var torrent in linked)
-        {
-            var group = groups.FirstOrDefault(g => SameBookComparer.AreSameBook(metadataById[g[0].Id], metadataById[torrent.Id]));
-            if (group is not null)
-            {
-                group.Add(torrent);
-            }
-            else
-            {
-                groups.Add([torrent]);
-            }
-        }
-
-        return groups;
-    }
-
-    private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) => group
-        .OrderBy(Rank)
-        .ThenByDescending(TotalLinkedSize)
-        .First();
+    private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) =>
+        DuplicateCopies.PickKeeper(group, Rank, TotalLinkedSize);
 
     private int Rank(TorrentEntity torrent)
     {
