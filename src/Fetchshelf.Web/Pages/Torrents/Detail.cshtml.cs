@@ -50,7 +50,7 @@ public class DetailModel(
         var editedByHand = await dbContext.Torrents.AsNoTracking()
             .Where(t => t.Id == id)
             .Select(t => t.MetadataJson)
-            .FirstOrDefaultAsync() is { } json && TorrentMetadataSerializer.Deserialize(json).MetadataSource == MetadataSource.Manual;
+            .FirstOrDefaultAsync() is { } json && HandEdits.AreIn(TorrentMetadataSerializer.Deserialize(json));
         try
         {
             var outcome = await linkRunner.RefreshAsync(id);

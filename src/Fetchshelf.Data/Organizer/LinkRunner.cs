@@ -345,19 +345,12 @@ public sealed class LinkRunner(
         // Metadata edited by hand is what the book is linked by; only its VIP status follows MAM.
         var stored = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
         var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
-        TorrentMetadata metadata;
-        if (stored.MetadataSource == MetadataSource.Manual)
-        {
-            metadata = looked is null ? stored : stored with { VipStatus = looked.VipStatus };
-        }
-        else if (looked is null)
+        if (looked is null && !HandEdits.AreIn(stored))
         {
             return Refuse(existing, "MAM has no torrent with this info-hash.");
         }
-        else
-        {
-            metadata = looked;
-        }
+
+        var metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
 
         if (metadata.Authors.Count == 0)
         {
@@ -437,7 +430,7 @@ public sealed class LinkRunner(
     /// <summary>Stores <paramref name="looked"/> as the torrent's metadata, recording changed fields as an Updated event.</summary>
     private async Task<bool> ApplyRefreshedMetadataAsync(TorrentEntity existing, TorrentMetadata looked, CancellationToken cancellationToken)
     {
-        var changes = DiffFields(TorrentMetadataSerializer.Deserialize(existing.MetadataJson), looked);
+        var changes = MetadataDiff.Between(TorrentMetadataSerializer.Deserialize(existing.MetadataJson), looked);
         existing.MetadataJson = TorrentMetadataSerializer.Serialize(looked);
         existing.Title = looked.Title;
         existing.NormalizedTitleKey = TitleNormalizer.Normalize(looked.Title);
@@ -537,25 +530,4 @@ public sealed class LinkRunner(
         await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, cancellationToken: cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
-
-    private static List<FieldChange> DiffFields(TorrentMetadata from, TorrentMetadata to)
-    {
-        var changes = new List<FieldChange>();
-        AddIfChanged(changes, "Title", from.Title, to.Title);
-        AddIfChanged(changes, "Authors", string.Join(", ", from.Authors), string.Join(", ", to.Authors));
-        AddIfChanged(changes, "Narrators", string.Join(", ", from.Narrators), string.Join(", ", to.Narrators));
-        AddIfChanged(changes, "Language", from.Language.ToString(), to.Language.ToString());
-        AddIfChanged(changes, "LegacyCategory", from.LegacyCategory.ToString(), to.LegacyCategory.ToString());
-        return changes;
-    }
-
-    private static void AddIfChanged(List<FieldChange> changes, string field, string from, string to)
-    {
-        if (!string.Equals(from, to, StringComparison.Ordinal))
-        {
-            changes.Add(new FieldChange(field, from, to));
-        }
-    }
 }
-
-public sealed record FieldChange(string Field, string From, string To);

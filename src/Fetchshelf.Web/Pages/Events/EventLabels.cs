@@ -1,6 +1,6 @@
 using System.Text.Json;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.Entities;
-using Fetchshelf.Data.Organizer;
 
 namespace Fetchshelf.Web.Pages.Events;
 

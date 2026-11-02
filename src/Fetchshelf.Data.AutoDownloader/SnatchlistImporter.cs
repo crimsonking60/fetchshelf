@@ -248,8 +248,8 @@ public sealed class SnatchlistImporter(
     /// </summary>
     private RowOutcome Refresh(string name, TorrentEntity existing, TorrentMetadata stored, TorrentMetadata fresh, bool dryRun, LogLevel detailLevel)
     {
-        var editedByHand = stored.MetadataSource == MetadataSource.Manual;
-        var updated = editedByHand ? stored with { VipStatus = fresh.VipStatus } : fresh;
+        var editedByHand = HandEdits.AreIn(stored);
+        var updated = HandEdits.KeepOver(stored, fresh);
         var updatedJson = TorrentMetadataSerializer.Serialize(updated);
         if (updatedJson == existing.MetadataJson)
         {
