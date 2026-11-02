@@ -24,7 +24,7 @@ public sealed class EditInputModel
         Title = metadata.Title,
         Authors = string.Join('\n', metadata.Authors),
         Narrators = string.Join('\n', metadata.Narrators),
-        Series = string.Join('\n', metadata.Series.Select(FormatSeriesLine)),
+        Series = string.Join('\n', metadata.Series.Select(SeriesParser.FormatLine)),
         Language = metadata.Language,
         Category = metadata.LegacyCategory,
         Flags = Enum.GetValues<BookFlags>().Where(f => f != BookFlags.None && metadata.Flags.HasFlag(f)).Select(f => f.ToString()).ToList(),
@@ -37,51 +37,20 @@ public sealed class EditInputModel
         {
             MamId = mamId,
             VipStatus = VipStatus.NotVip,
-            MediaType = MediaTypeForCategory(Category),
+            MediaType = LegacyCategoryGroups.MediaTypeOf(Category),
             LegacyCategory = Category,
             Language = Language,
             Flags = flags,
             Title = Title,
             Authors = SplitLines(Authors),
             Narrators = SplitLines(Narrators),
-            Series = SplitLines(Series).Select(ParseSeriesLine).ToList(),
+            Series = SplitLines(Series).Select(SeriesParser.ParseLine).ToList(),
             MetadataSource = MetadataSource.Manual,
             UploadTime = uploadTime,
         };
     }
 
-    private static string FormatSeriesLine(Series series) =>
-        series.Entries.Count > 0 ? $"{series.Name} #{string.Join(",", series.Entries.Select(e => e.Display))}" : series.Name;
-
-    private static Series ParseSeriesLine(string line)
-    {
-        var hashIndex = line.IndexOf('#');
-        return hashIndex < 0
-            ? new Series { Name = line.Trim(), Entries = [] }
-            : SeriesParser.Parse(line[..hashIndex].Trim(), line[(hashIndex + 1)..].Trim());
-    }
-
     private static List<string> SplitLines(string? text) => (text ?? string.Empty)
         .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
         .ToList();
-
-    private static MediaType MediaTypeForCategory(LegacyCategory category)
-    {
-        if (LegacyCategoryGroups.Audiobook.Contains(category))
-        {
-            return MediaType.Audiobook;
-        }
-
-        if (LegacyCategoryGroups.Ebook.Contains(category))
-        {
-            return MediaType.Ebook;
-        }
-
-        if (LegacyCategoryGroups.Musicology.Contains(category))
-        {
-            return MediaType.Musicology;
-        }
-
-        return MediaType.Radio;
-    }
 }

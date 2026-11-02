@@ -6,6 +6,19 @@ namespace Fetchshelf.Core.Metadata;
 /// <summary>Parses a series' comma-separated entry list.</summary>
 public static partial class SeriesParser
 {
+    /// <summary>A series as one line, the way the edit page shows it: <c>Name #1,2.5,3-4</c>, or just the name.</summary>
+    public static string FormatLine(Series series) =>
+        series.Entries.Count > 0 ? $"{series.Name} #{string.Join(",", series.Entries.Select(e => e.Display))}" : series.Name;
+
+    /// <summary>Reads a line written as <see cref="FormatLine"/> writes it; everything after the first <c>#</c> is the entry list.</summary>
+    public static Series ParseLine(string line)
+    {
+        var hashIndex = line.IndexOf('#');
+        return hashIndex < 0
+            ? new Series { Name = line.Trim(), Entries = [] }
+            : Parse(line[..hashIndex].Trim(), line[(hashIndex + 1)..].Trim());
+    }
+
     [GeneratedRegex(@"^\s*(\d*\.\d+|\d+)\s*$")]
     private static partial Regex NumberPattern();
 

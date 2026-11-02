@@ -80,4 +80,28 @@ public class SeriesParserTests
 
         Assert.Equal("2p1", entry.Display);
     }
+
+    [Fact]
+    public void ParseLine_NameAndEntries_SplitsAtTheHash()
+    {
+        var series = SeriesParser.ParseLine("Stormlight Archive #1,2.5");
+
+        Assert.Equal("Stormlight Archive", series.Name);
+        Assert.Equal(["1", "2.5"], series.Entries.Select(e => e.Display));
+    }
+
+    [Fact]
+    public void ParseLine_NameOnly_HasNoEntries()
+    {
+        var series = SeriesParser.ParseLine("  Discworld  ");
+
+        Assert.Equal("Discworld", series.Name);
+        Assert.Empty(series.Entries);
+    }
+
+    [Theory]
+    [InlineData("Stormlight Archive #1,2.5")]
+    [InlineData("Discworld")]
+    public void FormatLine_ParsedLine_GivesTheSameLineBack(string line) =>
+        Assert.Equal(line, SeriesParser.FormatLine(SeriesParser.ParseLine(line)));
 }
