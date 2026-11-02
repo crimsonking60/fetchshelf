@@ -43,11 +43,12 @@ public sealed class NotionListImporter(
         var unsatBuffer = entry.UnsatBuffer ?? globalUnsatBuffer;
         var wedgeBuffer = entry.WedgeBuffer ?? globalWedgeBuffer;
         var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+        var budgetExplanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
         if (budget <= 0)
         {
             _logger.LogInformation(
-                "Notion list {ListName}: no unsatisfied-snatch slots free beyond the buffer of {UnsatBuffer}, so nothing was looked up",
-                entry.Name, unsatBuffer);
+                "Notion list {ListName}: nothing was looked up, this run's limit is 0 selections ({BudgetExplanation})",
+                entry.Name, budgetExplanation);
             return 0;
         }
 
@@ -65,7 +66,9 @@ public sealed class NotionListImporter(
         {
             if (selectedCount + wouldSelectCount >= budget)
             {
-                _logger.LogInformation("Notion list {ListName}: stopped because the run's limit of {Budget} selections was reached", entry.Name, budget);
+                _logger.LogInformation(
+                    "Notion list {ListName}: stopped at this run's limit of {Budget} selections ({BudgetExplanation})",
+                    entry.Name, budget, budgetExplanation);
                 break;
             }
 

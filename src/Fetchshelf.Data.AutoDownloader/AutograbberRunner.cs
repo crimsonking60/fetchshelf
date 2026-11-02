@@ -42,13 +42,13 @@ public sealed class AutograbberRunner(
                 s => s.GrabberName == entry.Name && s.RemovedAt == null && s.StartedAt == null, cancellationToken);
 
         var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
+        var budgetExplanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
 
         var isMetadataOnlyCost = entry.Cost is ConfiguredCost.MetadataOnly or ConfiguredCost.MetadataOnlyAdd;
         if (budget == 0 && !isMetadataOnlyCost)
         {
             _logger.LogInformation(
-                "Autograb {Name}: nothing to do, no unsatisfied-snatch slots free beyond the buffer of {UnsatBuffer} or the active-download limit is reached",
-                name, unsatBuffer);
+                "Autograb {Name}: nothing to do, this run's limit is 0 selections ({BudgetExplanation})", name, budgetExplanation);
             return 0;
         }
 
@@ -112,7 +112,7 @@ public sealed class AutograbberRunner(
                     selectedCount++;
                     if (!isMetadataOnlyCost && selectedCount >= budget)
                     {
-                        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReached: true);
+                        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: $"; stopped at this run's limit of {budget} selections ({budgetExplanation})");
                     }
                 }
             }
@@ -123,15 +123,14 @@ public sealed class AutograbberRunner(
             }
         }
 
-        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReached: false);
+        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: string.Empty);
     }
 
-    private int Finish(string name, bool dryRun, int resultCount, int selectedCount, bool budgetReached)
+    private int Finish(string name, bool dryRun, int resultCount, int selectedCount, string budgetReachedNote)
     {
         _logger.LogInformation(
             "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
-            name, resultCount, selectedCount, dryRun ? "would have been selected (dry run)" : "selected",
-            budgetReached ? "; stopped because the run's limit was reached" : string.Empty);
+            name, resultCount, selectedCount, dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
         return dryRun ? 0 : selectedCount;
     }
 }

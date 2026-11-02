@@ -125,6 +125,28 @@ public sealed class AutograbberRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_LimitReached_LogsTheLimitAndWhereItComesFrom()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var (client, _) = CreateFakeClient(SearchResponseWithTwoTorrents());
+        var logger = new ListLogger<AutograbberRunner>();
+        var runner = new AutograbberRunner(
+            client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context,
+            logger);
+
+        // Unsat limit 20, none in use, buffer 19 => a limit of 1.
+        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 19, globalWedgeBuffer: 0, ignoreTorrents: []);
+
+        Assert.Equal(1, selectedCount);
+        Assert.Contains(
+            logger.Messages(LogLevel.Information),
+            m => m.EndsWith(
+                "2 search results, 1 selected; stopped at this run's limit of 1 selections "
+                + "(unsatisfied-snatch slots: 20 allowed - 0 in use - unsat_buffer 19)",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task RunAsync_DryRun_SelectsNothingReturnsZeroAndLogsWhatItWouldSelect()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
