@@ -304,7 +304,7 @@ cp docs/config-examples/1-minimal.toml ~/fetchshelf-dev/config.toml
 ```
 
 Edit `~/fetchshelf-dev/config.toml`. The [configuration reference](configuration.md) describes every
-setting, and `docs/config-examples/` has six worked examples, from minimal to complete.
+setting, and `docs/config-examples/` has five worked examples, from minimal to complete.
 
 - **UI-only work, no MAM account:** set `mam_id = ""`. The web UI runs, but no background job starts.
 - **Full end-to-end work:** set your own `mam_id`, point `[[qbittorrent]]` at a local qBittorrent, and use

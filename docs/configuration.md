@@ -2,7 +2,7 @@
 
 Fetchshelf is configured with a single TOML file, `config.toml`. This page lists every setting, what it
 does and how the settings relate to each other. For working configs to start from, see
-[`docs/config-examples/`](config-examples/): six numbered examples, from a bare-bones `1-minimal.toml`
+[`docs/config-examples/`](config-examples/): five numbered examples, from a bare-bones `1-minimal.toml`
 to `5-everything.toml`, which uses every option.
 
 ## Contents
