@@ -222,7 +222,7 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
-    public void EventStore_ExposesNoUpdateOperation()
+    public void PublicMethods_EventStore_IncludeNoUpdateOperation()
     {
         var publicMethodNames = typeof(EventStore)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)

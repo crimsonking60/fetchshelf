@@ -25,7 +25,7 @@ public sealed class ExampleConfigTests
     }
 
     [Fact]
-    public void ExamplesDirectory_HasTheNumberedExamples()
+    public void GetFiles_ExamplesDirectory_HasTheNumberedExamples()
     {
         var names = Directory.GetFiles(ExamplesDirectory(), "*.toml").Select(Path.GetFileName).Order().ToList();
 

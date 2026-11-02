@@ -131,7 +131,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_EnvironmentVariableOverridesFileValue()
+    public void Load_EnvironmentVariableAndFileValue_EnvironmentVariableWins()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"from-file\"\n");
         Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id", "from-env");
@@ -182,7 +182,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_EnvironmentVariableOverridesDefaultValue()
+    public void Load_EnvironmentVariableOnly_OverridesDefaultValue()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
         Environment.SetEnvironmentVariable("FETCHSHELF_CONF_min_ratio", "3.5");

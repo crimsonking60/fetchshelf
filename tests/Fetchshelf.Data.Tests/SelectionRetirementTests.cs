@@ -62,7 +62,7 @@ public sealed class SelectionRetirementTests : IDisposable
     }
 
     [Fact]
-    public async Task LinkRun_OnlyRetiresSelectionsOfTheFinishedTorrents()
+    public async Task RunAsync_SomeTorrentsFinished_RetiresOnlyTheirSelections()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         await OrganizerTestSupport.SeedTorrentAsync(context, "done", mamId: 1);

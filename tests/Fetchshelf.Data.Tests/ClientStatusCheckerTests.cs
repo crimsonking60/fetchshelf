@@ -94,7 +94,7 @@ public sealed class ClientStatusCheckerTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAsync_HashMatchingIgnoresCase()
+    public async Task CheckAsync_HashInDifferentCase_StillMatches()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         await SeedAsync(context, "ABCDEF");
