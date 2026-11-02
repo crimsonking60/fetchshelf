@@ -12,7 +12,7 @@ public sealed class TitleMaintenanceRunnerTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     [Fact]
-    public async Task RunAsync_RecomputesTorrentTitleKeyButLeavesOtherTablesUntouched()
+    public async Task RunAsync_StaleTitleKeys_RecomputesTorrentsButLeavesOtherTablesUntouched()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         context.Torrents.Add(new TorrentEntity

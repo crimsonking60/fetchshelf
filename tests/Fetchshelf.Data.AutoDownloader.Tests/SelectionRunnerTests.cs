@@ -243,7 +243,7 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessCandidateAsync_ConfiguredFreeRejectsNonFreeTorrent()
+    public async Task ProcessCandidateAsync_ConfiguredFreeAndNonFreeTorrent_RejectsIt()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var record = SelectionTestSupport.BuildRecord(mamId: 1, isVip: false, isPersonalFreeleech: false, isFree: false);

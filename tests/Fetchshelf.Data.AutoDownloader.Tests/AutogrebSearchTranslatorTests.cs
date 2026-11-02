@@ -19,7 +19,7 @@ public class AutogrebSearchTranslatorTests
     [InlineData("random", MamSortOrder.Random)]
     [InlineData("low_seeders", MamSortOrder.LowestSeeders)]
     [InlineData("low_snatches", MamSortOrder.LowestSnatches)]
-    public void SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
+    public void ToSearchQuery_SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
     {
         var entry = Entry(AutogrebType.New);
         entry.SortBy = sortBy;
@@ -30,7 +30,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void SearchIn_MapsToSearchFields()
+    public void ToSearchQuery_SearchIn_MapsToSearchFields()
     {
         var entry = Entry(AutogrebType.New);
         entry.SearchIn = ["author", "file_types", "Title"];
@@ -58,7 +58,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void BookmarksType_MapsToBookmarksTarget()
+    public void ToSearchQuery_BookmarksType_MapsToBookmarksTarget()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter(), 0);
 
@@ -67,7 +67,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void FreeleechType_MapsToNewTargetWithFreeleechKind()
+    public void ToSearchQuery_FreeleechType_MapsToNewTargetWithFreeleechKind()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Freeleech), new TorrentFilter(), 0);
 
@@ -76,7 +76,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void UploaderType_MapsToUploaderTarget()
+    public void ToSearchQuery_UploaderType_MapsToUploaderTarget()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Uploader(42)), new TorrentFilter(), 0);
 
@@ -84,7 +84,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void NewType_MapsToNewTarget()
+    public void ToSearchQuery_NewType_MapsToNewTarget()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.New), new TorrentFilter(), 0);
 
@@ -92,7 +92,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void MineType_MapsToMineTarget()
+    public void ToSearchQuery_MineType_MapsToMineTarget()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Mine), new TorrentFilter(), 0);
 
@@ -100,7 +100,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void EverySharedFilterField_ReachesTheQuery()
+    public void ToSearchQuery_EverySharedFilterField_ReachesTheQuery()
     {
         var filter = new TorrentFilter
         {
@@ -137,7 +137,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void AllCategoriesAllowed_ProducesNoCategoryFilter()
+    public void ToSearchQuery_AllCategoriesAllowed_ProducesNoCategoryFilter()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter
         {
@@ -155,7 +155,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void DefaultCategories_UsesMainCategoryIdsForAudioAndEbook()
+    public void ToSearchQuery_DefaultCategories_UsesMainCategoryIdsForAudioAndEbook()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter(), 0);
 
@@ -164,7 +164,7 @@ public class AutogrebSearchTranslatorTests
     }
 
     [Fact]
-    public void ExplicitCategoryList_ExpandsAllOtherTypesToEverySubId()
+    public void ToSearchQuery_ExplicitCategoryList_ExpandsAllOtherTypesToEverySubId()
     {
         var query = AutogrebSearchTranslator.ToSearchQuery(Entry(AutogrebType.Bookmarks), new TorrentFilter
         {

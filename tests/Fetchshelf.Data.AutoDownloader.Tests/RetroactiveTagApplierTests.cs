@@ -287,7 +287,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
     }
 
     [Fact]
-    public async Task ApplyAsync_OnlyOwningConnectionIsCalled()
+    public async Task ApplyAsync_SeveralConnections_OnlyCallsTheOwningOne()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var metadata = BuildMetadata();

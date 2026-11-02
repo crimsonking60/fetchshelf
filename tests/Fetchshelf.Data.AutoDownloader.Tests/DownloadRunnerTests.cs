@@ -629,7 +629,7 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_SuccessfulRetryClearsPriorGrabberError()
+    public async Task RunAsync_SuccessfulRetry_ClearsPriorGrabberError()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
