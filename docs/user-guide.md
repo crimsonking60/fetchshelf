@@ -972,7 +972,7 @@ reported, so they cannot be chosen by hand.
   the **Title** heading to sort by title, and click it again to reverse the order. Click a torrent's media
   type or language to show only torrents of that kind. Searching, sorting and filtering combine; the
   filters in use are listed above the table, each with a **show all** link to remove it. Pages hold 25
-  torrents. Use **Previous** and **Next** below the list.
+  torrents. Use **First**, **Previous**, **Next** and **Last** below the list.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
