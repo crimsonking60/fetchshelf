@@ -1241,6 +1241,16 @@ Make sure an Audiobookshelf library contains the folder `library_dir` points to,
 Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
 **Run now** on the **AbsMatcher** job.
 
+The log says what happened to each book:
+
+- *Matched … to Audiobookshelf item …*: done.
+- *… is not in Audiobookshelf yet* (a warning): the path fits an Audiobookshelf library, but the book is not
+  there. Usually Audiobookshelf has not scanned it yet; the matcher tries again on its next run.
+- *no Audiobookshelf library has a folder containing …* (an error): Audiobookshelf sees your library at a
+  different path, or the library is missing from Audiobookshelf. The job then shows *Finished with errors*.
+- *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
+  `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
+
 ### Getting more detail
 
 Set `FETCHSHELF_LOG=debug` (the default is `information`) and, for a file you can attach to a report, set

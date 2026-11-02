@@ -95,7 +95,8 @@ if (settings.Audiobookshelf is { } absSettings)
     builder.Services.AddHttpClient("abs");
     builder.Services.AddSingleton(sp => new AbsClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));
-    builder.Services.AddScoped(sp => new AbsMatcher(sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>()));
+    builder.Services.AddScoped(sp => new AbsMatcher(
+        sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>(), sp.GetRequiredService<ILogger<AbsMatcher>>()));
 }
 
 var formatPreferenceLists = new FormatPreferenceLists
@@ -288,7 +289,12 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
         {
             using var scope = scopeFactory.CreateScope();
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
-            await matcher.RunAsync(ct);
+            var summary = await matcher.RunAsync(ct);
+            if (summary.Failed > 0)
+            {
+                throw new JobCompletedWithErrorsException(
+                    $"{summary.Failed} {(summary.Failed == 1 ? "book" : "books")} could not be matched in Audiobookshelf; see the log.");
+            }
         }, "Matches linked torrents to their Audiobookshelf library item.");
     }
 }
