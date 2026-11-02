@@ -17,6 +17,23 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task TriggerAsync_RegisteredJob_RecordsTheStartTimeFromTheTimeProvider()
+    {
+        var startedAt = new DateTimeOffset(2026, 11, 2, 9, 30, 0, TimeSpan.Zero);
+        var registry = new JobRegistry(timeProvider: new FixedTimeProvider(startedAt));
+        registry.Register("example-job", _ => Task.CompletedTask);
+
+        await registry.TriggerAsync("example-job");
+
+        Assert.Equal(startedAt, registry.Get("example-job")!.LastRun!.StartedAt);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    [Fact]
     public void Register_WithDescription_IsStoredOnTheJob()
     {
         var registry = new JobRegistry();
@@ -159,6 +176,24 @@ public class JobRegistryTests
         await registry.TriggerAsync("failing-job");
 
         Assert.Equal((LogLevel.Warning, "Job failing-job failed: boom"), logger.Entries[^1]);
+    }
+
+    [Fact]
+    public async Task TriggerAsync_RunCompletesWithErrors_RecordsCompletedWithErrorsAndLogsWarning()
+    {
+        var logger = new CapturingLogger();
+        var registry = new JobRegistry(logger);
+        registry.Register("link", _ => throw new JobCompletedWithErrorsException("2 torrents could not be linked"));
+
+        await registry.TriggerAsync("link");
+
+        var lastRun = registry.Get("link")!.LastRun!;
+        Assert.Equal(JobRunResult.CompletedWithErrors, lastRun.Result);
+        Assert.Equal("2 torrents could not be linked", lastRun.ErrorMessage);
+        var entry = logger.Entries[^1];
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.StartsWith("Job link finished in ", entry.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" with errors: 2 torrents could not be linked", entry.Message, StringComparison.Ordinal);
     }
 
     private sealed class CapturingLogger : ILogger<JobRegistry>

@@ -18,14 +18,14 @@ RUN case "$FETCHSHELF_VERSION" in \
         *) set -- "-p:InformationalVersion=$FETCHSHELF_VERSION" ;; \
     esac \
     && dotnet publish src/Fetchshelf.Web/Fetchshelf.Web.csproj -c Release -a "$TARGETARCH" -o /app "$@" \
-    && mkdir -p /rootfs/config /rootfs/data
+    && mkdir -p /rootfs/config /rootfs/database
 
 # No RUN steps from here on: they would run as the target architecture, which needs emulation on other machines.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 ENV FETCHSHELF_CONFIG_FILE=/config/config.toml
-ENV FETCHSHELF_DATA_FILE=/data/data.db
+ENV FETCHSHELF_DATA_FILE=/database/data.db
 ENV FETCHSHELF_LOG_DIR=""
 ENV PUID=1000
 ENV PGID=1000
@@ -35,7 +35,7 @@ COPY --from=build /app .
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3157
-VOLUME ["/config", "/data"]
+VOLUME ["/config", "/database"]
 
 # Asks the running instance's /health endpoint, on the port configured by web_port.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

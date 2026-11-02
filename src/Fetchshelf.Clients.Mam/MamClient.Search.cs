@@ -16,7 +16,7 @@ public sealed partial class MamClient
     private DateTimeOffset? _lastSearchPageSentAt;
 
     /// <summary>
-    /// Searches MaM torrents against `POST /tor/js/loadSearchJSONbasic.php`, applying the
+    /// Searches MAM torrents against `POST /tor/js/loadSearchJSONbasic.php`, applying the
     /// 400ms-between-pages politeness rule.
     /// </summary>
     public async Task<MamSearchResult> SearchAsync(MamSearchQuery query, CancellationToken cancellationToken = default)
@@ -25,8 +25,8 @@ public sealed partial class MamClient
 
         var body = BuildSearchRequestBody(query);
         // A byte array has a known length, so it is sent with Content-Length. JsonContent streams the
-        // body, which sends it chunked, and MaM's front end rejects that with HTTP 400. The content
-        // type is exactly "application/json": with a charset parameter MaM ignores the query and
+        // body, which sends it chunked, and MAM's front end rejects that with HTTP 400. The content
+        // type is exactly "application/json": with a charset parameter MAM ignores the query and
         // returns its default newest-torrents listing.
         var content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, SearchRequestSerializerOptions));
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");

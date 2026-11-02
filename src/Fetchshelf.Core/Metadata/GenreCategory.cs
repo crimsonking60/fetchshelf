@@ -2,10 +2,8 @@ namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
 /// Tracker genre categories (newer taxonomy). Numeric ids match the tracker's
-/// real category ids (confirmed against the original Rust implementation's reference data,
-/// `mlm_db::Category`), which include two entries beyond's list: "Sheet
-/// Collection MP3" (48, between Sheet Collection and Sports) and "Occult / Metaphysical
-/// Practices"/"Slice of Life" (61/62).
+/// real category ids, which include "Sheet Collection MP3" (48, between Sheet Collection and
+/// Sports) and "Occult / Metaphysical Practices"/"Slice of Life" (61/62).
 /// </summary>
 public enum GenreCategory
 {

@@ -11,13 +11,13 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages;
 
 /// <summary>
-/// The Search page: manual MaM search with the shared filter, cost badges, and
+/// The Search page: manual MAM search with the shared filter, cost badges, and
 /// download / download-with-wedge actions that start a selection via tag rules. Also serves as the
 /// application's home page ("/").
 /// </summary>
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
-    FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
+    FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
     [TempData]
@@ -31,11 +31,11 @@ public class IndexModel(
     /// <summary>False while the page shell is rendered; the results arrive afterwards via <see cref="OnGetResultsAsync"/>.</summary>
     public bool ResultsLoaded { get; private set; }
 
-    /// <summary>Set when the MaM search failed, so the results panel can say why instead of staying empty.</summary>
+    /// <summary>Set when the MAM search failed, so the results panel can say why instead of staying empty.</summary>
     public string? SearchError { get; private set; }
 
     /// <summary>
-    /// Renders the page shell without waiting on MaM; the browser then fetches the table through
+    /// Renders the page shell without waiting on MAM; the browser then fetches the table through
     /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it.
     /// </summary>
     public void OnGet()
@@ -72,7 +72,7 @@ public class IndexModel(
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
             // htmx does not swap error responses, so a thrown exception would leave the panel blank: say what went wrong instead.
-            logger.LogWarning(ex, "Search on MaM failed");
+            logger.LogWarning(ex, "Search on MAM failed");
             SearchError = MamErrorDescriber.Describe(ex, mamOptions.Timeout);
         }
 
@@ -81,7 +81,7 @@ public class IndexModel(
     }
 
     /// <summary>
-    /// Resolves each given MaM id to where it stands in Fetchshelf's pipeline: linked into the
+    /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the
     /// library, downloaded but not yet linked, or still queued as a selection.
     /// </summary>
     private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds)
@@ -131,19 +131,21 @@ public class IndexModel(
                 var metadata = MamTorrentMapper.Map(record);
                 var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
                 var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
+                    record, metadata, [], cost, autograbCategory: null, grabberName: "Manual search",
                     unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
-                logger.LogInformation("Manual download of MaM id {MamId} ended with outcome {Outcome}", mamId, outcome);
-                message = DescribeOutcome(outcome, metadata, settings);
+                logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
+                message = DescribeOutcome(outcome, metadata, formatPreferenceLists);
             }
             else
             {
-                message = $"MaM returned no torrent with id {mamId}.";
+                message = $"MAM returned no torrent with id {mamId}.";
             }
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
-            logger.LogWarning(ex, "Manual download of MaM id {MamId} failed", mamId);
+            logger.LogError(
+                "Manual download of {Torrent} failed: {Error}",
+                record is null ? $"MAM id {mamId}" : MamTorrentMapper.Map(record).DisplayName(), ex.Message);
             failed = true;
             record = null;
             message = $"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}";
@@ -173,7 +175,7 @@ public class IndexModel(
     private bool IsRequestAborted(Exception exception) =>
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
-    private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FetchshelfSettings settings)
+    private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists)
     {
         var title = $"\"{metadata.Title}\"";
         return outcome switch
@@ -183,30 +185,11 @@ public class IndexModel(
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>
                 $"{title} was not selected: none of its file types ({string.Join(", ", metadata.FileTypes)}) is in your "
-                + $"{PreferenceSettingFor(metadata.MediaType, settings, out var preferred)} setting ({string.Join(", ", preferred)}).",
+                + $"{FormatPreferenceLists.SettingNameFor(metadata.MediaType)} setting ({string.Join(", ", preferenceLists.For(metadata.MediaType))}).",
             SelectionOutcome.DuplicateOfSelected => $"{title} was not selected: a copy is already selected.",
             SelectionOutcome.DuplicateOfLibrary => $"{title} was not selected: a copy is already in your library.",
             SelectionOutcome.CostNotFree => $"{title} was not selected: it is not free and the chosen cost does not allow it.",
             _ => $"{title} was not selected ({outcome}).",
         };
-    }
-
-    private static string PreferenceSettingFor(MediaType mediaType, FetchshelfSettings settings, out IReadOnlyList<string> preferred)
-    {
-        switch (mediaType)
-        {
-            case MediaType.Audiobook or MediaType.PeriodicalAudiobook:
-                preferred = settings.AudioTypes;
-                return "audio_types";
-            case MediaType.Musicology:
-                preferred = settings.MusicTypes;
-                return "music_types";
-            case MediaType.Radio:
-                preferred = settings.RadioTypes;
-                return "radio_types";
-            default:
-                preferred = settings.EbookTypes;
-                return "ebook_types";
-        }
     }
 }

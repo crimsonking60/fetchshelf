@@ -100,7 +100,7 @@ public sealed class ConfigLoaderTomlTests : IDisposable
     }
 
     [Fact]
-    public void Load_TomlScalarAndListSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_TomlScalarAndListSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(TomlConfigPath, "mam_id = \"\"\n");
 
@@ -183,5 +183,80 @@ public sealed class ConfigLoaderTomlTests : IDisposable
         var resolved = ConfigLoader.ResolveDefaultConfigFilePath(_tempDir);
 
         Assert.Equal(TomlConfigPath, resolved);
+    }
+
+    [Fact]
+    public void Load_SingleSectionWrittenAsArrayOfTables_NamesTheFix()
+    {
+        File.WriteAllText(TomlConfigPath, """
+            mam_id = ""
+
+            [[audiobookshelf]]
+            url = "http://abs.local"
+            token = "secret-token"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(TomlConfigPath));
+
+        Assert.Equal(
+            "Invalid configuration: there can be only one 'audiobookshelf' section; write [audiobookshelf], not [[audiobookshelf]].",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Load_RepeatableSectionWrittenAsSingleTable_NamesTheFix()
+    {
+        File.WriteAllText(TomlConfigPath, """
+            mam_id = ""
+
+            [qbittorrent]
+            url = "http://localhost:8080"
+            username = "admin"
+            password = "adminadmin"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(TomlConfigPath));
+
+        Assert.Equal(
+            "Invalid configuration: 'qbittorrent' is a repeatable section; write [[qbittorrent]], not [qbittorrent].",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Load_NestedSingleSectionWrittenAsArrayOfTables_NamesTheFullPath()
+    {
+        File.WriteAllText(TomlConfigPath, """
+            mam_id = ""
+
+            [[qbittorrent]]
+            url = "http://localhost:8080"
+            username = "admin"
+            password = "adminadmin"
+
+            [[qbittorrent.on_cleaned]]
+            tags = ["superseded"]
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(TomlConfigPath));
+
+        Assert.Equal(
+            "Invalid configuration: there can be only one 'qbittorrent.on_cleaned' section; write [qbittorrent.on_cleaned], not [[qbittorrent.on_cleaned]].",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Load_CategoryListsInsideRepeatedSections_AreNotMistakenForSections()
+    {
+        File.WriteAllText(TomlConfigPath, """
+            mam_id = ""
+
+            [[tag]]
+            categories = { audio = false, ebook = ["Fantasy", "Science Fiction"] }
+            category = "ebooks"
+            """);
+
+        var settings = ConfigLoader.Load(TomlConfigPath);
+
+        Assert.Equal("ebooks", Assert.Single(settings.Tag).Category);
     }
 }

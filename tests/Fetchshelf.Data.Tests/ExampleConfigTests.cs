@@ -25,11 +25,11 @@ public sealed class ExampleConfigTests
     }
 
     [Fact]
-    public void ExamplesDirectory_HasTheNumberedExamples()
+    public void GetFiles_ExamplesDirectory_HasTheNumberedExamples()
     {
         var names = Directory.GetFiles(ExamplesDirectory(), "*.toml").Select(Path.GetFileName).Order().ToList();
 
-        Assert.Equal(6, names.Count);
+        Assert.Equal(5, names.Count);
         for (var i = 0; i < names.Count; i++)
         {
             Assert.StartsWith($"{i + 1}-", names[i]);
@@ -50,11 +50,10 @@ public sealed class ExampleConfigTests
     [Fact]
     public void Load_EverythingExample_SetsEveryTopLevelSectionKind()
     {
-        var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), "6-everything.toml"));
+        var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), "5-everything.toml"));
 
         Assert.NotEmpty(settings.Autograb);
         Assert.NotEmpty(settings.Snatchlist);
-        Assert.NotEmpty(settings.NotionList);
         Assert.NotEmpty(settings.Tag);
         Assert.NotNull(settings.Audiobookshelf);
         Assert.NotNull(settings.Search.WedgeOver);

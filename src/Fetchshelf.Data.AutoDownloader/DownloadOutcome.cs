@@ -12,5 +12,4 @@ public enum DownloadOutcome
     AlreadyLinked,
     NoLongerFree,
     Started,
-    AccountBlocked,
 }

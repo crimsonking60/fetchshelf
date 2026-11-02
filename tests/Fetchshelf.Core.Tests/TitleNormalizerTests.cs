@@ -13,7 +13,7 @@ public class TitleNormalizerTests
     }
 
     [Fact]
-    public void Normalize_TransliteratesToAsciiAndLowercases()
+    public void Normalize_AccentedMixedCaseTitle_IsTransliteratedToLowercaseAscii()
     {
         var result = TitleNormalizer.Normalize("Café Münster");
 
@@ -21,7 +21,7 @@ public class TitleNormalizerTests
     }
 
     [Fact]
-    public void Normalize_ReplacesAmpersandWithAnd()
+    public void Normalize_Ampersand_BecomesAnd()
     {
         var result = TitleNormalizer.Normalize("Salt & Pepper");
 
@@ -32,13 +32,13 @@ public class TitleNormalizerTests
     [InlineData("A Study in Scarlet", "study in scarlet")]
     [InlineData("An Education", "education")]
     [InlineData("The Great Gatsby", "great gatsby")]
-    public void Normalize_RemovesLeadingArticles(string input, string expected)
+    public void Normalize_LeadingArticle_IsRemoved(string input, string expected)
     {
         Assert.Equal(expected, TitleNormalizer.Normalize(input));
     }
 
     [Fact]
-    public void Normalize_RemovesVolumeWordWithoutAbbreviation()
+    public void Normalize_VolumeWord_IsRemovedButNotItsAbbreviation()
     {
         var result = TitleNormalizer.Normalize("Saga Volume 3");
 
@@ -46,7 +46,7 @@ public class TitleNormalizerTests
     }
 
     [Fact]
-    public void Normalize_StripsCharactersOutsideLettersDigitsUnderscoreSpace()
+    public void Normalize_Punctuation_IsStripped()
     {
         var result = TitleNormalizer.Normalize("Book: Title! (Special*Edition)");
 

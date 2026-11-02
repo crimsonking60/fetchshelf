@@ -23,4 +23,15 @@ public class FormatPreferenceListsTests
     {
         Assert.Equal([expected], Lists.AudioSideFor(mediaType));
     }
+
+    [Fact]
+    public void SettingNameFor_EveryMediaType_NamesTheListThatForReturns()
+    {
+        var lists = new FormatPreferenceLists { AudioTypes = ["audio"], EbookTypes = ["ebook"], MusicTypes = ["music"], RadioTypes = ["radio"] };
+
+        foreach (var mediaType in Enum.GetValues<MediaType>())
+        {
+            Assert.Equal($"{lists.For(mediaType)[0]}_types", FormatPreferenceLists.SettingNameFor(mediaType));
+        }
+    }
 }

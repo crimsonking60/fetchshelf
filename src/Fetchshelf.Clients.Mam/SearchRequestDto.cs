@@ -3,9 +3,8 @@ using System.Text.Json.Serialization;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Wire shape for `POST /tor/js/loadSearchJSONbasic.php`, confirmed against the original Rust
-/// implementation's `mlm_mam::search::{SearchQuery, Tor, SearchFields}`. Property names/order
-/// mirror that struct's `#[serde(rename = ...)]` attributes exactly.
+/// Wire shape for `POST /tor/js/loadSearchJSONbasic.php`. Property names are the ones MAM expects;
+/// don't rename them.
 /// </summary>
 internal sealed class SearchRequestDto
 {

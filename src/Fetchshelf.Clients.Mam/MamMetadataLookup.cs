@@ -3,9 +3,16 @@ using Fetchshelf.Core.Organizer;
 
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Real <see cref="IMetadataLookup"/> backed by MaM, replacing <see cref="NullMetadataLookup"/>.</summary>
-public sealed class MamMetadataLookup(MamClient client) : IMetadataLookup
+/// <summary><see cref="IMetadataLookup"/> backed by a MAM search by info-hash.</summary>
+public sealed class MamMetadataLookup(MamClient client, MamAccessGate accessGate) : IMetadataLookup
 {
-    public Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default) =>
-        client.LookupAsync(infoHash, cancellationToken);
+    /// <remarks>
+    /// The gate is taken per lookup rather than per Link run, so a long Link run lets an autograb or snatchlist job in
+    /// between its lookups instead of holding them off until it ends.
+    /// </remarks>
+    public async Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)
+    {
+        using var _ = await accessGate.AcquireAsync(cancellationToken);
+        return await client.LookupAsync(infoHash, cancellationToken);
+    }
 }

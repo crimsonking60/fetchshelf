@@ -5,6 +5,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.Tests;
 
@@ -66,12 +67,12 @@ public sealed class AbsMatcherTests : IDisposable
     }
 
     private static async Task<TorrentEntity> SeedTorrentAsync(
-        FetchshelfDbContext context, string libraryPath, IReadOnlyList<string>? authors = null, string? absId = null)
+        FetchshelfDbContext context, string libraryPath, IReadOnlyList<string>? authors = null, string? absId = null, string id = "hash1")
     {
         var metadata = OrganizerTestSupport.BuildMetadata(authors: authors);
         var entity = new TorrentEntity
         {
-            Id = "hash1",
+            Id = id,
             MamId = 1,
             NormalizedTitleKey = Core.Metadata.TitleNormalizer.Normalize(metadata.Title),
             Title = metadata.Title,
@@ -96,12 +97,15 @@ public sealed class AbsMatcherTests : IDisposable
             [("f1", "/data/audiobooks")],
             new Dictionary<string, (string, string)> { ["Brandon Sanderson"] = ("a1", "Brandon Sanderson") },
             new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/data/audiobooks/Sanderson/Book") });
-        var matcher = new AbsMatcher(context, absClient);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
 
-        await matcher.RunAsync();
+        var summary = await matcher.RunAsync();
 
         var torrent = await context.Torrents.SingleAsync();
         Assert.Equal("item1", torrent.AbsId);
+        Assert.Equal(new AbsMatchSummary(Matched: 1, NotFoundYet: 0, Failed: 0), summary);
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.StartsWith("Matched ", StringComparison.Ordinal) && m.EndsWith(" item1", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -115,13 +119,16 @@ public sealed class AbsMatcherTests : IDisposable
             [("f1", "/data/ebooks")],
             new Dictionary<string, (string, string)>(),
             new Dictionary<string, (string, string)>());
-        var matcher = new AbsMatcher(context, absClient);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
 
-        await matcher.RunAsync();
+        var summary = await matcher.RunAsync();
 
         var torrent = await context.Torrents.SingleAsync();
         Assert.Null(torrent.AbsId);
         Assert.DoesNotContain(calledPaths, p => p.Contains("/search"));
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 0, Failed: 1), summary);
+        Assert.Contains("/data/audiobooks/Sanderson/Book", Assert.Single(logger.Messages(LogLevel.Error)));
     }
 
     [Fact]
@@ -132,13 +139,16 @@ public sealed class AbsMatcherTests : IDisposable
         var calledPaths = new List<string>();
         var absClient = CreateAbsClient(
             calledPaths, [("f1", "/data/audiobooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
-        var matcher = new AbsMatcher(context, absClient);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
 
-        await matcher.RunAsync();
+        var summary = await matcher.RunAsync();
 
         var torrent = await context.Torrents.SingleAsync();
         Assert.Null(torrent.AbsId);
         Assert.Empty(calledPaths);
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 0, Failed: 1), summary);
+        Assert.Contains("no author", Assert.Single(logger.Messages(LogLevel.Error)));
     }
 
     [Fact]
@@ -149,12 +159,92 @@ public sealed class AbsMatcherTests : IDisposable
         var calledPaths = new List<string>();
         var absClient = CreateAbsClient(
             calledPaths, [("f1", "/data/audiobooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
-        var matcher = new AbsMatcher(context, absClient);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
 
-        await matcher.RunAsync();
+        var summary = await matcher.RunAsync();
 
         var torrent = await context.Torrents.SingleAsync();
         Assert.Equal("existing-item", torrent.AbsId);
         Assert.Empty(calledPaths);
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 0, Failed: 0), summary);
+        Assert.Equal(["No linked books are waiting to be matched in Audiobookshelf"], logger.Messages(LogLevel.Information));
+    }
+
+    [Fact]
+    public async Task RunAsync_LibraryFolderFitsButItemNotThereYet_CountsAsNotFoundYetWithWarning()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var absClient = CreateAbsClient(
+            [], [("f1", "/data/audiobooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
+
+        var summary = await matcher.RunAsync();
+
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 1, Failed: 0), summary);
+        Assert.Single(logger.Messages(LogLevel.Warning));
+        Assert.Empty(logger.Messages(LogLevel.Error));
+    }
+
+    [Fact]
+    public async Task RunAsync_SeveralBooks_ListsLibrariesOnce()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"], id: "hash1");
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Other", ["Brandon Sanderson"], id: "hash2");
+        var calledPaths = new List<string>();
+        var absClient = CreateAbsClient(
+            calledPaths, [("f1", "/data/audiobooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+
+        await new AbsMatcher(context, absClient).RunAsync();
+
+        Assert.Single(calledPaths, p => p == "/api/libraries");
+    }
+
+    [Fact]
+    public async Task RunAsync_SearchFailsForABook_LogsErrorCountsItAndCarriesOn()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var absClient = CreateFailingAbsClient(failLibraries: false);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger);
+
+        var summary = await matcher.RunAsync();
+
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 0, Failed: 1), summary);
+        Assert.Contains("500", Assert.Single(logger.Messages(LogLevel.Error)));
+    }
+
+    [Fact]
+    public async Task RunAsync_LibrariesCannotBeListed_LogsErrorAndFailsTheRun()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, CreateFailingAbsClient(failLibraries: true), logger);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => matcher.RunAsync());
+
+        Assert.StartsWith("Could not list the Audiobookshelf libraries", Assert.Single(logger.Messages(LogLevel.Error)), StringComparison.Ordinal);
+    }
+
+    /// <summary>Answers every request with HTTP 500, except the library list unless <paramref name="failLibraries"/>.</summary>
+    private static AbsClient CreateFailingAbsClient(bool failLibraries)
+    {
+        var handler = new FakeHttpMessageHandler(request =>
+            !failLibraries && request.RequestUri!.AbsolutePath == "/api/libraries"
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new
+                    {
+                        libraries = new[] { new { id = "lib1", name = "Audiobooks", folders = new[] { new { id = "f1", fullPath = "/data/audiobooks" } } } },
+                    }),
+                }
+                : new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        return new AbsClient(new HttpClient(handler), new AbsClientOptions { BaseUrl = "http://abs.local", Token = "token" });
     }
 }

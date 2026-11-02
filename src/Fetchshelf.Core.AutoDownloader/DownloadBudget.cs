@@ -13,6 +13,12 @@ public static class DownloadBudget
 
     public static bool IsFreeCost(SelectedTorrentCost cost) => FreeCosts.Contains(cost);
 
+    /// <summary>
+    /// Whether a download at this cost counts against the ratio budget. Wedge costs count too: a TryWedge may end up
+    /// downloading without one, and the budget stays on the safe side for UseWedge.
+    /// </summary>
+    public static bool SpendsRatio(SelectedTorrentCost cost) => !IsFreeCost(cost);
+
     /// <summary>Ratio budget = (uploaded − downloaded − bytes already in flight) / minRatio.</summary>
     public static long ComputeRatioBudgetBytes(long uploadedBytes, long downloadedBytes, long bytesInFlight, double minRatio) =>
         (long)Math.Max(0, (uploadedBytes - downloadedBytes - bytesInFlight) / minRatio);

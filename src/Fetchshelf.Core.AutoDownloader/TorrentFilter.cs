@@ -70,8 +70,18 @@ public sealed record TorrentFilter
 
     public long? MaxSnatched { get; init; }
 
-    /// <summary>Inclusive cap on the number of listed authors; rejects anthologies. Not part of the original filter field set.</summary>
+    /// <summary>Inclusive cap on the number of listed authors; rejects anthologies.</summary>
     public int? MaxAuthors { get; init; }
+
+    /// <summary>
+    /// Whether matching needs data only a fresh MAM search has (uploader, seeders, leechers, snatches) rather than the
+    /// stored metadata.
+    /// </summary>
+    public bool NeedsLiveData =>
+        ExcludeUploader is { Count: > 0 }
+        || MinSeeders is not null || MaxSeeders is not null
+        || MinLeechers is not null || MaxLeechers is not null
+        || MinSnatched is not null || MaxSnatched is not null;
 }
 
 /// <summary>Maps a media type onto the shared filter's four main-type groups.</summary>

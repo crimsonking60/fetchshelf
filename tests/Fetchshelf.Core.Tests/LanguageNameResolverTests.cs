@@ -16,14 +16,14 @@ public class LanguageNameResolverTests
     [InlineData("gaelic", Language.ScottishGaelic)]
     [InlineData("greek, ancient", Language.AncientGreek)]
     [InlineData("ancient greek", Language.AncientGreek)]
-    public void ResolvesDocumentedAliases(string name, Language expected)
+    public void TryResolve_DocumentedAlias_ResolvesToTheLanguage(string name, Language expected)
     {
         Assert.True(LanguageNameResolver.TryResolve(name, out var language));
         Assert.Equal(expected, language);
     }
 
     [Fact]
-    public void UnrecognizedName_ReturnsFalse()
+    public void TryResolve_UnrecognizedName_ReturnsFalse()
     {
         Assert.False(LanguageNameResolver.TryResolve("not-a-language", out _));
     }

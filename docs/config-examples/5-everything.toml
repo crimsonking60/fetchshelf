@@ -1,0 +1,232 @@
+# Fetchshelf example 5 of 5: every option
+#
+# This file uses every setting Fetchshelf understands, with a comment on each. It is meant to be read,
+# not copied as is: several blocks overlap on purpose so each option can be shown. Start from one of the
+# smaller examples and take what you need from here.
+#
+# Reference for every setting: docs/configuration.md
+#
+# Builds on: 4-targeted-searches.toml.
+
+# =====================================================================================================
+# Top-level settings. These must come before the first [section].
+# Every one of them can also be set with an environment variable named FETCHSHELF_CONF_<setting>
+# (for example FETCHSHELF_CONF_min_ratio), which wins over this file.
+# =====================================================================================================
+
+mam_id = "replace-with-your-mam-session-id" # required for any background job to run
+# mam_id_file = "/run/secrets/mam_id"       # alternative to mam_id: read the session id from this file.
+                                             # Set one or the other, not both.
+web_host = "0.0.0.0"                         # where the web UI listens
+web_port = 3157
+
+min_ratio = 2        # never download anything that would take the account below this ratio
+unsat_buffer = 10    # unsatisfied-snatch slots always left free
+wedge_buffer = 3     # freeleech wedges always left unused
+add_torrents_stopped = false
+
+page_explanations = true # short explanation under each page title in the web UI
+job_explanations = true  # short description of each job on the Jobs page
+
+# Intervals are in minutes. 0 means "only when started from the UI".
+search_interval = 30     # default for every autograb and snatchlist block
+link_interval = 10       # how often finished torrents are scanned and linked
+
+# MAM torrent ids that must never be selected, as strings.
+ignore_torrents = ["123456", "234567"]
+
+# Wanted file types per kind of media, best first. A torrent is only downloaded if it has at least one
+# of these, only these are linked, and the first-listed type wins when two copies of a book compete.
+audio_types = ["m4b", "m4a", "mp4", "mp3", "ogg"]            # audiobooks, periodical audiobooks
+ebook_types = ["epub", "azw3", "mobi", "azw", "pdf", "cbz", "cbr"] # ebooks, manga, comics, periodicals
+music_types = ["flac", "mp3", "pdf"]                          # musicology
+radio_types = ["mp3"]                                         # radio
+
+# Leave "{Narrator}" off audiobook folder names. If the narrator-less folder already exists, the
+# narrator form is used so two books never share a folder.
+exclude_narrator_in_library_dir = false
+
+# =====================================================================================================
+# [search]: the manual Search page in the web UI
+# =====================================================================================================
+[search]
+# Results bigger than this get the "download with wedge" button highlighted.
+wedge_over = "100 MiB"
+
+# =====================================================================================================
+# [audiobookshelf]: optional. Remove the section to switch the integration off.
+# =====================================================================================================
+[audiobookshelf]
+url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a browser
+token = "replace-with-your-audiobookshelf-api-token"
+interval = 10 # minutes between matching linked books to Audiobookshelf items
+
+# =====================================================================================================
+# [[qbittorrent]]: repeatable. New downloads go to the FIRST entry; linking runs against all of them.
+# =====================================================================================================
+[[qbittorrent]]
+url = "http://qbittorrent:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+# Left: a path as qBittorrent reports it. Right: the same place as Fetchshelf sees it. The longest
+# matching prefix wins.
+[qbittorrent.path_mapping]
+"/downloads" = "/data/torrents"
+"/downloads/old" = "/mnt/archive/torrents"
+
+# What to do in qBittorrent to a torrent whose files were retired in favour of a better format. Both
+# parts are optional. A category is created in qBittorrent if it does not exist.
+[qbittorrent.on_cleaned]
+category = "superseded"
+tags = ["superseded"]
+
+# Same shape. Accepted and validated, but not acted on yet.
+[qbittorrent.on_invalid_torrent]
+category = "invalid"
+tags = ["invalid"]
+
+# A second client, here only used for linking torrents that finished on another machine.
+[[qbittorrent]]
+url = "http://seedbox.example.net:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+# =====================================================================================================
+# [[autograb]]: repeatable. A scheduled MAM search.
+# =====================================================================================================
+
+# This block sets every autograb option and every field of the shared torrent filter. The same filter
+# fields are available on [[tag]] and [[snatchlist]] (with limits).
+[[autograb]]
+# --- autograb-only options ---
+type = "new"           # "bookmarks", "freeleech", "new" (alias "torrents"), "mine", or { uploader = <id> }
+cost = "ratio"         # "free" (default), "wedge", "try_wedge", "ratio" (alias "all"), "metadata_only",
+                       # "metadata_only_add"
+query = '"Terry Pratchett"'
+search_in = ["author"] # any of: author, description, filenames, file_types, narrator, series, tags, title
+sort_by = "newest_first" # "newest_first" (default), "oldest_first", "random", "low_seeders", "low_snatches"
+max_pages = 2          # pages of 100 results per run; default 50 for bookmarks/freeleech/mine, else 1
+search_interval = 20   # overrides the global search_interval; 0 = only from the UI
+unsat_buffer = 15      # overrides the global buffer for this block
+wedge_buffer = 5       # overrides the global buffer for this block
+max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
+dry_run = false        # true: do everything except write or download, and only log
+mark_removed = false   # accepted and validated, but not acted on yet
+category = "ebooks"    # force this qBittorrent category, overriding [[tag]] rules
+
+# --- shared torrent filter (all fields) ---
+name = "Everything-filter example" # label in logs and the UI; required by max_active_downloads
+media_type = ["Ebook", "ComicBook"] # Audiobook, Ebook, Musicology, Radio, Manga, ComicBook,
+                                    # PeriodicalEbook, PeriodicalAudiobook
+# Per main type: true = all categories, false = none, or a list of names. Defaults: audio and ebook
+# true, musicology and radio false.
+categories = { audio = false, ebook = ["Fantasy", "Science Fiction", "Humor"], musicology = false, radio = false }
+languages = ["English", "German"]
+# true = the flag must be present, false = it must be absent, unlisted flags are ignored. Names:
+# crude_language, violence, some_explicit, explicit, abridged, lgbt.
+flags = { crude_language = false, violence = false, some_explicit = false, explicit = false, abridged = false, lgbt = false }
+min_size = "100 KiB"
+max_size = "50 MiB"
+exclude_uploader = ["some-uploader", "another-uploader"]
+uploaded_after = "2026-01-01"
+uploaded_before = "2026-12-31"
+min_seeders = 0
+max_seeders = 500
+min_leechers = 0
+max_leechers = 50
+min_snatched = 0
+max_snatched = 5000
+max_authors = 3         # skip anthologies
+
+# The other autograb types and common costs, briefly:
+[[autograb]]
+name = "Free bookmarks"
+type = "bookmarks"
+cost = "free"
+
+[[autograb]]
+name = "Wedge the rest"
+type = "bookmarks"
+cost = "wedge"
+
+[[autograb]]
+name = "Freeleech, low seeders first"
+type = "freeleech"
+cost = "try_wedge"
+sort_by = "low_seeders"
+
+[[autograb]]
+name = "One uploader"
+type = { uploader = 12345 }
+cost = "all"
+sort_by = "low_snatches"
+
+[[autograb]]
+name = "My uploads as metadata"
+type = "mine"
+cost = "metadata_only_add" # also creates a metadata-only entry for torrents not stored yet
+sort_by = "random"
+
+# =====================================================================================================
+# [[snatchlist]]: repeatable. Reads your snatch lists and refreshes stored torrents; with
+# "metadata_only_add" also records the rest as metadata-only entries. Never downloads.
+# 'languages', 'uploaded_after' and 'uploaded_before' are not allowed here; the rest of the shared
+# filter is.
+# =====================================================================================================
+[[snatchlist]]
+type = "unsat"           # unsat, inact_unsat, seed_unsat, seed_sat, inact_sat, uploads_active
+cost = "metadata_only"   # refresh stored torrents only; "metadata_only_add" also adds the rest
+max_pages = 20           # snatch list pages to read (default 50); MAM decides their size
+search_interval = 60     # overrides the global search_interval
+dry_run = false
+media_type = ["Audiobook", "Ebook"]
+max_size = "10 GiB"
+
+# =====================================================================================================
+# [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
+# Category: first matching rule that sets one. Tags: union over all matching rules.
+# =====================================================================================================
+[[tag]]
+name = "Ebooks"
+categories = { audio = false, ebook = true }
+category = "ebooks"
+tags = ["fetchshelf"]
+
+[[tag]]
+name = "Audiobooks"
+categories = { audio = true, ebook = false }
+category = "audiobooks"
+tags = ["fetchshelf"]
+
+[[tag]]
+name = "Large files"
+min_size = "1 GiB"
+tags = ["large"]         # no category: only adds a tag, on top of whichever rule set the category
+
+# =====================================================================================================
+# [[library]]: repeatable. First matching library in file order wins.
+# Exactly one of 'category' or 'download_dir' per library.
+# =====================================================================================================
+[[library]]
+name = "Audiobooks"
+category = "audiobooks"                  # match torrents in this qBittorrent category
+library_dir = "/data/library/audiobooks"
+method = "hardlink"                      # hardlink (default), hardlink_or_copy, hardlink_or_symlink,
+                                         # copy, symlink, no_link (record metadata only)
+deny_tags = ["large"]                    # reject torrents with ANY of these tags
+audio_types = ["m4b", "mp3"]             # override the global list for this library
+
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/data/library/ebooks"
+method = "hardlink_or_copy"
+allow_tags = ["fetchshelf"]              # if not empty, torrents need at least one of these
+ebook_types = ["epub", "pdf"]
+
+[[library]]
+name = "Everything else"
+download_dir = "/data/torrents/manual"   # match torrents saved under this folder instead
+library_dir = "/data/library/other"
+method = "symlink"

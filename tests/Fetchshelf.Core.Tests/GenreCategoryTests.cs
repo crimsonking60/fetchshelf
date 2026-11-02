@@ -4,8 +4,7 @@ namespace Fetchshelf.Core.Tests;
 
 public class GenreCategoryTests
 {
-    // Real tracker ids, confirmed against the original Rust implementation's reference data
-    // (mlm_db::impls::categories::Category::from_id/as_id).
+    // Real tracker ids.
     [Theory]
     [InlineData(GenreCategory.Action, 1)]
     [InlineData(GenreCategory.SheetCollection, 47)]
@@ -14,7 +13,7 @@ public class GenreCategoryTests
     [InlineData(GenreCategory.DramaPlays, 60)]
     [InlineData(GenreCategory.Occult, 61)]
     [InlineData(GenreCategory.SliceOfLife, 62)]
-    public void NumericValue_MatchesRealTrackerId(GenreCategory category, int expectedId)
+    public void NumericValue_EachCategory_MatchesRealTrackerId(GenreCategory category, int expectedId)
     {
         Assert.Equal(expectedId, (int)category);
     }

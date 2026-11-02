@@ -1,6 +1,5 @@
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.Mam;
-using Fetchshelf.Clients.Notion;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
@@ -11,6 +10,7 @@ using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web;
 using Fetchshelf.Web.Jobs;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -31,13 +31,31 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(dispose: true);
 
 var configFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath();
-var settings = ConfigLoader.Load(configFilePath);
+FetchshelfSettings settings;
+try
+{
+    settings = ConfigLoader.Load(configFilePath);
+}
+catch (ConfigurationException ex)
+{
+    Log.Fatal("Cannot start with {ConfigFile}: {Reason:l}", configFilePath, ex.Message);
+    await Log.CloseAndFlushAsync();
+    Environment.ExitCode = 1;
+    return;
+}
+
 var dataFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_DATA_FILE") ?? "data.db";
 var dataFileDirectory = Path.GetDirectoryName(Path.GetFullPath(dataFilePath));
 if (!string.IsNullOrEmpty(dataFileDirectory))
 {
     Directory.CreateDirectory(dataFileDirectory);
 }
+
+// Keep the keys that encrypt antiforgery cookies next to the database: the default location is inside the
+// container, so a new container (every image update) would otherwise reject the cookie browsers still hold.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Fetchshelf")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory ?? ".", "keys")));
 
 builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
@@ -53,7 +71,7 @@ builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd(mamOptions.UserAgent);
 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false }); // MamClient sets the mam_id cookie itself
 // A single AddDbContextFactory registration backs both the scoped FetchshelfDbContext (for
-// EventStore/LinkRunner/Cleaner) and MamCookieStore's singleton-safe short-lived contexts -
+// EventStore/LinkRunner/Cleaner) and the short-lived contexts DatabaseHealthCheck creates itself -
 // registering AddDbContext separately as well would conflict over DbContextOptions' lifetime.
 builder.Services.AddDbContextFactory<FetchshelfDbContext>(options => options.UseSqlite($"Data Source={dataFilePath}"));
 builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>().CreateDbContext());
@@ -67,16 +85,14 @@ builder.Services.AddSingleton(sp => new MamClient(
 builder.Services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
 builder.Services.AddSingleton<MamAccessGate>();
 
-builder.Services.AddHttpClient("notion");
-builder.Services.AddScoped(sp => new NotionClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("notion")));
-
 if (settings.Audiobookshelf is { } absSettings)
 {
     builder.Services.AddSingleton(new AbsClientOptions { BaseUrl = absSettings.Url, Token = absSettings.Token });
     builder.Services.AddHttpClient("abs");
     builder.Services.AddSingleton(sp => new AbsClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));
-    builder.Services.AddScoped(sp => new AbsMatcher(sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>()));
+    builder.Services.AddScoped(sp => new AbsMatcher(
+        sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>(), sp.GetRequiredService<ILogger<AbsMatcher>>()));
 }
 
 var formatPreferenceLists = new FormatPreferenceLists
@@ -86,6 +102,7 @@ var formatPreferenceLists = new FormatPreferenceLists
     MusicTypes = settings.MusicTypes,
     RadioTypes = settings.RadioTypes,
 };
+builder.Services.AddSingleton(formatPreferenceLists);
 builder.Services.AddScoped(sp => new LinkRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
@@ -93,10 +110,11 @@ builder.Services.AddScoped(sp => new LinkRunner(
     settings.Library,
     formatPreferenceLists,
     settings.ExcludeNarratorInLibraryDir,
-    sp.GetService<AbsClient>()));
+    sp.GetService<AbsClient>(),
+    sp.GetRequiredService<ILogger<LinkRunner>>()));
 builder.Services.AddScoped(sp => new Cleaner(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
-    sp.GetService<AbsClient>()));
+    sp.GetService<AbsClient>(), sp.GetRequiredService<ILogger<Cleaner>>()));
 
 var tagRules = settings.Tag
     .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
@@ -112,23 +130,19 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
 builder.Services.AddScoped(sp => new SnatchlistImporter(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
-builder.Services.AddScoped(sp => new NotionListImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<NotionClient>(),
-    logger: sp.GetRequiredService<ILogger<NotionListImporter>>()));
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
     sp.GetRequiredService<MamClient>(),
+    sp.GetRequiredService<MamAccessGate>(),
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     settings.MinRatio,
-    settings.AddTorrentsStopped));
+    settings.AddTorrentsStopped,
+    sp.GetRequiredService<ILogger<DownloadRunner>>()));
 builder.Services.AddScoped(sp => new RetroactiveTagApplier(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),
+    sp.GetRequiredService<MamAccessGate>(),
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList()));
 
 if (settings.BackgroundJobsEnabled)
@@ -159,17 +173,6 @@ if (settings.BackgroundJobsEnabled)
     {
         var jobName = AutoDownloaderJobNames.Snatchlist(settings.Snatchlist[i], i);
         var intervalMinutes = settings.Snatchlist[i].SearchInterval ?? settings.SearchInterval;
-        if (intervalMinutes > 0)
-        {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
-        }
-    }
-
-    for (var i = 0; i < settings.NotionList.Count; i++)
-    {
-        var jobName = AutoDownloaderJobNames.NotionList(settings.NotionList[i], i);
-        var intervalMinutes = settings.NotionList[i].SearchInterval ?? settings.ImportInterval;
         if (intervalMinutes > 0)
         {
             builder.Services.AddSingleton<IHostedService>(sp =>
@@ -240,19 +243,31 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
     {
         using var scope = scopeFactory.CreateScope();
         var linkRunner = scope.ServiceProvider.GetRequiredService<LinkRunner>();
+        var failed = 0;
         foreach (var (connection, client) in QBittorrentConnections.Build(settings, qbittorrentFactory))
         {
-            await linkRunner.RunAsync(connection, client, ct);
+            failed += (await linkRunner.RunAsync(connection, client, ct)).Failed;
         }
 
         await jobRegistry.TriggerAsync(JobNames.Clean, ct);
+
+        if (failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{failed} {(failed == 1 ? "torrent" : "torrents")} could not be linked; see the Errors page.");
+        }
     }, "Moves finished downloads from qBittorrent into your library folders.");
 
     jobRegistry.Register(JobNames.Clean, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
         var cleaner = scope.ServiceProvider.GetRequiredService<Cleaner>();
-        await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
+        var summary = await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
+        if (summary.Failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{summary.Failed} superseded {(summary.Failed == 1 ? "copy" : "copies")} could not be retired; see the Errors page.");
+        }
     }, "Retires superseded duplicate torrents once a newer copy is linked.");
 
     if (settings.Audiobookshelf is not null)
@@ -261,7 +276,12 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
         {
             using var scope = scopeFactory.CreateScope();
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
-            await matcher.RunAsync(ct);
+            var summary = await matcher.RunAsync(ct);
+            if (summary.Failed > 0)
+            {
+                throw new JobCompletedWithErrorsException(
+                    $"{summary.Failed} {(summary.Failed == 1 ? "book" : "books")} could not be matched in Audiobookshelf; see the log.");
+            }
         }, "Matches linked torrents to their Audiobookshelf library item.");
     }
 }
@@ -285,7 +305,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);
             }
-        }, "Searches MaM for new matches and queues them for download.");
+        }, "Searches MAM for new matches and queues them for download.");
     }
 
     for (var i = 0; i < settings.Snatchlist.Count; i++)
@@ -296,31 +316,25 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
-            await importer.RunAsync(entry, ct);
-        }, "Imports your MaM snatchlist so those torrents count as owned.");
-    }
-
-    for (var i = 0; i < settings.NotionList.Count; i++)
-    {
-        var entry = settings.NotionList[i];
-        var jobName = AutoDownloaderJobNames.NotionList(entry, i);
-        jobRegistry.Register(jobName, async ct =>
-        {
-            using var scope = scopeFactory.CreateScope();
-            var importer = scope.ServiceProvider.GetRequiredService<NotionListImporter>();
-            var selectedCount = await importer.RunAsync(entry, settings.UnsatBuffer, settings.WedgeBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0)
+            var summary = await importer.RunAsync(entry, ct);
+            if (summary.Failed > 0)
             {
-                await jobRegistry.TriggerAsync(JobNames.Download, ct);
+                throw new JobCompletedWithErrorsException(
+                    $"{summary.Failed} snatch list {(summary.Failed == 1 ? "row" : "rows")} could not be imported; see the log.");
             }
-        }, "Checks a Notion list for entries and queues matches for download.");
+        }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
     jobRegistry.Register(JobNames.Download, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
-        await downloadRunner.RunAsync(ct);
+        var summary = await downloadRunner.RunAsync(ct);
+        if (summary.Failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{summary.Failed} {(summary.Failed == 1 ? "torrent" : "torrents")} could not be downloaded; see the log.");
+        }
     }, "Sends queued, selected torrents to qBittorrent.");
 }
 
@@ -335,14 +349,11 @@ internal static class JobNames
 /// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>
 internal static class AutoDownloaderJobNames
 {
-    public static string Autograb(AutogrebEntry entry, int index) =>
+    public static string Autograb(AutograbEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"autograb[{index}]" : entry.Name;
 
     public static string Snatchlist(SnatchlistEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
-
-    public static string NotionList(NotionListEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"notion_list[{index}]" : entry.Name;
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

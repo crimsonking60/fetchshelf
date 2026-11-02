@@ -1,4 +1,4 @@
-# Fetchshelf example 3 of 6: automatic downloads from bookmarks
+# Fetchshelf example 3 of 5: automatic downloads from bookmarks
 #
 # Combines both halves: bookmarked torrents are downloaded automatically, sorted into qBittorrent
 # categories by tag rules, and linked into libraries by those categories. It also shows how to spend
@@ -24,7 +24,7 @@ link_interval = 10   # minutes between scans for finished torrents
 # New torrents are added to qBittorrent paused if this is true. Handy while you are still testing.
 add_torrents_stopped = false
 
-# MaM torrent ids that must never be downloaded, as strings.
+# MAM torrent ids that must never be downloaded, as strings.
 ignore_torrents = ["123456", "234567"]
 
 [[qbittorrent]]

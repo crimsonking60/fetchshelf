@@ -30,7 +30,7 @@ public sealed record ErroredTorrentViewModel(
             entity.Id,
             JobName(entity.Stage),
             entity.Title ?? trackedTitle ?? (restorePayload is null ? null : TorrentMetadataSerializer.Deserialize(restorePayload.MetadataJson).Title),
-            isDownload ? "MaM id" : "Info-hash",
+            isDownload ? "MAM id" : "Info-hash",
             entity.Key,
             trackedTitle is null ? null : entity.Key,
             entity.ErrorText,

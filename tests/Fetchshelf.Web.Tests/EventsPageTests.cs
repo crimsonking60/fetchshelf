@@ -2,11 +2,10 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 5.6: the Events page.</summary>
 public class EventsPageTests
 {
     [Fact]
-    public async Task Get_EventsListedNewestFirst()
+    public async Task Get_SeveralEvents_ListsNewestFirst()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
@@ -120,5 +119,24 @@ public class EventsPageTests
         var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
 
         Assert.Contains(">gone-hash</a>", html);
+    }
+
+    [Fact]
+    public async Task Get_RemovedFromMamEvent_ShowsReadableTypeNotEnumName()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.RemovedFromMam,
+            TorrentId = "gone-hash",
+        });
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
+
+        Assert.Contains("<td class=\"nowrap\">Removed from MAM</td>", html);
+        Assert.Contains("<option value=\"RemovedFromMam\">Removed from MAM</option>", html);
+        Assert.DoesNotContain(">RemovedFromMam<", html);
     }
 }

@@ -1,3 +1,4 @@
+using Fetchshelf.Core.Jobs;
 using Fetchshelf.Web.Pages.Jobs;
 
 namespace Fetchshelf.Web.Tests;
@@ -23,4 +24,16 @@ public class JobStatusViewModelTests
     [Fact]
     public void NextRunText_JobIsRunning_IsNull() =>
         Assert.Null(Job(Now.AddSeconds(30), isRunning: true).NextRunText(Now));
+
+    [Fact]
+    public async Task From_RunCompletedWithErrors_ShowsFinishedWithErrors()
+    {
+        var registry = new JobRegistry();
+        registry.Register("Link", _ => throw new JobCompletedWithErrorsException("1 torrent could not be linked; see the Errors page."));
+        await registry.TriggerAsync("Link");
+
+        Assert.Equal(
+            "Finished with errors: 1 torrent could not be linked; see the Errors page.",
+            JobStatusViewModel.From(registry.Get("Link")!).LastResultText);
+    }
 }

@@ -37,12 +37,9 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
         return RedirectToPage();
     }
 
-    /// <summary>
-    /// The costs a selection can be changed to. The free costs only describe what MaM reported when the torrent was
-    /// selected; picking one by hand would let a paid torrent skip the ratio budget, so they are never offered.
-    /// </summary>
+    /// <summary>The costs a selection can be changed to, as stored (see <see cref="SelectedTorrentCosts.ChangeableByHand"/>).</summary>
     public static readonly IReadOnlyList<string> ChangeableCosts =
-        [nameof(SelectedTorrentCost.Ratio), nameof(SelectedTorrentCost.TryWedge), nameof(SelectedTorrentCost.UseWedge)];
+        SelectedTorrentCosts.ChangeableByHand.Select(c => c.ToString()).ToList();
 
     /// <summary>The cost choices for one selection: its current cost first, then the changeable ones.</summary>
     public static IEnumerable<string> CostChoicesFor(SelectedTorrentViewModel selection) =>

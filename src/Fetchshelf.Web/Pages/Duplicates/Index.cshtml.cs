@@ -16,7 +16,7 @@ public class IndexModel(FetchshelfDbContext dbContext, MamClientOptions mamOptio
     {
         var entities = await dbContext.DuplicateTorrents.AsNoTracking().ToListAsync();
 
-        // A duplicate of a library torrent stores that torrent's hash; a duplicate of a selection stores its MaM id.
+        // A duplicate of a library torrent stores that torrent's hash; a duplicate of a selection stores its MAM id.
         var keys = entities.Select(e => e.DuplicateOfTorrentId).Distinct().ToList();
         var mamIds = keys.Select(k => long.TryParse(k, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : 0)
             .Where(id => id > 0).ToList();
@@ -56,7 +56,7 @@ public class IndexModel(FetchshelfDbContext dbContext, MamClientOptions mamOptio
 
             return selectionTitles.TryGetValue(mamId, out var selectionTitle)
                 ? new DuplicateOfViewModel($"{selectionTitle} (selected)", null, mamLink)
-                : new DuplicateOfViewModel($"MaM torrent {mamId}", null, mamLink);
+                : new DuplicateOfViewModel($"MAM torrent {mamId}", null, mamLink);
         }
 
         Duplicates = entities

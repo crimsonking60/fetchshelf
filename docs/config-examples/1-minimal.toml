@@ -1,6 +1,6 @@
-# Fetchshelf example 1 of 6: minimal
+# Fetchshelf example 1 of 5: minimal
 #
-# The smallest config that does something useful: it adds every free bookmarked torrent on MaM to
+# The smallest config that does something useful: it adds every free bookmarked torrent on MAM to
 # qBittorrent, and links finished downloads into a library folder.
 #
 # Reference for every setting: docs/configuration.md (see "Top-level settings", "[[qbittorrent]]",
@@ -8,7 +8,7 @@
 #
 # Next step: 2-library-organizer.toml.
 
-# Your MaM session id, created under your MaM security preferences. Without it the web UI starts but
+# Your MAM session id, created under your MAM security preferences. Without it the web UI starts but
 # no background job runs.
 mam_id = "replace-with-your-mam-session-id"
 
@@ -18,7 +18,7 @@ url = "http://localhost:8080"
 username = "admin"
 password = "replace-with-your-qbittorrent-admin-password"
 
-# Every few minutes, look at your MaM bookmarks and download the ones that are free (freeleech or VIP).
+# Every few minutes, look at your MAM bookmarks and download the ones that are free (freeleech or VIP).
 # Nothing here costs ratio. 'cost' defaults to "free" and is written out for clarity.
 [[autograb]]
 type = "bookmarks"

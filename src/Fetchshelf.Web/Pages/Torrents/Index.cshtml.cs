@@ -1,4 +1,6 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -10,13 +12,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>The Torrents page.</summary>
 public class IndexModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker) : PageModel
 {
-    private const int DefaultPageSize = 25;
-
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
@@ -36,7 +35,7 @@ public class IndexModel(
     public int PageNumber { get; set; } = 1;
 
     [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = DefaultPageSize;
+    public int PageSize { get; set; } = Paging.DefaultPageSize;
 
     public TorrentListQuery Query => new(Q, Language, MediaType, Sort, Dir, PageSize);
 
@@ -45,6 +44,9 @@ public class IndexModel(
     public int TotalCount { get; private set; }
 
     public int TotalPages { get; private set; } = 1;
+
+    public PagerViewModel Pager =>
+        new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, "torrent-pager", "Torrent pages");
 
     /// <summary>The outcome of a "Check qBittorrent", shown above the list; set by the htmx response itself or, after the non-htmx redirect, read back from TempData.</summary>
     public string? CheckMessage { get; private set; }
@@ -90,10 +92,16 @@ public class IndexModel(
             1 => " 1 finished download was removed from the Selected queue.",
             var count => $" {count} finished downloads were removed from the Selected queue.",
         };
+        var skipped = result.MetadataOnlySkipped switch
+        {
+            0 => string.Empty,
+            1 => " 1 metadata-only record skipped.",
+            var count => $" {count} metadata-only records skipped.",
+        };
         return result.Succeeded
-            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client.{retired}"
+            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client.{retired}{skipped}"
             : $"qBittorrent could not be fully checked - {string.Join("; ", result.Errors)}. "
-                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}";
+                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}{skipped}";
     }
 
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds)
@@ -111,7 +119,7 @@ public class IndexModel(
             case "refresh":
                 foreach (var id in selectedIds)
                 {
-                    await linkRunner.RefreshAsync(id, relink: false);
+                    await linkRunner.RefreshAsync(id);
                 }
 
                 break;
@@ -129,13 +137,6 @@ public class IndexModel(
     {
         var query = dbContext.Torrents.AsNoTracking().AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(Q))
-        {
-            // Fuzzy match over title/authors/series: Title is indexed; Authors/Series live
-            // inside the serialized metadata blob, so a plain substring search covers them too.
-            query = query.Where(t => t.Title.Contains(Q) || t.MetadataJson.Contains(Q));
-        }
-
         if (!string.IsNullOrWhiteSpace(Language))
         {
             query = query.Where(t => t.MetadataJson.Contains($"\"Language\":\"{Language}\""));
@@ -151,6 +152,14 @@ public class IndexModel(
         // app's realistic data volume (a self-hosted single-user library) makes that an acceptable
         // trade-off against adding a global DateTimeOffset value-conversion/migration for it.
         var matched = await query.ToListAsync();
+
+        // The search runs here rather than in SQL: SQLite's substring match is case-sensitive, and authors and
+        // series are inside the serialized metadata, where a raw substring match would also hit descriptions.
+        if (!string.IsNullOrWhiteSpace(Q))
+        {
+            matched = matched.Where(t => TorrentSearchMatcher.Matches(TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q)).ToList();
+        }
+
         IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
         {
             ("Title", "asc") => matched.OrderBy(t => t.Title, StringComparer.Ordinal),
@@ -161,10 +170,7 @@ public class IndexModel(
 
         TotalCount = matched.Count;
 
-        var pageSize = PageSize <= 0 ? DefaultPageSize : PageSize;
-        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalCount / (double)pageSize));
-        PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
-        var entities = ordered.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList();
+        (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
         return entities.Select(TorrentListItemViewModel.From).ToList();
     }
 }

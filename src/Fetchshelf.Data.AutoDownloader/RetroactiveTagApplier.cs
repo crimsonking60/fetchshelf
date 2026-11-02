@@ -16,11 +16,14 @@ namespace Fetchshelf.Data.AutoDownloader;
 public sealed class RetroactiveTagApplier(
     FetchshelfDbContext dbContext,
     MamClient mamClient,
+    MamAccessGate accessGate,
     IReadOnlyList<QBittorrentClient> qbittorrentClients)
 {
-    public async Task ApplyAsync(TagRule rule, CancellationToken cancellationToken = default)
+    /// <summary>Returns the number of torrents whose category or tags were set in qBittorrent.</summary>
+    public async Task<int> ApplyAsync(TagRule rule, CancellationToken cancellationToken = default)
     {
         var torrents = await dbContext.Torrents.ToListAsync(cancellationToken);
+        var applied = 0;
 
         foreach (var torrent in torrents)
         {
@@ -48,13 +51,16 @@ public sealed class RetroactiveTagApplier(
             }
 
             await owning.AddTagsAsync(torrent.Id, rule.Tags, cancellationToken);
+            applied++;
         }
+
+        return applied;
     }
 
     private async Task<TorrentFilterCandidate> BuildCandidateAsync(
         TorrentFilter filter, TorrentMetadata metadata, CancellationToken cancellationToken)
     {
-        if (!NeedsLiveData(filter))
+        if (!filter.NeedsLiveData)
         {
             return new TorrentFilterCandidate
             {
@@ -66,7 +72,12 @@ public sealed class RetroactiveTagApplier(
             };
         }
 
-        var result = await mamClient.SearchAsync(new MamSearchQuery { Id = metadata.MamId }, cancellationToken);
+        MamSearchResult result;
+        using (await accessGate.AcquireAsync(cancellationToken))
+        {
+            result = await mamClient.SearchAsync(new MamSearchQuery { Id = metadata.MamId }, cancellationToken);
+        }
+
         var record = result.Data.FirstOrDefault();
 
         return new TorrentFilterCandidate
@@ -78,13 +89,4 @@ public sealed class RetroactiveTagApplier(
             TimesCompleted = record?.TimesCompleted ?? 0,
         };
     }
-
-    private static bool NeedsLiveData(TorrentFilter filter) =>
-        filter.ExcludeUploader is { Count: > 0 }
-        || filter.MinSeeders is not null
-        || filter.MaxSeeders is not null
-        || filter.MinLeechers is not null
-        || filter.MaxLeechers is not null
-        || filter.MinSnatched is not null
-        || filter.MaxSnatched is not null;
 }

@@ -75,6 +75,21 @@ public partial class TorrentsCheckClientTests
     }
 
     [Fact]
+    public async Task Post_CheckClient_MetadataOnlyRecords_AreLeftOutAndCounted()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("In Client"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "mam:42", OrganizerTestSupport.BuildMetadata("Owned Elsewhere"));
+        using var client = fixture.CreateNoRedirectClient();
+        var page = await client.GetStringAsync("/torrents");
+
+        var html = await (await PostCheckAsync(client, page, fromHtmx: true)).Content.ReadAsStringAsync();
+
+        Assert.Contains("Checked 1 torrent in qBittorrent: 1 found, 0 not in client. 1 metadata-only record skipped.", html);
+        Assert.DoesNotContain("not in client</td>", html);
+    }
+
+    [Fact]
     public async Task Post_CheckClient_FromHtmx_KeepsTheCurrentSearchFilter()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1"));

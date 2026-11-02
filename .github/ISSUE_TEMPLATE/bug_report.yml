@@ -9,7 +9,7 @@ body:
 
         - Questions and ideas belong in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions).
         - Security problems must not be reported here: use [Report a vulnerability](https://github.com/crimsonking60/fetchshelf/security/advisories/new) instead.
-        - **Remove secrets** from anything you paste: your `mam_id`, qBittorrent password, and Audiobookshelf and Notion tokens.
+        - **Remove secrets** from anything you paste: your `mam_id`, qBittorrent password and Audiobookshelf token.
 
   - type: input
     id: version

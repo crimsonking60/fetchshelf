@@ -5,6 +5,83 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.1 - 2026-11-02
+
+The Docker database folder moves to `/database`, Notion lists are gone, and the Clean job no longer mistakes a
+different book by the same author for a copy. Every job now logs what it does with each torrent.
+
+### Upgrading
+
+- **Mount your data folder at `/database` instead of `/data`.** Only the container side changes: keep your
+  host folder and write, for example, `-v /srv/fetchshelf/data:/database`, or
+  `- /srv/fetchshelf/data:/database` in Compose. Without this, Fetchshelf starts with a new, empty database.
+  If you set `FETCHSHELF_DATA_FILE`, change it to the new path too.
+- **Remove Notion from `config.toml`.** Fetchshelf no longer starts with a `[[notion_list]]` block or an
+  `import_interval` setting in it, and says which setting is the problem.
+- **Snatchlists now follow `cost`.** With the default, `metadata_only`, a snatchlist only refreshes torrents
+  Fetchshelf already has. Until now it also recorded the rest as owned books; set
+  `cost = "metadata_only_add"` on the block to keep that.
+- Misspelled `sort_by` and `search_in` values now stop Fetchshelf at startup with an error naming them. They
+  used to make that autograb fail on every run instead.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+- If an earlier version's Clean job replaced a book with a different book by the same author (see Fixed),
+  find its *Cleaned* event on the **Events** page and use **Refresh and relink** on the replaced torrent to
+  put it back.
+
+### Added
+
+- `link_method` at the top level of `config.toml`: how files are placed in every `[[library]]` that does not
+  set its own method.
+- `mam_id_file`: read the MAM session id from a file, such as a Docker secret, instead of `config.toml`.
+- **Events** page: pages, like the **Torrents** page. The pager on both has **First** and **Last**.
+- The log says what the Link, Download, Clean, snatchlist and Audiobookshelf jobs do with each torrent, and
+  whether a link hardlinked, copied or symlinked the files.
+- **Jobs** page: a run where some torrents failed shows *Finished with errors* and how many failed.
+
+### Changed
+
+- The default log level is `Information`. Set `FETCHSHELF_LOG=debug` to see every torrent each job looks at.
+- **Refresh and relink** links the book again from the download in qBittorrent, into the library that the
+  torrent's current category, save path and tags point to. It used to only move the existing folder.
+- **Torrents** page: the search ignores case and accents, and only looks at titles, authors and series.
+- Snatchlist runs read a torrent's details from the snatch list itself and only ask MAM about torrents
+  Fetchshelf doesn't have yet, so long lists need far fewer requests.
+- Only one job talks to MAM at a time, now including Download, Link's metadata lookups and applying a tag
+  rule. A **Refresh** pressed while an autograb or snatchlist runs waits for it to finish.
+- **Check qBittorrent** skips books recorded with `metadata_only_add`. Fetchshelf never downloaded them, so it
+  can't look them up.
+- **Events** and torrent pages show event types, library mismatches and changed fields in plain words.
+- MAM failures on the **Search**, torrent and **Config** pages are explained in one sentence, with the details
+  in the log. **Refresh** says when MAM doesn't have the torrent any more.
+- **Remove from qBittorrent with data** asks you to confirm first.
+- Configuration errors say how to fix them: `[audiobookshelf]` written as `[[audiobookshelf]]` and the like
+  names the right form, and a misspelled autograb `type` or `cost` names the value. Startup stops with one
+  log line instead of a stack trace.
+
+### Fixed
+
+- The Clean job treated two different books by the same author as copies of one book, and removed the one in
+  the worse format from your library.
+- Retiring a copy that shared its folder with the better copy deleted the better copy's `metadata.json` and
+  `cover.jpg`. Use **Refresh and relink** on the kept torrent to write them again.
+- Several `try_wedge` torrents in one download run could leave you with fewer wedges than `wedge_buffer`.
+- Snatch lists longer than 250 rows: MAM sends 1000 rows per page, and Fetchshelf could read the same rows
+  again up to `max_pages` times.
+- `exclude_uploader` and the snatched-count settings were ignored on `[[snatchlist]]` blocks.
+- One torrent that failed no longer ends a Download, Clean, snatchlist or Audiobookshelf run.
+- A Link run where torrents could not be linked showed *Success*.
+- After every image update, the log showed an error and forms left open in the browser were refused. The keys
+  behind the forms are now kept in `/database/keys`.
+- **Check qBittorrent** marked every book recorded with `metadata_only_add` as *not in client*. The next check
+  clears that.
+- **Refresh and relink** failed when the book's folder was gone, and did not move a book to its new library.
+- The page shown after an unexpected error was ASP.NET's developer template.
+
+### Removed
+
+- Notion lists (`[[notion_list]]` and `import_interval`).
+
 ## 2026.10.3 - 2026-10-31
 
 Goodreads support is gone, there is a new Duplicates page, images now run on ARM, and Docker can tell
@@ -33,7 +110,7 @@ whether Fetchshelf is healthy.
 - The version is shown on the **Config** page and in the first log line, for bug reports.
 - The **Jobs** page lists the kinds of job you haven't configured.
 - **Selected** page: change the cost of a queued torrent to `Ratio`, `TryWedge` or `UseWedge`.
-- Torrent page: change the torrent's category and tags in qBittorrent, and a link to the torrent on MaM.
+- Torrent page: change the torrent's category and tags in qBittorrent, and a link to the torrent on MAM.
 - **Torrents** page: click a media type to show only that kind. The filters in use are listed above the
   table, each with a link to remove it.
 - The log shows when each job starts and finishes, and why a job failed. Failures were only shown on the
@@ -41,7 +118,7 @@ whether Fetchshelf is healthy.
 
 ### Fixed
 
-- MaM download links contain a personal download key, and they were written to the log. They aren't any
+- MAM download links contain a personal download key, and they were written to the log. They aren't any
   more, and neither is the address of every other web request Fetchshelf makes. Logs from earlier versions
   can contain these links, so don't share them unedited.
 - `add_torrents_stopped = true` works with qBittorrent 5. Torrents were added started.
@@ -126,6 +203,6 @@ development, so expect rough edges.
   every page hang during Link runs.
 - Musicology torrents are linked using `music_types` and Radio torrents using `radio_types`, so, for
   example, a Musicology torrent of flac files is no longer refused.
-- An autograb's `search_in` is now passed on to the MaM search instead of being ignored.
-- MaM failures on the Search page are shown as plain messages with a Try again button.
+- An autograb's `search_in` is now passed on to the MAM search instead of being ignored.
+- MAM failures on the Search page are shown as plain messages with a Try again button.
 - The Jobs page columns no longer shift every time the page refreshes.

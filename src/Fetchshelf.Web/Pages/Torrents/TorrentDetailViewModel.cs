@@ -20,7 +20,7 @@ public sealed record TorrentDetailViewModel(
     string? MamLink)
 {
     /// <param name="absUrl">The configured `[audiobookshelf].url`, or null when not configured.</param>
-    /// <param name="mamBaseUrl">MaM's base URL; torrents without a MaM id (0) get no MaM link.</param>
+    /// <param name="mamBaseUrl">MAM's base URL; torrents without a MAM id (0) get no MAM link.</param>
     public static TorrentDetailViewModel From(
         TorrentEntity entity, IReadOnlyList<EventEntity> events, QBittorrentTorrent? clientState, string? absUrl, string mamBaseUrl) => new(
         entity.Id,

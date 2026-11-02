@@ -56,7 +56,7 @@ public partial class DuplicatesPageTests
     }
 
     [Fact]
-    public async Task Get_IsInTheNavigation()
+    public async Task Get_AnyPage_HasDuplicatesInTheNavigation()
     {
         using var fixture = new FetchshelfWebAppFixture();
         var client = fixture.CreateClient();

@@ -2,6 +2,7 @@ using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.Tests;
 
+[Collection(EnvironmentVariableCollection.Name)]
 public sealed class ConfigLoaderTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-config-tests-").FullName;
@@ -33,7 +34,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_ScalarSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_ScalarSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
 
@@ -50,11 +51,10 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.True(settings.JobExplanations);
         Assert.Equal(30, settings.SearchInterval);
         Assert.Equal(10, settings.LinkInterval);
-        Assert.Equal(135, settings.ImportInterval);
     }
 
     [Fact]
-    public void Load_ListSettingsAbsentFromFile_UseSpecDefaults()
+    public void Load_ListSettingsAbsentFromFile_UseDocumentedDefaults()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
 
@@ -131,7 +131,7 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_EnvironmentVariableOverridesFileValue()
+    public void Load_EnvironmentVariableAndFileValue_EnvironmentVariableWins()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"from-file\"\n");
         Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id", "from-env");
@@ -148,7 +148,41 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_EnvironmentVariableOverridesDefaultValue()
+    public void Load_MamIdFileFromEnvironmentVariable_ReadsTheFile()
+    {
+        var secretPath = Path.Combine(Path.GetDirectoryName(ConfigPath)!, "mam_id");
+        File.WriteAllText(secretPath, "from-file\n");
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", secretPath);
+        try
+        {
+            Assert.Equal("from-file", ConfigLoader.Load(ConfigPath).MamId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", null);
+        }
+    }
+
+    [Fact]
+    public void Load_MamIdFileFromEnvironmentVariableWithMamIdInFile_Throws()
+    {
+        var secretPath = Path.Combine(Path.GetDirectoryName(ConfigPath)!, "mam_id");
+        File.WriteAllText(secretPath, "from-file");
+        File.WriteAllText(ConfigPath, "mam_id = \"from-config\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", secretPath);
+        try
+        {
+            Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id_file", null);
+        }
+    }
+
+    [Fact]
+    public void Load_EnvironmentVariableOnly_OverridesDefaultValue()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
         Environment.SetEnvironmentVariable("FETCHSHELF_CONF_min_ratio", "3.5");
@@ -161,6 +195,29 @@ public sealed class ConfigLoaderTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_min_ratio", null);
+        }
+    }
+
+    [Fact]
+    public void Load_LinkMethodFromEnvironment_AppliesToLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            """);
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_link_method", "hardlink_or_copy");
+        try
+        {
+            var settings = ConfigLoader.Load(ConfigPath);
+
+            Assert.Equal(LibraryLinkMethod.HardlinkOrCopy, Assert.Single(settings.Library).Method);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_link_method", null);
         }
     }
 }

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Cleaning rules applied to every record built from MaM data.</summary>
+/// <summary>Cleaning rules applied to every record built from MAM data.</summary>
 public static partial class MamMetadataCleaner
 {
     [GeneratedRegex(@"\(Digital\)\s*$|\(Light Novel\)\s*$", RegexOptions.IgnoreCase)]

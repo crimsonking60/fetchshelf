@@ -107,7 +107,7 @@ public sealed class AbsClientTests
     }
 
     [Fact]
-    public async Task UpdateItemMetadataAsync_SendsPatchWithSplitTitleAuthorsSeriesGenres()
+    public async Task UpdateItemMetadataAsync_FullMetadata_SendsPatchWithSplitTitleAuthorsSeriesGenres()
     {
         HttpRequestMessage? capturedRequest = null;
         string? capturedBody = null;
@@ -135,7 +135,7 @@ public sealed class AbsClientTests
     }
 
     [Fact]
-    public async Task DeleteItemAsync_TargetsGivenItemId()
+    public async Task DeleteItemAsync_ItemId_TargetsThatItem()
     {
         HttpRequestMessage? capturedRequest = null;
         var client = CreateClient(request =>

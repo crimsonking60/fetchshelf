@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Parses MaM's size syntax: a decimal number (possibly with thousands separators, like "1,020.5 KiB") plus a unit (B, KiB/KB, MiB/MB, GiB/GB, TiB/TB; powers of 1024).</summary>
+/// <summary>Parses MAM's size syntax: a decimal number (possibly with thousands separators, like "1,020.5 KiB") plus a unit (B, KiB/KB, MiB/MB, GiB/GB, TiB/TB; powers of 1024).</summary>
 public static partial class MamSizeParser
 {
     [GeneratedRegex(@"^\s*([\d.,]+)\s*([A-Za-z]+)\s*$")]

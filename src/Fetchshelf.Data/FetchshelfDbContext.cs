@@ -16,8 +16,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<EventEntity> Events => Set<EventEntity>();
 
-    public DbSet<ConfigStoreEntry> ConfigStore => Set<ConfigStoreEntry>();
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TorrentEntity>(entity =>
@@ -41,11 +39,6 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasIndex(e => e.TorrentId);
             entity.HasIndex(e => e.MamId);
-        });
-
-        modelBuilder.Entity<ConfigStoreEntry>(entity =>
-        {
-            entity.HasKey(c => c.Key);
         });
     }
 }

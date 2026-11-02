@@ -5,10 +5,11 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.Tests;
 
-/// <summary>Covers task 5.1: deleting a replaced torrent's matched Audiobookshelf item.</summary>
+/// <summary>Deleting a replaced torrent's matched Audiobookshelf item.</summary>
 public sealed class CleanerAbsDeleteTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-cleaner-abs-tests-").FullName;
@@ -154,4 +155,45 @@ public sealed class CleanerAbsDeleteTests : IDisposable
 
         Assert.Empty(deletedItemIds);
     }
+
+    [Fact]
+    public async Task RunAsync_AbsDeleteFails_LogsAndRecordsCleanErrorAndLeavesCopyUnretired()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
+        await AddLinkedTorrentAsync(context, "loser", "mp3", 100, Path.Combine(_root, "loser"), absId: "item1");
+        var logger = new ListLogger<Cleaner>();
+        var cleaner = new Cleaner(context, new EventStore(context), Formats, CreateFailingAbsClient(), logger);
+
+        var summary = await cleaner.RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(Retired: 0, Failed: 1), summary);
+        Assert.Contains("500", Assert.Single(logger.Messages(LogLevel.Error)));
+        var error = await context.ErroredTorrents.SingleAsync();
+        Assert.Equal((ErrorStage.Cleaner, "loser"), (error.Stage, error.Key));
+        var loser = await context.Torrents.AsNoTracking().SingleAsync(t => t.Id == "loser");
+        Assert.Null(loser.ReplacedWithTorrentId);
+        Assert.Equal("item1", loser.AbsId);
+        Assert.Empty(context.Events);
+    }
+
+    [Fact]
+    public async Task RunAsync_CopyRetiredAfterAnEarlierFailure_ClearsItsCleanError()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
+        await AddLinkedTorrentAsync(context, "loser", "mp3", 100, Path.Combine(_root, "loser"), absId: "item1");
+        await CreateCleaner(context, CreateFailingAbsClient()).RunAsync([]);
+        Assert.Single(context.ErroredTorrents);
+
+        var summary = await CreateCleaner(context, CreateAbsClient([])).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(Retired: 1, Failed: 0), summary);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    private static AbsClient CreateFailingAbsClient() =>
+        new(
+            new HttpClient(new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError))),
+            new AbsClientOptions { BaseUrl = "http://abs.local", Token = "token" });
 }

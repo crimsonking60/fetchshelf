@@ -9,8 +9,6 @@ public sealed class SelectedTorrentEntity
 
     public required string DownloadLink { get; set; }
 
-    public string? InfoHash { get; set; }
-
     public required string CostDecision { get; set; }
 
     public string? Category { get; set; }

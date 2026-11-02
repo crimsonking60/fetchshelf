@@ -8,7 +8,7 @@ namespace Fetchshelf.Web.Tests;
 /// <summary>
 /// Boots the real Fetchshelf.Web host against an isolated temp config file, with a
 /// test-controlled <see cref="JobRegistry"/> swapped in so tests can register jobs before
-/// exercising the Home page.
+/// requesting pages.
 /// </summary>
 public sealed class FetchshelfWebAppFixture : IDisposable
 {
@@ -46,13 +46,13 @@ public sealed class FetchshelfWebAppFixture : IDisposable
                         .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(qbittorrentHandler));
                 }
 
-                // Never let a test reach the real MaM: a request from here would carry this machine's IP and an
+                // Never let a test reach the real MAM: a request from here would carry this machine's IP and an
                 // empty or placeholder mam_id, which can get the real session or address rejected. Tests that
-                // expect MaM calls must pass their own mamHandler.
+                // expect MAM calls must pass their own mamHandler.
                 services.AddHttpClient("mam")
                     .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(mamHandler ?? (request =>
                         throw new InvalidOperationException(
-                            $"Test sent a real MaM request ({request.Method} {request.RequestUri?.AbsolutePath}). Pass mamHandler to FetchshelfWebAppFixture."))));
+                            $"Test sent a real MAM request ({request.Method} {request.RequestUri?.AbsolutePath}). Pass mamHandler to FetchshelfWebAppFixture."))));
 
                 if (absHandler is not null)
                 {

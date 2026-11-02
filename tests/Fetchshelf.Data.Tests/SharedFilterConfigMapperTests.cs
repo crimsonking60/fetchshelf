@@ -6,7 +6,7 @@ namespace Fetchshelf.Data.Tests;
 public class SharedFilterConfigMapperTests
 {
     [Fact]
-    public void ToTorrentFilter_MapsEveryField()
+    public void ToTorrentFilter_EveryFieldSet_MapsEveryField()
     {
         var config = new SharedFilterConfig
         {

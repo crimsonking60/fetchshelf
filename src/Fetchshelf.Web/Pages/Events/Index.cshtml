@@ -12,12 +12,13 @@
         <option value="">All types</option>
         @foreach (var kind in Enum.GetValues<Fetchshelf.Data.Entities.EventKind>())
         {
-            <option value="@kind" selected="@(Model.Type == kind)">@kind</option>
+            <option value="@kind" selected="@(Model.Type == kind)">@EventLabels.For(kind)</option>
         }
     </select>
     <input type="text" name="Grabber" value="@Model.Grabber" placeholder="Grabber" />
     <input type="text" name="Linker" value="@Model.Linker" placeholder="Linker" />
     <input type="text" name="Field" value="@Model.Field" placeholder="Field" />
+    <input type="hidden" name="PageSize" value="@Model.PageSize" />
     <button type="submit">Filter</button>
 </form>
 
@@ -41,7 +42,7 @@ else
             {
                 <tr>
                     <td><local-time value="e.OccurredAt" /></td>
-                    <td class="nowrap">@e.Kind</td>
+                    <td class="nowrap">@EventLabels.For(e.Kind)</td>
                     <td class="nowrap">
                         @if (e.TorrentId is not null)
                         {
@@ -55,16 +56,16 @@ else
                                 @:Linked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" by {e.LinkerName}") to @e.LibraryPath
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.Cleaned:
-                                @:Cleaned@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @e.FilesRemovedJson
+                                @:Cleaned@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.Updated:
-                                @:@e.FieldChangesJson
+                                @:@EventLabels.FieldChanges(e.FieldChangesJson)
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.Grabbed:
                                 @:Grabbed@(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}") (cost: @e.Cost)
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.RemovedFromMam:
-                                @:Removed from MaM
+                                @:Removed from MAM
                                 break;
                         }
                     </td>
@@ -72,4 +73,6 @@ else
             }
         </tbody>
     </table>
+
+    @await Html.PartialAsync("_Pager", Model.Pager)
 }

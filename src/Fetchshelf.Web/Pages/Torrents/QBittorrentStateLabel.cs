@@ -2,7 +2,7 @@ namespace Fetchshelf.Web.Pages.Torrents;
 
 /// <summary>
 /// Readable labels for qBittorrent's raw torrent state strings. Values it does not know (including
-/// Fetchshelf's own "not in client" / "removed from MaM" statuses) are shown unchanged.
+/// Fetchshelf's own "not in client" / "removed from MAM" statuses) are shown unchanged.
 /// </summary>
 public static class QBittorrentStateLabel
 {

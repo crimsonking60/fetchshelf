@@ -42,7 +42,7 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events", "ConfigStore",
+            "Events",
         ];
         foreach (var expected in expectedTables)
         {
@@ -70,6 +70,79 @@ public sealed class DataPersistenceTests : IDisposable
         var remaining = context.ErroredTorrents.OrderBy(e => e.Key).Select(e => e.ErrorText).ToList();
         Assert.Equal(["second", "other"], remaining);
     }
+
+    [Fact]
+    public void Migrate_ListFromTheInitialSchema_KeepsTheListWithEmptyNewColumns()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261022060358_Initial");
+        context.Database.ExecuteSql(
+            $"INSERT INTO Lists (Id, Name, ListType, CreatedAt) VALUES ('list1', 'To read', 'Goodreads', '2026-10-22 10:00:00+00:00')");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+
+        context.GetService<IMigrator>().Migrate("20261023143408_ExtendListEntities");
+
+        var lists = context.Database
+            .SqlQueryRaw<string>("SELECT Name || '|' || COALESCE(BuildDate, 'null') || '|' || COALESCE(UpdatedAt, 'null') AS Value FROM Lists")
+            .ToList();
+        Assert.Equal(["To read|null|null"], lists);
+        Assert.Equal(0, context.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM ListItems").Single());
+        Assert.Equal("Kept Torrent", context.Database.SqlQueryRaw<string>("SELECT Title AS Value FROM Torrents").Single());
+    }
+
+    [Fact]
+    public void Migrate_GoodreadsListsFromBeforeTheirRemoval_DropsTheListsAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261027192047_OneErrorRowPerTorrent");
+        context.Database.ExecuteSql(
+            $"INSERT INTO Lists (Id, Name, ListType, CreatedAt) VALUES ('list1', 'To read', 'Goodreads', '2026-10-28 10:00:00+00:00')");
+        context.Database.ExecuteSql(
+            $"""
+            INSERT INTO ListItems (ListId, Guid, BookTitle, AuthorsJson, CoverUrl, AllowAudio, AllowEbook, CreatedAt)
+            VALUES ('list1', 'guid1', 'Some Book', '["Some Author"]', 'https://example.test/cover.jpg', 1, 1, '2026-10-28 10:00:00+00:00')
+            """);
+        InsertTorrent(context, "hash1", "Kept Torrent");
+        var linked = (int)EventKind.Linked;
+        context.Database.ExecuteSql(
+            $"INSERT INTO Events (OccurredAt, TorrentId, Kind, LibraryPath) VALUES ('2026-10-28 10:00:00+00:00', 'hash1', {linked}, '/library/Author/Title')");
+        context.Database.ExecuteSql(
+            $"INSERT INTO ErroredTorrents (Stage, Key, ErrorText, OccurredAt) VALUES (1, 'hash2', 'boom', '2026-10-28 10:00:00+00:00')");
+
+        DatabaseMigrator.Migrate(context);
+
+        var tableNames = context.Database.SqlQueryRaw<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
+        Assert.DoesNotContain("Lists", tableNames);
+        Assert.DoesNotContain("ListItems", tableNames);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        Assert.Equal("/library/Author/Title", context.Events.Single().LibraryPath);
+        Assert.Equal("boom", context.ErroredTorrents.Single().ErrorText);
+    }
+
+    [Fact]
+    public void Migrate_UnusedStorageFromBeforeItsRemoval_DropsItAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261030222248_RemoveGoodreadsLists");
+        context.Database.ExecuteSql($"INSERT INTO ConfigStore (Key, Value) VALUES ('mam_cookie', 'cookie-value')");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+        context.Database.ExecuteSql(
+            $$"""
+            INSERT INTO SelectedTorrents (MamId, DownloadLink, InfoHash, CostDecision, UnsatBuffer, WedgeBuffer, MetadataJson, NormalizedTitleKey, CreatedAt)
+            VALUES (2, 'https://example.test/download/2', 'hash2', 'Ratio', 0, 0, '{}', 'kept selected', '2026-10-31 10:00:00+00:00')
+            """);
+
+        DatabaseMigrator.Migrate(context);
+
+        var tableNames = context.Database.SqlQueryRaw<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
+        Assert.DoesNotContain("ConfigStore", tableNames);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        Assert.Equal("kept selected", context.SelectedTorrents.Single().NormalizedTitleKey);
+    }
+
+    private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>
+        context.Database.ExecuteSql(
+            $"INSERT INTO Torrents (Id, MamId, NormalizedTitleKey, Title, MetadataJson, CreatedAt) VALUES ({id}, 1, {title.ToLowerInvariant()}, {title}, '{{}}', '2026-10-22 10:00:00+00:00')");
 
     [Fact]
     public void Restart_OneRecordOfEachCoreType_AllRetrievableUnchangedAfterReopen()
@@ -121,7 +194,6 @@ public sealed class DataPersistenceTests : IDisposable
                 LinkerName = "main-library",
                 LibraryPath = "/library/Author/Title",
             });
-            context.ConfigStore.Add(new ConfigStoreEntry { Key = "mam_cookie", Value = "cookie-value" });
 
             context.SaveChanges();
         }
@@ -133,44 +205,11 @@ public sealed class DataPersistenceTests : IDisposable
             Assert.Equal(torrentId, context.DuplicateTorrents.Single(d => d.MamId == 3).DuplicateOfTorrentId);
             Assert.Equal("boom", context.ErroredTorrents.Single(e => e.Key == torrentId).ErrorText);
             Assert.Equal("/library/Author/Title", context.Events.Single(e => e.TorrentId == torrentId).LibraryPath);
-            Assert.Equal("cookie-value", context.ConfigStore.Single(c => c.Key == "mam_cookie").Value);
         }
     }
 
     [Fact]
-    public async Task ConfigStoreRepository_WriteThenReopen_ValueRoundTrips()
-    {
-        using (var context = CreateContext())
-        {
-            DatabaseMigrator.Migrate(context);
-            var repository = new ConfigStoreRepository(context);
-            await repository.SetAsync("mam_cookie", "first-value");
-        }
-
-        using (var context = CreateContext())
-        {
-            var repository = new ConfigStoreRepository(context);
-            var value = await repository.GetAsync("mam_cookie");
-
-            Assert.Equal("first-value", value);
-        }
-    }
-
-    [Fact]
-    public async Task ConfigStoreRepository_SetAsyncTwice_OverwritesExistingValue()
-    {
-        using var context = CreateContext();
-        DatabaseMigrator.Migrate(context);
-        var repository = new ConfigStoreRepository(context);
-
-        await repository.SetAsync("mam_cookie", "first-value");
-        await repository.SetAsync("mam_cookie", "second-value");
-
-        Assert.Equal("second-value", await repository.GetAsync("mam_cookie"));
-    }
-
-    [Fact]
-    public void EventStore_ExposesNoUpdateOperation()
+    public void PublicMethods_EventStore_IncludeNoUpdateOperation()
     {
         var publicMethodNames = typeof(EventStore)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -196,7 +235,7 @@ public sealed class DataPersistenceTests : IDisposable
             MamId = 7,
         });
 
-        var events = await store.GetAllAsync();
+        var events = await context.Events.AsNoTracking().ToListAsync();
         Assert.Single(events);
         Assert.Equal(EventKind.RemovedFromMam, events[0].Kind);
         Assert.Equal(7, events[0].MamId);

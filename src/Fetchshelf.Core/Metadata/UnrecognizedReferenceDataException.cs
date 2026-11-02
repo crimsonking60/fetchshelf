@@ -1,7 +1,7 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// Thrown when an incoming MaM record's media type, category, language, size, or date cannot be
+/// Thrown when an incoming MAM record's media type, category, language, size, or date cannot be
 /// recognized. Such records must be rejected with a descriptive error rather
 /// than silently dropped.
 /// </summary>

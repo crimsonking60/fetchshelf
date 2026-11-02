@@ -16,6 +16,11 @@
 <h2>Config</h2>
 @await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber or apply a tag rule directly from here.")
 
+@if (Model.ActionMessage is { } actionMessage)
+{
+    <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
+}
+
 <p id="app-version">Fetchshelf version <strong>@Fetchshelf.Web.AppVersion.Current</strong></p>
 
 <section>
@@ -23,6 +28,7 @@
     <table>
         <tbody>
             <tr><th>mam_id</th><td>@IndexModel.HiddenPlaceholder</td></tr>
+            <tr><th>mam_id_file</th><td>@settings.MamIdFile</td></tr>
             <tr><th>web_host</th><td>@settings.WebHost</td></tr>
             <tr><th>web_port</th><td>@settings.WebPort</td></tr>
             <tr><th>min_ratio</th><td>@settings.MinRatio</td></tr>
@@ -32,9 +38,9 @@
             <tr><th>page_explanations</th><td>@settings.PageExplanations</td></tr>
             <tr><th>job_explanations</th><td>@settings.JobExplanations</td></tr>
             <tr><th>exclude_narrator_in_library_dir</th><td>@settings.ExcludeNarratorInLibraryDir</td></tr>
+            <tr><th>link_method</th><td>@settings.LinkMethod</td></tr>
             <tr><th>search_interval</th><td>@settings.SearchInterval</td></tr>
             <tr><th>link_interval</th><td>@settings.LinkInterval</td></tr>
-            <tr><th>import_interval</th><td>@settings.ImportInterval</td></tr>
             <tr><th>ignore_torrents</th><td>@string.Join(", ", settings.IgnoreTorrents)</td></tr>
             <tr><th>audio_types</th><td>@string.Join(", ", settings.AudioTypes)</td></tr>
             <tr><th>ebook_types</th><td>@string.Join(", ", settings.EbookTypes)</td></tr>

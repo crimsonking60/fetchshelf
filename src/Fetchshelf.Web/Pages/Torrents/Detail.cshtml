@@ -7,6 +7,10 @@
 @if (Model.Torrent is { } torrent)
 {
     <h2>@torrent.Metadata.Title</h2>
+    @if (Model.ActionMessage is { } actionMessage)
+    {
+        <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
+    }
     @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     <div class="meta-block">
         <p><span class="label">Authors</span><span class="value">@string.Join(", ", torrent.Metadata.Authors)</span></p>
@@ -19,7 +23,7 @@
     </div>
     @if (torrent.LibraryMismatchState is not null)
     {
-        <p id="mismatch-state" class="notice">Library mismatch: @torrent.LibraryMismatchState</p>
+        <p id="mismatch-state" class="notice">Library mismatch: @LibraryMismatchLabel.For(torrent.LibraryMismatchState)</p>
     }
     @if (torrent.ReplacedWithTorrentId is not null)
     {
@@ -27,7 +31,7 @@
     }
     @if (torrent.MamLink is not null)
     {
-        <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MaM</a></p>
+        <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
     }
     @if (torrent.AbsLink is not null)
     {
@@ -74,7 +78,7 @@
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
         <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
         <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.')">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
         @if (torrent.ReplacedWithTorrentId is not null)
         {
             <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>
@@ -87,7 +91,7 @@
     <ul>
         @foreach (var e in torrent.Events)
         {
-            <li><local-time value="e.OccurredAt" /> - @e.Kind</li>
+            <li><local-time value="e.OccurredAt" /> - @Fetchshelf.Web.Pages.Events.EventLabels.For(e.Kind)</li>
         }
     </ul>
 }

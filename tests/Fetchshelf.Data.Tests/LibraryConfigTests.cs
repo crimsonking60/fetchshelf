@@ -35,6 +35,48 @@ public sealed class LibraryConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_GlobalLinkMethod_AppliesToLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            link_method = "hardlink_or_copy"
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+            method = "symlink"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Equal(LibraryLinkMethod.HardlinkOrCopy, settings.LinkMethod);
+        Assert.Equal(LibraryLinkMethod.HardlinkOrCopy, settings.Library[0].Method);
+        Assert.Equal(LibraryLinkMethod.Symlink, settings.Library[1].Method);
+    }
+
+    [Fact]
+    public void Load_LibraryMethodSetToHardlink_IsNotReplacedByGlobalLinkMethod()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            link_method = "copy"
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            method = "hardlink"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Equal(LibraryLinkMethod.Hardlink, Assert.Single(settings.Library).Method);
+    }
+
+    [Fact]
     public void Load_LibrarySectionWithAllFields_ParsesEachField()
     {
         File.WriteAllText(ConfigPath, """

@@ -8,15 +8,10 @@ public class IntervalSchedulerRegistrationTests
         link_interval = 10
         search_interval = 15
 
-        [[notion_list]]
-        data_source = "abc123"
-        token = "secret"
-        name = "my-notion-list"
-        mam_fields = ["MaM"]
+        [[snatchlist]]
+        name = "my-snatchlist"
+        type = "seed_sat"
         search_interval = 20
-
-        [[notion_list.grab]]
-        cost = "free"
         """;
 
     [Fact]
@@ -28,6 +23,6 @@ public class IntervalSchedulerRegistrationTests
 
         Assert.NotNull(fixture.JobRegistry.Get("Link")!.NextScheduledRun);
         Assert.NotNull(fixture.JobRegistry.Get("Download")!.NextScheduledRun);
-        Assert.NotNull(fixture.JobRegistry.Get("my-notion-list")!.NextScheduledRun);
+        Assert.NotNull(fixture.JobRegistry.Get("my-snatchlist")!.NextScheduledRun);
     }
 }

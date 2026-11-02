@@ -1,8 +1,9 @@
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 5.4's three named scenarios against a fake qBittorrent server.</summary>
+/// <summary>The Torrent detail page's actions that reach qBittorrent, against a fake qBittorrent server.</summary>
 public partial class TorrentDetailActionsTests
 {
     private const string Hash = "hash1";
@@ -21,23 +22,23 @@ public partial class TorrentDetailActionsTests
         """;
 
     [Fact]
-    public async Task Post_RefreshAndRelink_MovesFilesToNewFolder()
+    public async Task Post_RefreshAndRelink_DownloadMissing_ShowsWhyAndKeepsTheBook()
     {
         var tempDir = Directory.CreateTempSubdirectory("fetchshelf-detail-action-tests-").FullName;
         try
         {
             var libraryDir = Path.Combine(tempDir, "library");
-            var oldFolder = Path.Combine(libraryDir, "Brandon Sanderson", "Old Title");
-            Directory.CreateDirectory(oldFolder);
-            File.WriteAllText(Path.Combine(oldFolder, "book.m4b"), "data");
+            var bookFolder = Path.Combine(libraryDir, "Brandon Sanderson", "Old Title");
+            Directory.CreateDirectory(bookFolder);
+            File.WriteAllText(Path.Combine(bookFolder, "book.m4b"), "data");
 
             var originalMetadata = OrganizerTestSupport.BuildMetadata("Old Title");
-            var refreshedMetadata = originalMetadata with { Title = "New Title" };
+            var missingDownloads = Path.Combine(tempDir, "downloads");
             using var fixture = new FetchshelfWebAppFixture(
                 ConfigWithQBittorrent(libraryDir),
-                metadataLookup: new FakeMetadataLookup(refreshedMetadata),
-                qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
-            await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, originalMetadata, libraryPath: oldFolder);
+                metadataLookup: new FakeMetadataLookup(originalMetadata with { Title = "New Title" }),
+                qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash, missingDownloads, ["book.m4b"]));
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, originalMetadata, libraryPath: bookFolder);
             var client = fixture.CreateClient();
 
             var detailHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
@@ -46,15 +47,50 @@ public partial class TorrentDetailActionsTests
             using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
             var response = await client.PostAsync($"/torrents/{Hash}?handler=RefreshAndRelink", form);
             response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
 
-            var newFolder = Path.Combine(libraryDir, "Brandon Sanderson", "New Title");
-            Assert.True(File.Exists(Path.Combine(newFolder, "book.m4b")));
-            Assert.False(Directory.Exists(oldFolder));
+            Assert.Contains("id=\"action-message\"", html);
+            Assert.Contains($"Not relinked: 1 of its files are not in {missingDownloads}; check path_mapping. Nothing was changed.", html);
+            Assert.True(File.Exists(Path.Combine(bookFolder, "book.m4b")));
         }
         finally
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Post_Refresh_MamDoesNotFindTheTorrent_SaysNothingWasRefreshed()
+    {
+        using var fixture = new FetchshelfWebAppFixture(metadataLookup: new FakeMetadataLookup(null));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+
+        var html = await PostAsync(client, "Refresh");
+
+        Assert.Contains("MAM did not find this torrent, so nothing was refreshed.", html);
+        Assert.DoesNotContain("Refreshed from MAM", html);
+    }
+
+    [Fact]
+    public async Task Post_Refresh_MamRateLimits_ShowsAPlainMessageOnTheTorrentPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: _ => new HttpResponseMessage((HttpStatusCode)429));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+
+        var html = await PostAsync(client, "Refresh");
+
+        Assert.Contains("Refresh failed: MAM is limiting requests from this account. Wait a few minutes and try again.", html);
+    }
+
+    private static async Task<string> PostAsync(HttpClient client, string handler)
+    {
+        var detailHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(detailHtml) });
+        var response = await client.PostAsync($"/torrents/{Hash}?handler={handler}", form);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
     }
 
     [Fact]
@@ -79,6 +115,21 @@ public partial class TorrentDetailActionsTests
 
         response.EnsureSuccessStatusCode();
         Assert.Contains(requestedPaths, p => p.Contains("torrents/delete"));
+    }
+
+    [Fact]
+    public async Task Get_RemoveWithDataForm_AsksForConfirmationBeforeSubmitting()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent("/library"), qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/torrents/{Hash}");
+
+        var form = Assert.Single(RemoveWithDataFormPattern().Matches(html)).Value;
+        Assert.Contains("onsubmit=\"return confirm(", form);
+        Assert.Contains("delete its downloaded files", form);
     }
 
     [Fact]
@@ -171,6 +222,9 @@ public partial class TorrentDetailActionsTests
         response.EnsureSuccessStatusCode();
         Assert.Contains(addedTags, t => t.Contains("tags=c,d", StringComparison.Ordinal));
     }
+
+    [GeneratedRegex(@"<form[^>]*handler=RemoveWithData[^>]*>")]
+    private static partial Regex RemoveWithDataFormPattern();
 
     [GeneratedRegex(@"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""")]
     private static partial Regex AntiforgeryTokenPattern();

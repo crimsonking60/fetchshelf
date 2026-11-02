@@ -31,7 +31,7 @@ public sealed class SelectionRunner(
         TorrentMetadata metadata,
         IReadOnlyList<long> ignoreTorrents,
         ConfiguredCost configuredCost,
-        string? autogrebCategory,
+        string? autograbCategory,
         string? grabberName,
         int unsatBuffer,
         int wedgeBuffer,
@@ -125,7 +125,7 @@ public sealed class SelectionRunner(
             Leechers = record.Leechers,
             TimesCompleted = record.TimesCompleted,
         };
-        var (category, tags) = TagRuleResolver.Resolve(candidate, autogrebCategory, tagRules);
+        var (category, tags) = TagRuleResolver.Resolve(candidate, autograbCategory, tagRules);
 
         var cost = CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, configuredCost);
         if (cost is null)
@@ -157,7 +157,7 @@ public sealed class SelectionRunner(
     private async Task RefreshLibraryMetadataAsync(TorrentEntity existing, TorrentMetadata metadata, CancellationToken cancellationToken)
     {
         var current = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
-        var changes = DiffMetadata(current, metadata);
+        var changes = MetadataDiff.Between(current, metadata);
         if (changes.Count == 0)
         {
             return;
@@ -312,24 +312,5 @@ public sealed class SelectionRunner(
             NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
             CreatedAt = DateTimeOffset.UtcNow,
         });
-    }
-
-    private static List<FieldChange> DiffMetadata(TorrentMetadata from, TorrentMetadata to)
-    {
-        var changes = new List<FieldChange>();
-        AddIfChanged(changes, "Title", from.Title, to.Title);
-        AddIfChanged(changes, "Authors", string.Join(", ", from.Authors), string.Join(", ", to.Authors));
-        AddIfChanged(changes, "Narrators", string.Join(", ", from.Narrators), string.Join(", ", to.Narrators));
-        AddIfChanged(changes, "Language", from.Language.ToString(), to.Language.ToString());
-        AddIfChanged(changes, "LegacyCategory", from.LegacyCategory.ToString(), to.LegacyCategory.ToString());
-        return changes;
-    }
-
-    private static void AddIfChanged(List<FieldChange> changes, string field, string from, string to)
-    {
-        if (!string.Equals(from, to, StringComparison.Ordinal))
-        {
-            changes.Add(new FieldChange(field, from, to));
-        }
     }
 }

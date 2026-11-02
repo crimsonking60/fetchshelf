@@ -31,7 +31,7 @@ public class TagRuleResolverTests
     };
 
     [Fact]
-    public void AutogrebCategory_OverridesMatchingRuleCategory()
+    public void Resolve_AutograbCategorySet_OverridesMatchingRuleCategory()
     {
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "rule-category") };
@@ -42,7 +42,7 @@ public class TagRuleResolverTests
     }
 
     [Fact]
-    public void FirstMatchingRule_WinsCategory_WhenNoAutogrebCategory()
+    public void FirstMatchingRule_WinsCategory_WhenNoAutograbCategory()
     {
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "first"), MatchAllRule(category: "second") };
@@ -53,7 +53,7 @@ public class TagRuleResolverTests
     }
 
     [Fact]
-    public void Tags_AreUnionOfAllMatchingRules()
+    public void Resolve_SeveralMatchingRules_TagsAreTheirUnion()
     {
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(tags: ["new"]), MatchAllRule(tags: ["fiction"]) };

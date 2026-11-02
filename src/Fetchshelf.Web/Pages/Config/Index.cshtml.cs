@@ -11,9 +11,16 @@ namespace Fetchshelf.Web.Pages.Config;
 /// hidden), a trigger link per `[[autograb]]` entry, and an "apply to existing torrents" action per
 /// `[[tag]]` rule.
 /// </summary>
-public class IndexModel(FetchshelfSettings settings, RetroactiveTagApplier retroactiveTagApplier) : PageModel
+public class IndexModel(FetchshelfSettings settings, RetroactiveTagApplier retroactiveTagApplier, ILogger<IndexModel> logger) : PageModel
 {
     public const string HiddenPlaceholder = "(hidden)";
+
+    /// <summary>What the last "apply to existing torrents" did, shown once after the redirect back to this page.</summary>
+    [TempData]
+    public string? ActionMessage { get; set; }
+
+    [TempData]
+    public bool ActionFailed { get; set; }
 
     public FetchshelfSettings Settings => settings;
 
@@ -36,7 +43,22 @@ public class IndexModel(FetchshelfSettings settings, RetroactiveTagApplier retro
             Category = entry.Category,
             Tags = entry.Tags,
         };
-        await retroactiveTagApplier.ApplyAsync(rule);
+        try
+        {
+            var applied = await retroactiveTagApplier.ApplyAsync(rule);
+            ActionMessage = applied switch
+            {
+                0 => "No torrent in qBittorrent matched the tag rule.",
+                1 => "Applied the tag rule to 1 torrent.",
+                _ => $"Applied the tag rule to {applied} torrents.",
+            };
+        }
+        catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            logger.LogWarning(ex, "Applying tag rule {RuleIndex} failed", ruleIndex);
+            ActionFailed = true;
+            ActionMessage = $"Applying the tag rule stopped part-way: {MamErrorDescriber.DescribeAmong(ex, "MAM or qBittorrent")}";
+        }
 
         return RedirectToPage();
     }

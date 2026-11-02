@@ -9,8 +9,14 @@ namespace Fetchshelf.Data.Configuration;
 /// </summary>
 public sealed class FetchshelfSettings
 {
-    /// <summary>MaM session id (cookie value). Required for background jobs to run.</summary>
+    /// <summary>
+    /// MAM session id (cookie value). Required for background jobs to run. When <see cref="MamIdFile"/> is
+    /// set, <c>ConfigLoader</c> fills this from that file.
+    /// </summary>
     public string MamId { get; set; } = string.Empty;
+
+    /// <summary>Full path of a file holding the MAM session id; an alternative to setting <see cref="MamId"/>.</summary>
+    public string? MamIdFile { get; set; }
 
     public string WebHost { get; set; } = "0.0.0.0";
 
@@ -27,16 +33,17 @@ public sealed class FetchshelfSettings
     /// <summary>When true, each web page shows a brief explanation of what it does below its title.</summary>
     public bool PageExplanations { get; set; } = true;
 
-    /// <summary>When true, the Home/jobs page shows a brief description of what each job does.</summary>
+    /// <summary>When true, the Jobs page shows a brief description of what each job does.</summary>
     public bool JobExplanations { get; set; } = true;
 
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
+    /// <summary>The `method` of every `[[library]]` that does not set its own.</summary>
+    public LibraryLinkMethod LinkMethod { get; set; } = LibraryLinkMethod.Hardlink;
+
     public int SearchInterval { get; set; } = 30;
 
     public int LinkInterval { get; set; } = 10;
-
-    public int ImportInterval { get; set; } = 135;
 
     public List<string> IgnoreTorrents { get; set; } = [];
 
@@ -59,16 +66,13 @@ public sealed class FetchshelfSettings
     public List<Library> Library { get; set; } = [];
 
     /// <summary>Repeatable `[[autograb]]` entries.</summary>
-    public List<AutogrebEntry> Autograb { get; set; } = [];
+    public List<AutograbEntry> Autograb { get; set; } = [];
 
     /// <summary>Repeatable `[[tag]]` entries.</summary>
     public List<TagRuleEntry> Tag { get; set; } = [];
 
     /// <summary>Repeatable `[[snatchlist]]` entries.</summary>
     public List<SnatchlistEntry> Snatchlist { get; set; } = [];
-
-    /// <summary>Repeatable `[[notion_list]]` entries.</summary>
-    public List<NotionListEntry> NotionList { get; set; } = [];
 
     /// <summary>Optional `[search]` section.</summary>
     public SearchSettings Search { get; set; } = new();

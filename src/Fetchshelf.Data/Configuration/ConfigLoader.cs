@@ -15,9 +15,17 @@ public static class ConfigLoader
 {
     private const string EnvironmentVariablePrefix = "FETCHSHELF_CONF_";
 
+    private static readonly IYamlTypeConverter[] TypeConverters =
+    [
+        new CategoryListOrBoolYamlConverter(),
+        new AutograbTypeYamlConverter(),
+        new ConfiguredCostYamlConverter(),
+    ];
+
     private static readonly Dictionary<string, Action<FetchshelfSettings, string>> EnvironmentOverrides = new()
     {
         ["mam_id"] = (s, v) => s.MamId = v,
+        ["mam_id_file"] = (s, v) => s.MamIdFile = v,
         ["web_host"] = (s, v) => s.WebHost = v,
         ["web_port"] = (s, v) => s.WebPort = int.Parse(v, CultureInfo.InvariantCulture),
         ["min_ratio"] = (s, v) => s.MinRatio = double.Parse(v, CultureInfo.InvariantCulture),
@@ -27,9 +35,9 @@ public static class ConfigLoader
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
+        ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
-        ["import_interval"] = (s, v) => s.ImportInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
         ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
@@ -57,11 +65,12 @@ public static class ConfigLoader
         var yaml = ConvertTomlToYaml(text);
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
+        ResolveMamIdFile(settings);
+        ApplyGlobalLinkMethod(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
-        ValidateNotionLists(settings);
         return settings;
     }
 
@@ -108,6 +117,7 @@ public static class ConfigLoader
             throw new ConfigurationException($"Invalid configuration: {ex.Message}", ex);
         }
 
+        TomlTableShapeValidator.Validate(model, typeof(FetchshelfSettings), type => TypeConverters.Any(c => c.Accepts(type)));
         return new SerializerBuilder().Build().Serialize(model);
     }
 
@@ -186,17 +196,28 @@ public static class ConfigLoader
 
     private static FetchshelfSettings Deserialize(string yaml)
     {
-        var deserializer = new DeserializerBuilder()
+        var builder = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
-            .WithTypeConverter(new CategoryListOrBoolYamlConverter())
-            .WithTypeConverter(new AutogrebTypeYamlConverter())
-            .WithTypeConverter(new ConfiguredCostYamlConverter())
-            .Build();
+            .WithEnumNamingConvention(UnderscoredNamingConvention.Instance);
+        foreach (var converter in TypeConverters)
+        {
+            builder.WithTypeConverter(converter);
+        }
+
+        var deserializer = builder.Build();
 
         try
         {
             return deserializer.Deserialize<FetchshelfSettings>(yaml) ?? new FetchshelfSettings();
+        }
+        catch (YamlException ex) when (ex.InnerException is ConfigurationException converterError)
+        {
+            // A type converter's own error; YamlDotNet wraps it as "Exception during deserialization".
+            throw new ConfigurationException(converterError.Message, ex);
+        }
+        catch (YamlException ex) when (ex.InnerException is FormatException or OverflowException)
+        {
+            throw new ConfigurationException($"Invalid configuration: {ex.InnerException.Message}", ex);
         }
         catch (YamlException ex)
         {
@@ -213,6 +234,45 @@ public static class ConfigLoader
             {
                 setter(settings, value);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reads <c>mam_id</c> from the file <c>mam_id_file</c> names, if set. Runs after environment overrides so that
+    /// a conflict is caught wherever each value came from. Blank counts as unset, as it does for <c>mam_id</c>.
+    /// </summary>
+    private static void ResolveMamIdFile(FetchshelfSettings settings)
+    {
+        var path = settings.MamIdFile;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.MamId))
+        {
+            throw new ConfigurationException("Invalid configuration: set either 'mam_id' or 'mam_id_file', not both.");
+        }
+
+        if (!Path.IsPathFullyQualified(path))
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: 'mam_id_file' must be a full path, such as /run/secrets/mam_id; got '{path}'.");
+        }
+
+        if (!File.Exists(path))
+        {
+            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' does not exist.");
+        }
+
+        try
+        {
+            // Secret files usually end with a newline, which is not part of the session id.
+            settings.MamId = File.ReadAllText(path).Trim();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' could not be read: {ex.Message}", ex);
         }
     }
 
@@ -237,6 +297,16 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException("Invalid configuration: a [[qbittorrent]] section is missing 'password'.");
             }
+        }
+    }
+
+    /// <summary>Gives every library without its own <c>method</c> the global <c>link_method</c>. Runs after environment
+    /// overrides, so <c>FETCHSHELF_CONF_link_method</c> reaches those libraries too.</summary>
+    private static void ApplyGlobalLinkMethod(FetchshelfSettings settings)
+    {
+        foreach (var library in settings.Library.Where(l => !l.HasOwnMethod))
+        {
+            library.Method = settings.LinkMethod;
         }
     }
 
@@ -275,6 +345,21 @@ public static class ConfigLoader
                 throw new ConfigurationException(
                     "Invalid configuration: an [[autograb]] section setting 'max_active_downloads' must also set 'name'.");
             }
+
+            if (!AutograbSearchOptions.TryParseSortBy(autograb.SortBy, out _))
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: an [[autograb]] section has an unrecognized 'sort_by' value '{autograb.SortBy}'; " +
+                    $"expected one of {AutograbSearchOptions.SortByNames}.");
+            }
+
+            var unknownField = autograb.SearchIn.FirstOrDefault(f => !AutograbSearchOptions.TryParseSearchField(f, out _));
+            if (unknownField is not null)
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: an [[autograb]] section has an unrecognized 'search_in' field '{unknownField}'; " +
+                    $"expected one of {AutograbSearchOptions.SearchInNames}.");
+            }
         }
     }
 
@@ -298,37 +383,6 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
-            }
-        }
-    }
-
-    private static void ValidateNotionLists(FetchshelfSettings settings)
-    {
-        foreach (var list in settings.NotionList)
-        {
-            if (string.IsNullOrWhiteSpace(list.DataSource))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'data_source'.");
-            }
-
-            if (string.IsNullOrWhiteSpace(list.Token))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'token'.");
-            }
-
-            if (string.IsNullOrWhiteSpace(list.Name))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'name'.");
-            }
-
-            if (list.MamFields.Count == 0)
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section must have at least one 'mam_fields' entry.");
-            }
-
-            if (list.Grab.Count == 0)
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section must have at least one 'grab' block.");
             }
         }
     }

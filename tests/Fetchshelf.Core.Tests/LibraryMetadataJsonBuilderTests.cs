@@ -26,7 +26,7 @@ public class LibraryMetadataJsonBuilderTests
     };
 
     [Fact]
-    public void Build_ProducesDocumentMatchingEveryDocumentedField()
+    public void Build_FullMetadata_WritesEveryDocumentedField()
     {
         var json = LibraryMetadataJsonBuilder.Build(Build());
         using var document = JsonDocument.Parse(json);

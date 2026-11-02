@@ -10,9 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.Tests;
 
 /// <summary>
-/// Proves the library organizer's link run now receives real metadata from MaM through
-/// <see cref="MamMetadataLookup"/>/<see cref="MamClient"/>, where previously every lookup missed
-/// with <c>NullMetadataLookup</c>.
+/// A link run getting its metadata from MAM through <see cref="MamMetadataLookup"/> and <see cref="MamClient"/>,
+/// against a fake MAM server.
 /// </summary>
 public sealed class MamMetadataLookupCompositionTests : IDisposable
 {
@@ -83,7 +82,7 @@ public sealed class MamMetadataLookupCompositionTests : IDisposable
         var mamClient = new MamClient(
             new HttpClient(new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(SearchResponseJson) })),
             new MamClientOptions { MamId = "configured-mam-id" });
-        var lookup = new MamMetadataLookup(mamClient);
+        var lookup = new MamMetadataLookup(mamClient, new MamAccessGate());
         var libraries = new List<Library> { new() { LibraryDir = LibraryDir, Category = "audiobooks", Method = LibraryLinkMethod.Hardlink } };
         var runner = new LinkRunner(context, new EventStore(context), lookup, libraries, new FormatPreferenceLists { AudioTypes = ["m4b"], EbookTypes = ["epub"], MusicTypes = [], RadioTypes = [] }, excludeNarratorInLibraryDir: false);
         var connection = new QBittorrentConnection();

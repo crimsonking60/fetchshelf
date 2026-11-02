@@ -25,7 +25,7 @@ GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md)
 - [How the code is organized](#how-the-code-is-organized)
 - [Coding conventions](#coding-conventions)
 - [Database changes and migrations](#database-changes-and-migrations)
-- [Working with MaM responsibly](#working-with-mam-responsibly)
+- [Working with MAM responsibly](#working-with-mam-responsibly)
 - [Branches](#branches)
 - [Commits](#commits)
 - [Pushing](#pushing)
@@ -60,10 +60,10 @@ here is my plan" saves you from building something that doesn't fit.
 | Git | 2.30 or later | Version control. |
 | GitHub CLI (`gh`) | 2.40 or later | Forking, pull requests and issues from the terminal. Optional but recommended; this guide uses it throughout. |
 | A GitHub account | | Forking and pull requests. |
-| qBittorrent | A version MaM currently allows, with the Web UI enabled | Optional. Needed to try downloading and linking end to end. `qbittorrent-nox` (no GUI) is enough. MaM only allows certain client versions and changes the list over time, so check MaM's current list of approved clients before you install one. A distribution's package can be too new or too old. |
+| qBittorrent | A version MAM currently allows, with the Web UI enabled | Optional. Needed to try downloading and linking end to end. `qbittorrent-nox` (no GUI) is enough. MAM only allows certain client versions and changes the list over time, so check MAM's current list of approved clients before you install one. A distribution's package can be too new or too old. |
 | SQLite command-line tool | 3.x | Optional. Handy for looking inside the database. |
 | Docker with Compose | Current | Optional. Needed only to test the container image. |
-| A MyAnonamouse account | | Optional. Needed only for features that talk to MaM. Much of the web UI, and all tests, work without one. |
+| A MAM account | | Optional. Needed only for features that talk to MAM. Much of the web UI, and all tests, work without one. |
 
 Windows and macOS are not supported as development platforms at the moment. WSL2 with a Linux distribution
 works the same as the Linux instructions below.
@@ -79,8 +79,8 @@ sudo apt update
 sudo apt install git gh sqlite3 qbittorrent-nox
 ```
 
-Before you use `qbittorrent-nox` with your MaM account, check its version (`qbittorrent-nox --version`)
-against MaM's current list of approved clients. See [Requirements](#requirements).
+Before you use `qbittorrent-nox` with your MAM account, check its version (`qbittorrent-nox --version`)
+against MAM's current list of approved clients. See [Requirements](#requirements).
 
 Install the .NET 10 SDK.
 
@@ -127,8 +127,8 @@ Install Git, the GitHub CLI and the optional tools:
 sudo dnf install git gh sqlite qbittorrent-nox
 ```
 
-Before you use `qbittorrent-nox` with your MaM account, check its version (`qbittorrent-nox --version`)
-against MaM's current list of approved clients. See [Requirements](#requirements).
+Before you use `qbittorrent-nox` with your MAM account, check its version (`qbittorrent-nox --version`)
+against MAM's current list of approved clients. See [Requirements](#requirements).
 
 On RHEL, AlmaLinux and Rocky Linux, `gh` and `qbittorrent-nox` come from outside the base repositories:
 enable [EPEL](https://docs.fedoraproject.org/en-US/epel/) for `qbittorrent-nox`, and add GitHub's own package
@@ -270,7 +270,7 @@ Run the tests of one project only:
 dotnet test tests/Fetchshelf.Data.Tests
 ```
 
-The tests need no network, no MaM account and no qBittorrent: HTTP clients are tested against fake message
+The tests need no network, no MAM account and no qBittorrent: HTTP clients are tested against fake message
 handlers, and database tests use temporary SQLite files. If you find yourself needing a live service in a
 test, that is a sign the logic should move somewhere it can be tested on its own.
 
@@ -304,9 +304,9 @@ cp docs/config-examples/1-minimal.toml ~/fetchshelf-dev/config.toml
 ```
 
 Edit `~/fetchshelf-dev/config.toml`. The [configuration reference](configuration.md) describes every
-setting, and `docs/config-examples/` has six worked examples, from minimal to complete.
+setting, and `docs/config-examples/` has five worked examples, from minimal to complete.
 
-- **UI-only work, no MaM account:** set `mam_id = ""`. The web UI runs, but no background job starts.
+- **UI-only work, no MAM account:** set `mam_id = ""`. The web UI runs, but no background job starts.
 - **Full end-to-end work:** set your own `mam_id`, point `[[qbittorrent]]` at a local qBittorrent, and use
   library and download folders inside `~/fetchshelf-dev`.
 
@@ -327,7 +327,7 @@ automatically on first start.
 | --- | --- | --- |
 | `FETCHSHELF_CONFIG_FILE` | Path to `config.toml`. | A platform-specific config path, else `config.toml` in the working directory. |
 | `FETCHSHELF_DATA_FILE` | Path to the SQLite database. | `data.db` in the working directory. |
-| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`. | `Debug` |
+| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`. | `Information` |
 | `FETCHSHELF_LOG_DIR` | If set, also write daily log files to this folder. | Console only. |
 
 Logs go to the terminal (stderr). Database queries and per-request framework messages are only logged at
@@ -355,12 +355,11 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | --- | --- |
 | `Fetchshelf.Core` | Pure domain logic with no I/O: metadata normalization and duplicate detection, series parsing, folder naming, library matching, the in-memory job registry. |
 | `Fetchshelf.Core.AutoDownloader` | Pure auto-downloader logic: cost policy, selection budget and ranking, torrent filter matching, tag rules, format preferences. |
-| `Fetchshelf.Clients.Mam` | HTTP client for MyAnonamouse. |
+| `Fetchshelf.Clients.Mam` | HTTP client for MAM. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
-| `Fetchshelf.Clients.Notion` | Notion list reading. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
-| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, list imports. |
+| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, snatchlist imports. |
 | `Fetchshelf.Web` | The ASP.NET Core host: dependency injection setup and background job scheduling in `Program.cs`, and the Razor Pages UI under `Pages/`. |
 
 Each `src` project has a matching test project under `tests/` once it has tests.
@@ -373,7 +372,7 @@ A few things are useful to know before you change them:
 - **Background jobs** are registered by name in the job registry in `Program.cs`. One runner class per job
   does the work, and a scheduler triggers it on its interval. An interval of `0` means "only when started
   from the UI".
-- **Only one job talks to MaM at a time.** Any new code that calls the MaM client from a job must take the
+- **Only one job talks to MAM at a time.** Any new code that calls the MAM client from a job must take the
   `MamAccessGate`.
 - **The event log is append-only.** Events are never updated or deleted. To record a correction, append a
   new event.
@@ -413,12 +412,12 @@ working. When you change an entity or the database context:
 
 Never edit a migration that is already on `develop` or `main`. Add a new one instead.
 
-## Working with MaM responsibly
+## Working with MAM responsibly
 
-MyAnonamouse is a private tracker with rules about automated access, and Fetchshelf runs against real
-people's accounts. When you work on anything that talks to MaM:
+MAM is a private tracker with rules about automated access, and Fetchshelf runs against real
+people's accounts. When you work on anything that talks to MAM:
 
-- Keep the existing politeness: rate-limit back-off, pauses between search pages, and one MaM job at a time.
+- Keep the existing politeness: rate-limit back-off, pauses between search pages, and one MAM job at a time.
 - Test with the fake HTTP handlers in `tests/Fetchshelf.Clients.Mam.Tests`, not with repeated live
   requests.
 - When you do try a change live, use your own account, make as few requests as you can, and stop at the
@@ -588,11 +587,11 @@ Maintainers merge approved pull requests into `develop`, squashing each into one
 ### After the merge
 
 ```sh
-git switch develop
-git pull upstream develop
-git push origin develop
-git branch -d fix/123-errors-page-duplicates
-git push origin --delete fix/123-errors-page-duplicates
+git switch develop                                        # go back to your local develop
+git pull upstream develop                                 # fetch develop with your merged change in it
+git push origin develop                                   # bring your fork's develop up to date too
+git branch -D fix/123-errors-page-duplicates              # delete the finished branch locally (-D: squash-merged, so Git can't tell it was merged)
+git push origin --delete fix/123-errors-page-duplicates   # delete it from your fork on GitHub
 ```
 
 ## Keeping your fork up to date
@@ -746,14 +745,14 @@ choose **Report a vulnerability**, so the report stays private until a fix is ou
 Fetchshelf's configuration holds credentials. Never commit or post any of these, in code, issues, pull
 requests, discussions, screenshots or logs:
 
-- `mam_id` (your MaM session);
+- `mam_id` (your MAM session);
 - qBittorrent usernames and passwords;
-- Audiobookshelf and Notion tokens.
+- Audiobookshelf tokens.
 
 Replace them with placeholders such as `replace-with-your-mam-session-id` before you share a config. Also
 check logs and screenshots for private paths, usernames and library contents you'd rather not publish.
 
-If you accidentally push a secret, revoke it straight away: create a new MaM session, change the password,
+If you accidentally push a secret, revoke it straight away: create a new MAM session, change the password,
 or rotate the token. Removing it from Git history afterwards does not make it safe again.
 
 ## License of contributions

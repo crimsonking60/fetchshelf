@@ -20,4 +20,20 @@ public static class SelectionBudget
 
         return budget;
     }
+
+    /// <summary>
+    /// Where <see cref="Compute"/>'s number comes from, for log lines: the free unsatisfied-snatch slots, or
+    /// `max_active_downloads` when that is the tighter cap.
+    /// </summary>
+    public static string Explain(
+        long unsatLimit, long unsatCount, long unsatBuffer, long? maxActiveDownloads, long currentActiveForGrabber)
+    {
+        var unsatBudget = Math.Max(0, unsatLimit - unsatCount - unsatBuffer);
+        if (maxActiveDownloads is { } cap && Math.Max(0, cap - currentActiveForGrabber) < unsatBudget)
+        {
+            return $"max_active_downloads {cap} - {currentActiveForGrabber} already queued";
+        }
+
+        return $"unsatisfied-snatch slots: {unsatLimit} allowed - {unsatCount} in use - unsat_buffer {unsatBuffer}";
+    }
 }

@@ -22,8 +22,11 @@ These decisions change what is published, so make them before anything becomes p
 - [x] **You:** Images for 64-bit ARM (`linux/arm64`) as well as `linux/amd64`, for Raspberry Pi and ARM-based
   NAS users. Decided: `linux/amd64`, `linux/arm64` and `linux/arm/v7`, every platform the .NET base images
   support.
-- [ ] **You:** Run an ARM image on a real ARM device once one is published. The images are checked to contain
-  the right native code for each architecture, but only the `linux/amd64` image has been started.
+- [x] **You:** Run the `linux/arm64` image on a real ARM device. Done on 2026-11-01: `latest` on an NVIDIA
+  DGX Spark worked as expected.
+- [ ] **You:** Run the `linux/arm/v7` image on a real 32-bit ARM device, for example a Raspberry Pi with a
+  32-bit operating system. The image is checked to contain the right native code, but has never been
+  started.
 - [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
 
 ## 2. Prepare while still private
@@ -49,8 +52,7 @@ These decisions change what is published, so make them before anything becomes p
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about. Done: on the Config page, and as the first log line.
-- [ ] **You:** Check the Notion steps in [Importing reading lists](user-guide.md#importing-reading-lists) and the
-  Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
+- [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
 - [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
 - [ ] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
 
@@ -73,7 +75,7 @@ These decisions change what is published, so make them before anything becomes p
   **Restore branch** on that pull request.
 
 - [x] **You:** Description and topics, shown on the repository page and in search. Done on 2026-10-31: the
-  description is "Self-hosted bridge between MyAnonamouse, qBittorrent and Audiobookshelf". Decided: no
+  description is "Self-hosted bridge between MAM, qBittorrent and Audiobookshelf". Decided: no
   topics.
 
 - [x] **You:** Turn off **Projects** (unused). Done on 2026-10-31.

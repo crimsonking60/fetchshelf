@@ -4,8 +4,7 @@ namespace Fetchshelf.Clients.Mam.Tests;
 
 public class SearchResponseParserTests
 {
-    // Representative response shape, confirmed against the original Rust implementation's
-    // MaMTorrent (mlm_mam/src/search.rs) including the nested-JSON-string-encoded author_info/
+    // Representative response shape, including the nested-JSON-string-encoded author_info/
     // narrator_info/series_info/categories fields.
     private const string ResponseJson = """
         {

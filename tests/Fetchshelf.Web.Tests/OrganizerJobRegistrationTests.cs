@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Confirms the real "Link"/"Clean" jobs this change registers are visible and triggerable (task 4.1).</summary>
+/// <summary>The real "Link"/"Clean" jobs are visible and triggerable.</summary>
 public partial class OrganizerJobRegistrationTests
 {
     [Fact]

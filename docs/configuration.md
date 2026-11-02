@@ -2,8 +2,8 @@
 
 Fetchshelf is configured with a single TOML file, `config.toml`. This page lists every setting, what it
 does and how the settings relate to each other. For working configs to start from, see
-[`docs/config-examples/`](config-examples/): six numbered examples, from a bare-bones `1-minimal.toml`
-to `6-everything.toml`, which uses every option.
+[`docs/config-examples/`](config-examples/): five numbered examples, from a bare-bones `1-minimal.toml`
+to `5-everything.toml`, which uses every option.
 
 ## Contents
 
@@ -17,7 +17,6 @@ to `6-everything.toml`, which uses every option.
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
 - [`[[snatchlist]]`](#snatchlist)
-- [`[[notion_list]]`](#notion_list)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [Reference data](#reference-data)
@@ -28,14 +27,14 @@ to `6-everything.toml`, which uses every option.
 - **Location.** The path comes from the `FETCHSHELF_CONFIG_FILE` environment variable. If it is not set,
   Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
   directory. The file must have a `.toml` extension. The database location is set separately with
-  `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/data` are mounted volumes.
+  `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/database` are mounted volumes.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
-- **No `mam_id`.** With an empty `mam_id` the web UI runs but no background job runs.
+- **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
-  names the problem. This applies to every section, including keys inside `grab` blocks.
+  names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
-  flags, media types, costs) are checked at startup. A config that fails validation is rejected as a whole.
+  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that fails validation is rejected as a whole.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.
@@ -62,11 +61,11 @@ to `6-everything.toml`, which uses every option.
 
 Fetchshelf has two halves that can be used independently.
 
-**Auto-downloader** — finds torrents on MaM and adds them to qBittorrent:
+**Auto-downloader** — finds torrents on MAM and adds them to qBittorrent:
 
 ```
-[[autograb]]        search MaM on a schedule        ─┬─▶ selection ─▶ download ─▶ qBittorrent
-[[notion_list]]     look up books from a database   ─┘      ▲
+[[autograb]]        search MAM on a schedule        ───▶ selection ─▶ download ─▶ qBittorrent
+                                                            ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
 ```
 
@@ -76,13 +75,13 @@ Fetchshelf has two halves that can be used independently.
   of two copies of the same book is better.
 - `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
   download gets.
-- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. Per-source
+- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
   `unsat_buffer` / `wedge_buffer` override the global ones.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
 
 ```
-qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Title folder ─▶ Audiobookshelf
+qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Title folder + metadata.json
           │                         by category or            ▲
           │                         download_dir              │ path_mapping translates the
           └─ category/tags set by [[tag]] rules ─────────────┘ client's paths to Fetchshelf's
@@ -92,8 +91,10 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
   autograb `category` sets) or by their **save path** (`download_dir`).
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
+- Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
+  book's files, readable by any app or script.
 - `[audiobookshelf]` is optional; without it Audiobookshelf can still pick the books up from the
-  `metadata.json` Fetchshelf writes next to the files.
+  `metadata.json` files.
 - When a better format of a book is linked, the old copy is retired, and `on_cleaned` on the
   `[[qbittorrent]]` entry says what to do to it in the client.
 
@@ -103,18 +104,19 @@ These go at the top of the file, before any section.
 
 | Setting | Default | Description |
 |---|---|---|
-| `mam_id` | (required) | MaM session id: the cookie value created under your MaM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
+| `mam_id` | (required, or `mam_id_file`) | MAM session id: the cookie value created under your MAM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
+| `mam_id_file` | unset | Full path of a file that holds the MAM session id, instead of writing it in `mam_id`. See [below](#reading-mam_id-from-a-file). |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
-| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb and per list. |
-| `wedge_buffer` | `0` | Number of freeleech wedges always left unused. Can be overridden per autograb and per list. |
+| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb. |
+| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
+| `link_method` | `"hardlink"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
-| `import_interval` | `135` | Minutes between runs of each Notion list. Overridable per list. |
-| `ignore_torrents` | `[]` | MaM torrent ids that must never be selected, as strings. |
+| `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
@@ -125,17 +127,38 @@ These go at the top of the file, before any section.
 Notes:
 
 - **Format lists do three jobs.** A torrent is only downloaded if it contains at least one listed
-  extension, only listed extensions are linked into a library, and the list order ranks competing copies
-  of the same book: the copy whose first listed extension comes earliest wins. With
+  extension, only its best listed formats are linked into a library (see [`[[library]]`](#library)), and
+  the list order ranks competing copies of the same book: the copy whose first listed extension comes
+  earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
-- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer, and so
-  does each list. A job with interval `0` is still listed on the Jobs page and can be started with
+- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job with interval `0` is still listed on the Jobs page and can be started with
   **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
   budget, `(uploaded − downloaded − bytes already downloading) / min_ratio`, covers their size.
+
+### Reading `mam_id` from a file
+
+`mam_id_file` keeps the session id out of `config.toml`, for example in a Docker secret:
+
+```toml
+mam_id_file = "/run/secrets/mam_id"
+```
+
+- **One or the other.** Setting both `mam_id` and `mam_id_file` is an error. An empty `mam_id = ""`, as in
+  the file Fetchshelf creates on first start, does not count as set.
+- **Full path.** The value must be a full path. Fetchshelf reads the file at startup, so a changed session
+  id takes effect after a restart.
+- **Contents.** The file holds only the session id. Spaces and line breaks around it are ignored, so a
+  trailing newline is fine. An empty file is the same as an empty `mam_id`: the web UI runs but no job
+  does.
+- **Errors.** A file that does not exist or cannot be read stops Fetchshelf from starting, and the error
+  names the path.
+- **Environment.** Like `mam_id`, it can be set with `FETCHSHELF_CONF_mam_id_file`. The check for both
+  being set happens after environment overrides, wherever each value comes from.
+- **Config page.** The Config page shows the path; the session id itself stays hidden.
 
 ## `[search]`
 
@@ -197,12 +220,13 @@ tags = ["superseded"]
   Without a mapping, the paths qBittorrent reports are used as they are.
 - **Categories** named in `on_cleaned`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
   automatically if they do not exist.
-- Hardlinks only work when the download folder and the library folder are on the same filesystem. See
-  [`method`](#library).
+- Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
+  Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
+  on one disk. See [`method`](#library).
 
 ## The shared torrent filter
 
-`[[autograb]]`, `[[snatchlist]]`, `[[tag]]` and every `grab` block of a Notion list share one
+`[[autograb]]`, `[[snatchlist]]` and `[[tag]]` share one
 set of optional filter fields. A torrent matches only if it satisfies **every** field that is set. A field
 that is not set imposes no restriction (except `categories`, which always has defaults).
 
@@ -232,21 +256,19 @@ max_authors = 3
 
 How the filter is applied:
 
-- Where possible the filter is translated into MaM search parameters so MaM narrows the results, and the
+- Where possible the filter is translated into MAM search parameters so MAM narrows the results, and the
   **full filter is then applied again locally** to every result. The local check is what counts.
 - Because `categories` defaults to "audio and ebook, nothing else", a block without `categories` never
   matches Musicology or Radio. To include them, set `categories = { musicology = true }` or the
   `radio` equivalent.
-- `categories` also decides what a list can look for. A list whose `grab` blocks all exclude ebooks never
-  wants ebooks.
 - Several `flags` may be set at once, so one block can both require and forbid flags.
 - A `[[tag]]` rule can also be applied to torrents you already have, from the Config page. In that case
-  fields that need live data (uploader, seeders, leechers, snatched counts) are looked up from MaM
+  fields that need live data (uploader, seeders, leechers, snatched counts) are looked up from MAM
   for each torrent.
 
 ## `[[autograb]]`
 
-Repeatable. An autograb is a scheduled MaM search. Each run searches, filters the results, selects what
+Repeatable. An autograb is a scheduled MAM search. Each run searches, filters the results, selects what
 qualifies within your budget, and hands the selection to the downloader.
 
 Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
@@ -255,8 +277,8 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 |---|---|---|
 | `type` | (required) | What to search. See below. |
 | `cost` | `"free"` | How to pay for matching torrents. See [cost](#cost). |
-| `query` | unset | Free-text search. Supports MaM's search syntax. |
-| `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MaM's default fields. |
+| `query` | unset | Free-text search. Supports MAM's search syntax. |
+| `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MAM's default fields. |
 | `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
 | `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run. A page is 100 results (fixed). Paging stops early when a page comes back short. |
 | `search_interval` | global `search_interval` | Minutes between runs. `0` means UI-triggered only. |
@@ -264,18 +286,18 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `wedge_buffer` | global | Overrides the global buffer for this block. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
-| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MaM directly, and mark the torrent as removed from MaM if it is gone. |
+| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
 ### `type`
 
 | Value | Searches |
 |---|---|
-| `"bookmarks"` | Your MaM bookmarks. |
+| `"bookmarks"` | Your MAM bookmarks. |
 | `"freeleech"` | The global freeleech list. |
-| `"new"` (alias `"torrents"`) | **All torrents** on MaM. The name refers to the default newest-first ordering, not to a separate set of torrents. |
+| `"new"` (alias `"torrents"`) | **All torrents** on MAM. The name refers to the default newest-first ordering, not to a separate set of torrents. |
 | `"mine"` | Your own uploads. |
-| `{ uploader = 12345 }` | One uploader's torrents, by MaM user id. |
+| `{ uploader = 12345 }` | One uploader's torrents, by MAM user id. |
 
 `type` is required and has no default. `type` chooses the pool of torrents; `sort_by` chooses their order
 within it.
@@ -292,7 +314,7 @@ within it.
 - **Duplicates.** A candidate that is the same book as something already selected or already in the
   library is skipped unless its format ranks better; a better format is selected and the older copy is
   retired by the cleaner later.
-- **Several blocks.** Blocks run on their own timers, and only one MaM-talking job runs at a time.
+- **Several blocks.** Blocks run on their own timers, and only one MAM-talking job runs at a time.
   A book that one block has already selected is not selected again by another.
 - **Never on a schedule.** `search_interval = 0` makes a block run only when you press **Run now**.
 
@@ -311,7 +333,7 @@ max_size = "30 MiB"
 
 ## Cost
 
-`cost` appears on `[[autograb]]`, `[[snatchlist]]` and each `grab` block of a list.
+`cost` appears on `[[autograb]]` and `[[snatchlist]]`.
 
 | Value | Meaning |
 |---|---|
@@ -320,7 +342,7 @@ max_size = "30 MiB"
 | `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
-| `metadata_only_add` | Like `metadata_only`, but also creates a metadata-only entry if the torrent is not in the library yet. |
+| `metadata_only_add` | Like `metadata_only`, but also creates a metadata-only entry if the torrent is not in the library yet. Duplicate checks then treat that book as already in the library, so only a better format of it is downloaded. |
 
 - A torrent that is VIP, personal freeleech or globally freeleech is **always** treated as free, whatever
   `cost` says, so wedges are never wasted.
@@ -331,8 +353,9 @@ max_size = "30 MiB"
 
 ## `[[snatchlist]]`
 
-Repeatable. Imports your MaM snatch lists as metadata-only entries so that torrents you already have count
-as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
+Repeatable. Reads one of your MAM snatch lists and refreshes the metadata of the torrents Fetchshelf already
+stores. With `cost = "metadata_only_add"` it also records the others as metadata-only entries, so that
+torrents you already have count as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
 
 Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`, `uploaded_after` and
 `uploaded_before` are not allowed** and cause an error.
@@ -340,48 +363,17 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | Setting | Default | Description |
 |---|---|---|
 | `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
-| `cost` | `metadata_only` | Only `metadata_only` and `metadata_only_add` are allowed. |
-| `max_pages` | 50 | Pages of 250 rows to read. |
+| `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
+| `max_pages` | 50 | Pages of the snatch list to read. MAM decides how many rows a page holds; it has been seen sending 1000. Reading stops early when a page brings nothing new. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
-| `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |
+| `dry_run` | `false` | Read the snatch list and work out every change, but record nothing. What would be recorded is logged. |
 
-## `[[notion_list]]`
-
-Repeatable. Reads rows from a Notion data source and fetches the MaM torrents they point to.
-
-| Setting | Default | Description |
-|---|---|---|
-| `data_source` | (required) | The Notion data source id. |
-| `token` | (required) | Notion integration token. Treat it as a secret. |
-| `name` | (required) | Label for the list. |
-| `mam_fields` | (required, non-empty) | Names of the row properties that hold MaM URLs. The trailing number of each URL is the MaM id. |
-| `grab` | (at least one required) | One or more [`grab` blocks](#grab-blocks). |
-| `search_interval` | `import_interval` | Minutes between runs. |
-| `unsat_buffer` | global | Overrides the global buffer. |
-| `wedge_buffer` | global | Overrides the global buffer. |
-| `dry_run` | `false` | Look each new torrent up on MaM and run the selection checks, but select nothing. What each torrent would get is logged. |
-
-Every row of the data source is read, however many there are. MaM ids that are already known are skipped.
-The others are fetched from MaM and passed through the first matching `grab` block. Each run logs how many
-rows and MaM links it read; set `FETCHSHELF_LOG=Debug` to also see what happened to each torrent.
-
-### `grab` blocks
-
-Used inside `[[notion_list]]` as `[[notion_list.grab]]`.
-
-A `grab` block is a [`cost`](#cost) plus the full [shared filter](#the-shared-torrent-filter). Blocks are
-tried in order and the **first matching block wins**, so put the more specific block first:
-
-```toml
-[[notion_list.grab]]
-cost = "all"             # small files: pay with ratio
-languages = ["English"]
-max_size = "15 MiB"
-
-[[notion_list.grab]]
-cost = "wedge"           # everything else English: use a wedge
-languages = ["English"]
-```
+- **Stored torrents** are refreshed from the snatch list itself, with no further request to MAM. The list
+  does not carry the language, media type, file count, upload date, description or ISBN, so those keep
+  their stored values. Metadata you edited by hand is kept; only its VIP status follows MAM.
+- **New torrents** (with `metadata_only_add`) are looked up on MAM one at a time, because the list does not
+  say which language they are in. The first run on a long list therefore takes a while; later runs only
+  look up what is new.
 
 ## `[[tag]]`
 
@@ -423,7 +415,7 @@ library, in file order, that accepts it is used.
 | `category` | | Accept torrents with this qBittorrent category. |
 | `download_dir` | | Accept torrents whose save path is under this folder. |
 | `name` | unset | Label for the library. |
-| `method` | `"hardlink"` | How files are placed. See below. |
+| `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
@@ -443,11 +435,15 @@ library, in file order, that accepts it is used.
 | `symlink` | Symbolic link. |
 | `no_link` | Record metadata only; no files are placed. |
 
-- Only files with a wanted extension are linked, and the library's own `audio_types` / `ebook_types`
-  decide what that means for it.
+- From each torrent, only the files of its best audio format and its best ebook format are linked. The
+  audio side uses `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
+  else; the ebook side uses `ebook_types`. A library's own `audio_types` replaces the audio-side list for
+  every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened.
-- A `metadata.json` that Audiobookshelf understands is written next to the files.
+- A `metadata.json` is written next to the files, for every media type. It is plain JSON in the format
+  Audiobookshelf reads; see [`metadata.json`](user-guide.md#metadatajson) in the user guide for its
+  fields.
 - A torrent without any author cannot be linked and is reported on the Errors page.
 
 ### Folder naming
@@ -471,8 +467,8 @@ Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
-it as a mismatch (no library, new library directory, or new path) and offers **refresh and relink** to
-move the files. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
+it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink**, which
+links the book again from its download into the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
 
 ## Reference data
 

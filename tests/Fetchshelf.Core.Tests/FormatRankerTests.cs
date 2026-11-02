@@ -25,7 +25,7 @@ public class FormatRankerTests
     }
 
     [Fact]
-    public void SelectBestExtension_ChoosesLowestRankedPresentExtension()
+    public void SelectBestExtension_SeveralPresent_ChoosesTheBestRanked()
     {
         Assert.Equal("m4b", FormatRanker.SelectBestExtension(Preference, ["mp3", "m4b"]));
     }

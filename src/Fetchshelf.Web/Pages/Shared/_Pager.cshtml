@@ -1,0 +1,19 @@
+@model Fetchshelf.Web.Pages.PagerViewModel
+
+<p class="muted">Showing @Model.ShownCount of @Model.TotalCount. Page @Model.PageNumber of @Model.TotalPages.</p>
+
+@if (Model.TotalPages > 1)
+{
+    <nav id="@Model.Id" class="actions" aria-label="@Model.Label">
+        @if (Model.PageNumber > 1)
+        {
+            <a id="pager-first" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(1)">First</a>
+            <a id="pager-prev" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber - 1)">Previous</a>
+        }
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <a id="pager-next" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber + 1)">Next</a>
+            <a id="pager-last" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.TotalPages)">Last</a>
+        }
+    </nav>
+}

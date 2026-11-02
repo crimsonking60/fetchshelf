@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 10.1: the Selected page.</summary>
 public partial class SelectedIndexPageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(
@@ -30,7 +29,7 @@ public partial class SelectedIndexPageTests
     }
 
     [Fact]
-    public async Task Get_ListsActiveSelections()
+    public async Task Get_ActiveSelections_AreListed()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedSelectedAsync(fixture);
@@ -58,7 +57,7 @@ public partial class SelectedIndexPageTests
     }
 
     [Fact]
-    public async Task Get_EachRowKeepsItsOwnUpdateButton()
+    public async Task Get_SeveralSelections_EachRowKeepsItsOwnUpdateButton()
     {
         using var fixture = new FetchshelfWebAppFixture();
         var first = await SeedSelectedAsync(fixture, "First Book", mamId: 1);

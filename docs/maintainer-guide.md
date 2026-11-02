@@ -83,8 +83,8 @@ Then read the diff (`gh pr diff 42`) with these questions in mind:
   [Testing the head of develop](#testing-the-head-of-develop)).
 - **Configuration:** setting names are part of the user-facing contract. Renamed or removed settings break
   users' files; new settings must be documented in [configuration.md](configuration.md).
-- **MaM safety:** the ratio, unsatisfied-slot and wedge checks must not be weakened, request politeness must
-  be kept, and any new job that calls MaM must take the `MamAccessGate`.
+- **MAM safety:** the ratio, unsatisfied-slot and wedge checks must not be weakened, request politeness must
+  be kept, and any new job that calls MAM must take the `MamAccessGate`.
 - **Event log:** events are only ever appended, never updated or deleted.
 - **Documentation:** user-visible changes are reflected in the [user guide](user-guide.md) or the
   [configuration reference](configuration.md).
@@ -136,7 +136,7 @@ gh pr close 42 --comment "Closing for now since it has been quiet; feel free to 
 ## Testing the head of develop
 
 Automated tests prove the code is correct, not that the app works with real torrents, a real library and a
-real MaM account. Maintainers run the head of `develop` on their own setups between releases, so problems are
+real MAM account. Maintainers run the head of `develop` on their own setups between releases, so problems are
 found before users see them.
 
 Keep a local clone of the main repository (not a fork) for this:
@@ -192,14 +192,14 @@ Fetchshelf uses calendar versioning, **`YYYY.MM.N`**:
 | --- | --- |
 | `YYYY` | The year of the release, for example `2026`. |
 | `MM` | The month of the release, always two digits: `01` to `12`. |
-| `N` | The release number within that month, starting at `0`. |
+| `N` | The release number within that month, starting at `1`. |
 
-So the first release in October 2026 is `2026.10.0`, a hotfix later that month is `2026.10.1`, and the first
-release in January 2027 is `2027.01.0`. With two-digit months, versions sort correctly as plain text.
+So the first release in October 2026 is `2026.10.1`, a hotfix later that month is `2026.10.2`, and the first
+release in January 2027 is `2027.01.1`. With two-digit months, versions sort correctly as plain text.
 
-- Git tags are the version with a `v` in front: `v2026.10.0`.
+- Git tags are the version with a `v` in front: `v2026.10.1`.
 - Container images are published to the GitHub Container Registry as `ghcr.io/crimsonking60/fetchshelf`, tagged
-  with the plain version (`2026.10.0`) and `latest` for the newest release. The head of `develop` is tagged
+  with the plain version (`2026.10.1`) and `latest` for the newest release. The head of `develop` is tagged
   `develop`.
 - The version says when a release was made, not how big it is. [`RELEASES.md`](../RELEASES.md) says what
   changed, and calls out anything users must do when upgrading.
@@ -208,7 +208,7 @@ release in January 2027 is `2027.01.0`. With two-digit months, versions sort cor
 
   ```sh
   git fetch --tags
-  git tag --list "v2026.10.*"     # no tags yet: 2026.10.0; v2026.10.0 exists: 2026.10.1; and so on
+  git tag --list "v2026.10.*"     # no tags yet: 2026.10.1; v2026.10.1 exists: 2026.10.2; and so on
   ```
 
 ## Release notes
@@ -221,7 +221,7 @@ notes always ship with the code they describe.
 Each release gets a section in this form:
 
 ```markdown
-## 2026.10.0 - 2026-10-28
+## 2026.10.1 - 2026-10-28
 
 ### Upgrading
 
@@ -286,17 +286,17 @@ Release when `develop` has something worth shipping and:
      ```markdown
      ## Latest release
 
-     **2026.10.0** (2026-10-28). See [RELEASES.md](RELEASES.md#2026100---2026-10-28) for what changed, and
+     **2026.10.1** (2026-10-28). See [RELEASES.md](RELEASES.md#2026101---2026-10-28) for what changed, and
      for every earlier release.
      ```
 
    ```sh
    git switch develop && git pull
-   git switch -c release/2026.10.0
+   git switch -c release/2026.10.1
    # edit RELEASES.md and README.md
-   git commit -am "Prepare release 2026.10.0"
-   git push -u origin release/2026.10.0
-   gh pr create --repo crimsonking60/fetchshelf --base develop --title "Prepare release 2026.10.0" --fill
+   git commit -am "Prepare release 2026.10.1"
+   git push -u origin release/2026.10.1
+   gh pr create --repo crimsonking60/fetchshelf --base develop --title "Prepare release 2026.10.1" --fill
    ```
 
 4. **Squash-merge** the preparation pull request into `develop` like any other.
@@ -307,7 +307,7 @@ Release when `develop` has something worth shipping and:
 
    ```sh
    gh pr create --repo crimsonking60/fetchshelf --base main --head develop \
-     --title "Release 2026.10.0" --body "See RELEASES.md."
+     --title "Release 2026.10.1" --body "See RELEASES.md."
    ```
 
 2. **Check it** one last time: the commit list (`gh pr view --web`) contains what you expect, the top of
@@ -337,13 +337,13 @@ Release when `develop` has something worth shipping and:
 
    ```sh
    gh release view --repo crimsonking60/fetchshelf
-   docker pull ghcr.io/crimsonking60/fetchshelf:2026.10.0
+   docker pull ghcr.io/crimsonking60/fetchshelf:2026.10.1
    ```
 
 ### After the release
 
 1. **Check that `main` was merged back into `develop`.** The release workflow's last job does this, so `main`
-   stays an ancestor of `develop`: it pushes a merge commit "Merge release 2026.10.0 back into develop" to
+   stays an ancestor of `develop`: it pushes a merge commit "Merge release 2026.10.1 back into develop" to
    `develop`. If it can't, because the merge has conflicts, `develop` moved on during the release, or branch
    protection refused the push, it opens a pull request from `main` into `develop` instead and says why in a
    warning on the workflow run. Resolve any conflicts and merge that pull request with a merge commit:
@@ -373,15 +373,15 @@ The release is announced by the updated "Latest release" section in `README.md` 
 When the current release has a bug that can't wait, and `develop` holds changes that aren't ready to ship:
 
 1. Branch from `main`, fix, and add the release notes in the same branch: a new section at the top of
-   `RELEASES.md` with the next number of the month (for example `2026.10.1`), and the updated "Latest release"
+   `RELEASES.md` with the next number of the month (for example `2026.10.2`), and the updated "Latest release"
    section in `README.md`.
 
    ```sh
    git switch main && git pull
-   git switch -c hotfix/2026.10.1
+   git switch -c hotfix/2026.10.2
    # fix, test, update RELEASES.md and README.md, commit
-   git push -u origin hotfix/2026.10.1
-   gh pr create --repo crimsonking60/fetchshelf --base main --title "Release 2026.10.1" --fill
+   git push -u origin hotfix/2026.10.2
+   gh pr create --repo crimsonking60/fetchshelf --base main --title "Release 2026.10.2" --fill
    ```
 
 2. Review it as usual, but keep it minimal: only the fix, its test and the release notes.
@@ -400,7 +400,7 @@ release.
 - **A broken release was published:** don't delete or move its tag or image; people may already run it.
   Publish a fixed version as soon as possible (usually a [hotfix](#hotfixes)), and add a line to the broken
   release's section in `RELEASES.md` and to its GitHub release: "Don't use this version, upgrade to
-  2026.10.1."
+  2026.10.2."
 - **Users need to go back:** they can pin the previous image tag, as long as the newer version didn't change
   the database in a way the older version can't read. Say so under "Upgrading" whenever a migration makes going
   back impossible.
@@ -419,8 +419,8 @@ release.
 | Comment / close | `gh pr comment 42 --body "..."` / `gh pr close 42 --comment "..."` |
 | What's unreleased | `git log --oneline main..develop` |
 | Used version numbers this month | `git fetch --tags && git tag --list "v2026.10.*"` |
-| Open the release pull request | `gh pr create --base main --head develop --title "Release 2026.10.0"` |
+| Open the release pull request | `gh pr create --base main --head develop --title "Release 2026.10.1"` |
 | Merge the release | `gh pr merge <number> --merge` (no `--delete-branch`) |
 | Watch the release workflow | `gh run list --workflow release.yml`, `gh run watch` |
-| See a release | `gh release view v2026.10.0` |
+| See a release | `gh release view v2026.10.1` |
 | Close an issue as not planned | `gh issue close 123 --reason "not planned" --comment "..."` |

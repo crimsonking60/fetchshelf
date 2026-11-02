@@ -3,10 +3,8 @@ using Fetchshelf.Core.Metadata;
 namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
-/// Maps a raw <see cref="MamTorrentRecord"/> to a cleaned <see cref="TorrentMetadata"/>, mirroring
-/// the original Rust implementation's `MaMTorrent::as_meta()` + `clean_meta()`
-/// (`mlm_mam/src/search.rs`, `mlm_mam/src/meta.rs`) using Fetchshelf.Core's existing cleaning
-/// pieces (<see cref="MamMetadataCleaner"/>, <see cref="EditionExtractor"/>,
+/// Maps a raw <see cref="MamTorrentRecord"/> to a cleaned <see cref="TorrentMetadata"/> using
+/// Fetchshelf.Core's cleaning pieces (<see cref="MamMetadataCleaner"/>, <see cref="EditionExtractor"/>,
 /// <see cref="ReferenceDataValidator"/>).
 /// </summary>
 public static class MamTorrentMapper
@@ -21,7 +19,7 @@ public static class MamTorrentMapper
     /// </summary>
     public static TorrentMetadata Map(MamTorrentRecord record)
     {
-        var mediaType = (MediaType)(record.MediaTypeId != 0 ? record.MediaTypeId : OldMainCategoryToMediaTypeId(record.OldMainCategoryId));
+        var mediaType = (MediaType)EffectiveMediaTypeId(record);
         var legacyCategory = (LegacyCategory)record.LegacyCategoryId;
         mediaType = MamMetadataCleaner.ReclassifyMediaType(mediaType, legacyCategory);
 
@@ -97,7 +95,13 @@ public static class MamTorrentMapper
         return metadata;
     }
 
-    /// <summary>Older records carry only the old main category (13-16), which maps to media types 1-4.</summary>
+    /// <summary>
+    /// The record's MAM media type id. Older records carry only the old main category (13-16), which maps to media
+    /// types 1-4; 0 when neither is known.
+    /// </summary>
+    public static int EffectiveMediaTypeId(MamTorrentRecord record) =>
+        record.MediaTypeId != 0 ? record.MediaTypeId : OldMainCategoryToMediaTypeId(record.OldMainCategoryId);
+
     private static int OldMainCategoryToMediaTypeId(int oldMainCategoryId) => oldMainCategoryId switch
     {
         13 => 1, // Audiobook

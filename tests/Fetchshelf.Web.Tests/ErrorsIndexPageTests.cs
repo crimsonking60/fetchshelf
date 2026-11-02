@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 10.2: the Errors page.</summary>
 public partial class ErrorsIndexPageTests
 {
     private static async Task<ErroredTorrentEntity> SeedGrabberErrorAsync(FetchshelfWebAppFixture fixture, bool restorable)
@@ -37,7 +36,7 @@ public partial class ErrorsIndexPageTests
     }
 
     [Fact]
-    public async Task Get_ListsErrorsByStage()
+    public async Task Get_DownloadError_ShowsItsStageErrorAndTorrent()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedGrabberErrorAsync(fixture, restorable: false);
@@ -47,7 +46,7 @@ public partial class ErrorsIndexPageTests
 
         Assert.Contains("Download", html);
         Assert.Contains("stale", html);
-        Assert.Contains("MaM id 1", html);
+        Assert.Contains("MAM id 1", html);
     }
 
     [Fact]

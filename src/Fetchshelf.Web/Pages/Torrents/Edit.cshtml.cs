@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-/// <summary>The torrent edit page.</summary>
 public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner) : PageModel
 {
     public string Id { get; private set; } = string.Empty;

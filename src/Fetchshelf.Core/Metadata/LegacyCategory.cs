@@ -161,4 +161,25 @@ public static class LegacyCategoryGroups
     };
 
     public static bool IsAudiobookCategory(LegacyCategory category) => Audiobook.Contains(category);
+
+    /// <summary>The media type a category belongs to, for details entered by hand; comics count as ebooks.</summary>
+    public static MediaType MediaTypeOf(LegacyCategory category)
+    {
+        if (Audiobook.Contains(category))
+        {
+            return MediaType.Audiobook;
+        }
+
+        if (Ebook.Contains(category))
+        {
+            return MediaType.Ebook;
+        }
+
+        if (Musicology.Contains(category))
+        {
+            return MediaType.Musicology;
+        }
+
+        return MediaType.Radio;
+    }
 }

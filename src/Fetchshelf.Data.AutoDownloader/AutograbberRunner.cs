@@ -23,7 +23,7 @@ public sealed class AutograbberRunner(
     /// would have selected is only logged.
     /// </summary>
     public async Task<int> RunAsync(
-        AutogrebEntry entry,
+        AutograbEntry entry,
         int globalUnsatBuffer,
         int globalWedgeBuffer,
         IReadOnlyList<long> ignoreTorrents,
@@ -42,13 +42,13 @@ public sealed class AutograbberRunner(
                 s => s.GrabberName == entry.Name && s.RemovedAt == null && s.StartedAt == null, cancellationToken);
 
         var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
+        var budgetExplanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
 
         var isMetadataOnlyCost = entry.Cost is ConfiguredCost.MetadataOnly or ConfiguredCost.MetadataOnlyAdd;
         if (budget == 0 && !isMetadataOnlyCost)
         {
             _logger.LogInformation(
-                "Autograb {Name}: nothing to do, no unsatisfied-snatch slots free beyond the buffer of {UnsatBuffer} or the active-download limit is reached",
-                name, unsatBuffer);
+                "Autograb {Name}: nothing to do, this run's limit is 0 selections ({BudgetExplanation})", name, budgetExplanation);
             return 0;
         }
 
@@ -64,7 +64,7 @@ public sealed class AutograbberRunner(
 
         for (var page = 0; page < entry.EffectiveMaxPages; page++)
         {
-            var query = AutogrebSearchTranslator.ToSearchQuery(entry, filter, page * 100L);
+            var query = AutograbSearchTranslator.ToSearchQuery(entry, filter, page * 100L);
             var result = await mamClient.SearchAsync(query, cancellationToken);
             if (result.Data.Count == 0)
             {
@@ -81,7 +81,7 @@ public sealed class AutograbberRunner(
                 }
                 catch (UnrecognizedReferenceDataException ex)
                 {
-                    _logger.Log(detailLevel, "Autograb {Name}: MaM torrent {MamId} could not be read ({Reason}), skipped", name, record.MamId, ex.Message);
+                    _logger.Log(detailLevel, "Autograb {Name}: MAM torrent {MamId} could not be read ({Reason}), skipped", name, record.MamId, ex.Message);
                     continue;
                 }
 
@@ -96,7 +96,7 @@ public sealed class AutograbberRunner(
 
                 if (!TorrentFilterMatcher.Matches(filter, candidate))
                 {
-                    _logger.LogDebug("Autograb {Name}: MaM torrent {MamId} \"{Title}\" does not pass the filter", name, record.MamId, metadata.Title);
+                    _logger.LogDebug("Autograb {Name}: MAM torrent {MamId} \"{Title}\" does not pass the filter", name, record.MamId, metadata.Title);
                     continue;
                 }
 
@@ -104,7 +104,7 @@ public sealed class AutograbberRunner(
                     record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name, unsatBuffer, wedgeBuffer,
                     dryRun: entry.DryRun, cancellationToken: cancellationToken);
                 _logger.Log(
-                    detailLevel, "Autograb {Name}: MaM torrent {MamId} \"{Title}\": {Outcome}",
+                    detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",
                     name, record.MamId, metadata.Title, outcome.Describe(entry.DryRun));
 
                 if (outcome == SelectionOutcome.Selected)
@@ -112,7 +112,7 @@ public sealed class AutograbberRunner(
                     selectedCount++;
                     if (!isMetadataOnlyCost && selectedCount >= budget)
                     {
-                        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReached: true);
+                        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: $"; stopped at this run's limit of {budget} selections ({budgetExplanation})");
                     }
                 }
             }
@@ -123,15 +123,14 @@ public sealed class AutograbberRunner(
             }
         }
 
-        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReached: false);
+        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: string.Empty);
     }
 
-    private int Finish(string name, bool dryRun, int resultCount, int selectedCount, bool budgetReached)
+    private int Finish(string name, bool dryRun, int resultCount, int selectedCount, string budgetReachedNote)
     {
         _logger.LogInformation(
             "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
-            name, resultCount, selectedCount, dryRun ? "would have been selected (dry run)" : "selected",
-            budgetReached ? "; stopped because the run's limit was reached" : string.Empty);
+            name, resultCount, selectedCount, dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
         return dryRun ? 0 : selectedCount;
     }
 }

@@ -1,6 +1,5 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Tracker languages.</summary>
 public enum Language
 {
     English = 1,

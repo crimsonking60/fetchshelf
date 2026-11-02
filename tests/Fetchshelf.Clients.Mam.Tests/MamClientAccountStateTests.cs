@@ -4,8 +4,7 @@ namespace Fetchshelf.Clients.Mam.Tests;
 
 public class MamClientAccountStateTests
 {
-    // Representative response shape, confirmed against the original Rust implementation's
-    // UserResponse (mlm_mam/src/user_data.rs test fixture).
+    // Representative response shape.
     private const string ResponseJson = """
         {
             "classname": "Power User",
@@ -26,7 +25,7 @@ public class MamClientAccountStateTests
         new(new HttpClient(new FakeHttpMessageHandler(handler)), new MamClientOptions { MamId = "cookie" }, timeProvider);
 
     [Fact]
-    public async Task GetAccountStateAsync_ParsesAllDocumentedFields()
+    public async Task GetAccountStateAsync_FullResponse_ParsesAllDocumentedFields()
     {
         var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ResponseJson) });
 

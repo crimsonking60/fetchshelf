@@ -94,7 +94,7 @@ public sealed class ClientStatusCheckerTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAsync_HashMatchingIgnoresCase()
+    public async Task CheckAsync_HashInDifferentCase_StillMatches()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         await SeedAsync(context, "ABCDEF");
@@ -165,5 +165,20 @@ public sealed class ClientStatusCheckerTests : IDisposable
 
         Assert.Contains("No qBittorrent connection", Assert.Single(result.Errors));
         Assert.Equal("uploading", context.Torrents.Single().ClientStatus);
+    }
+
+    [Fact]
+    public async Task CheckAsync_MetadataOnlyRecord_IsSkippedAndLosesAnEarlierNotInClientStatus()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedAsync(context, "hash1");
+        await SeedAsync(context, "mam:42", clientStatus: ClientStatuses.NotInClient);
+        await SeedAsync(context, "mam:43");
+        var checker = new ClientStatusChecker(context);
+
+        var result = await checker.CheckAsync([WithTorrents(InClient("hash1", "uploading"))]);
+
+        Assert.Equal((1, 1, 0, 2), (result.Checked, result.FoundInClient, result.NotInClient, result.MetadataOnlySkipped));
+        Assert.All(context.Torrents.Where(t => t.Id.StartsWith("mam:")), t => Assert.Null(t.ClientStatus));
     }
 }

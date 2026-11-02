@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>Covers task 5.5: the manual metadata edit page.</summary>
 public partial class TorrentEditPageTests
 {
     [Fact]
