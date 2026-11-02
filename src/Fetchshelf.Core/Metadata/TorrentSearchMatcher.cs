@@ -1,7 +1,6 @@
 using System.Globalization;
-using Fetchshelf.Core.Metadata;
 
-namespace Fetchshelf.Web.Pages.Torrents;
+namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
 /// The Torrents list's search: every word of the query must appear in the title, an author or a series name,

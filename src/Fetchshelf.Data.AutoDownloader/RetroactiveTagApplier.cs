@@ -60,7 +60,7 @@ public sealed class RetroactiveTagApplier(
     private async Task<TorrentFilterCandidate> BuildCandidateAsync(
         TorrentFilter filter, TorrentMetadata metadata, CancellationToken cancellationToken)
     {
-        if (!NeedsLiveData(filter))
+        if (!filter.NeedsLiveData)
         {
             return new TorrentFilterCandidate
             {
@@ -89,13 +89,4 @@ public sealed class RetroactiveTagApplier(
             TimesCompleted = record?.TimesCompleted ?? 0,
         };
     }
-
-    private static bool NeedsLiveData(TorrentFilter filter) =>
-        filter.ExcludeUploader is { Count: > 0 }
-        || filter.MinSeeders is not null
-        || filter.MaxSeeders is not null
-        || filter.MinLeechers is not null
-        || filter.MaxLeechers is not null
-        || filter.MinSnatched is not null
-        || filter.MaxSnatched is not null;
 }

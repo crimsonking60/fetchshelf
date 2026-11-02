@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;

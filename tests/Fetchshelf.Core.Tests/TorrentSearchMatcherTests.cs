@@ -1,16 +1,23 @@
 using Fetchshelf.Core.Metadata;
-using Fetchshelf.Web.Pages.Torrents;
 
-namespace Fetchshelf.Web.Tests;
+namespace Fetchshelf.Core.Tests;
 
 public class TorrentSearchMatcherTests
 {
-    private static TorrentMetadata Book(string title, string[] authors, string? series = null, string? description = null) =>
-        OrganizerTestSupport.BuildMetadata(title, authors) with
-        {
-            Series = series is null ? [] : [new Series { Name = series, Entries = [] }],
-            Description = description,
-        };
+    private static TorrentMetadata Book(string title, string[] authors, string? series = null, string? description = null) => new()
+    {
+        MamId = 1,
+        VipStatus = VipStatus.NotVip,
+        MediaType = MediaType.Audiobook,
+        LegacyCategory = LegacyCategory.AudiobookGeneralFiction,
+        Language = Language.English,
+        Title = title,
+        Authors = authors,
+        Series = series is null ? [] : [new Series { Name = series, Entries = [] }],
+        Description = description,
+        MetadataSource = MetadataSource.Mam,
+        UploadTime = DateTimeOffset.UtcNow,
+    };
 
     [Theory]
     [InlineData("belle")]

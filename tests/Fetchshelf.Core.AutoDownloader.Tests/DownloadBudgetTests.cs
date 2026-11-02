@@ -50,4 +50,10 @@ public class DownloadBudgetTests
 
         Assert.Equal(expected, decision);
     }
+
+    [Fact]
+    public void ChangeableByHand_EveryCost_OffersExactlyTheCostsThatSpendRatio() =>
+        Assert.Equal(
+            Enum.GetValues<SelectedTorrentCost>().Where(DownloadBudget.SpendsRatio).Order(),
+            SelectedTorrentCosts.ChangeableByHand.Order());
 }
