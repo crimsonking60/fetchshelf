@@ -1,26 +1,12 @@
-﻿@page
+@page
 @model ErrorModel
 @{
     ViewData["Title"] = "Error";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
-
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
-
-<h3>Development Mode</h3>
+<h2>Something went wrong</h2>
+<p class="notice error" role="alert">Fetchshelf ran into an unexpected problem and could not finish this request.</p>
 <p>
-    Swapping to the <strong>Development</strong> environment displays detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
+    The details are in the log: <code>docker logs fetchshelf</code>, or the files in the folder set by
+    <code>FETCHSHELF_LOG_DIR</code>. Go back and try again; if it keeps happening, the log says what went wrong.
 </p>
