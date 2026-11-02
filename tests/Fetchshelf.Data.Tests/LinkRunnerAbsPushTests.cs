@@ -139,7 +139,7 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var refreshRunner = CreateRunner(
             context, new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" }), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1", relink: false);
+        var changed = await refreshRunner.RefreshAsync("hash1");
 
         Assert.True(changed);
         Assert.Equal(["item1"], patchedItemIds);
@@ -165,7 +165,7 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var absClient = CreateAbsClient(patchedItemIds);
         var refreshRunner = CreateRunner(context, new FakeMetadataLookup(metadata), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1", relink: false);
+        var changed = await refreshRunner.RefreshAsync("hash1");
 
         Assert.False(changed);
         Assert.Empty(patchedItemIds);
@@ -189,14 +189,14 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         var refreshRunner = CreateRunner(
             context, new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" }), libraries, absClient);
 
-        var changed = await refreshRunner.RefreshAsync("hash1", relink: false);
+        var changed = await refreshRunner.RefreshAsync("hash1");
 
         Assert.True(changed);
         Assert.Empty(patchedItemIds);
     }
 
     [Fact]
-    public async Task RefreshAsync_RelinkMovesFolderWithStoredAbsId_PushesMetadata()
+    public async Task RefreshAndRelinkAsync_NewFolderWithStoredAbsId_DeletesTheOldItemAndClearsTheId()
     {
         WriteSourceFile("book.m4b");
         using var context = OrganizerTestSupport.CreateContext(DbPath);
@@ -211,13 +211,47 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
         tracked.AbsId = "item1";
         await context.SaveChangesAsync();
 
-        var patchedItemIds = new List<string>();
-        var absClient = CreateAbsClient(patchedItemIds);
+        var requests = new List<string>();
+        var absClient = new AbsClient(
+            new HttpClient(new FakeHttpMessageHandler(request =>
+            {
+                requests.Add($"{request.Method} {request.RequestUri!.AbsolutePath}");
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            })),
+            new AbsClientOptions { BaseUrl = "http://abs.local", Token = "token" });
         var refreshRunner = CreateRunner(
             context, new FakeMetadataLookup(originalMetadata with { Title = "Brand New Title" }), libraries, absClient);
 
-        await refreshRunner.RefreshAsync("hash1", relink: true);
+        var result = await refreshRunner.RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
 
-        Assert.Contains("item1", patchedItemIds);
+        Assert.True(result.Succeeded);
+        Assert.Equal(["DELETE /api/items/item1"], requests);
+        Assert.Null((await context.Torrents.SingleAsync()).AbsId);
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_SameFolderWithStoredAbsId_PushesTheMetadata()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var metadata = OrganizerTestSupport.BuildMetadata(title: "Same Title");
+        var linkRunner = CreateRunner(context, new FakeMetadataLookup(metadata), libraries, absClient: null);
+        var torrent = FinishedTorrent("hash1", DownloadsDir);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [torrent], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await linkRunner.RunAsync(new QBittorrentConnection(), client);
+        var tracked = await context.Torrents.SingleAsync();
+        tracked.AbsId = "item1";
+        await context.SaveChangesAsync();
+
+        var patchedItemIds = new List<string>();
+        var refreshRunner = CreateRunner(context, new FakeMetadataLookup(metadata), libraries, CreateAbsClient(patchedItemIds));
+
+        var result = await refreshRunner.RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(["item1"], patchedItemIds);
+        Assert.Equal("item1", (await context.Torrents.SingleAsync()).AbsId);
     }
 }

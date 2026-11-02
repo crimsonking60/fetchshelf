@@ -345,7 +345,7 @@ public sealed class LinkRunnerTests : IDisposable
         var refreshLookup = new FakeMetadataLookup(originalMetadata with { Title = "Refreshed Title" });
         var refreshRunner = CreateRunner(context, refreshLookup, libraries);
 
-        var changed = await refreshRunner.RefreshAsync("hash1", relink: false);
+        var changed = await refreshRunner.RefreshAsync("hash1");
 
         Assert.True(changed);
         var updatedEvent = await context.Events.SingleAsync(e => e.Kind == EventKind.Updated);
@@ -353,7 +353,7 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RefreshAsync_WithRelinkAndFolderChanged_MovesFiles()
+    public async Task RefreshAndRelinkAsync_FolderChanged_MovesTheBookToTheNewFolder()
     {
         WriteSourceFile("book.m4b");
         using var context = OrganizerTestSupport.CreateContext(DbPath);
@@ -368,12 +368,117 @@ public sealed class LinkRunnerTests : IDisposable
 
         var refreshLookup = new FakeMetadataLookup(originalMetadata with { Title = "Brand New Title" });
         var refreshRunner = CreateRunner(context, refreshLookup, libraries);
-        await refreshRunner.RefreshAsync("hash1", relink: true);
+        var result = await refreshRunner.RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
 
+        Assert.True(result.Succeeded);
         var updated = await context.Torrents.SingleAsync();
         Assert.NotEqual(oldPath, updated.LibraryPath);
         Assert.False(Directory.Exists(oldPath));
         Assert.True(File.Exists(Path.Combine(updated.LibraryPath!, "book.m4b")));
+    }
+
+    /// <summary>Links "hash1" (book.m4b) once and returns its qBittorrent client and library folder.</summary>
+    private async Task<(QBittorrentClient Client, string LibraryPath)> LinkOnceAsync(
+        FetchshelfDbContext context, IReadOnlyList<Library> libraries, string category = "audiobooks")
+    {
+        WriteSourceFile("book.m4b");
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir, category)],
+            new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RunAsync(new QBittorrentConnection(), client);
+        return (client, (await context.Torrents.SingleAsync()).LibraryPath!);
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_FolderDeletedByHand_LinksTheBookAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        Directory.Delete(libraryPath, recursive: true);
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.StartsWith("Hardlinked Some Torrent into ", result.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(libraryPath, "book.m4b")));
+        Assert.True(File.Exists(Path.Combine(libraryPath, "metadata.json")));
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_CategoryNowPointsToAnotherLibrary_MovesTheBookThere()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var otherLibraryDir = Path.Combine(_root, "other-library");
+        var libraries = new List<Library> { CreateLibrary(LibraryDir), CreateLibrary(otherLibraryDir, category: "other") };
+        var (_, oldPath) = await LinkOnceAsync(context, libraries);
+        var recategorized = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir, category: "other")],
+            new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), recategorized)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var updated = await context.Torrents.SingleAsync();
+        Assert.StartsWith(otherLibraryDir, updated.LibraryPath, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(updated.LibraryPath!, "book.m4b")));
+        Assert.False(Directory.Exists(oldPath));
+        Assert.Null(updated.LibraryMismatchState);
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_MetadataEditedByHand_LinksByTheEditedMetadata()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, oldPath) = await LinkOnceAsync(context, libraries);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata(title: "MAM Title")), libraries);
+        await runner.SetManualMetadataAsync("hash1", OrganizerTestSupport.BuildMetadata(title: "Fixed Title"));
+
+        var result = await runner.RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var updated = await context.Torrents.SingleAsync();
+        Assert.EndsWith("Fixed Title", updated.LibraryPath, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(updated.LibraryPath!, "book.m4b")));
+        Assert.False(Directory.Exists(oldPath));
+        var stored = TorrentMetadataSerializer.Deserialize(updated.MetadataJson);
+        Assert.Equal(("Fixed Title", MetadataSource.Manual), (stored.Title, stored.MetadataSource));
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_NotInQBittorrent_ChangesNothing()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (_, libraryPath) = await LinkOnceAsync(context, libraries);
+        var emptyClient = OrganizerTestSupport.CreateQBittorrentClient([], new Dictionary<string, List<QBittorrentFile>>());
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), emptyClient)]);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.", result.Message);
+        Assert.True(File.Exists(Path.Combine(libraryPath, "book.m4b")));
+    }
+
+    [Fact]
+    public async Task RefreshAndRelinkAsync_SourceFilesMissing_LeavesTheLibraryAlone()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        File.Delete(Path.Combine(DownloadsDir, "book.m4b"));
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RefreshAndRelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("1 of its files are not in", result.Message);
+        Assert.True(File.Exists(Path.Combine(libraryPath, "book.m4b")));
     }
 
     [Fact]

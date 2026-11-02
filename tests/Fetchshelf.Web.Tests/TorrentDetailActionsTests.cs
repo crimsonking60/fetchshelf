@@ -21,23 +21,23 @@ public partial class TorrentDetailActionsTests
         """;
 
     [Fact]
-    public async Task Post_RefreshAndRelink_MovesFilesToNewFolder()
+    public async Task Post_RefreshAndRelink_DownloadMissing_ShowsWhyAndKeepsTheBook()
     {
         var tempDir = Directory.CreateTempSubdirectory("fetchshelf-detail-action-tests-").FullName;
         try
         {
             var libraryDir = Path.Combine(tempDir, "library");
-            var oldFolder = Path.Combine(libraryDir, "Brandon Sanderson", "Old Title");
-            Directory.CreateDirectory(oldFolder);
-            File.WriteAllText(Path.Combine(oldFolder, "book.m4b"), "data");
+            var bookFolder = Path.Combine(libraryDir, "Brandon Sanderson", "Old Title");
+            Directory.CreateDirectory(bookFolder);
+            File.WriteAllText(Path.Combine(bookFolder, "book.m4b"), "data");
 
             var originalMetadata = OrganizerTestSupport.BuildMetadata("Old Title");
-            var refreshedMetadata = originalMetadata with { Title = "New Title" };
+            var missingDownloads = Path.Combine(tempDir, "downloads");
             using var fixture = new FetchshelfWebAppFixture(
                 ConfigWithQBittorrent(libraryDir),
-                metadataLookup: new FakeMetadataLookup(refreshedMetadata),
-                qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
-            await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, originalMetadata, libraryPath: oldFolder);
+                metadataLookup: new FakeMetadataLookup(originalMetadata with { Title = "New Title" }),
+                qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash, missingDownloads, ["book.m4b"]));
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, originalMetadata, libraryPath: bookFolder);
             var client = fixture.CreateClient();
 
             var detailHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
@@ -46,10 +46,11 @@ public partial class TorrentDetailActionsTests
             using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
             var response = await client.PostAsync($"/torrents/{Hash}?handler=RefreshAndRelink", form);
             response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
 
-            var newFolder = Path.Combine(libraryDir, "Brandon Sanderson", "New Title");
-            Assert.True(File.Exists(Path.Combine(newFolder, "book.m4b")));
-            Assert.False(Directory.Exists(oldFolder));
+            Assert.Contains("id=\"action-message\"", html);
+            Assert.Contains($"Not relinked: 1 of its files are not in {missingDownloads}; check path_mapping. Nothing was changed.", html);
+            Assert.True(File.Exists(Path.Combine(bookFolder, "book.m4b")));
         }
         finally
         {

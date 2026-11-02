@@ -946,7 +946,18 @@ itself is not deleted. You can still relink a replaced torrent later.
 
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
 from where it is. The torrent is then flagged on the **Torrents** page as `NoLibrary`, `NewLibraryDir` or
-`NewPath`. Open it and choose **Refresh and relink** to move the files.
+`NewPath`. Open it and choose **Refresh and relink**.
+
+**Refresh and relink** links a book again from the download in qBittorrent. It picks the library from the
+torrent's current category, save path and tags, removes the files Fetchshelf placed before, and places the
+wanted files in the folder the book's details now call for. It also puts back files that went missing from
+the library, for example a folder deleted by hand. Details you edited by hand are kept; only their VIP
+status follows MAM. Before touching any file it checks that the torrent is in qBittorrent, that a library
+accepts it, and that its files are where qBittorrent says. If anything is missing it says so at the top of
+the page and changes nothing.
+
+**Refresh** on its own only updates the details from MAM, without moving files, and replaces details you
+edited by hand with MAM's.
 
 ## Using the web interface
 
@@ -1002,7 +1013,8 @@ reported, so they cannot be chosen by hand.
   type new ones separated by commas, and press **Set category and tags**.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
-  until you explicitly refresh it.
+  through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
+  details.
 
 ### Events
 
@@ -1238,7 +1250,8 @@ The usual reasons, in order:
 
 ### A book went into the wrong folder
 
-Open its torrent page and use **Edit** to fix its metadata, then **Refresh and relink**. Remember that the
+Open its torrent page and use **Edit** to fix its metadata, then **Refresh and relink**, which keeps your
+edits. Do not use **Refresh** afterwards: it replaces your edits with MAM's details. Remember that the
 author used is the **first** author.
 
 ### Audiobookshelf does not find a book

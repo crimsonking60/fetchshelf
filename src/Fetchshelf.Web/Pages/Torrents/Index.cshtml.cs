@@ -111,7 +111,7 @@ public class IndexModel(
             case "refresh":
                 foreach (var id in selectedIds)
                 {
-                    await linkRunner.RefreshAsync(id, relink: false);
+                    await linkRunner.RefreshAsync(id);
                 }
 
                 break;

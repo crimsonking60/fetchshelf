@@ -1,5 +1,7 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -16,6 +18,13 @@ public class DetailModel(
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions) : PageModel
 {
     public TorrentDetailViewModel? Torrent { get; private set; }
+
+    /// <summary>What the last action did, shown once after the redirect back to this page.</summary>
+    [TempData]
+    public string? ActionMessage { get; set; }
+
+    [TempData]
+    public bool ActionFailed { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string id)
     {
@@ -37,13 +46,25 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostRefreshAsync(string id)
     {
-        await linkRunner.RefreshAsync(id, relink: false);
+        var editedByHand = await dbContext.Torrents.AsNoTracking()
+            .Where(t => t.Id == id)
+            .Select(t => t.MetadataJson)
+            .FirstOrDefaultAsync() is { } json && TorrentMetadataSerializer.Deserialize(json).MetadataSource == MetadataSource.Manual;
+        var changed = await linkRunner.RefreshAsync(id);
+        ActionMessage = (editedByHand, changed) switch
+        {
+            (true, _) => "Replaced the details you edited by hand with MAM's.",
+            (false, true) => "Refreshed from MAM; the changes are listed in the history below.",
+            (false, false) => "Refreshed from MAM; nothing had changed.",
+        };
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostRefreshAndRelinkAsync(string id)
     {
-        await linkRunner.RefreshAsync(id, relink: true);
+        var result = await linkRunner.RefreshAndRelinkAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
+        ActionMessage = result.Message;
+        ActionFailed = !result.Succeeded;
         return RedirectToPage(new { id });
     }
 

@@ -16,6 +16,9 @@ namespace Fetchshelf.Data.Organizer;
 /// <summary>What one link run did: torrents newly linked, and torrents that could not be linked.</summary>
 public sealed record LinkRunSummary(int Linked, int Failed);
 
+/// <summary>Whether Refresh and relink placed the torrent's files again, and a message saying what happened.</summary>
+public sealed record RelinkResult(bool Succeeded, string Message);
+
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
 /// </summary>
@@ -138,34 +141,14 @@ public sealed class LinkRunner(
 
         var library = libraries[matchedIndex.Value];
         var files = await client.ListFilesAsync(torrent.Hash, cancellationToken);
-        var audioTypes = library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType);
-        var ebookTypes = library.EbookTypes ?? formatPreferenceLists.EbookTypes;
-        var bestAudioExtension = FormatRanker.SelectBestExtension(audioTypes, files.Select(f => Path.GetExtension(f.Name)));
-        var bestEbookExtension = FormatRanker.SelectBestExtension(ebookTypes, files.Select(f => Path.GetExtension(f.Name)));
-
+        var (bestAudioExtension, bestEbookExtension) = ChooseFormats(library, metadata, files);
         if (bestAudioExtension is null && bestEbookExtension is null)
         {
-            await RecordLinkerErrorAsync(torrent, "None of the torrent's files has a format listed for its media type.", cancellationToken);
+            await RecordLinkerErrorAsync(torrent, NoWantedFormat, cancellationToken);
             return;
         }
 
-        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
-        var chosenFiles = files.Where(f => MatchesExtension(f.Name, bestAudioExtension) || MatchesExtension(f.Name, bestEbookExtension)).ToList();
-
-        var linkedFiles = new List<LinkedFileRecord>();
-        var outcomes = new List<LinkOutcome>();
-        if (library.Method != LibraryLinkMethod.NoLink)
-        {
-            foreach (var file in chosenFiles)
-            {
-                var sourcePath = Path.Combine(mappedSavePath, file.Name);
-                var destinationPath = LinkFilePlacer.DestinationPath(destinationFolder, file.Name);
-                outcomes.Add(FileLinker.Link(sourcePath, destinationPath, library.Method));
-                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
-            }
-
-            File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
-        }
+        var placement = PlaceFiles(library, metadata, files, mappedSavePath, bestAudioExtension, bestEbookExtension);
 
         if (existing is null)
         {
@@ -181,42 +164,93 @@ public sealed class LinkRunner(
             dbContext.Torrents.Add(existing);
         }
 
-        existing.LibraryPath = destinationFolder;
-        existing.LinkedFilesJson = JsonSerializer.Serialize(linkedFiles);
-        existing.ChosenAudioExtension = bestAudioExtension;
-        existing.ChosenEbookExtension = bestEbookExtension;
-        existing.QBittorrentCategory = torrent.Category;
-        existing.LinkerName = library.Name;
-        existing.ClientStatus = torrent.State;
-        existing.LibraryMismatchState = null;
+        RecordPlacement(existing, torrent, library, placement, bestAudioExtension, bestEbookExtension);
 
         if (absClient is not null && existing.AbsId is not null)
         {
             await absClient.UpdateItemMetadataAsync(existing.AbsId, metadata, cancellationToken);
         }
 
-        await eventStore.AppendAsync(new EventEntity
+        await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _linked++;
+        _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
+    }
+
+    private const string NoWantedFormat = "None of the torrent's files has a format listed for its media type.";
+
+    /// <summary>Where a torrent's files were placed, what was recorded for each, and what happened to it.</summary>
+    private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes);
+
+    /// <summary>The best audio and the best ebook format among the torrent's files, by the library's or the global lists.</summary>
+    private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files)
+    {
+        var audioTypes = library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType);
+        var ebookTypes = library.EbookTypes ?? formatPreferenceLists.EbookTypes;
+        var extensions = files.Select(f => Path.GetExtension(f.Name)).ToList();
+        return (FormatRanker.SelectBestExtension(audioTypes, extensions), FormatRanker.SelectBestExtension(ebookTypes, extensions));
+    }
+
+    private static List<QBittorrentFile> ChosenFiles(IReadOnlyList<QBittorrentFile> files, string? audio, string? ebook) =>
+        files.Where(f => MatchesExtension(f.Name, audio) || MatchesExtension(f.Name, ebook)).ToList();
+
+    /// <summary>Links the chosen files into the book's folder with the library's method and writes its `metadata.json`.</summary>
+    private Placement PlaceFiles(
+        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
+    {
+        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
+        var linkedFiles = new List<LinkedFileRecord>();
+        var outcomes = new List<LinkOutcome>();
+        if (library.Method != LibraryLinkMethod.NoLink)
+        {
+            foreach (var file in ChosenFiles(files, audio, ebook))
+            {
+                var sourcePath = Path.Combine(mappedSavePath, file.Name);
+                var destinationPath = LinkFilePlacer.DestinationPath(destinationFolder, file.Name);
+                outcomes.Add(FileLinker.Link(sourcePath, destinationPath, library.Method));
+                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
+            }
+
+            File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+        }
+
+        return new Placement(destinationFolder, linkedFiles, outcomes);
+    }
+
+    private static void RecordPlacement(
+        TorrentEntity existing, QBittorrentTorrent torrent, Library library, Placement placement, string? audio, string? ebook)
+    {
+        existing.LibraryPath = placement.Folder;
+        existing.LinkedFilesJson = JsonSerializer.Serialize(placement.LinkedFiles);
+        existing.ChosenAudioExtension = audio;
+        existing.ChosenEbookExtension = ebook;
+        existing.QBittorrentCategory = torrent.Category;
+        existing.LinkerName = library.Name;
+        existing.ClientStatus = torrent.State;
+        existing.LibraryMismatchState = null;
+    }
+
+    private Task AppendLinkedEventAsync(TorrentEntity existing, Library library, string folder, CancellationToken cancellationToken) =>
+        eventStore.AppendAsync(new EventEntity
         {
             OccurredAt = DateTimeOffset.UtcNow,
             TorrentId = existing.Id,
             MamId = existing.MamId,
             Kind = EventKind.Linked,
             LinkerName = library.Name,
-            LibraryPath = destinationFolder,
+            LibraryPath = folder,
         }, cancellationToken);
 
-        await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        _linked++;
-        if (outcomes.Count == 0)
+    private static string DescribePlacement(string torrentName, Placement placement)
+    {
+        if (placement.Outcomes.Count == 0)
         {
-            _logger.LogInformation("Recorded {Torrent} for {LibraryPath} without placing any files (no_link)", torrent.Name, destinationFolder);
+            return $"Recorded {torrentName} for {placement.Folder} without placing any files (no_link)";
         }
-        else
-        {
-            var (action, detail) = LinkOutcomeDescription.Describe(outcomes);
-            _logger.LogInformation("{Action} {Torrent} into {LibraryPath}{Detail}", action, torrent.Name, destinationFolder, detail);
-        }
+
+        var (action, detail) = LinkOutcomeDescription.Describe(placement.Outcomes);
+        return $"{action} {torrentName} into {placement.Folder}{detail}";
     }
 
     private void SyncMismatch(TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata)
@@ -239,8 +273,11 @@ public sealed class LinkRunner(
         existing.LibraryMismatchState = state == LibraryMismatchState.None ? null : state.ToString();
     }
 
-    /// <summary>Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event.</summary>
-    public async Task<bool> RefreshAsync(string torrentId, bool relink, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event and pushing them to
+    /// Audiobookshelf. Returns whether anything changed.
+    /// </summary>
+    public async Task<bool> RefreshAsync(string torrentId, CancellationToken cancellationToken = default)
     {
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
             ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
@@ -251,63 +288,199 @@ public sealed class LinkRunner(
             return false;
         }
 
-        var current = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
-        var changes = DiffFields(current, looked);
-        if (changes.Count == 0 && !relink)
+        var changed = await ApplyRefreshedMetadataAsync(existing, looked, cancellationToken);
+        if (changed && absClient is not null && existing.AbsId is not null)
+        {
+            await absClient.UpdateItemMetadataAsync(existing.AbsId, looked, cancellationToken);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return changed;
+    }
+
+    /// <summary>
+    /// Refreshes a torrent's metadata and links it into its library again, from the files qBittorrent has: the
+    /// library comes from the torrent's current category, save path and tags, the files Fetchshelf placed before are
+    /// removed, and the wanted files are placed in the folder the metadata now calls for. Everything that could stop
+    /// it is checked before any file is touched, so a refusal leaves the library as it was.
+    /// </summary>
+    public async Task<RelinkResult> RefreshAndRelinkAsync(
+        string torrentId,
+        IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
+            ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
+
+        var found = await FindInQBittorrentAsync(torrentId, connections, cancellationToken);
+        if (found is not { } inClient)
+        {
+            return Refuse(existing, "It is not in qBittorrent, so there is nothing to link from.");
+        }
+
+        var (connection, client, torrent) = inClient;
+        if (!torrent.IsFinished)
+        {
+            return Refuse(existing, "It has not finished downloading.");
+        }
+
+        var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
+        var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(
+            libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList);
+        if (matchedIndex is null)
+        {
+            return Refuse(existing, "No library accepts its qBittorrent category, save path and tags.");
+        }
+
+        var library = libraries[matchedIndex.Value];
+
+        // Metadata edited by hand is what the book is linked by; only its VIP status follows MAM.
+        var stored = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
+        var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
+        TorrentMetadata metadata;
+        if (stored.MetadataSource == MetadataSource.Manual)
+        {
+            metadata = looked is null ? stored : stored with { VipStatus = looked.VipStatus };
+        }
+        else if (looked is null)
+        {
+            return Refuse(existing, "MAM has no torrent with this info-hash.");
+        }
+        else
+        {
+            metadata = looked;
+        }
+
+        if (metadata.Authors.Count == 0)
+        {
+            return Refuse(existing, "It has no author.");
+        }
+
+        var files = await client.ListFilesAsync(torrentId, cancellationToken);
+        var (audio, ebook) = ChooseFormats(library, metadata, files);
+        if (audio is null && ebook is null)
+        {
+            return Refuse(existing, NoWantedFormat);
+        }
+
+        if (library.Method != LibraryLinkMethod.NoLink)
+        {
+            var missing = ChosenFiles(files, audio, ebook).Count(f => !File.Exists(Path.Combine(mappedSavePath, f.Name)));
+            if (missing > 0)
+            {
+                return Refuse(existing, $"{missing} of its files are not in {mappedSavePath}; check path_mapping.");
+            }
+        }
+
+        await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
+
+        var oldPath = existing.LibraryPath;
+        Placement placement;
+        try
+        {
+            if (oldPath is not null)
+            {
+                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson));
+            }
+
+            placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError("Could not relink {Title}: {Error}", existing.Title, ex.Message);
+            await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, ex.Message, cancellationToken: cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return new RelinkResult(false, $"Relinking failed part-way: {ex.Message} Fix the cause and relink again.");
+        }
+
+        RecordPlacement(existing, torrent, library, placement, audio, ebook);
+        await UpdateAudiobookshelfAfterRelinkAsync(existing, metadata, folderChanged: oldPath != placement.Folder, cancellationToken);
+        await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrentId, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var description = DescribePlacement(torrent.Name, placement);
+        _logger.LogInformation("Relink: {Placement}", description);
+        return new RelinkResult(true, description + ".");
+    }
+
+    private RelinkResult Refuse(TorrentEntity existing, string reason)
+    {
+        _logger.LogWarning("Did not relink {Title}: {Reason} Nothing was changed", existing.Title, reason);
+        return new RelinkResult(false, $"Not relinked: {reason} Nothing was changed.");
+    }
+
+    private static async Task<(QBittorrentConnection Connection, QBittorrentClient Client, QBittorrentTorrent Torrent)?> FindInQBittorrentAsync(
+        string hash, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections, CancellationToken cancellationToken)
+    {
+        foreach (var (connection, client) in connections)
+        {
+            var torrent = (await client.ListTorrentsAsync(cancellationToken))
+                .FirstOrDefault(t => string.Equals(t.Hash, hash, StringComparison.OrdinalIgnoreCase));
+            if (torrent is not null)
+            {
+                return (connection, client, torrent);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Stores <paramref name="looked"/> as the torrent's metadata, recording changed fields as an Updated event.</summary>
+    private async Task<bool> ApplyRefreshedMetadataAsync(TorrentEntity existing, TorrentMetadata looked, CancellationToken cancellationToken)
+    {
+        var changes = DiffFields(TorrentMetadataSerializer.Deserialize(existing.MetadataJson), looked);
+        existing.MetadataJson = TorrentMetadataSerializer.Serialize(looked);
+        existing.Title = looked.Title;
+        existing.NormalizedTitleKey = TitleNormalizer.Normalize(looked.Title);
+        if (changes.Count == 0)
         {
             return false;
         }
 
-        existing.MetadataJson = TorrentMetadataSerializer.Serialize(looked);
-        existing.Title = looked.Title;
-        existing.NormalizedTitleKey = TitleNormalizer.Normalize(looked.Title);
-
-        if (changes.Count > 0)
+        await eventStore.AppendAsync(new EventEntity
         {
-            await eventStore.AppendAsync(new EventEntity
-            {
-                OccurredAt = DateTimeOffset.UtcNow,
-                TorrentId = existing.Id,
-                MamId = existing.MamId,
-                Kind = EventKind.Updated,
-                FieldChangesJson = JsonSerializer.Serialize(changes),
-            }, cancellationToken);
-
-            if (absClient is not null && existing.AbsId is not null)
-            {
-                await absClient.UpdateItemMetadataAsync(existing.AbsId, looked, cancellationToken);
-            }
-        }
-
-        if (relink && existing.LibraryPath is not null)
-        {
-            var matchedLibrary = libraries.FirstOrDefault(l => existing.LibraryPath!.StartsWith(l.LibraryDir, StringComparison.Ordinal));
-            if (matchedLibrary is not null)
-            {
-                var newFolder = FolderNameComputer.Compute(matchedLibrary.LibraryDir, looked, excludeNarratorInLibraryDir, Directory.Exists);
-                if (!string.Equals(newFolder, existing.LibraryPath, StringComparison.Ordinal))
-                {
-                    if (Directory.Exists(existing.LibraryPath))
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(newFolder)!);
-                        Directory.Move(existing.LibraryPath, newFolder);
-                    }
-
-                    existing.LibraryPath = newFolder;
-                }
-
-                File.WriteAllText(Path.Combine(newFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(looked));
-
-                if (absClient is not null && existing.AbsId is not null && changes.Count == 0)
-                {
-                    await absClient.UpdateItemMetadataAsync(existing.AbsId, looked, cancellationToken);
-                }
-            }
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
+            OccurredAt = DateTimeOffset.UtcNow,
+            TorrentId = existing.Id,
+            MamId = existing.MamId,
+            Kind = EventKind.Updated,
+            FieldChangesJson = JsonSerializer.Serialize(changes),
+        }, cancellationToken);
         return true;
     }
+
+    /// <summary>
+    /// In the same folder, the Audiobookshelf item gets the refreshed metadata. In a new folder Audiobookshelf sees a new
+    /// item, so the old one is deleted and the stored id cleared for the matcher to find the new one.
+    /// </summary>
+    private async Task UpdateAudiobookshelfAfterRelinkAsync(
+        TorrentEntity existing, TorrentMetadata metadata, bool folderChanged, CancellationToken cancellationToken)
+    {
+        if (absClient is null || existing.AbsId is null)
+        {
+            return;
+        }
+
+        if (!folderChanged)
+        {
+            await absClient.UpdateItemMetadataAsync(existing.AbsId, metadata, cancellationToken);
+            return;
+        }
+
+        try
+        {
+            await absClient.DeleteItemAsync(existing.AbsId, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning("Could not delete the old Audiobookshelf item {AbsId} of {Title}: {Error}", existing.AbsId, existing.Title, ex.Message);
+        }
+
+        existing.AbsId = null;
+    }
+
+    private static List<LinkedFileRecord> DeserializeLinkedFiles(string? json) =>
+        json is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(json) ?? [];
 
     /// <summary>Applies a manual metadata override, creating the Torrent record if it does not yet exist.</summary>
     public async Task SetManualMetadataAsync(string torrentId, TorrentMetadata metadata, CancellationToken cancellationToken = default)

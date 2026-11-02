@@ -180,30 +180,7 @@ public sealed class Cleaner(
         var removedFiles = new List<string>();
         if (member.LibraryPath is not null)
         {
-            foreach (var file in DeserializeLinkedFiles(member.LinkedFilesJson))
-            {
-                var path = Path.Combine(member.LibraryPath, file.RelativePath);
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                    removedFiles.Add(file.RelativePath);
-                }
-            }
-
-            foreach (var extra in new[] { "cover.jpg", "metadata.json" })
-            {
-                var path = Path.Combine(member.LibraryPath, extra);
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-
-            if (Directory.Exists(member.LibraryPath) && Directory.GetFileSystemEntries(member.LibraryPath).Length == 0)
-            {
-                Directory.Delete(member.LibraryPath);
-            }
-
+            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, DeserializeLinkedFiles(member.LinkedFilesJson));
             details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
         }
 

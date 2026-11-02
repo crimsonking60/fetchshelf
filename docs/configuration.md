@@ -510,8 +510,8 @@ Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
-it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink** to
-move the files. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
+it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink**, which
+links the book again from its download into the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
 
 ## Reference data
 

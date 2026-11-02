@@ -7,6 +7,10 @@
 @if (Model.Torrent is { } torrent)
 {
     <h2>@torrent.Metadata.Title</h2>
+    @if (Model.ActionMessage is { } actionMessage)
+    {
+        <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
+    }
     @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     <div class="meta-block">
         <p><span class="label">Authors</span><span class="value">@string.Join(", ", torrent.Metadata.Authors)</span></p>
