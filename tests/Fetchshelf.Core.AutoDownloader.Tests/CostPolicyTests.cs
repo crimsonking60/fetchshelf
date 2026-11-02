@@ -3,7 +3,7 @@ namespace Fetchshelf.Core.AutoDownloader.Tests;
 public class CostPolicyTests
 {
     [Fact]
-    public void Vip_OverridesConfiguredRatioCost()
+    public void Derive_VipTorrent_OverridesConfiguredRatioCost()
     {
         var cost = CostPolicy.Derive(isVip: true, isPersonalFreeleech: false, isGlobalFreeleech: false, ConfiguredCost.Ratio);
 
@@ -30,7 +30,7 @@ public class CostPolicyTests
     [InlineData(ConfiguredCost.Wedge, SelectedTorrentCost.UseWedge)]
     [InlineData(ConfiguredCost.TryWedge, SelectedTorrentCost.TryWedge)]
     [InlineData(ConfiguredCost.Ratio, SelectedTorrentCost.Ratio)]
-    public void NonFreeTorrent_MapsConfiguredCost(ConfiguredCost configured, SelectedTorrentCost expected)
+    public void Derive_NonFreeTorrent_MapsConfiguredCost(ConfiguredCost configured, SelectedTorrentCost expected)
     {
         var cost = CostPolicy.Derive(isVip: false, isPersonalFreeleech: false, isGlobalFreeleech: false, configured);
 
@@ -38,7 +38,7 @@ public class CostPolicyTests
     }
 
     [Fact]
-    public void ConfiguredFree_RejectsNonFreeTorrent()
+    public void Derive_ConfiguredFreeAndNonFreeTorrent_ReturnsNull()
     {
         var cost = CostPolicy.Derive(isVip: false, isPersonalFreeleech: false, isGlobalFreeleech: false, ConfiguredCost.Free);
 

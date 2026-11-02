@@ -14,7 +14,7 @@ public class DownloadBudgetTests
     [InlineData(SelectedTorrentCost.Vip)]
     [InlineData(SelectedTorrentCost.PersonalFreeleech)]
     [InlineData(SelectedTorrentCost.GlobalFreeleech)]
-    public void FreeCosts_IgnoreRatioBudget(SelectedTorrentCost cost)
+    public void FitsRatioBudget_FreeCost_IgnoresRatioBudget(SelectedTorrentCost cost)
     {
         Assert.True(DownloadBudget.FitsRatioBudget(cost, torrentSizeBytes: 1_000_000, ratioBudgetBytes: 0));
     }
@@ -24,7 +24,7 @@ public class DownloadBudgetTests
     [InlineData(10, 10, 0, false)]
     [InlineData(10, 8, 1, true)]
     [InlineData(10, 9, 1, false)]
-    public void UnsatSlotCheck_AtBoundary(long limit, long count, long buffer, bool expected)
+    public void HasFreeUnsatSlot_CountNearLimitAndBuffer_ReturnsWhetherASlotIsLeft(long limit, long count, long buffer, bool expected)
     {
         Assert.Equal(expected, DownloadBudget.HasFreeUnsatSlot(limit, count, buffer));
     }
@@ -33,7 +33,7 @@ public class DownloadBudgetTests
     [InlineData(5, 5, WedgeDecision.Fail)]
     [InlineData(4, 5, WedgeDecision.Fail)]
     [InlineData(6, 5, WedgeDecision.UseWedge)]
-    public void UseWedge_FailsAtOrBelowBuffer(long wedgesAvailable, long wedgeBuffer, WedgeDecision expected)
+    public void DecideWedge_UseWedgeAtOrBelowBuffer_Fails(long wedgesAvailable, long wedgeBuffer, WedgeDecision expected)
     {
         var decision = DownloadBudget.DecideWedge(SelectedTorrentCost.UseWedge, wedgesAvailable, wedgeBuffer, isAlreadyFree: false);
 
@@ -44,7 +44,7 @@ public class DownloadBudgetTests
     [InlineData(5, 5, false, WedgeDecision.SkipWedge)]
     [InlineData(6, 5, false, WedgeDecision.UseWedge)]
     [InlineData(10, 0, true, WedgeDecision.SkipWedge)]
-    public void TryWedge_DegradesGracefully(long wedgesAvailable, long wedgeBuffer, bool isAlreadyFree, WedgeDecision expected)
+    public void DecideWedge_TryWedgeWithoutSpareWedgeOrAlreadyFree_SkipsTheWedge(long wedgesAvailable, long wedgeBuffer, bool isAlreadyFree, WedgeDecision expected)
     {
         var decision = DownloadBudget.DecideWedge(SelectedTorrentCost.TryWedge, wedgesAvailable, wedgeBuffer, isAlreadyFree);
 

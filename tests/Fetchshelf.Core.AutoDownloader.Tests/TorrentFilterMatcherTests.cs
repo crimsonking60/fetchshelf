@@ -38,7 +38,7 @@ public class TorrentFilterMatcherTests
         };
 
     [Fact]
-    public void UnsetFields_ImposeNothing()
+    public void Matches_UnsetFields_ImposeNothing()
     {
         var filter = new TorrentFilter { MediaTypes = [MediaType.Audiobook] };
         var candidate = Build(mediaType: MediaType.Audiobook, sizeBytes: 999_999, seeders: 0);
@@ -65,7 +65,7 @@ public class TorrentFilterMatcherTests
     }
 
     [Fact]
-    public void Categories_DefaultExcludesMusicologyAndRadio()
+    public void Matches_DefaultCategories_ExcludesMusicologyAndRadio()
     {
         var filter = new TorrentFilter();
         var candidate = Build(mediaType: MediaType.Musicology, category: LegacyCategory.MusicologySheetCollection);
@@ -74,7 +74,7 @@ public class TorrentFilterMatcherTests
     }
 
     [Fact]
-    public void Categories_DefaultIncludesAllAudioAndEbook()
+    public void Matches_DefaultCategories_IncludesAllAudioAndEbook()
     {
         var filter = new TorrentFilter();
         var candidate = Build(mediaType: MediaType.Audiobook, category: LegacyCategory.AudiobookHorror);
@@ -83,7 +83,7 @@ public class TorrentFilterMatcherTests
     }
 
     [Fact]
-    public void Categories_ExplicitListRestrictsToThoseCategories()
+    public void Matches_ExplicitCategoryList_RestrictsToThoseCategories()
     {
         var filter = new TorrentFilter
         {
@@ -119,7 +119,7 @@ public class TorrentFilterMatcherTests
     [InlineData(50, 100, 200, false)]
     [InlineData(150, 100, 200, true)]
     [InlineData(250, 100, 200, false)]
-    public void SizeRange_IsInclusive(long sizeBytes, long min, long max, bool expectedMatch)
+    public void Matches_SizeAroundRange_IncludesTheEdges(long sizeBytes, long min, long max, bool expectedMatch)
     {
         var filter = new TorrentFilter { MinSizeBytes = min, MaxSizeBytes = max };
         var candidate = Build(sizeBytes: sizeBytes);
@@ -132,7 +132,7 @@ public class TorrentFilterMatcherTests
     [InlineData(3, true)]
     [InlineData(4, false)]
     [InlineData(12, false)]
-    public void MaxAuthors_IsInclusive(int authorCount, bool expectedMatch)
+    public void Matches_AuthorCountAroundMaxAuthors_IncludesTheMaximum(int authorCount, bool expectedMatch)
     {
         var filter = new TorrentFilter { MaxAuthors = 3 };
 
@@ -170,7 +170,7 @@ public class TorrentFilterMatcherTests
     [Theory]
     [InlineData(5, 10, 20, false)]
     [InlineData(15, 10, 20, true)]
-    public void SeederRange_IsInclusive(long seeders, long min, long max, bool expectedMatch)
+    public void Matches_SeedersAroundRange_IncludesTheEdges(long seeders, long min, long max, bool expectedMatch)
     {
         var filter = new TorrentFilter { MinSeeders = min, MaxSeeders = max };
         var candidate = Build(seeders: seeders);
