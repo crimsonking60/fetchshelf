@@ -139,7 +139,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task ListTorrentsAsync_ParsesAllSixFields()
+    public async Task ListTorrentsAsync_FullResponse_ParsesAllSixFields()
     {
         var client = CreateClient(request => request.RequestUri!.AbsolutePath == "/api/v2/auth/login"
             ? LoginOkResponse()
@@ -173,7 +173,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task ListFilesAsync_ParsesFileList()
+    public async Task ListFilesAsync_FileListResponse_ParsesEveryFile()
     {
         var client = CreateClient(request => request.RequestUri!.AbsolutePath == "/api/v2/auth/login"
             ? LoginOkResponse()
@@ -278,7 +278,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task SetCategoryAsync_ChangesCategory()
+    public async Task SetCategoryAsync_HashAndCategory_SendsSetCategoryRequest()
     {
         string? capturedBody = null;
         var client = CreateClient(request =>
@@ -309,7 +309,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task AddTagsAsync_AddsTags()
+    public async Task AddTagsAsync_HashAndTags_SendsAddTagsRequest()
     {
         string? capturedBody = null;
         var client = CreateClient(request =>
@@ -329,7 +329,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task RemoveTagsAsync_RemovesTags()
+    public async Task RemoveTagsAsync_HashAndTags_SendsRemoveTagsRequest()
     {
         string? capturedBody = null;
         var client = CreateClient(request =>
@@ -390,7 +390,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task StartAsync_StartsTorrent()
+    public async Task StartAsync_Hash_SendsStartRequest()
     {
         string? capturedPath = null;
         var client = CreateClient(request =>
@@ -410,7 +410,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task StopAsync_StopsTorrent()
+    public async Task StopAsync_Hash_SendsStopRequest()
     {
         string? capturedPath = null;
         var client = CreateClient(request =>
@@ -430,7 +430,7 @@ public class QBittorrentClientTests
     }
 
     [Fact]
-    public async Task DeleteWithDataAsync_DeletesTorrentAndData()
+    public async Task DeleteWithDataAsync_Hash_DeletesTorrentAndData()
     {
         string? capturedBody = null;
         var client = CreateClient(request =>
