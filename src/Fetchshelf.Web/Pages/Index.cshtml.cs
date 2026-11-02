@@ -17,7 +17,7 @@ namespace Fetchshelf.Web.Pages;
 /// </summary>
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
-    FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
+    FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
     [TempData]
@@ -134,7 +134,7 @@ public class IndexModel(
                     record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
                     unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                message = DescribeOutcome(outcome, metadata, settings);
+                message = DescribeOutcome(outcome, metadata, formatPreferenceLists);
             }
             else
             {
@@ -175,7 +175,7 @@ public class IndexModel(
     private bool IsRequestAborted(Exception exception) =>
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
-    private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FetchshelfSettings settings)
+    private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists)
     {
         var title = $"\"{metadata.Title}\"";
         return outcome switch
@@ -185,30 +185,11 @@ public class IndexModel(
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>
                 $"{title} was not selected: none of its file types ({string.Join(", ", metadata.FileTypes)}) is in your "
-                + $"{PreferenceSettingFor(metadata.MediaType, settings, out var preferred)} setting ({string.Join(", ", preferred)}).",
+                + $"{FormatPreferenceLists.SettingNameFor(metadata.MediaType)} setting ({string.Join(", ", preferenceLists.For(metadata.MediaType))}).",
             SelectionOutcome.DuplicateOfSelected => $"{title} was not selected: a copy is already selected.",
             SelectionOutcome.DuplicateOfLibrary => $"{title} was not selected: a copy is already in your library.",
             SelectionOutcome.CostNotFree => $"{title} was not selected: it is not free and the chosen cost does not allow it.",
             _ => $"{title} was not selected ({outcome}).",
         };
-    }
-
-    private static string PreferenceSettingFor(MediaType mediaType, FetchshelfSettings settings, out IReadOnlyList<string> preferred)
-    {
-        switch (mediaType)
-        {
-            case MediaType.Audiobook or MediaType.PeriodicalAudiobook:
-                preferred = settings.AudioTypes;
-                return "audio_types";
-            case MediaType.Musicology:
-                preferred = settings.MusicTypes;
-                return "music_types";
-            case MediaType.Radio:
-                preferred = settings.RadioTypes;
-                return "radio_types";
-            default:
-                preferred = settings.EbookTypes;
-                return "ebook_types";
-        }
     }
 }

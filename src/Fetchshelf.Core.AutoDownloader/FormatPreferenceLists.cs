@@ -22,6 +22,16 @@ public sealed record FormatPreferenceLists
         _ => throw new ArgumentOutOfRangeException(nameof(mediaType)),
     };
 
+    /// <summary>The configuration setting that holds <see cref="For"/>'s list, for messages that tell the user what to change.</summary>
+    public static string SettingNameFor(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Audiobook or MediaType.PeriodicalAudiobook => "audio_types",
+        MediaType.Ebook or MediaType.ComicBook or MediaType.Manga or MediaType.PeriodicalEbook => "ebook_types",
+        MediaType.Musicology => "music_types",
+        MediaType.Radio => "radio_types",
+        _ => throw new ArgumentOutOfRangeException(nameof(mediaType)),
+    };
+
     /// <summary>
     /// The list that picks the audio-side file type when linking: music and radio have their own lists, every other
     /// media type uses <see cref="AudioTypes"/>. The ebook side always uses <see cref="EbookTypes"/>.

@@ -19,7 +19,7 @@ public static class MamTorrentMapper
     /// </summary>
     public static TorrentMetadata Map(MamTorrentRecord record)
     {
-        var mediaType = (MediaType)(record.MediaTypeId != 0 ? record.MediaTypeId : OldMainCategoryToMediaTypeId(record.OldMainCategoryId));
+        var mediaType = (MediaType)EffectiveMediaTypeId(record);
         var legacyCategory = (LegacyCategory)record.LegacyCategoryId;
         mediaType = MamMetadataCleaner.ReclassifyMediaType(mediaType, legacyCategory);
 
@@ -95,7 +95,13 @@ public static class MamTorrentMapper
         return metadata;
     }
 
-    /// <summary>Older records carry only the old main category (13-16), which maps to media types 1-4.</summary>
+    /// <summary>
+    /// The record's MAM media type id. Older records carry only the old main category (13-16), which maps to media
+    /// types 1-4; 0 when neither is known.
+    /// </summary>
+    public static int EffectiveMediaTypeId(MamTorrentRecord record) =>
+        record.MediaTypeId != 0 ? record.MediaTypeId : OldMainCategoryToMediaTypeId(record.OldMainCategoryId);
+
     private static int OldMainCategoryToMediaTypeId(int oldMainCategoryId) => oldMainCategoryId switch
     {
         13 => 1, // Audiobook

@@ -102,6 +102,7 @@ var formatPreferenceLists = new FormatPreferenceLists
     MusicTypes = settings.MusicTypes,
     RadioTypes = settings.RadioTypes,
 };
+builder.Services.AddSingleton(formatPreferenceLists);
 builder.Services.AddScoped(sp => new LinkRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),

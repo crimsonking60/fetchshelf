@@ -49,12 +49,9 @@ public sealed record SearchResultViewModel(
 
     /// <summary>
     /// "ebook"/"audiobook"/"comic"/"other", for the browser-side Ebooks/Audiobooks/Comics filter buttons on the
-    /// Search page to match against (see the page's <c>applyMediaFilter</c> script). Mirrors
-    /// <c>MamTorrentMapper</c>'s media-type fallback (<c>MediaTypeId</c>, else the old main category,
-    /// 1) rather than the record's raw main category alone, so newer
-    /// mediatype-only records still classify correctly.
+    /// Search page to match against (see the page's <c>applyMediaFilter</c> script).
     /// </summary>
-    private static string MediaTypeSlugOf(MamTorrentRecord record) => EffectiveMediaTypeId(record) switch
+    private static string MediaTypeSlugOf(MamTorrentRecord record) => MamTorrentMapper.EffectiveMediaTypeId(record) switch
     {
         1 or 8 => "audiobook", // Audiobook, Periodical Audiobook
         2 or 7 => "ebook", // Ebook, Periodical Ebook
@@ -63,7 +60,7 @@ public sealed record SearchResultViewModel(
     };
 
     /// <summary>Display name for the Media type column; "Unknown" for ids it does not list.</summary>
-    private static string MediaTypeLabelOf(MamTorrentRecord record) => EffectiveMediaTypeId(record) switch
+    private static string MediaTypeLabelOf(MamTorrentRecord record) => MamTorrentMapper.EffectiveMediaTypeId(record) switch
     {
         1 => "Audiobook",
         2 => "Ebook",
@@ -74,14 +71,5 @@ public sealed record SearchResultViewModel(
         7 => "Periodical Ebook",
         8 => "Periodical Audiobook",
         _ => "Unknown",
-    };
-
-    private static int EffectiveMediaTypeId(MamTorrentRecord record) => record.MediaTypeId != 0 ? record.MediaTypeId : record.OldMainCategoryId switch
-    {
-        13 => 1, // Audiobook
-        14 => 2, // Ebook
-        15 => 3, // Musicology
-        16 => 4, // Radio
-        _ => 0,
     };
 }
