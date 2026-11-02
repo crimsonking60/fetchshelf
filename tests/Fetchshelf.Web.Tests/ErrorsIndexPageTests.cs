@@ -37,7 +37,7 @@ public partial class ErrorsIndexPageTests
     }
 
     [Fact]
-    public async Task Get_ListsErrorsByStage()
+    public async Task Get_DownloadError_ShowsItsStageErrorAndTorrent()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedGrabberErrorAsync(fixture, restorable: false);

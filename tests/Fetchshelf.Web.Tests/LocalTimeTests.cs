@@ -47,7 +47,7 @@ public class LocalTimeTests
     }
 
     [Fact]
-    public async Task EventsPage_RendersTimestampsAsLocalTimeElements()
+    public async Task Get_EventsPage_RendersTimestampsAsLocalTimeElements()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
@@ -65,7 +65,7 @@ public class LocalTimeTests
     }
 
     [Fact]
-    public async Task TorrentDetailPage_ListsItsEventTimesWithTheSharedElement()
+    public async Task Get_TorrentDetailPage_ListsItsEventTimesWithTheSharedElement()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
@@ -78,7 +78,7 @@ public class LocalTimeTests
     }
 
     [Fact]
-    public async Task Layout_LoadsTheScriptThatLocalizesThem()
+    public async Task Get_AnyPage_LoadsTheScriptThatLocalizesTimes()
     {
         using var fixture = new FetchshelfWebAppFixture();
         using var client = fixture.CreateClient();

@@ -9,7 +9,7 @@ public class AppVersionTests
     [InlineData("dev+14747e2a1b2c3d4e5f60718293a4b5c6d7e8f90", "dev")]
     [InlineData(null, "unknown")]
     [InlineData("", "unknown")]
-    public void FromInformationalVersion_DropsTheCommitSuffix(string? informationalVersion, string expected)
+    public void FromInformationalVersion_WithCommitSuffix_DropsTheSuffix(string? informationalVersion, string expected)
     {
         Assert.Equal(expected, AppVersion.FromInformationalVersion(informationalVersion));
     }
@@ -21,7 +21,7 @@ public class AppVersionTests
     }
 
     [Fact]
-    public async Task ConfigPage_ShowsTheVersion()
+    public async Task Get_ConfigPage_ShowsTheVersion()
     {
         using var fixture = new FetchshelfWebAppFixture();
         var client = fixture.CreateClient();

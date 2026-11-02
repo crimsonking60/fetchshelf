@@ -30,7 +30,7 @@ public partial class SelectedIndexPageTests
     }
 
     [Fact]
-    public async Task Get_ListsActiveSelections()
+    public async Task Get_ActiveSelections_AreListed()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedSelectedAsync(fixture);
@@ -58,7 +58,7 @@ public partial class SelectedIndexPageTests
     }
 
     [Fact]
-    public async Task Get_EachRowKeepsItsOwnUpdateButton()
+    public async Task Get_SeveralSelections_EachRowKeepsItsOwnUpdateButton()
     {
         using var fixture = new FetchshelfWebAppFixture();
         var first = await SeedSelectedAsync(fixture, "First Book", mamId: 1);

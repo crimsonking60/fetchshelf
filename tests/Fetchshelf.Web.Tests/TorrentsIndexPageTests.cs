@@ -20,7 +20,7 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
-    public async Task Get_TorrentsListedNewestFirst()
+    public async Task Get_SeveralTorrents_ListsNewestFirst()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedTorrentAsync(

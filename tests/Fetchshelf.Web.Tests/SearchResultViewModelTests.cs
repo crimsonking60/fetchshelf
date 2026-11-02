@@ -45,7 +45,7 @@ public class SearchResultViewModelTests
     }
 
     [Fact]
-    public void ShortenAuthors_ResultNeverExceedsTheLimitBeforeTheEnding()
+    public void ShortenAuthors_LongAuthorList_NeverExceedsTheLimitBeforeTheEnding()
     {
         var many = string.Join(", ", Enumerable.Range(1, 80).Select(i => $"Author Number {i}"));
 

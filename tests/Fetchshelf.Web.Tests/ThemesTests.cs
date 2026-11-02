@@ -54,7 +54,7 @@ public class ThemesTests
     [InlineData("https://evil.example/")]
     [InlineData("//evil.example/")]
     [InlineData("/\\evil.example")]
-    public async Task ThemeEndpoint_IgnoresNonLocalReturnUrl(string returnUrl)
+    public async Task GetTheme_NonLocalReturnUrl_RedirectsHomeInstead(string returnUrl)
     {
         using var fixture = new FetchshelfWebAppFixture();
         using var client = fixture.CreateNoRedirectClient();

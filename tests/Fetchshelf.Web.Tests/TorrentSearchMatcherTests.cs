@@ -17,7 +17,7 @@ public class TorrentSearchMatcherTests
     [InlineData("BELLE DE JOUR")]
     [InlineData("adventures")]
     [InlineData("call girl belle")]
-    public void Matches_IgnoresCaseAndWordOrder(string query) =>
+    public void Matches_DifferentCaseAndWordOrder_StillMatches(string query) =>
         Assert.True(TorrentSearchMatcher.Matches(
             Book("The Further Adventures of a London Call Girl", ["Belle De Jour"], series: "Belle De Jour"), query));
 
@@ -25,11 +25,11 @@ public class TorrentSearchMatcherTests
     [InlineData("beautiful american")]
     [InlineData("american beautiful")]
     [InlineData("mackin american")]
-    public void Matches_EveryWordSomewhereInTitleOrAuthor(string query) =>
+    public void Matches_WordsSpreadOverTitleAndAuthor_MatchesInAnyOrder(string query) =>
         Assert.True(TorrentSearchMatcher.Matches(Book("The Beautiful American", ["Jeanne Mackin"]), query));
 
     [Fact]
-    public void Matches_IgnoresAccents() =>
+    public void Matches_AccentedText_MatchesWithoutAccents() =>
         Assert.True(TorrentSearchMatcher.Matches(Book("Jane Eyre", ["Charlotte Brontë"]), "bronte"));
 
     [Fact]

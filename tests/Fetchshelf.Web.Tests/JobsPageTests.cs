@@ -110,7 +110,7 @@ public partial class JobsPageTests
     }
 
     [Fact]
-    public async Task RunNow_TriggersJobAndReflectsUpdatedStatus()
+    public async Task PostRunNow_RegisteredJob_TriggersItAndShowsUpdatedStatus()
     {
         using var fixture = new FetchshelfWebAppFixture();
         fixture.JobRegistry.Register("example-job", _ => Task.CompletedTask);
@@ -184,7 +184,7 @@ public partial class JobsPageTests
     }
 
     [Fact]
-    public async Task JobsPartial_ReturnsCurrentStatusIndependentOfFullPage()
+    public async Task GetJobsPartial_JobHasRun_ReturnsCurrentStatusWithoutTheFullPage()
     {
         using var fixture = new FetchshelfWebAppFixture();
         fixture.JobRegistry.Register("example-job", _ => Task.CompletedTask);

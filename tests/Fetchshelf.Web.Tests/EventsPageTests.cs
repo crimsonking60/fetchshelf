@@ -6,7 +6,7 @@ namespace Fetchshelf.Web.Tests;
 public class EventsPageTests
 {
     [Fact]
-    public async Task Get_EventsListedNewestFirst()
+    public async Task Get_SeveralEvents_ListsNewestFirst()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
