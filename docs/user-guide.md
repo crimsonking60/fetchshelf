@@ -1051,8 +1051,8 @@ lists each kind of optional job you have not configured, such as *Snatchlist is 
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows success or the error. A failed job tries again at its next interval. One failing
-  torrent never stops the others: the Download, Link, Clean and AbsMatcher jobs then show *Finished with
-  errors* with the number of torrents that failed, and the log has a line for each. Link and Clean problems,
+  torrent never stops the others: the Download, Link, Clean, AbsMatcher and snatchlist jobs then show
+  *Finished with errors* with the number of torrents that failed, and the log has a line for each. Link and Clean problems,
   and downloads removed from the queue, are also listed on the **Errors** page.
 - With an empty `mam_id`, no job runs at all.
 

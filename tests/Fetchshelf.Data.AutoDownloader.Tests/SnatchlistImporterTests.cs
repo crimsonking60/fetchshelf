@@ -61,7 +61,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd });
+        var created = (await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd })).Recorded;
 
         Assert.Equal(1, created);
         var entry = Assert.Single(context.Torrents);
@@ -75,11 +75,11 @@ public sealed class SnatchlistImporterTests : IDisposable
         var logger = new ListLogger<SnatchlistImporter>();
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+        var created = (await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat })).Recorded;
 
         Assert.Equal(0, created);
         Assert.Empty(context.Torrents);
-        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 1 \"The Way of Kings\" is not stored, skipped"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("The Way of Kings by A is not stored, skipped"));
     }
 
     [Fact]
@@ -97,14 +97,94 @@ public sealed class SnatchlistImporterTests : IDisposable
             CreatedAt = DateTimeOffset.UtcNow,
         });
         await context.SaveChangesAsync();
-        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat });
 
-        Assert.Equal(0, created);
+        Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 1, Failed: 0), summary);
         var entry = Assert.Single(context.Torrents);
         Assert.Equal("stored", entry.Id);
         Assert.Equal("The Way of Kings", entry.Title);
+        Assert.Contains(
+            logger.Messages(LogLevel.Information),
+            m => m.EndsWith("The Way of Kings by A had its metadata updated from MAM", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_StoredTorrentAlreadyUpToDate_SaysThereIsNothingToDo()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        await new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate())
+            .RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd });
+        var logger = new ListLogger<SnatchlistImporter>();
+
+        var summary = await new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger)
+            .RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Name = "unsat" });
+
+        Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 0, Failed: 0), summary);
+        Assert.Equal(
+            ["Snatchlist unsat: read 1 snatch list rows, nothing to do: everything is up to date"],
+            logger.Messages(LogLevel.Information));
+    }
+
+    [Fact]
+    public async Task RunAsync_EmptySnatchList_SaysSo()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var handler = new FakeHttpMessageHandler(request =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    request.RequestUri!.AbsolutePath.Contains("jsonLoad.php") ? AccountStateJson : SnatchlistPageJson(empty: true)),
+            });
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(
+            context, new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }), new MamAccessGate(), logger);
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Name = "unsat" });
+
+        Assert.Equal(new SnatchlistRunSummary(Rows: 0, Recorded: 0, Updated: 0, Failed: 0), summary);
+        Assert.Equal(["Snatchlist unsat: the snatch list is empty, nothing to do"], logger.Messages(LogLevel.Information));
+    }
+
+    [Fact]
+    public async Task RunAsync_LookupFailsForOneRow_LogsErrorCountsItAndImportsTheRest()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        const string twoRows =
+            """{"rows":[{"id":1,"title":"Broken","seeders":5,"leechers":1},{"id":2,"title":"Fine","seeders":5,"leechers":1}]}""";
+        var searches = 0;
+        var handler = new FakeHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("jsonLoad.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AccountStateJson) };
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("loadUserDetailsTorrents.php"))
+            {
+                var rows = request.RequestUri.Query.Contains("iteration=0") ? twoRows : SnatchlistPageJson(empty: true);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(rows) };
+            }
+
+            // Rows are looked up in order: the first lookup (torrent 1) fails, the second (torrent 2) works.
+            return ++searches == 1
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(DownloadTestSupport.TorrentRecordJson(2, "dl2", title: "Fine", authorName: "A")),
+                };
+        });
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(
+            context, new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }), new MamAccessGate(), logger);
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd });
+
+        Assert.Equal(new SnatchlistRunSummary(Rows: 2, Recorded: 1, Updated: 0, Failed: 1), summary);
+        Assert.Contains("could not import MAM torrent 1", Assert.Single(logger.Messages(LogLevel.Error)));
+        Assert.Equal(2, Assert.Single(context.Torrents).MamId);
     }
 
     [Fact]
@@ -113,12 +193,12 @@ public sealed class SnatchlistImporterTests : IDisposable
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
 
-        var created = await importer.RunAsync(new SnatchlistEntry
+        var created = (await importer.RunAsync(new SnatchlistEntry
         {
             Type = SnatchlistType.Unsat,
             Cost = ConfiguredCost.MetadataOnlyAdd,
             ExcludeUploader = ["uploader"],
-        });
+        })).Recorded;
 
         Assert.Equal(0, created);
         Assert.Empty(context.Torrents);
@@ -134,13 +214,13 @@ public sealed class SnatchlistImporterTests : IDisposable
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate());
 
-        var created = await importer.RunAsync(new SnatchlistEntry
+        var created = (await importer.RunAsync(new SnatchlistEntry
         {
             Type = SnatchlistType.Unsat,
             Cost = ConfiguredCost.MetadataOnlyAdd,
             MinSnatched = minSnatched,
             MaxSnatched = maxSnatched,
-        });
+        })).Recorded;
 
         Assert.Equal(expectedCreated, created);
     }
@@ -169,12 +249,13 @@ public sealed class SnatchlistImporterTests : IDisposable
         var logger = new ListLogger<SnatchlistImporter>();
         var importer = new SnatchlistImporter(context, CreateMamClient(), new MamAccessGate(), logger);
 
-        var created = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd, DryRun = true });
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd, DryRun = true });
 
-        Assert.Equal(0, created);
+        // The summary counts what would have been recorded; nothing is written.
+        Assert.Equal(1, summary.Recorded);
         Assert.Empty(context.Torrents);
         var messages = logger.Messages(LogLevel.Information);
-        Assert.Contains(messages, m => m.Contains("MAM torrent 1 \"The Way of Kings\" would be recorded as owned"));
+        Assert.Contains(messages, m => m.Contains("The Way of Kings by A would be recorded as owned"));
         Assert.Contains(messages, m => m.Contains("read 1 snatch list rows, 1 would have been recorded as owned (dry run)"));
     }
 }

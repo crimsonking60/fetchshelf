@@ -335,7 +335,12 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
-            await importer.RunAsync(entry, ct);
+            var summary = await importer.RunAsync(entry, ct);
+            if (summary.Failed > 0)
+            {
+                throw new JobCompletedWithErrorsException(
+                    $"{summary.Failed} snatch list {(summary.Failed == 1 ? "row" : "rows")} could not be imported; see the log.");
+            }
         }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
