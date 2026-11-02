@@ -990,7 +990,7 @@ reported, so they cannot be chosen by hand.
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
 by event type, by the autograb that grabbed a torrent, by the library that linked it, or by a
-changed field.
+changed field. Pages hold 25 events. Use **First**, **Previous**, **Next** and **Last** below the list.
 
 ### Errors
 

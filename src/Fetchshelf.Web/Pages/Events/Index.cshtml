@@ -18,6 +18,7 @@
     <input type="text" name="Grabber" value="@Model.Grabber" placeholder="Grabber" />
     <input type="text" name="Linker" value="@Model.Linker" placeholder="Linker" />
     <input type="text" name="Field" value="@Model.Field" placeholder="Field" />
+    <input type="hidden" name="PageSize" value="@Model.PageSize" />
     <button type="submit">Filter</button>
 </form>
 
@@ -72,4 +73,6 @@ else
             }
         </tbody>
     </table>
+
+    @await Html.PartialAsync("_Pager", Model.Pager)
 }

@@ -66,25 +66,5 @@ else
         <button type="submit" name="action" value="removeRecord" class="danger">Remove selected</button>
     </div>
 
-    <p class="muted">Showing @Model.Torrents.Count of @Model.TotalCount. Page @Model.PageNumber of @Model.TotalPages.</p>
-
-    @if (Model.TotalPages > 1)
-    {
-        <nav id="torrent-pager" class="actions" aria-label="Torrent pages">
-            @if (Model.PageNumber > 1)
-            {
-                <a id="pager-first" asp-page="/Torrents/Index" asp-route-Q="@Model.Q" asp-route-Language="@Model.Language" asp-route-MediaType="@Model.MediaType"
-                   asp-route-Sort="@Model.Sort" asp-route-Dir="@Model.Dir" asp-route-PageSize="@Model.PageSize" asp-route-PageNumber="1">First</a>
-                <a id="pager-prev" asp-page="/Torrents/Index" asp-route-Q="@Model.Q" asp-route-Language="@Model.Language" asp-route-MediaType="@Model.MediaType"
-                   asp-route-Sort="@Model.Sort" asp-route-Dir="@Model.Dir" asp-route-PageSize="@Model.PageSize" asp-route-PageNumber="@(Model.PageNumber - 1)">Previous</a>
-            }
-            @if (Model.PageNumber < Model.TotalPages)
-            {
-                <a id="pager-next" asp-page="/Torrents/Index" asp-route-Q="@Model.Q" asp-route-Language="@Model.Language" asp-route-MediaType="@Model.MediaType"
-                   asp-route-Sort="@Model.Sort" asp-route-Dir="@Model.Dir" asp-route-PageSize="@Model.PageSize" asp-route-PageNumber="@(Model.PageNumber + 1)">Next</a>
-                <a id="pager-last" asp-page="/Torrents/Index" asp-route-Q="@Model.Q" asp-route-Language="@Model.Language" asp-route-MediaType="@Model.MediaType"
-                   asp-route-Sort="@Model.Sort" asp-route-Dir="@Model.Dir" asp-route-PageSize="@Model.PageSize" asp-route-PageNumber="@Model.TotalPages">Last</a>
-            }
-        </nav>
-    }
+    @await Html.PartialAsync("_Pager", Model.Pager)
 }

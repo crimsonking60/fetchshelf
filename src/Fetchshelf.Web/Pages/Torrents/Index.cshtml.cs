@@ -16,8 +16,6 @@ public class IndexModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker) : PageModel
 {
-    private const int DefaultPageSize = 25;
-
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
@@ -37,7 +35,7 @@ public class IndexModel(
     public int PageNumber { get; set; } = 1;
 
     [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = DefaultPageSize;
+    public int PageSize { get; set; } = Paging.DefaultPageSize;
 
     public TorrentListQuery Query => new(Q, Language, MediaType, Sort, Dir, PageSize);
 
@@ -46,6 +44,9 @@ public class IndexModel(
     public int TotalCount { get; private set; }
 
     public int TotalPages { get; private set; } = 1;
+
+    public PagerViewModel Pager =>
+        new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, "torrent-pager", "Torrent pages");
 
     /// <summary>The outcome of a "Check qBittorrent", shown above the list; set by the htmx response itself or, after the non-htmx redirect, read back from TempData.</summary>
     public string? CheckMessage { get; private set; }
@@ -163,10 +164,7 @@ public class IndexModel(
 
         TotalCount = matched.Count;
 
-        var pageSize = PageSize <= 0 ? DefaultPageSize : PageSize;
-        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalCount / (double)pageSize));
-        PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
-        var entities = ordered.Skip((PageNumber - 1) * pageSize).Take(pageSize).ToList();
+        (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
         return entities.Select(TorrentListItemViewModel.From).ToList();
     }
 }
