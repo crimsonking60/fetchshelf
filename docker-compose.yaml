@@ -7,7 +7,7 @@ services:
       - "3157:3157"
     volumes:
       - ./docker-data/config:/config
-      - ./docker-data/data:/data
+      - ./docker-data/database:/database
     environment:
       PUID: "1000"
       PGID: "1000"

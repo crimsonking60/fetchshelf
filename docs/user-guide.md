@@ -105,7 +105,7 @@ within that month from `0`. Every release and what changed in it is listed in
 1. Create folders on the host for Fetchshelf's configuration and database:
 
    ```sh
-   mkdir -p /srv/fetchshelf/config /srv/fetchshelf/data
+   mkdir -p /srv/fetchshelf/config /srv/fetchshelf/database
    ```
 
 2. Start the container. This example also mounts a shared media folder, which holds the downloads and
@@ -119,7 +119,7 @@ within that month from `0`. Every release and what changed in it is listed in
      -e PUID=1000 \
      -e PGID=1000 \
      -v /srv/fetchshelf/config:/config \
-     -v /srv/fetchshelf/data:/data \
+     -v /srv/fetchshelf/database:/database \
      -v /srv/media:/media \
      ghcr.io/crimsonking60/fetchshelf:latest
    ```
@@ -141,20 +141,20 @@ What the options mean:
 |---|---|
 | `-p 3157:3157` | The web interface listens on port 3157 inside the container. Change the left number to use another port on the host. |
 | `/config` volume | Holds `config.toml`. |
-| `/data` volume | Holds the database (`data.db`), where Fetchshelf remembers torrents, selections and events. |
+| `/database` volume | Holds the database (`data.db`), where Fetchshelf remembers torrents, selections and events. |
 | `/media` volume | Not required by Fetchshelf itself. A folder that holds both your downloads and your library, mounted as one, so linking can work. Give qBittorrent and, if you use it, Audiobookshelf the parts they need at the same paths (see [Together with qBittorrent and Audiobookshelf](#together-with-qbittorrent-and-audiobookshelf)). |
 | `PUID` / `PGID` | The user and group id that Fetchshelf runs as inside the container. Set them to the owner of your config, data and media folders (run `id` on the host to see yours) so files are created with the right owner. Both default to `1000`. |
 
-The container starts as root only to adjust ownership of `/config` and `/data`, then runs Fetchshelf as the
+The container starts as root only to adjust ownership of `/config` and `/database`, then runs Fetchshelf as the
 `PUID`/`PGID` user. If you start the container with a fixed user instead (`--user` or `user:`), `PUID` and
-`PGID` are ignored and you must make sure that user can write to `/config` and `/data`.
+`PGID` are ignored and you must make sure that user can write to `/config` and `/database`.
 
 Other environment variables you can set:
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `FETCHSHELF_CONFIG_FILE` | `/config/config.toml` | Where the configuration file is. |
-| `FETCHSHELF_DATA_FILE` | `/data/data.db` | Where the database is. |
+| `FETCHSHELF_DATA_FILE` | `/database/data.db` | Where the database is. |
 | `FETCHSHELF_LOG` | `information` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. |
 | `FETCHSHELF_LOG_DIR` | empty | If set, also write daily rotating log files to this folder. Logs always go to the container output. |
 | `FETCHSHELF_CONF_<setting>` | | Override a configuration setting. See [Configuring Fetchshelf](#configuring-fetchshelf). |
@@ -187,7 +187,7 @@ services:
       PGID: "1000"
     volumes:
       - /srv/fetchshelf/config:/config
-      - /srv/fetchshelf/data:/data
+      - /srv/fetchshelf/database:/database
       - /srv/media:/media
 ```
 
@@ -270,7 +270,7 @@ services:
       PGID: "1000"
     volumes:
       - /srv/fetchshelf/config:/config
-      - /srv/fetchshelf/data:/data
+      - /srv/fetchshelf/database:/database
       - /srv/media:/media
 ```
 
@@ -1129,8 +1129,8 @@ What matters:
 | What | Where | Why |
 |---|---|---|
 | `config.toml` | the `/config` folder | Your settings and secrets. |
-| `data.db` | the `/data` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
-| `keys` | the `/data` folder | Keys that protect the web interface's forms. Not essential: without them, a page that was open before is refused once, and works again after a reload. |
+| `data.db` | the `/database` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
+| `keys` | the `/database` folder | Keys that protect the web interface's forms. Not essential: without them, a page that was open before is refused once, and works again after a reload. |
 
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
@@ -1173,7 +1173,7 @@ First, look at the **Jobs**, **Errors** and **Events** pages and at `docker logs
 ### The container is unhealthy
 
 Run `docker inspect --format '{{json .State.Health}}' fetchshelf` to see the last checks and their answers.
-`Unhealthy` means Fetchshelf runs but cannot open its database: check the permissions on `/data` (see
+`Unhealthy` means Fetchshelf runs but cannot open its database: check the permissions on `/database` (see
 below). *Connection refused* means Fetchshelf is not answering at all: read `docker logs fetchshelf`.
 
 ### The container exits or restarts
@@ -1182,7 +1182,7 @@ Run `docker logs fetchshelf`. If the message begins with *Invalid configuration*
 (a misspelled key or name, a missing `url`, a library with both or neither of `category` and
 `download_dir`, and so on) and restart.
 
-### Permission errors on `/config` or `/data`
+### Permission errors on `/config` or `/database`
 
 Set `PUID` and `PGID` to the owner of the host folders, or change the owner of the folders to match. If you
 use `--user` or `user:` instead, make sure that user can write to both folders.
@@ -1255,7 +1255,7 @@ The log says what happened to each book:
 ### Getting more detail
 
 Set `FETCHSHELF_LOG=debug` (the default is `information`) and, for a file you can attach to a report, set
-`FETCHSHELF_LOG_DIR=/data/logs` and restart. Set it back afterwards: `debug` logs a lot more.
+`FETCHSHELF_LOG_DIR=/database/logs` and restart. Set it back afterwards: `debug` logs a lot more.
 
 ## Frequently asked questions
 

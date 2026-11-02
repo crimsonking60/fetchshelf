@@ -28,7 +28,7 @@ to `6-everything.toml`, which uses every option.
 - **Location.** The path comes from the `FETCHSHELF_CONFIG_FILE` environment variable. If it is not set,
   Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
   directory. The file must have a `.toml` extension. The database location is set separately with
-  `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/data` are mounted volumes.
+  `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/database` are mounted volumes.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.

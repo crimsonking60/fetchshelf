@@ -18,7 +18,7 @@ if [ "$(id -u app)" != "$PUID" ]; then
     usermod -o -u "$PUID" app
 fi
 
-chown -R app:app /config /data
+chown -R app:app /config /database
 
 # setpriv replaces this shell with the app, so `docker stop` signals the app directly and it gets the whole
 # stop timeout to shut down. runuser would stay in between and kill the app 2 seconds after SIGTERM.
