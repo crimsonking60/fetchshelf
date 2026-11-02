@@ -46,7 +46,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.10.3** (2026-10-31). See [RELEASES.md](RELEASES.md#2026103---2026-10-31) for what changed, and for
+**2026.11.1** (2026-11-02). See [RELEASES.md](RELEASES.md#2026111---2026-11-02) for what changed, and for
 every earlier release.
 
 ## Contributing
