@@ -5,10 +5,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Core.Jobs;
 
 /// <summary>In-memory <see cref="IJobRegistry"/></summary>
-public sealed class JobRegistry(ILogger<JobRegistry>? logger = null) : IJobRegistry
+public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvider? timeProvider = null) : IJobRegistry
 {
     private readonly ConcurrentDictionary<string, RegisteredJob> _jobs = new();
     private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public void Register(string name, Func<CancellationToken, Task> runAsync, string? description = null) =>
         _jobs[name] = new RegisteredJob { Name = name, RunAsync = runAsync, Description = description };
@@ -37,20 +38,20 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null) : IJobRegis
             return;
         }
 
-        var startedAt = DateTimeOffset.UtcNow;
+        var startedAt = _timeProvider.GetUtcNow();
         job.IsRunning = true;
         _logger.LogInformation("Job {JobName} started", name);
         try
         {
             await job.RunAsync(cancellationToken);
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Success, null);
-            _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
+            _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, (_timeProvider.GetUtcNow() - startedAt).TotalSeconds);
         }
         catch (JobCompletedWithErrorsException ex)
         {
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.CompletedWithErrors, ex.Message);
             _logger.LogWarning(
-                "Job {JobName} finished in {Elapsed:0.0}s with errors: {Error}", name, (DateTimeOffset.UtcNow - startedAt).TotalSeconds, ex.Message);
+                "Job {JobName} finished in {Elapsed:0.0}s with errors: {Error}", name, (_timeProvider.GetUtcNow() - startedAt).TotalSeconds, ex.Message);
         }
         catch (Exception ex)
         {

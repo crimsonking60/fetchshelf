@@ -17,6 +17,23 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public async Task TriggerAsync_RegisteredJob_RecordsTheStartTimeFromTheTimeProvider()
+    {
+        var startedAt = new DateTimeOffset(2026, 11, 2, 9, 30, 0, TimeSpan.Zero);
+        var registry = new JobRegistry(timeProvider: new FixedTimeProvider(startedAt));
+        registry.Register("example-job", _ => Task.CompletedTask);
+
+        await registry.TriggerAsync("example-job");
+
+        Assert.Equal(startedAt, registry.Get("example-job")!.LastRun!.StartedAt);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    [Fact]
     public void Register_WithDescription_IsStoredOnTheJob()
     {
         var registry = new JobRegistry();
