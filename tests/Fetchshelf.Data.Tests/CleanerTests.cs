@@ -30,19 +30,19 @@ public sealed class CleanerTests : IDisposable
         new(context, new EventStore(context), Formats);
 
     private async Task<TorrentEntity> AddLinkedTorrentAsync(
-        FetchshelfDbContext context, string id, string audioExtension, long sizeBytes, string libraryPath)
+        FetchshelfDbContext context, string id, string audioExtension, long sizeBytes, string libraryPath, string? title = null)
     {
         Directory.CreateDirectory(libraryPath);
         var fileName = $"book.{audioExtension}";
         File.WriteAllText(Path.Combine(libraryPath, fileName), new string('x', (int)sizeBytes));
         File.WriteAllText(Path.Combine(libraryPath, "metadata.json"), "{}");
 
-        var metadata = OrganizerTestSupport.BuildMetadata();
+        var metadata = title is null ? OrganizerTestSupport.BuildMetadata() : OrganizerTestSupport.BuildMetadata(title);
         var entity = new TorrentEntity
         {
             Id = id,
             MamId = 1,
-            NormalizedTitleKey = "the way of kings",
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
             Title = metadata.Title,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
             CreatedAt = DateTimeOffset.UtcNow,
@@ -79,6 +79,37 @@ public sealed class CleanerTests : IDisposable
 
         var cleanedEvent = await context.Events.SingleAsync(e => e.Kind == EventKind.Cleaned);
         Assert.Equal("loser", cleanedEvent.TorrentId);
+    }
+
+    [Fact]
+    public async Task RunAsync_DifferentBooksBySameAuthor_RetiresNeither()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var firstPath = Path.Combine(_root, "first");
+        var secondPath = Path.Combine(_root, "second");
+        await AddLinkedTorrentAsync(context, "first", "m4b", 100, firstPath, title: "The Way of Kings");
+        await AddLinkedTorrentAsync(context, "second", "mp3", 100, secondPath, title: "Words of Radiance");
+
+        var summary = await CreateCleaner(context).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(0, 0), summary);
+        Assert.All(await context.Torrents.ToListAsync(), t => Assert.Null(t.ReplacedWithTorrentId));
+        Assert.True(File.Exists(Path.Combine(secondPath, "book.mp3")));
+    }
+
+    [Fact]
+    public async Task CleanOneAsync_DifferentBookBySameAuthor_LeavesBothLinked()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var firstPath = Path.Combine(_root, "first");
+        var secondPath = Path.Combine(_root, "second");
+        await AddLinkedTorrentAsync(context, "first", "m4b", 100, firstPath, title: "The Way of Kings");
+        await AddLinkedTorrentAsync(context, "second", "mp3", 100, secondPath, title: "Words of Radiance");
+
+        var cleaned = await CreateCleaner(context).CleanOneAsync("second", []);
+
+        Assert.False(cleaned);
+        Assert.True(File.Exists(Path.Combine(secondPath, "book.mp3")));
     }
 
     [Fact]

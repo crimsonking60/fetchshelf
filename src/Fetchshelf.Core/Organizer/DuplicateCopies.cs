@@ -6,8 +6,15 @@ namespace Fetchshelf.Core.Organizer;
 public static class DuplicateCopies
 {
     /// <summary>
-    /// Groups copies of the same book (<see cref="SameBookComparer"/>), in the order given. Each copy is compared with
-    /// the first copy of each group, so a group never mixes two books that only resemble a third.
+    /// Whether two linked copies are the same book: the same normalized title, and <see cref="SameBookComparer"/>
+    /// agrees. The comparer alone leaves titles out, since its other callers have already matched them.
+    /// </summary>
+    public static bool AreCopiesOfSameBook(TorrentMetadata a, TorrentMetadata b) =>
+        TitleNormalizer.Normalize(a.Title) == TitleNormalizer.Normalize(b.Title) && SameBookComparer.AreSameBook(a, b);
+
+    /// <summary>
+    /// Groups copies of the same book (<see cref="AreCopiesOfSameBook"/>), in the order given. Each copy is compared
+    /// with the first copy of each group, so a group never mixes two books that only resemble a third.
     /// </summary>
     public static List<List<T>> GroupBySameBook<T>(IReadOnlyList<T> copies, Func<T, TorrentMetadata> metadataOf)
     {
@@ -15,7 +22,7 @@ public static class DuplicateCopies
         foreach (var copy in copies)
         {
             var metadata = metadataOf(copy);
-            var group = groups.FirstOrDefault(g => SameBookComparer.AreSameBook(g.First, metadata));
+            var group = groups.FirstOrDefault(g => AreCopiesOfSameBook(g.First, metadata));
             if (group.Members is not null)
             {
                 group.Members.Add(copy);

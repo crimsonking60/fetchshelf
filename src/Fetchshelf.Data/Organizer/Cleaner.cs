@@ -89,7 +89,7 @@ public sealed class Cleaner(
         foreach (var other in others)
         {
             var otherMetadata = TorrentMetadataSerializer.Deserialize(other.MetadataJson);
-            if (!SameBookComparer.AreSameBook(targetMetadata, otherMetadata))
+            if (!DuplicateCopies.AreCopiesOfSameBook(targetMetadata, otherMetadata))
             {
                 continue;
             }

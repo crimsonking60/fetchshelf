@@ -31,6 +31,20 @@ public class DuplicateCopiesTests
     }
 
     [Fact]
+    public void GroupBySameBook_DifferentTitlesBySameAuthor_KeepsThemApart()
+    {
+        Copy[] copies = [new("a", Book("The Way of Kings")), new("b", Book("Words of Radiance"))];
+
+        var groups = DuplicateCopies.GroupBySameBook(copies, c => c.Metadata);
+
+        Assert.Equal(2, groups.Count);
+    }
+
+    [Fact]
+    public void AreCopiesOfSameBook_TitlesDifferOnlyInCaseAndArticle_ReturnsTrue() =>
+        Assert.True(DuplicateCopies.AreCopiesOfSameBook(Book("The Way of Kings"), Book("way of kings")));
+
+    [Fact]
     public void GroupBySameBook_SameTitleDifferentAuthor_KeepsThemApart()
     {
         Copy[] copies = [new("a", Book("Dune", "Frank Herbert")), new("b", Book("Dune", "Someone Else"))];
