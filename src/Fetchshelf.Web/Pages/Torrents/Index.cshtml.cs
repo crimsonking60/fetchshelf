@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -129,13 +130,6 @@ public class IndexModel(
     {
         var query = dbContext.Torrents.AsNoTracking().AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(Q))
-        {
-            // Fuzzy match over title/authors/series: Title is indexed; Authors/Series live
-            // inside the serialized metadata blob, so a plain substring search covers them too.
-            query = query.Where(t => t.Title.Contains(Q) || t.MetadataJson.Contains(Q));
-        }
-
         if (!string.IsNullOrWhiteSpace(Language))
         {
             query = query.Where(t => t.MetadataJson.Contains($"\"Language\":\"{Language}\""));
@@ -151,6 +145,14 @@ public class IndexModel(
         // app's realistic data volume (a self-hosted single-user library) makes that an acceptable
         // trade-off against adding a global DateTimeOffset value-conversion/migration for it.
         var matched = await query.ToListAsync();
+
+        // The search runs here rather than in SQL: SQLite's substring match is case-sensitive, and authors and
+        // series are inside the serialized metadata, where a raw substring match would also hit descriptions.
+        if (!string.IsNullOrWhiteSpace(Q))
+        {
+            matched = matched.Where(t => TorrentSearchMatcher.Matches(TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q)).ToList();
+        }
+
         IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
         {
             ("Title", "asc") => matched.OrderBy(t => t.Title, StringComparer.Ordinal),

@@ -984,7 +984,8 @@ reported, so they cannot be chosen by hand.
 
 ### Torrents
 
-- **Search, sort and filter.** Search by title, author or series. The newest torrents come first; click
+- **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
+  several words each must appear somewhere in those, in any order. The newest torrents come first; click
   the **Title** heading to sort by title, and click it again to reverse the order. Click a torrent's media
   type or language to show only torrents of that kind. Searching, sorting and filtering combine; the
   filters in use are listed above the table, each with a **show all** link to remove it. Pages hold 25

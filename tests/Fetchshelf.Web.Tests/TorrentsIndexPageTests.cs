@@ -4,6 +4,22 @@ namespace Fetchshelf.Web.Tests;
 public class TorrentsIndexPageTests
 {
     [Fact]
+    public async Task Get_SearchInLowerCase_FindsTitlesAndAuthorsInAnyCase()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Beautiful American", ["Jeanne Mackin"]));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Unrelated Book", ["Someone Else"]));
+        using var client = fixture.CreateClient();
+
+        var byTitle = await client.GetStringAsync("/torrents?Q=beautiful+american");
+        var byAuthor = await client.GetStringAsync("/torrents?Q=mackin");
+
+        Assert.Contains("The Beautiful American", byTitle);
+        Assert.DoesNotContain("Unrelated Book", byTitle);
+        Assert.Contains("The Beautiful American", byAuthor);
+    }
+
+    [Fact]
     public async Task Get_TorrentsListedNewestFirst()
     {
         using var fixture = new FetchshelfWebAppFixture();
