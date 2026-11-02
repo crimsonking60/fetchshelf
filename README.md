@@ -42,7 +42,6 @@ setup. If you use one, please report how it went, good or bad (see
 - Scheduled searches: [`[[autograb]]`](docs/configuration.md#autograb) blocks. Downloads started from the
   Search page are confirmed.
 - [Notion lists](docs/configuration.md#notion_list).
-- [Snatchlists](docs/configuration.md#snatchlist).
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
 - [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
   `on_cleaned`.
