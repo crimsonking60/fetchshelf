@@ -369,7 +369,7 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 |---|---|---|
 | `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
 | `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
-| `max_pages` | 50 | Pages of 250 rows to read. |
+| `max_pages` | 50 | Pages of the snatch list to read. MAM decides how many rows a page holds; it has been seen sending 1000. Reading stops early when a page brings nothing new. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the snatch list and work out every change, but record nothing. What would be recorded is logged. |
 

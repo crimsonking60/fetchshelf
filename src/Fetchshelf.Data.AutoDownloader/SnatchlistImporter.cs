@@ -24,8 +24,6 @@ public sealed record SnatchlistRunSummary(int Rows, int Recorded, int Updated, i
 public sealed class SnatchlistImporter(
     FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, ILogger<SnatchlistImporter>? logger = null)
 {
-    private const long RowsPerPage = 250;
-
     private readonly ILogger<SnatchlistImporter> _logger = logger ?? NullLogger<SnatchlistImporter>.Instance;
 
     /// <summary>
@@ -42,8 +40,13 @@ public sealed class SnatchlistImporter(
         var maxPages = entry.MaxPages ?? 50;
         var name = entry.Name ?? entry.Type.ToString();
         var detailLevel = entry.DryRun ? LogLevel.Information : LogLevel.Debug;
-        var (rowCount, recorded, updated, failed) = (0, 0, 0, 0);
+        var (rowCount, recorded, updated, failed, pagesRead) = (0, 0, 0, 0, 0);
         var stopped = false;
+
+        // MAM decides how many rows a page holds, and may send rows it already sent: paging stops at an empty page, a
+        // page with nothing new, or a page shorter than the first.
+        var seenMamIds = new HashSet<long>();
+        int? firstPageSize = null;
         if (entry.DryRun)
         {
             _logger.LogInformation("Snatchlist {Name}: dry run, nothing will be written", name);
@@ -62,13 +65,16 @@ public sealed class SnatchlistImporter(
                 throw;
             }
 
-            if (rows.Count == 0)
+            var newRows = rows.Where(row => seenMamIds.Add(row.MamId)).ToList();
+            _logger.LogDebug("Snatchlist {Name}: page {Page} has {RowCount} rows, {NewCount} not seen before", name, page + 1, rows.Count, newRows.Count);
+            if (newRows.Count == 0)
             {
                 break;
             }
 
-            rowCount += rows.Count;
-            foreach (var row in rows)
+            pagesRead++;
+            rowCount += newRows.Count;
+            foreach (var row in newRows)
             {
                 RowOutcome outcome;
                 try
@@ -104,17 +110,18 @@ public sealed class SnatchlistImporter(
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            if (rows.Count < RowsPerPage)
+            firstPageSize ??= rows.Count;
+            if (rows.Count < firstPageSize)
             {
                 break;
             }
         }
 
-        LogSummary(name, entry.DryRun, rowCount, recorded, updated, failed);
+        LogSummary(name, entry.DryRun, rowCount, pagesRead, recorded, updated, failed);
         return new SnatchlistRunSummary(rowCount, recorded, updated, failed);
     }
 
-    private void LogSummary(string name, bool dryRun, int rowCount, int recorded, int updated, int failed)
+    private void LogSummary(string name, bool dryRun, int rowCount, int pagesRead, int recorded, int updated, int failed)
     {
         if (rowCount == 0 && failed == 0)
         {
@@ -124,16 +131,20 @@ public sealed class SnatchlistImporter(
 
         if (recorded == 0 && updated == 0 && failed == 0)
         {
-            _logger.LogInformation("Snatchlist {Name}: read {RowCount} snatch list rows, nothing to do: everything is up to date", name, rowCount);
+            _logger.LogInformation(
+                "Snatchlist {Name}: read {RowCount} snatch list rows from {Pages}, nothing to do: everything is up to date",
+                name, rowCount, PagesText(pagesRead));
             return;
         }
 
         var failedNote = failed > 0 ? $", {failed} failed" : string.Empty;
         _logger.LogInformation(
-            "Snatchlist {Name}: read {RowCount} snatch list rows, {Recorded} {RecordedVerb}, {Updated} {UpdatedVerb}{FailedNote}",
-            name, rowCount, recorded, dryRun ? "would have been recorded as owned (dry run)" : "recorded as owned",
+            "Snatchlist {Name}: read {RowCount} snatch list rows from {Pages}, {Recorded} {RecordedVerb}, {Updated} {UpdatedVerb}{FailedNote}",
+            name, rowCount, PagesText(pagesRead), recorded, dryRun ? "would have been recorded as owned (dry run)" : "recorded as owned",
             updated, dryRun ? "would have had their metadata updated" : "had their metadata updated", failedNote);
     }
+
+    private static string PagesText(int pages) => pages == 1 ? "1 page" : $"{pages} pages";
 
     private enum RowOutcome
     {

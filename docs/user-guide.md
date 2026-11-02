@@ -690,7 +690,8 @@ results, because there are no more, or when it has selected as many torrents as 
   on every run, so use as few as do the job. A block with many pages that you only need once is best
   run by hand with `search_interval = 0` (see [Trying a block out safely](#trying-a-block-out-safely)).
 
-`[[snatchlist]]` blocks have a `max_pages` of their own, with pages of 250 rows and a default of 50.
+`[[snatchlist]]` blocks have a `max_pages` of their own, with a default of 50. MAM decides how many rows a
+snatch list page holds, and has been seen sending 1000, so one page can already be your whole list.
 
 ### In what order: `sort_by`
 

@@ -124,7 +124,7 @@ public sealed class SnatchlistImporterTests : IDisposable
 
         Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 0, Failed: 0), summary);
         Assert.Equal(
-            ["Snatchlist unsat: read 1 snatch list rows, nothing to do: everything is up to date"],
+            ["Snatchlist unsat: read 1 snatch list rows from 1 page, nothing to do: everything is up to date"],
             logger.Messages(LogLevel.Information));
     }
 
@@ -256,7 +256,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         Assert.Empty(context.Torrents);
         var messages = logger.Messages(LogLevel.Information);
         Assert.Contains(messages, m => m.Contains("The Way of Kings by A would be recorded as owned"));
-        Assert.Contains(messages, m => m.Contains("read 1 snatch list rows, 1 would have been recorded as owned (dry run)"));
+        Assert.Contains(messages, m => m.Contains("read 1 snatch list rows from 1 page, 1 would have been recorded as owned (dry run)"));
     }
 
     private const string DetailedRowPageJson = """
@@ -356,5 +356,38 @@ public sealed class SnatchlistImporterTests : IDisposable
 
         Assert.Equal(0, searches);
         Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 0, Failed: 0), summary);
+    }
+
+    [Fact]
+    public async Task RunAsync_MamSendsTheSameRowsForEveryPage_ReadsThemOnceAndStops()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var pageRequests = 0;
+        var handler = new FakeHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("jsonLoad.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AccountStateJson) };
+            }
+
+            if (path.Contains("loadUserDetailsTorrents.php"))
+            {
+                pageRequests++;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(SnatchlistPageJson(empty: false)) };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(DownloadTestSupport.TorrentRecordJson(1, "dl1", title: "The Way of Kings", authorName: "A")),
+            };
+        });
+        var importer = new SnatchlistImporter(
+            context, new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }), new MamAccessGate());
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.SeedSat, Cost = ConfiguredCost.MetadataOnlyAdd });
+
+        Assert.Equal(2, pageRequests);
+        Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 1, Updated: 0, Failed: 0), summary);
     }
 }
