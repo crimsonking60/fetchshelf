@@ -18,7 +18,7 @@ public sealed class FileLinkerTests : IDisposable
 
         var outcome = FileLinker.Link(source, destination, LibraryLinkMethod.Hardlink);
 
-        Assert.Equal(LinkOutcome.Linked, outcome);
+        Assert.Equal(LinkOutcome.Hardlinked, outcome);
         Assert.Equal("hello", File.ReadAllText(destination));
     }
 
@@ -33,8 +33,48 @@ public sealed class FileLinkerTests : IDisposable
             source, destination, LibraryLinkMethod.HardlinkOrCopy,
             hardLink: (_, _) => throw new IOException("simulated cross-device failure"));
 
-        Assert.Equal(LinkOutcome.Linked, outcome);
+        Assert.Equal(LinkOutcome.Copied, outcome);
         Assert.Equal("hello", File.ReadAllText(destination));
+    }
+
+    [Fact]
+    public void Link_HardlinkOrCopy_HardlinkWorks_ReportsHardlinked()
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        var outcome = FileLinker.Link(source, destination, LibraryLinkMethod.HardlinkOrCopy);
+
+        Assert.Equal(LinkOutcome.Hardlinked, outcome);
+    }
+
+    [Fact]
+    public void Link_HardlinkOrSymlink_FallsBackToSymlinkWhenHardlinkFails()
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        var outcome = FileLinker.Link(
+            source, destination, LibraryLinkMethod.HardlinkOrSymlink,
+            hardLink: (_, _) => throw new IOException("simulated cross-device failure"));
+
+        Assert.Equal(LinkOutcome.Symlinked, outcome);
+        Assert.Equal(source, new FileInfo(destination).LinkTarget);
+    }
+
+    [Theory]
+    [InlineData(LibraryLinkMethod.Copy, LinkOutcome.Copied)]
+    [InlineData(LibraryLinkMethod.Symlink, LinkOutcome.Symlinked)]
+    [InlineData(LibraryLinkMethod.NoLink, LinkOutcome.NotPlaced)]
+    public void Link_EachMethod_ReportsWhatItDid(LibraryLinkMethod method, LinkOutcome expected)
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        Assert.Equal(expected, FileLinker.Link(source, destination, method));
     }
 
     [Fact]

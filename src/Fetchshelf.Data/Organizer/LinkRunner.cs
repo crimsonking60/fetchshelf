@@ -153,13 +153,14 @@ public sealed class LinkRunner(
         var chosenFiles = files.Where(f => MatchesExtension(f.Name, bestAudioExtension) || MatchesExtension(f.Name, bestEbookExtension)).ToList();
 
         var linkedFiles = new List<LinkedFileRecord>();
+        var outcomes = new List<LinkOutcome>();
         if (library.Method != LibraryLinkMethod.NoLink)
         {
             foreach (var file in chosenFiles)
             {
                 var sourcePath = Path.Combine(mappedSavePath, file.Name);
                 var destinationPath = LinkFilePlacer.DestinationPath(destinationFolder, file.Name);
-                FileLinker.Link(sourcePath, destinationPath, library.Method);
+                outcomes.Add(FileLinker.Link(sourcePath, destinationPath, library.Method));
                 linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
             }
 
@@ -207,7 +208,15 @@ public sealed class LinkRunner(
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         _linked++;
-        _logger.LogInformation("Linked {Torrent} into {LibraryPath}", torrent.Name, destinationFolder);
+        if (outcomes.Count == 0)
+        {
+            _logger.LogInformation("Recorded {Torrent} for {LibraryPath} without placing any files (no_link)", torrent.Name, destinationFolder);
+        }
+        else
+        {
+            var (action, detail) = LinkOutcomeDescription.Describe(outcomes);
+            _logger.LogInformation("{Action} {Torrent} into {LibraryPath}{Detail}", action, torrent.Name, destinationFolder, detail);
+        }
     }
 
     private void SyncMismatch(TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata)

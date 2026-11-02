@@ -3,10 +3,16 @@ using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.Organizer;
 
+/// <summary>What <see cref="FileLinker.Link"/> actually did with one file, after any fallback.</summary>
 public enum LinkOutcome
 {
-    Linked,
+    Hardlinked,
+    Copied,
+    Symlinked,
     AlreadyExists,
+
+    /// <summary>The method is <see cref="LibraryLinkMethod.NoLink"/>: no file was placed.</summary>
+    NotPlaced,
 }
 
 /// <summary>
@@ -43,37 +49,39 @@ public static class FileLinker
         {
             case LibraryLinkMethod.Hardlink:
                 hardLink(sourcePath, destinationPath);
-                break;
+                return LinkOutcome.Hardlinked;
             case LibraryLinkMethod.HardlinkOrCopy:
-                TryOrFallback(() => hardLink(sourcePath, destinationPath), () => File.Copy(sourcePath, destinationPath));
-                break;
+                return TryOrFallback(
+                    () => hardLink(sourcePath, destinationPath), LinkOutcome.Hardlinked,
+                    () => File.Copy(sourcePath, destinationPath), LinkOutcome.Copied);
             case LibraryLinkMethod.HardlinkOrSymlink:
-                TryOrFallback(() => hardLink(sourcePath, destinationPath), () => File.CreateSymbolicLink(destinationPath, sourcePath));
-                break;
+                return TryOrFallback(
+                    () => hardLink(sourcePath, destinationPath), LinkOutcome.Hardlinked,
+                    () => File.CreateSymbolicLink(destinationPath, sourcePath), LinkOutcome.Symlinked);
             case LibraryLinkMethod.Copy:
                 File.Copy(sourcePath, destinationPath);
-                break;
+                return LinkOutcome.Copied;
             case LibraryLinkMethod.Symlink:
                 File.CreateSymbolicLink(destinationPath, sourcePath);
-                break;
+                return LinkOutcome.Symlinked;
             case LibraryLinkMethod.NoLink:
-                break;
+                return LinkOutcome.NotPlaced;
             default:
                 throw new ArgumentOutOfRangeException(nameof(method), method, null);
         }
-
-        return LinkOutcome.Linked;
     }
 
-    private static void TryOrFallback(Action primary, Action fallback)
+    private static LinkOutcome TryOrFallback(Action primary, LinkOutcome primaryOutcome, Action fallback, LinkOutcome fallbackOutcome)
     {
         try
         {
             primary();
+            return primaryOutcome;
         }
         catch (IOException)
         {
             fallback();
+            return fallbackOutcome;
         }
     }
 
