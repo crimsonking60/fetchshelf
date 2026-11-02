@@ -43,8 +43,6 @@ setup. If you use one, please report how it went, good or bad (see
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
 - [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
   `on_cleaned`.
-- [Refresh and relink](docs/user-guide.md#when-the-folder-no-longer-matches) after a metadata or
-  configuration change.
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release
