@@ -51,7 +51,6 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.True(settings.JobExplanations);
         Assert.Equal(30, settings.SearchInterval);
         Assert.Equal(10, settings.LinkInterval);
-        Assert.Equal(135, settings.ImportInterval);
     }
 
     [Fact]

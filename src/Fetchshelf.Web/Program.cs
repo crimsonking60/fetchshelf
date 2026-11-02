@@ -1,6 +1,5 @@
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.Mam;
-using Fetchshelf.Clients.Notion;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
@@ -86,9 +85,6 @@ builder.Services.AddSingleton(sp => new MamClient(
 builder.Services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
 builder.Services.AddSingleton<MamAccessGate>();
 
-builder.Services.AddHttpClient("notion");
-builder.Services.AddScoped(sp => new NotionClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("notion")));
-
 if (settings.Audiobookshelf is { } absSettings)
 {
     builder.Services.AddSingleton(new AbsClientOptions { BaseUrl = absSettings.Url, Token = absSettings.Token });
@@ -133,13 +129,6 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
 builder.Services.AddScoped(sp => new SnatchlistImporter(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
-builder.Services.AddScoped(sp => new NotionListImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<NotionClient>(),
-    logger: sp.GetRequiredService<ILogger<NotionListImporter>>()));
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
@@ -181,17 +170,6 @@ if (settings.BackgroundJobsEnabled)
     {
         var jobName = AutoDownloaderJobNames.Snatchlist(settings.Snatchlist[i], i);
         var intervalMinutes = settings.Snatchlist[i].SearchInterval ?? settings.SearchInterval;
-        if (intervalMinutes > 0)
-        {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
-        }
-    }
-
-    for (var i = 0; i < settings.NotionList.Count; i++)
-    {
-        var jobName = AutoDownloaderJobNames.NotionList(settings.NotionList[i], i);
-        var intervalMinutes = settings.NotionList[i].SearchInterval ?? settings.ImportInterval;
         if (intervalMinutes > 0)
         {
             builder.Services.AddSingleton<IHostedService>(sp =>
@@ -344,22 +322,6 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
-    for (var i = 0; i < settings.NotionList.Count; i++)
-    {
-        var entry = settings.NotionList[i];
-        var jobName = AutoDownloaderJobNames.NotionList(entry, i);
-        jobRegistry.Register(jobName, async ct =>
-        {
-            using var scope = scopeFactory.CreateScope();
-            var importer = scope.ServiceProvider.GetRequiredService<NotionListImporter>();
-            var selectedCount = await importer.RunAsync(entry, settings.UnsatBuffer, settings.WedgeBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0)
-            {
-                await jobRegistry.TriggerAsync(JobNames.Download, ct);
-            }
-        }, "Checks a Notion list for entries and queues matches for download.");
-    }
-
     jobRegistry.Register(JobNames.Download, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
@@ -389,9 +351,6 @@ internal static class AutoDownloaderJobNames
 
     public static string Snatchlist(SnatchlistEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
-
-    public static string NotionList(NotionListEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"notion_list[{index}]" : entry.Name;
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

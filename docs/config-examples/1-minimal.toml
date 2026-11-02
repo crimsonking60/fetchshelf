@@ -1,4 +1,4 @@
-# Fetchshelf example 1 of 6: minimal
+# Fetchshelf example 1 of 5: minimal
 #
 # The smallest config that does something useful: it adds every free bookmarked torrent on MAM to
 # qBittorrent, and links finished downloads into a library folder.

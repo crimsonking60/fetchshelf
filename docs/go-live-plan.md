@@ -52,8 +52,7 @@ These decisions change what is published, so make them before anything becomes p
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about. Done: on the Config page, and as the first log line.
-- [ ] **You:** Check the Notion steps in [Importing reading lists](user-guide.md#importing-reading-lists) and the
-  Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
+- [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
 - [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
 - [ ] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
 

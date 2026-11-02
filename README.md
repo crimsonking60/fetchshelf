@@ -39,7 +39,6 @@ These features are built and covered by automated tests, but have not yet been c
 setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
-- [Notion lists](docs/configuration.md#notion_list).
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
 - [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
   `on_cleaned`.

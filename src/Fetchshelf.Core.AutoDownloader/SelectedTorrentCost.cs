@@ -11,7 +11,7 @@ public enum SelectedTorrentCost
     Ratio,
 }
 
-/// <summary>The configured `cost` setting on an `[[autograb]]`/`[[snatchlist]]`/`[[tag]]` grab block.</summary>
+/// <summary>The configured `cost` setting of an `[[autograb]]` or `[[snatchlist]]`.</summary>
 public enum ConfiguredCost
 {
     Free,

@@ -20,7 +20,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
-- [Importing reading lists](#importing-reading-lists)
+- [Snatchlists](#snatchlists)
 - [Protecting your account](#protecting-your-account)
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
 - [Using the web interface](#using-the-web-interface)
@@ -43,7 +43,7 @@ single text file.
 It has two halves that you can use together or separately:
 
 - **The auto-downloader** finds torrents on MAM that match rules you write (your bookmarks, a favourite
-  author, a Notion reading list, and so on) and adds them to qBittorrent. While doing so it protects your
+  author, new uploads in a category, and so on) and adds them to qBittorrent. While doing so it protects your
   account: it keeps your ratio above a limit, leaves some unsatisfied-snatch slots free and holds back a
   number of freeleech wedges.
 - **The library organizer** watches qBittorrent for finished torrents and links the files into a tidy
@@ -779,39 +779,7 @@ blocks above.
 
 Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
-## Importing reading lists
-
-Instead of searching, you can keep a list of the torrents you want and let Fetchshelf fetch them.
-
-### Notion
-
-A Notion database whose rows contain links to MAM torrents:
-
-```toml
-[[notion_list]]
-name = "Notion wishlist"
-data_source = "00000000-0000-0000-0000-000000000000"
-token = "your-notion-integration-token"
-mam_fields = ["Audiobook link", "Ebook link"]
-
-[[notion_list.grab]]
-cost = "all"
-languages = ["English"]
-max_size = "15 MiB"
-
-[[notion_list.grab]]
-cost = "wedge"
-languages = ["English"]
-```
-
-- `mam_fields` names the URL properties that hold MAM links. The number at the end of each link is the MAM
-  torrent id. Ids Fetchshelf already knows are skipped.
-- `grab` blocks decide what is acceptable and how to pay. For each linked torrent they are tried **in
-  order, and the first block whose filter matches decides the cost**, so put the most specific one first.
-  Every list needs at least one.
-- Books you already have, in an equal or better format, are not downloaded again.
-
-### Snatchlists
+## Snatchlists
 
 A `[[snatchlist]]` reads one of your MAM snatch lists without downloading anything. With
 `cost = "metadata_only_add"` it records every torrent on the list as something you already own, which
@@ -833,7 +801,7 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb and each list can override `unsat_buffer` and `wedge_buffer` for itself.
+Each autograb can override `unsat_buffer` and `wedge_buffer` for itself.
 
 How a run works out how much it may download:
 
@@ -976,7 +944,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 
 ### Selected
 
-Shows each queued torrent with its cost, category, tags, what chose it (an autograb, a list or a manual
+Shows each queued torrent with its cost, category, tags, what chose it (an autograb or a manual
 search), and when it was queued and started. You can remove entries, or change a queued torrent's cost,
 category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge` (the
 `ratio`, `try_wedge` and `wedge` costs from the configuration); the free costs only record what MAM
@@ -1021,7 +989,7 @@ reported, so they cannot be chosen by hand.
 
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
-by event type, by the autograb or list that grabbed a torrent, by the library that linked it, or by a
+by event type, by the autograb that grabbed a torrent, by the library that linked it, or by a
 changed field.
 
 ### Errors
@@ -1034,7 +1002,7 @@ Tick the entries you have dealt with and use **Remove selected**.
 
 ### Duplicates
 
-Torrents that an autograb, list or manual download skipped because you already have, or have already
+Torrents that an autograb or manual download skipped because you already have, or have already
 selected, the same book in an equal or better format. A selection that was dropped for a better copy is
 listed here too. Each entry links to the skipped torrent on MAM and shows what it duplicates: the torrent's
 page when Fetchshelf has it, otherwise the queued selection or the torrent on MAM. Tick the entries you no
@@ -1054,13 +1022,12 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
-| Notion list (one per `[[notion_list]]`) | Looks up each linked torrent and selects what qualifies. | Every `import_interval` minutes, or the list's own interval. |
-| Download | Starts selected torrents in qBittorrent within your limits. | After autograbs and list runs select something, and every `search_interval` minutes. |
+| Download | Starts selected torrents in qBittorrent within your limits. | After autograb runs select something, and every `search_interval` minutes. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | AbsMatcher | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 
-Autograb, snatchlist and list jobs are named after the block's `name`, or `autograb[0]`, `snatchlist[1]`
+Autograb and snatchlist jobs are named after the block's `name`, or `autograb[0]`, `snatchlist[1]`
 and so on if it has none. Give your blocks names so the Jobs page is easy to read. Below the jobs, the page
 lists each kind of optional job you have not configured, such as *Snatchlist is not configured*.
 
@@ -1083,8 +1050,7 @@ The [numbered examples](config-examples/README.md) are complete configs for thes
 | Keep my own downloads tidy, nothing automatic | [`2-library-organizer.toml`](config-examples/2-library-organizer.toml) | Add libraries for each category you use. Optionally add `[audiobookshelf]`. |
 | Download my bookmarked books automatically | [`3-downloader.toml`](config-examples/3-downloader.toml) | Check `min_ratio` and the buffers. Start with `dry_run = true`. |
 | Follow an author or look for new content | [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml) | Use `search_in`, `max_authors` and a sensible `cost`. |
-| Get books from a Notion list | [`5-lists-and-audiobookshelf.toml`](config-examples/5-lists-and-audiobookshelf.toml) | Put the most specific `grab` block first. |
-| See every available option | [`6-everything.toml`](config-examples/6-everything.toml) | Read it, do not copy it whole. |
+| See every available option | [`5-everything.toml`](config-examples/5-everything.toml) | Read it, do not copy it whole. |
 
 Whichever you start from, work in this order: set `mam_id`, connect qBittorrent, get one library working
 with a torrent you downloaded by hand, then add autograbs.
@@ -1169,16 +1135,15 @@ fix the ownership of the copied files.
 - **There is no login.** Anyone who can open the web interface can start downloads, remove records and, with
   the torrent page actions, delete data from qBittorrent. Only expose Fetchshelf on a trusted network, or
   put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet.
-- **Secrets in `config.toml`:** `mam_id`, qBittorrent and Audiobookshelf credentials and a Notion token.
+- **Secrets in `config.toml`:** `mam_id` and the qBittorrent and Audiobookshelf credentials.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
   in its own file instead; protect that file the same way.
 - **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state),
-  qBittorrent and Audiobookshelf (on your network), and, if you use it, Notion. It sends no usage data anywhere
-  else.
+  qBittorrent and Audiobookshelf (on your network). It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
-  names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
+  names of your autograbs and snatchlists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
   reply. At the `debug` level they also contain the titles of the torrents each job looks at, including
   every search result an autograb rejects; the default level, `information`, leaves those out, but a
   `dry_run` block logs its titles at any level. Error messages can name hosts, folders and files on your
@@ -1299,9 +1264,8 @@ and then confirm.
   downloads are not linked either. Start it again with `docker start fetchshelf` (or
   `docker compose start fetchshelf`).
 - **Keep Fetchshelf running, but download nothing on its own:** in `config.toml`, set
-  `search_interval = 0` and `import_interval = 0`, set any `search_interval` on an individual
-  `[[autograb]]` or `[[notion_list]]` to `0` as well, and restart. Autograbs and lists then run only when
-  you press **Run now**, and linking carries on as before.
+  `search_interval = 0`, set any `search_interval` on an individual `[[autograb]]` to `0` as well, and
+  restart. Autograbs then run only when you press **Run now**, and linking carries on as before.
 
 Either way, torrents already in qBittorrent keep downloading; pause them in qBittorrent if you want them to
 stop too. To keep downloading but review each torrent before it starts, set `add_torrents_stopped = true`
@@ -1312,8 +1276,8 @@ your autograbs, or `categories = { audio = true, ebook = false }`.
 
 **How do I avoid anthologies?** Use `max_authors`, for example `max_authors = 3`.
 
-**How do I stop a job running on a schedule?** Set its `search_interval` (or `link_interval`,
-`import_interval`) to `0` and start it with **Run now**.
+**How do I stop a job running on a schedule?** Set its `search_interval` (or `link_interval`) to `0` and
+start it with **Run now**.
 
 **Can I use more than one qBittorrent?** Yes, list several `[[qbittorrent]]` entries. New downloads go to
 the first. Linking works against all of them.

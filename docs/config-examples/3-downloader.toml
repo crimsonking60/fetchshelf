@@ -1,4 +1,4 @@
-# Fetchshelf example 3 of 6: automatic downloads from bookmarks
+# Fetchshelf example 3 of 5: automatic downloads from bookmarks
 #
 # Combines both halves: bookmarked torrents are downloaded automatically, sorted into qBittorrent
 # categories by tag rules, and linked into libraries by those categories. It also shows how to spend

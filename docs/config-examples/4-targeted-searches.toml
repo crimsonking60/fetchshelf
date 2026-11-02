@@ -1,4 +1,4 @@
-# Fetchshelf example 4 of 6: targeted searches
+# Fetchshelf example 4 of 5: targeted searches
 #
 # Autograbs are not limited to bookmarks. This example watches MAM for new content by author, mines the
 # freeleech list, keeps an eye on one uploader, and imports your snatch lists so books you already own
@@ -7,7 +7,7 @@
 # Reference for every setting: docs/configuration.md (see "[[autograb]]", "The shared torrent filter"
 # and "[[snatchlist]]").
 #
-# Builds on: 3-downloader.toml. Next step: 5-lists-and-audiobookshelf.toml.
+# Builds on: 3-downloader.toml. Next step: 5-everything.toml.
 
 mam_id = "replace-with-your-mam-session-id"
 

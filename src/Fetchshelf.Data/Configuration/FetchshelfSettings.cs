@@ -45,8 +45,6 @@ public sealed class FetchshelfSettings
 
     public int LinkInterval { get; set; } = 10;
 
-    public int ImportInterval { get; set; } = 135;
-
     public List<string> IgnoreTorrents { get; set; } = [];
 
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
@@ -75,9 +73,6 @@ public sealed class FetchshelfSettings
 
     /// <summary>Repeatable `[[snatchlist]]` entries.</summary>
     public List<SnatchlistEntry> Snatchlist { get; set; } = [];
-
-    /// <summary>Repeatable `[[notion_list]]` entries.</summary>
-    public List<NotionListEntry> NotionList { get; set; } = [];
 
     /// <summary>Optional `[search]` section.</summary>
     public SearchSettings Search { get; set; } = new();

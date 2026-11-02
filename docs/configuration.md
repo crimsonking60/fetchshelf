@@ -3,7 +3,7 @@
 Fetchshelf is configured with a single TOML file, `config.toml`. This page lists every setting, what it
 does and how the settings relate to each other. For working configs to start from, see
 [`docs/config-examples/`](config-examples/): six numbered examples, from a bare-bones `1-minimal.toml`
-to `6-everything.toml`, which uses every option.
+to `5-everything.toml`, which uses every option.
 
 ## Contents
 
@@ -17,7 +17,6 @@ to `6-everything.toml`, which uses every option.
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
 - [`[[snatchlist]]`](#snatchlist)
-- [`[[notion_list]]`](#notion_list)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [Reference data](#reference-data)
@@ -33,7 +32,7 @@ to `6-everything.toml`, which uses every option.
   so the web UI still starts.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
-  names the problem. This applies to every section, including keys inside `grab` blocks.
+  names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
   flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that fails validation is rejected as a whole.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
@@ -65,8 +64,8 @@ Fetchshelf has two halves that can be used independently.
 **Auto-downloader** — finds torrents on MAM and adds them to qBittorrent:
 
 ```
-[[autograb]]        search MAM on a schedule        ─┬─▶ selection ─▶ download ─▶ qBittorrent
-[[notion_list]]     look up books from a database   ─┘      ▲
+[[autograb]]        search MAM on a schedule        ───▶ selection ─▶ download ─▶ qBittorrent
+                                                            ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
 ```
 
@@ -76,7 +75,7 @@ Fetchshelf has two halves that can be used independently.
   of two copies of the same book is better.
 - `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
   download gets.
-- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. Per-source
+- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
   `unsat_buffer` / `wedge_buffer` override the global ones.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
@@ -110,14 +109,13 @@ These go at the top of the file, before any section.
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
-| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb and per list. |
-| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb and per list. |
+| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb. |
+| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `link_method` | `"hardlink"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
-| `import_interval` | `135` | Minutes between runs of each Notion list. Overridable per list. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
@@ -229,7 +227,7 @@ tags = ["superseded"]
 
 ## The shared torrent filter
 
-`[[autograb]]`, `[[snatchlist]]`, `[[tag]]` and every `grab` block of a Notion list share one
+`[[autograb]]`, `[[snatchlist]]` and `[[tag]]` share one
 set of optional filter fields. A torrent matches only if it satisfies **every** field that is set. A field
 that is not set imposes no restriction (except `categories`, which always has defaults).
 
@@ -264,8 +262,6 @@ How the filter is applied:
 - Because `categories` defaults to "audio and ebook, nothing else", a block without `categories` never
   matches Musicology or Radio. To include them, set `categories = { musicology = true }` or the
   `radio` equivalent.
-- `categories` also decides what a list can look for. A list whose `grab` blocks all exclude ebooks never
-  wants ebooks.
 - Several `flags` may be set at once, so one block can both require and forbid flags.
 - A `[[tag]]` rule can also be applied to torrents you already have, from the Config page. In that case
   fields that need live data (uploader, seeders, leechers, snatched counts) are looked up from MAM
@@ -338,7 +334,7 @@ max_size = "30 MiB"
 
 ## Cost
 
-`cost` appears on `[[autograb]]`, `[[snatchlist]]` and each `grab` block of a list.
+`cost` appears on `[[autograb]]` and `[[snatchlist]]`.
 
 | Value | Meaning |
 |---|---|
@@ -379,44 +375,6 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 - **New torrents** (with `metadata_only_add`) are looked up on MAM one at a time, because the list does not
   say which language they are in. The first run on a long list therefore takes a while; later runs only
   look up what is new.
-
-## `[[notion_list]]`
-
-Repeatable. Reads rows from a Notion data source and fetches the MAM torrents they point to.
-
-| Setting | Default | Description |
-|---|---|---|
-| `data_source` | (required) | The Notion data source id. |
-| `token` | (required) | Notion integration token. Treat it as a secret. |
-| `name` | (required) | Label for the list. |
-| `mam_fields` | (required, non-empty) | Names of the row properties that hold MAM URLs. The trailing number of each URL is the MAM id. |
-| `grab` | (at least one required) | One or more [`grab` blocks](#grab-blocks). |
-| `search_interval` | `import_interval` | Minutes between runs. |
-| `unsat_buffer` | global | Overrides the global buffer. |
-| `wedge_buffer` | global | Overrides the global buffer. |
-| `dry_run` | `false` | Look each new torrent up on MAM and run the selection checks, but select nothing. What each torrent would get is logged. |
-
-Every row of the data source is read, however many there are. MAM ids that are already known are skipped.
-The others are fetched from MAM and passed through the first matching `grab` block. Each run logs how many
-rows and MAM links it read; set `FETCHSHELF_LOG=debug` to also see what happened to each torrent.
-
-### `grab` blocks
-
-Used inside `[[notion_list]]` as `[[notion_list.grab]]`.
-
-A `grab` block is a [`cost`](#cost) plus the full [shared filter](#the-shared-torrent-filter). Blocks are
-tried in order and the **first matching block wins**, so put the more specific block first:
-
-```toml
-[[notion_list.grab]]
-cost = "all"             # small files: pay with ratio
-languages = ["English"]
-max_size = "15 MiB"
-
-[[notion_list.grab]]
-cost = "wedge"           # everything else English: use a wedge
-languages = ["English"]
-```
 
 ## `[[tag]]`
 

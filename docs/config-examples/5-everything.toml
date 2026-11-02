@@ -1,4 +1,4 @@
-# Fetchshelf example 6 of 6: every option
+# Fetchshelf example 5 of 5: every option
 #
 # This file uses every setting Fetchshelf understands, with a comment on each. It is meant to be read,
 # not copied as is: several blocks overlap on purpose so each option can be shown. Start from one of the
@@ -6,7 +6,7 @@
 #
 # Reference for every setting: docs/configuration.md
 #
-# Builds on: 5-lists-and-audiobookshelf.toml.
+# Builds on: 4-targeted-searches.toml.
 
 # =====================================================================================================
 # Top-level settings. These must come before the first [section].
@@ -31,7 +31,6 @@ job_explanations = true  # short description of each job on the Jobs page
 # Intervals are in minutes. 0 means "only when started from the UI".
 search_interval = 30     # default for every autograb and snatchlist block
 link_interval = 10       # how often finished torrents are scanned and linked
-import_interval = 135    # default for every Notion list
 
 # MAM torrent ids that must never be selected, as strings.
 ignore_torrents = ["123456", "234567"]
@@ -98,7 +97,7 @@ password = "replace-with-your-qbittorrent-admin-password"
 # =====================================================================================================
 
 # This block sets every autograb option and every field of the shared torrent filter. The same filter
-# fields are available on [[tag]], [[snatchlist]] (with limits) and every list 'grab' block.
+# fields are available on [[tag]] and [[snatchlist]] (with limits).
 [[autograb]]
 # --- autograb-only options ---
 type = "new"           # "bookmarks", "freeleech", "new" (alias "torrents"), "mine", or { uploader = <id> }
@@ -178,34 +177,11 @@ sort_by = "random"
 [[snatchlist]]
 type = "unsat"           # unsat, inact_unsat, seed_unsat, seed_sat, inact_sat, uploads_active
 cost = "metadata_only"   # refresh stored torrents only; "metadata_only_add" also adds the rest
-max_pages = 20           # pages of 250 rows (default 50)
+max_pages = 20           # snatch list pages to read (default 50); MAM decides their size
 search_interval = 60     # overrides the global search_interval
 dry_run = false
 media_type = ["Audiobook", "Ebook"]
 max_size = "10 GiB"
-
-# =====================================================================================================
-# [[notion_list]]: repeatable. Each needs at least one grab block.
-# Blocks are tried in order and the first match wins.
-# =====================================================================================================
-[[notion_list]]
-name = "Notion wishlist"
-data_source = "00000000-0000-0000-0000-000000000000"
-token = "replace-with-your-notion-integration-token"
-mam_fields = ["Audiobook link", "Ebook link"] # URL properties whose trailing number is a MAM id
-search_interval = 240    # overrides import_interval
-unsat_buffer = 15
-wedge_buffer = 5
-dry_run = false
-
-[[notion_list.grab]]
-cost = "all"
-languages = ["English"]
-max_size = "15 MiB"
-
-[[notion_list.grab]]
-cost = "try_wedge"
-media_type = ["Audiobook"]
 
 # =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.

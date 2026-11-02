@@ -358,9 +358,8 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.Mam` | HTTP client for MAM. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
-| `Fetchshelf.Clients.Notion` | Notion list reading. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
-| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, list imports. |
+| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, snatchlist imports. |
 | `Fetchshelf.Web` | The ASP.NET Core host: dependency injection setup and background job scheduling in `Program.cs`, and the Razor Pages UI under `Pages/`. |
 
 Each `src` project has a matching test project under `tests/` once it has tests.
@@ -748,7 +747,7 @@ requests, discussions, screenshots or logs:
 
 - `mam_id` (your MAM session);
 - qBittorrent usernames and passwords;
-- Audiobookshelf and Notion tokens.
+- Audiobookshelf tokens.
 
 Replace them with placeholders such as `replace-with-your-mam-session-id` before you share a config. Also
 check logs and screenshots for private paths, usernames and library contents you'd rather not publish.

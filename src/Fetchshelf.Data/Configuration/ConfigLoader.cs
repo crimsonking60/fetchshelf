@@ -38,7 +38,6 @@ public static class ConfigLoader
         ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
-        ["import_interval"] = (s, v) => s.ImportInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
         ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
@@ -72,7 +71,6 @@ public static class ConfigLoader
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
-        ValidateNotionLists(settings);
         return settings;
     }
 
@@ -385,37 +383,6 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
-            }
-        }
-    }
-
-    private static void ValidateNotionLists(FetchshelfSettings settings)
-    {
-        foreach (var list in settings.NotionList)
-        {
-            if (string.IsNullOrWhiteSpace(list.DataSource))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'data_source'.");
-            }
-
-            if (string.IsNullOrWhiteSpace(list.Token))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'token'.");
-            }
-
-            if (string.IsNullOrWhiteSpace(list.Name))
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section is missing 'name'.");
-            }
-
-            if (list.MamFields.Count == 0)
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section must have at least one 'mam_fields' entry.");
-            }
-
-            if (list.Grab.Count == 0)
-            {
-                throw new ConfigurationException("Invalid configuration: a [[notion_list]] section must have at least one 'grab' block.");
             }
         }
     }

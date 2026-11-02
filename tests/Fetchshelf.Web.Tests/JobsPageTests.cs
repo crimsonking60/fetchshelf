@@ -66,7 +66,7 @@ public partial class JobsPageTests
         var html = await client.GetStringAsync("/Jobs");
 
         var lines = Regex.Matches(html, "<p>([^<]+) is not configured</p>").Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(["AbsMatcher", "Autograb", "Notion list", "Snatchlist"], lines);
+        Assert.Equal(["AbsMatcher", "Autograb", "Snatchlist"], lines);
         Assert.True(html.IndexOf("id=\"unconfigured-jobs\"", StringComparison.Ordinal) > html.IndexOf("</table>", StringComparison.Ordinal));
     }
 
