@@ -3,7 +3,7 @@ using Fetchshelf.Core.Organizer;
 
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Real <see cref="IMetadataLookup"/> backed by MAM, replacing <see cref="NullMetadataLookup"/>.</summary>
+/// <summary><see cref="IMetadataLookup"/> backed by a MAM search by info-hash.</summary>
 public sealed class MamMetadataLookup(MamClient client, MamAccessGate accessGate) : IMetadataLookup
 {
     /// <remarks>

@@ -1,6 +1,5 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The Torrents page's page navigation.</summary>
 public class TorrentsPagingTests
 {
     private static async Task SeedAsync(FetchshelfWebAppFixture fixture, int count)

@@ -10,9 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.Tests;
 
 /// <summary>
-/// Proves the library organizer's link run now receives real metadata from MAM through
-/// <see cref="MamMetadataLookup"/>/<see cref="MamClient"/>, where previously every lookup missed
-/// with <c>NullMetadataLookup</c>.
+/// A link run getting its metadata from MAM through <see cref="MamMetadataLookup"/> and <see cref="MamClient"/>,
+/// against a fake MAM server.
 /// </summary>
 public sealed class MamMetadataLookupCompositionTests : IDisposable
 {

@@ -1,6 +1,5 @@
 namespace Fetchshelf.Core.Metadata;
 
-/// <summary>Tracker media types.</summary>
 public enum MediaType
 {
     Audiobook = 1,

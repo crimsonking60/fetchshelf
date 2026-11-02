@@ -11,9 +11,9 @@ public enum EventKind
 }
 
 /// <summary>
-/// An immutable audit entry. Modeled as one entity with a <see cref="Kind"/>
-/// discriminator and nullable per-kind payload fields ("five flat payload shapes with no polymorphic
-/// behavior"), rather than EF Core table-per-hierarchy inheritance.
+/// An immutable audit entry. One entity with a <see cref="Kind"/> discriminator and nullable per-kind payload
+/// fields rather than EF Core table-per-hierarchy inheritance: the kinds differ only in which fields they fill in,
+/// never in behavior.
 /// </summary>
 public sealed class EventEntity
 {

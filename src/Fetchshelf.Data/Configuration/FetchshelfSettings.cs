@@ -33,7 +33,7 @@ public sealed class FetchshelfSettings
     /// <summary>When true, each web page shows a brief explanation of what it does below its title.</summary>
     public bool PageExplanations { get; set; } = true;
 
-    /// <summary>When true, the Home/jobs page shows a brief description of what each job does.</summary>
+    /// <summary>When true, the Jobs page shows a brief description of what each job does.</summary>
     public bool JobExplanations { get; set; } = true;
 
     public bool ExcludeNarratorInLibraryDir { get; set; }

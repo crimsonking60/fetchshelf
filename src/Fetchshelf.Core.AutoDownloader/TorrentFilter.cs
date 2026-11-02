@@ -70,7 +70,7 @@ public sealed record TorrentFilter
 
     public long? MaxSnatched { get; init; }
 
-    /// <summary>Inclusive cap on the number of listed authors; rejects anthologies. Not part of the original filter field set.</summary>
+    /// <summary>Inclusive cap on the number of listed authors; rejects anthologies.</summary>
     public int? MaxAuthors { get; init; }
 
     /// <summary>

@@ -2,7 +2,6 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The Events page.</summary>
 public class EventsPageTests
 {
     [Fact]

@@ -2,7 +2,6 @@ using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The Events page's page navigation.</summary>
 public class EventsPagingTests
 {
     private static async Task SeedAsync(FetchshelfWebAppFixture fixture, int count)

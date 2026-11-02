@@ -1,6 +1,5 @@
 namespace Fetchshelf.Clients.Mam;
 
-/// <summary>Connection details for the MAM client.</summary>
 public sealed record MamClientOptions
 {
     public string BaseUrl { get; init; } = "https://www.myanonamouse.net";

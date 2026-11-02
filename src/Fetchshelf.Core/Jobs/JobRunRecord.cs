@@ -1,6 +1,5 @@
 namespace Fetchshelf.Core.Jobs;
 
-/// <summary>The outcome of a single job run.</summary>
 public enum JobRunResult
 {
     Success,
@@ -10,5 +9,4 @@ public enum JobRunResult
     CompletedWithErrors,
 }
 
-/// <summary>A record of one completed job run.</summary>
 public sealed record JobRunRecord(DateTimeOffset StartedAt, JobRunResult Result, string? ErrorMessage);

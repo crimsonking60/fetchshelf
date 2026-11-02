@@ -40,7 +40,6 @@ public partial class OrganizerCompositionTests
                 OrganizerTestSupport.FakeQBittorrentServer(Hash, downloadsDir, ["book.m4b"]));
             var client = fixture.CreateClient();
 
-            // Trigger the real "Link" job via the Jobs page's "Run now".
             var jobsHtml = await (await client.GetAsync("/Jobs")).Content.ReadAsStringAsync();
             var token = ExtractAntiforgeryToken(jobsHtml);
             using var triggerForm = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -62,7 +61,6 @@ public partial class OrganizerCompositionTests
             var eventsHtml = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
             Assert.Contains("Linked", eventsHtml);
 
-            // Change the metadata the lookup returns, then refresh-and-relink.
             metadataLookup.Result = OrganizerTestSupport.BuildMetadata("New Title");
             var detailTokenHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
             var refreshToken = ExtractAntiforgeryToken(detailTokenHtml);

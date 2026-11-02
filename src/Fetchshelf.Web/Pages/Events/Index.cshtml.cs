@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Events;
 
-/// <summary>The Events page.</summary>
 public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 {
     [BindProperty(SupportsGet = true)]

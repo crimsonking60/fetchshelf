@@ -8,7 +8,7 @@ namespace Fetchshelf.Web.Tests;
 /// <summary>
 /// Boots the real Fetchshelf.Web host against an isolated temp config file, with a
 /// test-controlled <see cref="JobRegistry"/> swapped in so tests can register jobs before
-/// exercising the Home page.
+/// requesting pages.
 /// </summary>
 public sealed class FetchshelfWebAppFixture : IDisposable
 {

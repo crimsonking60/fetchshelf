@@ -304,7 +304,6 @@ public sealed class LinkRunnerTests : IDisposable
         // the "folder-affecting metadata change is flagged" assertion.
         var libraries = new List<Library> { CreateLibraryByDownloadDir(LibraryDir, DownloadsDir) };
 
-        // Link once.
         var firstLookup = new FakeMetadataLookup(metadata);
         var firstRunner = CreateRunner(context, firstLookup, libraries);
         var torrent = FinishedTorrent("hash1", DownloadsDir, category: "audiobooks");

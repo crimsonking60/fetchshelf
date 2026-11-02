@@ -597,8 +597,7 @@ public sealed class DownloadRunnerTests : IDisposable
         context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2", unsatBuffer: 1));
         await context.SaveChangesAsync();
 
-        // limit=20, count=19 -> only 1 free slot. The first torrent (buffer=1) needs limit-count>buffer,
-        // i.e. 1>1 is false... use count=18 so one slot is free for the first, consumed for the second.
+        // 2 free slots with a buffer of 1: the first torrent fits (2 > 1), and starting it leaves 1, which no longer does.
         const string accountJson = """
             {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":18,"limit":20}}}
             """;
@@ -624,7 +623,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var started = (await runner.RunAsync()).Started;
 
-        Assert.Equal(1, started); // 20-18=2 free slots; first consumes down to 1 free slot, which is not > buffer(1) for the second.
+        Assert.Equal(1, started);
         Assert.Equal(1, accountStateFetchCount);
     }
 

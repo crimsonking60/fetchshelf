@@ -1,6 +1,5 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The Torrent detail page and its actions.</summary>
 public class TorrentDetailPageTests
 {
     [Fact]
