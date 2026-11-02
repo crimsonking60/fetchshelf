@@ -16,6 +16,7 @@ namespace Fetchshelf.Data.AutoDownloader;
 public sealed class RetroactiveTagApplier(
     FetchshelfDbContext dbContext,
     MamClient mamClient,
+    MamAccessGate accessGate,
     IReadOnlyList<QBittorrentClient> qbittorrentClients)
 {
     public async Task ApplyAsync(TagRule rule, CancellationToken cancellationToken = default)
@@ -66,7 +67,12 @@ public sealed class RetroactiveTagApplier(
             };
         }
 
-        var result = await mamClient.SearchAsync(new MamSearchQuery { Id = metadata.MamId }, cancellationToken);
+        MamSearchResult result;
+        using (await accessGate.AcquireAsync(cancellationToken))
+        {
+            result = await mamClient.SearchAsync(new MamSearchQuery { Id = metadata.MamId }, cancellationToken);
+        }
+
         var record = result.Data.FirstOrDefault();
 
         return new TorrentFilterCandidate

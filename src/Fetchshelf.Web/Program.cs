@@ -133,6 +133,7 @@ builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
     sp.GetRequiredService<MamClient>(),
+    sp.GetRequiredService<MamAccessGate>(),
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     settings.MinRatio,
     settings.AddTorrentsStopped,
@@ -140,6 +141,7 @@ builder.Services.AddScoped(sp => new DownloadRunner(
 builder.Services.AddScoped(sp => new RetroactiveTagApplier(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),
+    sp.GetRequiredService<MamAccessGate>(),
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList()));
 
 if (settings.BackgroundJobsEnabled)

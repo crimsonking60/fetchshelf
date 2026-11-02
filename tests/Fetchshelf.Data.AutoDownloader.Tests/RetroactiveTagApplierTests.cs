@@ -156,7 +156,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
 
         // Even a filter that would require a live MAM fetch must never be evaluated for a metadata-only record.
         var rule = MatchAllRule() with { Filter = new TorrentFilter { MinSeeders = 1 } };
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -179,7 +179,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var qbClient = CreateQBittorrentClient("hash1", categoryCalls, tagCalls);
 
         var rule = MatchAllRule();
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -204,7 +204,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var qbClient = CreateQBittorrentClient("hash1", categoryCalls, tagCalls);
 
         var rule = MatchAllRule() with { Filter = new TorrentFilter { MinSeeders = 10 } };
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -229,7 +229,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var qbClient = CreateQBittorrentClient("hash1", categoryCalls, tagCalls);
 
         var rule = MatchAllRule() with { Filter = new TorrentFilter { MinSeeders = 10 } };
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -252,7 +252,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var qbClient = CreateQBittorrentClient("hash1", categoryCalls, tagCalls);
 
         var rule = MatchAllRule(category: "audiobooks-tagged", tags: ["retro", "applied"]);
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -278,7 +278,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var qbClient = CreateQBittorrentClient("hash1", categoryCalls, tagCalls);
 
         var rule = MatchAllRule(category: null, tags: ["retro"]);
-        var applier = new RetroactiveTagApplier(context, mamClient, [qbClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [qbClient]);
 
         await applier.ApplyAsync(rule);
 
@@ -303,7 +303,7 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         var secondClient = CreateQBittorrentClient(knownHash: "hash1", secondCategoryCalls, secondTagCalls);
 
         var rule = MatchAllRule();
-        var applier = new RetroactiveTagApplier(context, mamClient, [firstClient, secondClient]);
+        var applier = new RetroactiveTagApplier(context, mamClient, new MamAccessGate(), [firstClient, secondClient]);
 
         await applier.ApplyAsync(rule);
 

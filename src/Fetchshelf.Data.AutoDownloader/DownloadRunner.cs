@@ -21,6 +21,7 @@ public sealed class DownloadRunner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
     MamClient mamClient,
+    MamAccessGate accessGate,
     IReadOnlyList<QBittorrentClient> qbClients,
     double minRatio,
     bool addTorrentsStopped,
@@ -34,6 +35,8 @@ public sealed class DownloadRunner(
     /// </summary>
     public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = await accessGate.AcquireAsync(cancellationToken);
+
         // SQLite's EF provider can't translate ORDER BY on a DateTimeOffset column, so order client-side.
         var pending = (await dbContext.SelectedTorrents
             .Where(s => s.StartedAt == null && s.RemovedAt == null)
