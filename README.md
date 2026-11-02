@@ -44,14 +44,13 @@ setup. If you use one, please report how it went, good or bad (see
 - [Notion lists](docs/configuration.md#notion_list).
 - [Snatchlists](docs/configuration.md#snatchlist).
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
-- The [link methods](docs/configuration.md#library) other than `hardlink`: `copy`, `symlink`,
-  `hardlink_or_copy`, `hardlink_or_symlink` and `no_link`.
+- The [link methods](docs/configuration.md#library) `copy`, `symlink`, `hardlink_or_symlink` and `no_link`,
+  and setting one for all libraries with [`link_method`](docs/configuration.md#top-level-settings).
+  `hardlink` and `hardlink_or_copy` are confirmed.
 - [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
   `on_cleaned`.
 - [Refresh and relink](docs/user-guide.md#when-the-folder-no-longer-matches) after a metadata or
   configuration change.
-- The [Audiobookshelf integration](docs/configuration.md#audiobookshelf).
-- Reading the session id from a file with [`mam_id_file`](docs/configuration.md#reading-mam_id-from-a-file).
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release
