@@ -7,10 +7,3 @@ public interface IMetadataLookup
 {
     Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default);
 }
-
-/// <summary>Always reports "not found".</summary>
-public sealed class NullMetadataLookup : IMetadataLookup
-{
-    public Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default) =>
-        Task.FromResult<TorrentMetadata?>(null);
-}
