@@ -51,12 +51,10 @@ public sealed class DownloadRunner(
         }
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        var unsatLimit = account.UnsatLimit;
-        var unsatCount = account.UnsatCount;
-        var wedgesAvailable = account.Wedges;
         var bytesInFlight = await SumInFlightBytesAsync(cancellationToken);
-        var ratioBudgetBytes = DownloadBudget.ComputeRatioBudgetBytes(
-            (long)account.UploadedBytes, (long)account.DownloadedBytes, bytesInFlight, minRatio);
+        var budget = new DownloadRunBudget(
+            account.UnsatLimit, account.UnsatCount, account.Wedges,
+            DownloadBudget.ComputeRatioBudgetBytes((long)account.UploadedBytes, (long)account.DownloadedBytes, bytesInFlight, minRatio));
 
         var (startedCount, failedCount) = (0, 0);
         foreach (var selected in pending)
@@ -66,7 +64,7 @@ public sealed class DownloadRunner(
             bool wedgeSpent;
             try
             {
-                (outcome, wedgeSpent) = await ProcessOneAsync(selected, unsatLimit, unsatCount, wedgesAvailable, ratioBudgetBytes, cancellationToken);
+                (outcome, wedgeSpent) = await ProcessOneAsync(selected, budget, cancellationToken);
             }
             catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
             {
@@ -78,12 +76,9 @@ public sealed class DownloadRunner(
             {
                 _logger.LogError("Could not download {Torrent}: {Error} It stays queued for the next run", name, ex.Message);
                 failedCount++;
-
-                // The failure may have come after the wedge was fetched, which spends it on MAM; assume it did,
-                // so the rest of this run cannot dip below wedge_buffer.
-                if (selected.CostDecision is nameof(SelectedTorrentCost.UseWedge) or nameof(SelectedTorrentCost.TryWedge))
+                if (Enum.TryParse<SelectedTorrentCost>(selected.CostDecision, out var failedCost))
                 {
-                    wedgesAvailable--;
+                    budget.Failed(failedCost);
                 }
 
                 dbContext.DiscardPendingChanges();
@@ -96,21 +91,17 @@ public sealed class DownloadRunner(
                 failedCount++;
             }
 
-            // MAM spends the wedge when the torrent file is fetched, whatever happens to the torrent after that.
             if (wedgeSpent)
             {
-                wedgesAvailable--;
+                budget.WedgeSpent();
             }
 
             if (outcome == DownloadOutcome.Started)
             {
                 startedCount++;
-                unsatCount++;
-                var metadata = TorrentMetadataSerializer.Deserialize(selected.MetadataJson);
-                if (selected.CostDecision is nameof(SelectedTorrentCost.Ratio) or nameof(SelectedTorrentCost.UseWedge) or nameof(SelectedTorrentCost.TryWedge))
-                {
-                    ratioBudgetBytes -= metadata.TotalSizeBytes;
-                }
+                budget.Started(
+                    Enum.Parse<SelectedTorrentCost>(selected.CostDecision),
+                    TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes);
             }
         }
 
@@ -159,11 +150,10 @@ public sealed class DownloadRunner(
 
     private async Task<long> SumInFlightBytesAsync(CancellationToken cancellationToken)
     {
+        var ratioSpendingCosts = Enum.GetValues<SelectedTorrentCost>().Where(DownloadBudget.SpendsRatio).Select(c => c.ToString()).ToList();
         var startedNonFree = await dbContext.SelectedTorrents
             .Where(s => s.StartedAt != null && s.RemovedAt == null)
-            .Where(s => s.CostDecision == nameof(SelectedTorrentCost.Ratio)
-                || s.CostDecision == nameof(SelectedTorrentCost.UseWedge)
-                || s.CostDecision == nameof(SelectedTorrentCost.TryWedge))
+            .Where(s => ratioSpendingCosts.Contains(s.CostDecision))
             .Select(s => s.MetadataJson)
             .ToListAsync(cancellationToken);
 
@@ -172,17 +162,17 @@ public sealed class DownloadRunner(
 
     /// <summary>The outcome, and whether the torrent file was fetched with a wedge (which spends it on MAM).</summary>
     private async Task<(DownloadOutcome Outcome, bool WedgeSpent)> ProcessOneAsync(
-        SelectedTorrentEntity selected, long unsatLimit, long unsatCount, long wedgesAvailable, long ratioBudgetBytes, CancellationToken cancellationToken)
+        SelectedTorrentEntity selected, DownloadRunBudget budget, CancellationToken cancellationToken)
     {
         var metadata = TorrentMetadataSerializer.Deserialize(selected.MetadataJson);
         var cost = Enum.Parse<SelectedTorrentCost>(selected.CostDecision);
 
-        if (!DownloadBudget.HasFreeUnsatSlot(unsatLimit, unsatCount, selected.UnsatBuffer))
+        if (!DownloadBudget.HasFreeUnsatSlot(budget.UnsatLimit, budget.UnsatCount, selected.UnsatBuffer))
         {
             return (DownloadOutcome.NoUnsatSlot, false);
         }
 
-        return await ProcessWithinBudgetsAsync(selected, metadata, cost, wedgesAvailable, ratioBudgetBytes, cancellationToken);
+        return await ProcessWithinBudgetsAsync(selected, metadata, cost, budget.WedgesAvailable, budget.RatioBudgetBytes, cancellationToken);
     }
 
     private async Task<(DownloadOutcome Outcome, bool WedgeSpent)> ProcessWithinBudgetsAsync(
@@ -205,7 +195,7 @@ public sealed class DownloadRunner(
             if (cost == SelectedTorrentCost.TryWedge)
             {
                 var current = await FetchCurrentRecordAsync(selected.MamId, cancellationToken);
-                isAlreadyFree = current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);
+                isAlreadyFree = IsFreeNow(current);
             }
 
             var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, selected.WedgeBuffer, isAlreadyFree);
@@ -234,7 +224,7 @@ public sealed class DownloadRunner(
         if (cost is SelectedTorrentCost.Vip or SelectedTorrentCost.PersonalFreeleech or SelectedTorrentCost.GlobalFreeleech)
         {
             var current = await FetchCurrentRecordAsync(selected.MamId, cancellationToken);
-            var stillFree = current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);
+            var stillFree = IsFreeNow(current);
             if (!stillFree)
             {
                 return (DownloadOutcome.NoLongerFree, useWedge);
@@ -397,4 +387,7 @@ public sealed class DownloadRunner(
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private static bool IsFreeNow(MamTorrentRecord? current) =>
+        current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);
 }
