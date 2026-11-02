@@ -133,7 +133,7 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autogrebCategory: null, grabberName: "Manual search",
                     unsatBuffer: settings.UnsatBuffer, wedgeBuffer: settings.WedgeBuffer);
-                logger.LogInformation("Manual download of MAM id {MamId} ended with outcome {Outcome}", mamId, outcome);
+                logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
                 message = DescribeOutcome(outcome, metadata, settings);
             }
             else
@@ -143,7 +143,9 @@ public class IndexModel(
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
-            logger.LogWarning(ex, "Manual download of MAM id {MamId} failed", mamId);
+            logger.LogError(
+                "Manual download of {Torrent} failed: {Error}",
+                record is null ? $"MAM id {mamId}" : MamTorrentMapper.Map(record).DisplayName(), ex.Message);
             failed = true;
             record = null;
             message = $"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}";

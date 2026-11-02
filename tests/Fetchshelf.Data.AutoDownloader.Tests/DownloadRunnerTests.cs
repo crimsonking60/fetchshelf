@@ -7,6 +7,7 @@ using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -48,6 +49,7 @@ public sealed class DownloadRunnerTests : IDisposable
         LegacyCategory = LegacyCategory.AudiobookGeneralFiction,
         Language = Language.English,
         Title = "T",
+        Authors = ["Some Author"],
         TotalSizeBytes = sizeBytes,
         MetadataSource = MetadataSource.Mam,
         UploadTime = DateTimeOffset.UtcNow,
@@ -68,7 +70,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(1, started);
         var torrent = Assert.Single(context.Torrents);
@@ -77,6 +79,89 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.Equal(EventKind.Grabbed, @event.Kind);
         Assert.False(@event.WedgeUsed);
         Assert.NotNull(context.SelectedTorrents.Single().StartedAt);
+    }
+
+    [Fact]
+    public async Task RunAsync_NothingQueued_LogsSoWithoutAskingMam()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var mamCalls = 0;
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, _ =>
+        {
+            mamCalls++;
+            return null;
+        });
+        var logger = new ListLogger<DownloadRunner>();
+        var runner = new DownloadRunner(context, new EventStore(context), mam, [], minRatio: 2, addTorrentsStopped: false, logger);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 0), summary);
+        Assert.Equal(0, mamCalls);
+        Assert.Equal(["No selected torrents are waiting to be downloaded"], logger.Messages(LogLevel.Information));
+    }
+
+    [Fact]
+    public async Task RunAsync_ApprovedRatioTorrent_LogsTitleAndAuthor()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var logger = new ListLogger<DownloadRunner>();
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false, logger);
+
+        await runner.RunAsync();
+
+        Assert.Equal(["Added T by Some Author to qBittorrent (cost Ratio, category none)"], logger.Messages(LogLevel.Information));
+    }
+
+    [Fact]
+    public async Task RunAsync_QBittorrentRefusesOneTorrent_LogsErrorKeepsItQueuedAndStartsTheRest()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var first = BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "dl1");
+        var second = BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2");
+        second.CreatedAt = first.CreatedAt.AddSeconds(1);
+        context.SelectedTorrents.AddRange(first, second);
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php")
+                ? DownloadResponse(request.RequestUri.AbsolutePath.Contains("dl1") ? TorrentBytes1 : TorrentBytes2)
+                : null);
+        var adds = 0;
+        var qb = new QBittorrentClient(
+            new HttpClient(new FakeHttpMessageHandler(request =>
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                if (path.Contains("torrents/info"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("[]") };
+                }
+
+                if (path.Contains("torrents/add"))
+                {
+                    return ++adds == 1
+                        ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                        : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+            })),
+            new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin"));
+        var logger = new ListLogger<DownloadRunner>();
+        var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false, logger);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 1, Failed: 1), summary);
+        Assert.StartsWith("Could not download T by Some Author: ", Assert.Single(logger.Messages(LogLevel.Error)), StringComparison.Ordinal);
+        var selections = await context.SelectedTorrents.AsNoTracking().OrderBy(s => s.MamId).ToListAsync();
+        Assert.Null(selections[0].StartedAt);
+        Assert.NotNull(selections[1].StartedAt);
+        Assert.Equal(TorrentHash2, Assert.Single(context.Torrents).Id);
     }
 
     [Fact]
@@ -109,7 +194,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(1, started);
         Assert.Single(context.Torrents);
@@ -143,9 +228,9 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var summary = await runner.RunAsync();
 
-        Assert.Equal(0, started);
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
         Assert.Empty(context.Torrents);
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         var error = Assert.Single(context.ErroredTorrents);
@@ -166,7 +251,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
         Assert.Single(context.Torrents);
@@ -187,7 +272,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
         Assert.Empty(context.Torrents);
@@ -216,7 +301,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
@@ -237,7 +322,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
         Assert.Null(context.SelectedTorrents.Single().StartedAt);
@@ -258,7 +343,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
     }
@@ -277,7 +362,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
     }
@@ -313,7 +398,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(1, started);
         var @event = Assert.Single(context.Events);
@@ -348,7 +433,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
         Assert.Empty(context.Torrents);
@@ -388,7 +473,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(2, started);
         Assert.Equal([1, 2, 3], attempted);
@@ -429,7 +514,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(2, started);
         Assert.Equal(["dl1"], wedgedDownloads);
@@ -510,7 +595,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(1, started); // 20-18=2 free slots; first consumes down to 1 free slot, which is not > buffer(1) for the second.
         Assert.Equal(1, accountStateFetchCount);
@@ -535,7 +620,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, [qb], minRatio: 2, addTorrentsStopped: false);
 
-        var started = await runner.RunAsync();
+        var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(1, started);
         Assert.Empty(context.ErroredTorrents);

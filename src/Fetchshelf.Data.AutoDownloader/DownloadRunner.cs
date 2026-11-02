@@ -1,11 +1,17 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.AutoDownloader;
+
+/// <summary>What one download run did: torrents started in qBittorrent, and torrents that failed.</summary>
+public sealed record DownloadRunSummary(int Started, int Failed);
 
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
@@ -17,11 +23,30 @@ public sealed class DownloadRunner(
     MamClient mamClient,
     IReadOnlyList<QBittorrentClient> qbClients,
     double minRatio,
-    bool addTorrentsStopped)
+    bool addTorrentsStopped,
+    ILogger<DownloadRunner>? logger = null)
 {
-    /// <summary>Returns the number of torrents successfully started this run.</summary>
-    public async Task<int> RunAsync(CancellationToken cancellationToken = default)
+    private readonly ILogger<DownloadRunner> _logger = logger ?? NullLogger<DownloadRunner>.Instance;
+
+    /// <summary>
+    /// Starts queued selections within the account's limits. A failure on one torrent is logged and the run
+    /// continues; MAM refusing the account (rate limit, block, 403) ends the run, since every later request would fail too.
+    /// </summary>
+    public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
+        // SQLite's EF provider can't translate ORDER BY on a DateTimeOffset column, so order client-side.
+        var pending = (await dbContext.SelectedTorrents
+            .Where(s => s.StartedAt == null && s.RemovedAt == null)
+            .ToListAsync(cancellationToken))
+            .OrderBy(s => s.CreatedAt)
+            .ToList();
+
+        if (pending.Count == 0)
+        {
+            _logger.LogInformation("No selected torrents are waiting to be downloaded");
+            return new DownloadRunSummary(0, 0);
+        }
+
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
         var unsatLimit = account.UnsatLimit;
         var unsatCount = account.UnsatCount;
@@ -30,25 +55,42 @@ public sealed class DownloadRunner(
         var ratioBudgetBytes = DownloadBudget.ComputeRatioBudgetBytes(
             (long)account.UploadedBytes, (long)account.DownloadedBytes, bytesInFlight, minRatio);
 
-        // SQLite's EF provider can't translate ORDER BY on a DateTimeOffset column, so order client-side.
-        var pending = (await dbContext.SelectedTorrents
-            .Where(s => s.StartedAt == null && s.RemovedAt == null)
-            .ToListAsync(cancellationToken))
-            .OrderBy(s => s.CreatedAt)
-            .ToList();
-
-        var startedCount = 0;
+        var (startedCount, failedCount) = (0, 0);
         foreach (var selected in pending)
         {
+            var name = TorrentMetadataSerializer.Deserialize(selected.MetadataJson).DisplayName();
             DownloadOutcome outcome;
             bool wedgeSpent;
             try
             {
                 (outcome, wedgeSpent) = await ProcessOneAsync(selected, unsatLimit, unsatCount, wedgesAvailable, ratioBudgetBytes, cancellationToken);
             }
-            catch (MamAccountBlockedException)
+            catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
             {
+                _logger.LogError("Stopped downloading at {Torrent}: {Error} The rest stay queued for the next run", name, ex.Message);
+                failedCount++;
                 break;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError("Could not download {Torrent}: {Error} It stays queued for the next run", name, ex.Message);
+                failedCount++;
+
+                // The failure may have come after the wedge was fetched, which spends it on MAM; assume it did,
+                // so the rest of this run cannot dip below wedge_buffer.
+                if (selected.CostDecision is nameof(SelectedTorrentCost.UseWedge) or nameof(SelectedTorrentCost.TryWedge))
+                {
+                    wedgesAvailable--;
+                }
+
+                dbContext.DiscardPendingChanges();
+                continue;
+            }
+
+            LogOutcome(selected, name, outcome, wedgeSpent);
+            if (outcome == DownloadOutcome.LinkStillStaleAfterRefresh)
+            {
+                failedCount++;
             }
 
             // MAM spends the wedge when the torrent file is fetched, whatever happens to the torrent after that.
@@ -69,7 +111,47 @@ public sealed class DownloadRunner(
             }
         }
 
-        return startedCount;
+        return new DownloadRunSummary(startedCount, failedCount);
+    }
+
+    private void LogOutcome(SelectedTorrentEntity selected, string name, DownloadOutcome outcome, bool wedgeSpent)
+    {
+        switch (outcome)
+        {
+            case DownloadOutcome.Started:
+                _logger.LogInformation(
+                    "Added {Torrent} to qBittorrent (cost {Cost}{Wedge}, category {Category})",
+                    name, selected.CostDecision, wedgeSpent ? ", wedge used" : string.Empty,
+                    string.IsNullOrEmpty(selected.Category) ? "none" : selected.Category);
+                break;
+            case DownloadOutcome.NoUnsatSlot:
+                _logger.LogInformation("{Torrent} stays queued: no unsatisfied-snatch slot is free beyond unsat_buffer", name);
+                break;
+            case DownloadOutcome.OverRatioBudget:
+                _logger.LogInformation("{Torrent} stays queued: downloading it would take the ratio below min_ratio", name);
+                break;
+            case DownloadOutcome.WedgeUnavailable:
+                _logger.LogInformation("{Torrent} stays queued: no freeleech wedge to spare beyond wedge_buffer", name);
+                break;
+            case DownloadOutcome.NoLongerFree:
+                _logger.LogInformation("{Torrent} stays queued: it is no longer free on MAM", name);
+                break;
+            case DownloadOutcome.LinkStillStaleAfterRefresh:
+                _logger.LogError("Could not download {Torrent}: MAM gave no working download link. Removed from the queue; see the Errors page", name);
+                break;
+            case DownloadOutcome.AlreadyFinishedInClient:
+                _logger.LogInformation("{Torrent} is already finished in qBittorrent; removed from the queue", name);
+                break;
+            case DownloadOutcome.AlreadyDownloadingInClient:
+                _logger.LogInformation("{Torrent} is already downloading in qBittorrent; marked as started", name);
+                break;
+            case DownloadOutcome.AlreadyLinked:
+                _logger.LogInformation("{Torrent} is already in your library; removed from the queue", name);
+                break;
+            default:
+                _logger.LogInformation("{Torrent}: {Outcome}", name, outcome);
+                break;
+        }
     }
 
     private async Task<long> SumInFlightBytesAsync(CancellationToken cancellationToken)

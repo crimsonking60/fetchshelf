@@ -146,7 +146,8 @@ builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<MamClient>(),
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     settings.MinRatio,
-    settings.AddTorrentsStopped));
+    settings.AddTorrentsStopped,
+    sp.GetRequiredService<ILogger<DownloadRunner>>()));
 builder.Services.AddScoped(sp => new RetroactiveTagApplier(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<MamClient>(),
@@ -358,7 +359,12 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
     {
         using var scope = scopeFactory.CreateScope();
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
-        await downloadRunner.RunAsync(ct);
+        var summary = await downloadRunner.RunAsync(ct);
+        if (summary.Failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{summary.Failed} {(summary.Failed == 1 ? "torrent" : "torrents")} could not be downloaded; see the log.");
+        }
     }, "Sends queued, selected torrents to qBittorrent.");
 }
 
