@@ -161,6 +161,24 @@ public class JobRegistryTests
         Assert.Equal((LogLevel.Warning, "Job failing-job failed: boom"), logger.Entries[^1]);
     }
 
+    [Fact]
+    public async Task TriggerAsync_RunCompletesWithErrors_RecordsCompletedWithErrorsAndLogsWarning()
+    {
+        var logger = new CapturingLogger();
+        var registry = new JobRegistry(logger);
+        registry.Register("link", _ => throw new JobCompletedWithErrorsException("2 torrents could not be linked"));
+
+        await registry.TriggerAsync("link");
+
+        var lastRun = registry.Get("link")!.LastRun!;
+        Assert.Equal(JobRunResult.CompletedWithErrors, lastRun.Result);
+        Assert.Equal("2 torrents could not be linked", lastRun.ErrorMessage);
+        var entry = logger.Entries[^1];
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.StartsWith("Job link finished in ", entry.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" with errors: 2 torrents could not be linked", entry.Message, StringComparison.Ordinal);
+    }
+
     private sealed class CapturingLogger : ILogger<JobRegistry>
     {
         public List<(LogLevel Level, string Message)> Entries { get; } = [];

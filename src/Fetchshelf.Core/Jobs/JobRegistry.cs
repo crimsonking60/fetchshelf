@@ -46,6 +46,12 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null) : IJobRegis
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Success, null);
             _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
         }
+        catch (JobCompletedWithErrorsException ex)
+        {
+            job.LastRun = new JobRunRecord(startedAt, JobRunResult.CompletedWithErrors, ex.Message);
+            _logger.LogWarning(
+                "Job {JobName} finished in {Elapsed:0.0}s with errors: {Error}", name, (DateTimeOffset.UtcNow - startedAt).TotalSeconds, ex.Message);
+        }
         catch (Exception ex)
         {
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Failure, ex.Message);

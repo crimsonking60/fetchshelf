@@ -112,7 +112,8 @@ builder.Services.AddScoped(sp => new LinkRunner(
     settings.Library,
     formatPreferenceLists,
     settings.ExcludeNarratorInLibraryDir,
-    sp.GetService<AbsClient>()));
+    sp.GetService<AbsClient>(),
+    sp.GetRequiredService<ILogger<LinkRunner>>()));
 builder.Services.AddScoped(sp => new Cleaner(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
     sp.GetService<AbsClient>()));
@@ -259,12 +260,19 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
     {
         using var scope = scopeFactory.CreateScope();
         var linkRunner = scope.ServiceProvider.GetRequiredService<LinkRunner>();
+        var failed = 0;
         foreach (var (connection, client) in QBittorrentConnections.Build(settings, qbittorrentFactory))
         {
-            await linkRunner.RunAsync(connection, client, ct);
+            failed += (await linkRunner.RunAsync(connection, client, ct)).Failed;
         }
 
         await jobRegistry.TriggerAsync(JobNames.Clean, ct);
+
+        if (failed > 0)
+        {
+            throw new JobCompletedWithErrorsException(
+                $"{failed} {(failed == 1 ? "torrent" : "torrents")} could not be linked; see the Errors page.");
+        }
     }, "Moves finished downloads from qBittorrent into your library folders.");
 
     jobRegistry.Register(JobNames.Clean, async ct =>

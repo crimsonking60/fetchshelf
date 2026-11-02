@@ -8,8 +8,13 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.Organizer;
+
+/// <summary>What one link run did: torrents newly linked, and torrents that could not be linked.</summary>
+public sealed record LinkRunSummary(int Linked, int Failed);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -21,10 +26,22 @@ public sealed class LinkRunner(
     IReadOnlyList<Library> libraries,
     FormatPreferenceLists formatPreferenceLists,
     bool excludeNarratorInLibraryDir,
-    AbsClient? absClient = null)
+    AbsClient? absClient = null,
+    ILogger<LinkRunner>? logger = null)
 {
+    private readonly ILogger<LinkRunner> _logger = logger ?? NullLogger<LinkRunner>.Instance;
+    private int _linked;
+    private int _failed;
+
     /// <summary>Processes every 100%-complete torrent reported by one configured qBittorrent connection; a failure on one torrent is recorded as a linker error and the run continues.</summary>
-    public async Task RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
+    public async Task<LinkRunSummary> RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
+    {
+        var (linkedBefore, failedBefore) = (_linked, _failed);
+        await RunCoreAsync(connection, client, cancellationToken);
+        return new LinkRunSummary(_linked - linkedBefore, _failed - failedBefore);
+    }
+
+    private async Task RunCoreAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken)
     {
         var torrents = await client.ListTorrentsAsync(cancellationToken);
         var finished = torrents.Where(t => t.IsFinished).ToList();
@@ -189,6 +206,8 @@ public sealed class LinkRunner(
 
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+        _linked++;
+        _logger.LogInformation("Linked {Torrent} into {LibraryPath}", torrent.Name, destinationFolder);
     }
 
     private void SyncMismatch(TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata)
@@ -323,6 +342,8 @@ public sealed class LinkRunner(
 
     private async Task RecordLinkerErrorAsync(QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken)
     {
+        _failed++;
+        _logger.LogWarning("Could not link {Torrent}: {Error}", torrent.Name, errorText);
         await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, cancellationToken: cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }

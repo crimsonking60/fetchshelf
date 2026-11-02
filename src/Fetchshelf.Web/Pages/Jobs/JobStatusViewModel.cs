@@ -25,6 +25,7 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
             null => "Never run",
             { Result: JobRunResult.Success } => "Success",
             { Result: JobRunResult.Failure, ErrorMessage: var error } => $"Error: {error}",
+            { Result: JobRunResult.CompletedWithErrors, ErrorMessage: var error } => $"Finished with errors: {error}",
             _ => "Unknown",
         };
 

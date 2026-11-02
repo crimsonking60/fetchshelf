@@ -210,7 +210,7 @@ public sealed class LinkRunnerTests : IDisposable
                 ["good-hash"] = [new() { Name = "book.m4b", Size = 4 }],
             });
 
-        await runner.RunAsync(connection, client);
+        var summary = await runner.RunAsync(connection, client);
 
         var error = await context.ErroredTorrents.SingleAsync();
         Assert.Equal(ErrorStage.Linker, error.Stage);
@@ -218,6 +218,23 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Contains("genre category", error.ErrorText);
         var linked = await context.Torrents.SingleAsync();
         Assert.Equal("good-hash", linked.Id);
+        Assert.Equal(new LinkRunSummary(Linked: 1, Failed: 1), summary);
+    }
+
+    [Fact]
+    public async Task RunAsync_AlreadyLinkedTorrent_CountsAsNeitherLinkedNorFailed()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)],
+            new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var secondRun = await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(new LinkRunSummary(Linked: 0, Failed: 0), secondRun);
     }
 
     private sealed class ThrowingForHashLookup(string badHash, TorrentMetadata result) : IMetadataLookup
