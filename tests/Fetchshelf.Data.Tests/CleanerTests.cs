@@ -33,7 +33,7 @@ public sealed class CleanerTests : IDisposable
         FetchshelfDbContext context, string id, string audioExtension, long sizeBytes, string libraryPath, string? title = null)
     {
         Directory.CreateDirectory(libraryPath);
-        var fileName = $"book.{audioExtension}";
+        var fileName = $"{id}.{audioExtension}";
         File.WriteAllText(Path.Combine(libraryPath, fileName), new string('x', (int)sizeBytes));
         File.WriteAllText(Path.Combine(libraryPath, "metadata.json"), "{}");
 
@@ -71,7 +71,7 @@ public sealed class CleanerTests : IDisposable
         Assert.Equal("keeper", loser.ReplacedWithTorrentId);
         Assert.NotNull(loser.ReplacedAt);
         Assert.Null(loser.LibraryPath);
-        Assert.False(File.Exists(Path.Combine(loserPath, "book.mp3")));
+        Assert.False(File.Exists(Path.Combine(loserPath, "loser.mp3")));
         Assert.False(Directory.Exists(loserPath));
 
         var keeper = await context.Torrents.SingleAsync(t => t.Id == "keeper");
@@ -94,7 +94,7 @@ public sealed class CleanerTests : IDisposable
 
         Assert.Equal(new CleanRunSummary(0, 0), summary);
         Assert.All(await context.Torrents.ToListAsync(), t => Assert.Null(t.ReplacedWithTorrentId));
-        Assert.True(File.Exists(Path.Combine(secondPath, "book.mp3")));
+        Assert.True(File.Exists(Path.Combine(secondPath, "second.mp3")));
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public sealed class CleanerTests : IDisposable
         var cleaned = await CreateCleaner(context).CleanOneAsync("second", []);
 
         Assert.False(cleaned);
-        Assert.True(File.Exists(Path.Combine(secondPath, "book.mp3")));
+        Assert.True(File.Exists(Path.Combine(secondPath, "second.mp3")));
     }
 
     [Fact]
@@ -174,5 +174,21 @@ public sealed class CleanerTests : IDisposable
         var loser = await context.Torrents.SingleAsync(t => t.Id == "loser");
         Assert.NotNull(loser); // still present/visible, just marked replaced
         Assert.NotNull(loser.ReplacedWithTorrentId); // relinkable: no hard delete, record remains fully intact otherwise
+    }
+
+    [Fact]
+    public async Task RunAsync_DuplicateInTheKeepersFolder_KeepsTheKeepersFilesAndMetadata()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var bookPath = Path.Combine(_root, "book");
+        await AddLinkedTorrentAsync(context, "loser", "mp3", 100, bookPath);
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, bookPath);
+
+        await CreateCleaner(context).RunAsync([]);
+
+        Assert.Equal("keeper", (await context.Torrents.SingleAsync(t => t.Id == "loser")).ReplacedWithTorrentId);
+        Assert.False(File.Exists(Path.Combine(bookPath, "loser.mp3")));
+        Assert.True(File.Exists(Path.Combine(bookPath, "keeper.m4b")));
+        Assert.True(File.Exists(Path.Combine(bookPath, "metadata.json")));
     }
 }

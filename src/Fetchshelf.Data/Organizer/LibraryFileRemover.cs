@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace Fetchshelf.Data.Organizer;
 
 /// <summary>Removes what Fetchshelf placed in a book's library folder, and nothing else.</summary>
@@ -10,7 +12,11 @@ public static class LibraryFileRemover
     /// sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
     /// Returns the relative paths of the linked files that were removed.
     /// </summary>
-    public static List<string> Remove(string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles)
+    /// <param name="folderSharedWithAnotherTorrent">
+    /// True when another linked torrent still uses the folder, such as a better format of the same book; its
+    /// `cover.jpg` and `metadata.json` are then left in place.
+    /// </param>
+    public static List<string> Remove(string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles, bool folderSharedWithAnotherTorrent)
     {
         var removed = new List<string>();
         foreach (var file in linkedFiles)
@@ -29,7 +35,7 @@ public static class LibraryFileRemover
             }
         }
 
-        foreach (var extra in Extras)
+        foreach (var extra in folderSharedWithAnotherTorrent ? [] : Extras)
         {
             var path = Path.Combine(libraryPath, extra);
             if (File.Exists(path))
@@ -45,6 +51,11 @@ public static class LibraryFileRemover
 
         return removed;
     }
+
+    /// <summary>Whether a linked torrent other than <paramref name="torrentId"/> also uses <paramref name="libraryPath"/>.</summary>
+    public static Task<bool> IsFolderSharedAsync(
+        FetchshelfDbContext dbContext, string libraryPath, string torrentId, CancellationToken cancellationToken) =>
+        dbContext.Torrents.AnyAsync(t => t.LibraryPath == libraryPath && t.Id != torrentId, cancellationToken);
 
     private static bool IsEmptyFolder(string path) => Directory.Exists(path) && Directory.GetFileSystemEntries(path).Length == 0;
 }

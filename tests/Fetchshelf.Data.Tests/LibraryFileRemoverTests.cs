@@ -25,7 +25,7 @@ public sealed class LibraryFileRemoverTests : IDisposable
         Write("cover.jpg");
 
         var removed = LibraryFileRemover.Remove(
-            Path.Combine(_root, "book"), [new("Disc 1/01.mp3", 1), new("Disc 2/01.mp3", 1)]);
+            Path.Combine(_root, "book"), [new("Disc 1/01.mp3", 1), new("Disc 2/01.mp3", 1)], folderSharedWithAnotherTorrent: false);
 
         Assert.Equal(["Disc 1/01.mp3", "Disc 2/01.mp3"], removed);
         Assert.False(Directory.Exists(Path.Combine(_root, "book")));
@@ -37,16 +37,32 @@ public sealed class LibraryFileRemoverTests : IDisposable
         Write("book.m4b");
         var foreign = Write("notes.txt");
 
-        LibraryFileRemover.Remove(Path.Combine(_root, "book"), [new("book.m4b", 1)]);
+        LibraryFileRemover.Remove(Path.Combine(_root, "book"), [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false);
 
         Assert.True(File.Exists(foreign));
         Assert.False(File.Exists(Path.Combine(_root, "book", "book.m4b")));
     }
 
     [Fact]
+    public void Remove_FolderSharedWithAnotherTorrent_KeepsCoverAndMetadata()
+    {
+        Write("book.mobi");
+        var otherCopy = Write("book.epub");
+        var metadata = Write("metadata.json");
+        var cover = Write("cover.jpg");
+
+        LibraryFileRemover.Remove(Path.Combine(_root, "book"), [new("book.mobi", 1)], folderSharedWithAnotherTorrent: true);
+
+        Assert.False(File.Exists(Path.Combine(_root, "book", "book.mobi")));
+        Assert.True(File.Exists(otherCopy));
+        Assert.True(File.Exists(metadata));
+        Assert.True(File.Exists(cover));
+    }
+
+    [Fact]
     public void Remove_FolderAlreadyGone_DoesNothing()
     {
-        var removed = LibraryFileRemover.Remove(Path.Combine(_root, "missing"), [new("book.m4b", 1)]);
+        var removed = LibraryFileRemover.Remove(Path.Combine(_root, "missing"), [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false);
 
         Assert.Empty(removed);
     }

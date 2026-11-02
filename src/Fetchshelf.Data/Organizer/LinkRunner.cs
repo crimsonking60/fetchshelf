@@ -376,12 +376,13 @@ public sealed class LinkRunner(
         await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
 
         var oldPath = existing.LibraryPath;
+        var oldPathShared = oldPath is not null && await LibraryFileRemover.IsFolderSharedAsync(dbContext, oldPath, existing.Id, cancellationToken);
         Placement placement;
         try
         {
             if (oldPath is not null)
             {
-                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson));
+                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathShared);
             }
 
             placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);

@@ -159,7 +159,8 @@ public sealed class Cleaner(
         var removedFiles = new List<string>();
         if (member.LibraryPath is not null)
         {
-            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, DeserializeLinkedFiles(member.LinkedFilesJson));
+            var shared = await LibraryFileRemover.IsFolderSharedAsync(dbContext, member.LibraryPath, member.Id, cancellationToken);
+            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, DeserializeLinkedFiles(member.LinkedFilesJson), shared);
             details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
         }
 
