@@ -977,7 +977,8 @@ reported, so they cannot be chosen by hand.
     does nothing. The Clean job does the same automatically after every link run.
   - *Refresh* re-reads its metadata from MAM.
   - *Remove* deletes Fetchshelf's record (not the files).
-- **Check qBittorrent.** Updates the *Client status* column for every torrent.
+- **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
+  `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices

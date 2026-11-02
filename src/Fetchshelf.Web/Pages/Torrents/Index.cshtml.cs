@@ -92,10 +92,16 @@ public class IndexModel(
             1 => " 1 finished download was removed from the Selected queue.",
             var count => $" {count} finished downloads were removed from the Selected queue.",
         };
+        var skipped = result.MetadataOnlySkipped switch
+        {
+            0 => string.Empty,
+            1 => " 1 metadata-only record skipped.",
+            var count => $" {count} metadata-only records skipped.",
+        };
         return result.Succeeded
-            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client.{retired}"
+            ? $"Checked {torrents} in qBittorrent: {result.FoundInClient} found, {result.NotInClient} not in client.{retired}{skipped}"
             : $"qBittorrent could not be fully checked - {string.Join("; ", result.Errors)}. "
-                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}";
+                + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}{skipped}";
     }
 
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds)
