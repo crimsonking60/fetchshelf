@@ -81,7 +81,8 @@ You need:
   library needs nothing from Fetchshelf.
 - **Disk layout that allows hardlinks**, if you want files to appear in the library without using extra
   space. Hardlinks only work when the download folder and the library folder are on the **same
-  filesystem**. Otherwise use the copy or symlink link methods (see
+  filesystem** and, in Docker, reach Fetchshelf through the **same mount**. Otherwise use the copy or
+  symlink link methods (see
   [Setting up your library](#setting-up-your-library)).
 
 ## Installing with Docker
@@ -141,7 +142,7 @@ What the options mean:
 | `-p 3157:3157` | The web interface listens on port 3157 inside the container. Change the left number to use another port on the host. |
 | `/config` volume | Holds `config.toml`. |
 | `/data` volume | Holds the database (`data.db`), where Fetchshelf remembers torrents, selections and events. |
-| `/media` volume | Not required by Fetchshelf itself. A folder that holds both your downloads and your library, so linking can work. Use the same host folder, mounted at the same path, in qBittorrent and, if you use it, Audiobookshelf. |
+| `/media` volume | Not required by Fetchshelf itself. A folder that holds both your downloads and your library, mounted as one, so linking can work. Give qBittorrent and, if you use it, Audiobookshelf the parts they need at the same paths (see [Together with qBittorrent and Audiobookshelf](#together-with-qbittorrent-and-audiobookshelf)). |
 | `PUID` / `PGID` | The user and group id that Fetchshelf runs as inside the container. Set them to the owner of your config, data and media folders (run `id` on the host to see yours) so files are created with the right owner. Both default to `1000`. |
 
 The container starts as root only to adjust ownership of `/config` and `/data`, then runs Fetchshelf as the
@@ -201,11 +202,32 @@ Common commands, run in the folder that contains the file:
 
 ### Together with qBittorrent and Audiobookshelf
 
-If you run all three in one Compose project, mount your media folder at `/media` in every container. Then
-the path that qBittorrent reports for a download is also valid inside Fetchshelf, so no `path_mapping` is
-needed, hardlinks work because downloads and library share one filesystem, and Audiobookshelf sees each
-book at the same path as Fetchshelf, which it needs to match them. If you do not use Audiobookshelf, leave
-out its service. Any other app that reads your library just needs access to `/srv/media/library`.
+If you run all three in one Compose project, keep one media folder on the host, `/srv/media`, with the
+downloads in `/srv/media/torrents` and the library in `/srv/media/library`. Each container mounts only what
+it needs, but always at the same path inside the container:
+
+| Container | Needs | Mount |
+|---|---|---|
+| qBittorrent | The downloads. | `/srv/media/torrents:/media/torrents` |
+| Audiobookshelf | The library. | `/srv/media/library:/media/library` |
+| Fetchshelf | Both, through **one** mount. | `/srv/media:/media` |
+
+Because the paths are the same everywhere, the path that qBittorrent reports for a download is also valid
+inside Fetchshelf, so no `path_mapping` is needed, and Audiobookshelf sees each book at the same path as
+Fetchshelf, which it needs to match them.
+
+Fetchshelf must mount the shared parent folder, not `torrents` and `library` separately. A hardlink cannot
+cross from one mount to another, even when both are on the same disk, so with two separate mounts every
+hardlink fails.
+
+If you do not use Audiobookshelf, leave out its service. Any other app that reads your library just needs
+access to `/srv/media/library`.
+
+Create the folders before the first start, so they belong to your user rather than to root:
+
+```sh
+mkdir -p /srv/media/torrents /srv/media/library
+```
 
 ```yaml
 services:
@@ -222,7 +244,7 @@ services:
       - "8080:8080"                # keep both numbers equal to WEBUI_PORT
     volumes:
       - /srv/qbittorrent/config:/config
-      - /srv/media:/media
+      - /srv/media/torrents:/media/torrents
 
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
@@ -267,7 +289,8 @@ After the first `docker compose up -d`, set up qBittorrent before you connect Fe
 3. In **Options → Web UI**, set your own password. Fetchshelf needs a password that does not change.
 4. In **Options → Downloads**, set **Default Save Path** to `/media/torrents`. Fetchshelf does not choose
    where downloads are saved, so without this they end up in `/downloads`, outside `/media`, where Fetchshelf
-   cannot see them.
+   cannot see them. If you turn on **Keep incomplete torrents in**, or give categories their own save
+   paths, keep those under `/media/torrents` too: it is the only media folder qBittorrent can write to.
 
 If port 8080 is already taken on your host, change `WEBUI_PORT` and both numbers in the port mapping
 together, for example `WEBUI_PORT: "8090"` and `"8090:8090"`, and use `http://qbittorrent:8090` in
@@ -327,7 +350,17 @@ Fetchshelf logs in to MAM with a session id, the value of a session cookie that 
    mam_id = "your-session-id"
    ```
 
-4. Restart the container. The jobs now start.
+4. Optionally, check that MAM accepts the session id. On the machine that runs Fetchshelf, run:
+
+   ```sh
+   curl -b "mam_id=your-session-id" https://www.myanonamouse.net/json/checkCookie.php
+   ```
+
+   This is the same check Fetchshelf makes. If the answer contains `"Success":true`, the session id works;
+   anything else means MAM did not accept it. Because a session is locked to an address, run the command
+   where Fetchshelf's traffic comes from: if Fetchshelf goes through a VPN, so must the command.
+
+5. Restart the container. The jobs now start.
 
 For more about sessions and how MAM locks them, see MAM's own documentation.
 
@@ -359,7 +392,12 @@ mam_id_file = "/run/secrets/mam_id"
 ```
 
 With `docker run`, mount the file yourself: `-v /srv/fetchshelf/secrets/mam_id:/run/secrets/mam_id:ro`.
-Fetchshelf reads the file when it starts, so after changing it, restart the container.
+Fetchshelf reads the file when it starts, so after changing it, restart the container. To check the session
+id in the file, without typing it into your shell history:
+
+```sh
+curl -b "mam_id=$(cat /srv/fetchshelf/secrets/mam_id)" https://www.myanonamouse.net/json/checkCookie.php
+```
 
 Things to know:
 
@@ -370,8 +408,9 @@ Things to know:
   next interval.
 - **Blocked account.** If MAM temporarily blocks the account, any running download aborts. Wait, then
   check the account on MAM before running jobs again.
-- **Expired or invalid session.** If jobs fail with an authentication error, create a new session, update
-  `mam_id` (or the file `mam_id_file` points to) and restart.
+- **Expired or invalid session.** If jobs fail with an authentication error, check the session id with the
+  `curl` command above. If MAM does not accept it, create a new session, update `mam_id` (or the file
+  `mam_id_file` points to) and restart.
 
 ## Connecting to qBittorrent
 
@@ -1159,8 +1198,9 @@ container name rather than `localhost`, and make sure both containers share a ne
 
 - *Source missing.* Fetchshelf cannot see the path qBittorrent reported. Add or fix `path_mapping`, or
   mount the same folder in both containers.
-- *Cross-device link.* Hardlinks need the same filesystem. Put downloads and library under one mount, or use
-  `hardlink_or_copy`.
+- *Cross-device link.* Hardlinks need the same filesystem, and in Docker the same mount: two separate
+  mounts count as different devices even on one disk. Mount the folder that holds both downloads and
+  library, or use `hardlink_or_copy`.
 - *No library matched.* The torrent has no category your libraries accept. Check your `[[tag]]` rules and
   `[[library]]` entries.
 - *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
