@@ -44,9 +44,6 @@ setup. If you use one, please report how it went, good or bad (see
 - [Notion lists](docs/configuration.md#notion_list).
 - [Snatchlists](docs/configuration.md#snatchlist).
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
-- The [link methods](docs/configuration.md#library) `copy`, `symlink`, `hardlink_or_symlink` and `no_link`.
-  `hardlink` and `hardlink_or_copy` are confirmed, as is setting one for all libraries with
-  [`link_method`](docs/configuration.md#top-level-settings).
 - [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
   `on_cleaned`.
 - [Refresh and relink](docs/user-guide.md#when-the-folder-no-longer-matches) after a metadata or
