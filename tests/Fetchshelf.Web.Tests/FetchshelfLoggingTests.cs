@@ -130,6 +130,20 @@ public sealed class FetchshelfLoggingTests : IDisposable
         Assert.DoesNotContain("framework-warning", output);
     }
 
+    [Fact]
+    public void Build_UnencryptedKeyWarning_IsDroppedButOtherDataProtectionWarningsStay()
+    {
+        var output = CaptureStderr(null, logger =>
+        {
+            var keyManager = logger.ForContext("SourceContext", "Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager");
+            keyManager.Warning("No XML encryptor configured. Key {KeyId:B} may be persisted to storage in unencrypted form.", Guid.NewGuid());
+            keyManager.Warning("other-key-manager-warning");
+        });
+
+        Assert.DoesNotContain("No XML encryptor configured", output);
+        Assert.Contains("other-key-manager-warning", output);
+    }
+
     private static string CaptureStderr(string? logLevelEnv, Action<ILogger> act)
     {
         var originalError = Console.Error;

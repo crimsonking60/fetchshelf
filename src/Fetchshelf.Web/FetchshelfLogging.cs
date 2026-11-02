@@ -32,6 +32,9 @@ public static class FetchshelfLogging
             .MinimumLevel.Override("System.Net.Http", frameworkLevel)
             // The container health check calls /health every 30 seconds; its debug lines would bury everything else.
             .MinimumLevel.Override("Microsoft.Extensions.Diagnostics.HealthChecks", frameworkLevel)
+            // The web interface's keys are stored unencrypted in the database folder on purpose: they only protect
+            // form submissions. Data Protection warns about that each time it creates a key; other warnings stay.
+            .Filter.ByExcluding(IsUnencryptedKeyWarning)
             .WriteTo.Async(sink => sink.Console(standardErrorFromLevel: LogEventLevel.Verbose), bufferSize: 10_000, blockWhenFull: false);
 
         if (!string.IsNullOrEmpty(logDirEnv))
@@ -43,6 +46,11 @@ public static class FetchshelfLogging
 
         return configuration;
     }
+
+    private static bool IsUnencryptedKeyWarning(LogEvent logEvent) =>
+        logEvent.Properties.TryGetValue("SourceContext", out var source)
+        && source is ScalarValue { Value: "Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager" }
+        && logEvent.MessageTemplate.Text.StartsWith("No XML encryptor configured", StringComparison.Ordinal);
 
     private static LogEventLevel AtLeast(LogEventLevel level, LogEventLevel floor) => level > floor ? level : floor;
 }
