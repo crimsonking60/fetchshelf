@@ -96,9 +96,7 @@ public sealed class LinkRunner(
 
         // The library match needs only the client's category, save path and tags, so it comes before
         // the MAM lookup: a torrent no library claims must cost no request.
-        var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
-        var libraryRules = libraries.Select(ToMatchRule).ToList();
-        var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(libraryRules, torrent.Category, mappedSavePath, torrent.TagList);
+        var (mappedSavePath, matchedIndex) = MatchLibrary(connection, torrent);
 
         TorrentMetadata metadata;
 
@@ -192,16 +190,22 @@ public sealed class LinkRunner(
     private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes);
 
     /// <summary>The best audio and the best ebook format among the torrent's files, by the library's or the global lists.</summary>
-    private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files)
-    {
-        var audioTypes = library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType);
-        var ebookTypes = library.EbookTypes ?? formatPreferenceLists.EbookTypes;
-        var extensions = files.Select(f => Path.GetExtension(f.Name)).ToList();
-        return (FormatRanker.SelectBestExtension(audioTypes, extensions), FormatRanker.SelectBestExtension(ebookTypes, extensions));
-    }
+    private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files) =>
+        LinkedFormats.Choose(
+            library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType),
+            library.EbookTypes ?? formatPreferenceLists.EbookTypes,
+            files.Select(f => f.Name));
 
     private static List<QBittorrentFile> ChosenFiles(IReadOnlyList<QBittorrentFile> files, string? audio, string? ebook) =>
-        files.Where(f => MatchesExtension(f.Name, audio) || MatchesExtension(f.Name, ebook)).ToList();
+        files.Where(f => LinkedFormats.IsChosen(f.Name, audio, ebook)).ToList();
+
+    /// <summary>The torrent's save path as seen from here, and the index of the first library that accepts it, if any.</summary>
+    private (string MappedSavePath, int? LibraryIndex) MatchLibrary(QBittorrentConnection connection, QBittorrentTorrent torrent)
+    {
+        var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
+        return (mappedSavePath, LibraryMatcher.FindMatchingLibraryIndex(
+            libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList));
+    }
 
     /// <summary>Links the chosen files into the book's folder with the library's method and writes its `metadata.json`.</summary>
     private Placement PlaceFiles(
@@ -263,9 +267,7 @@ public sealed class LinkRunner(
 
     private void SyncMismatch(TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata)
     {
-        var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
-        var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(
-            libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList);
+        var (_, matchedIndex) = MatchLibrary(connection, torrent);
 
         string? recomputedLibraryDir = null;
         string? recomputedFullPath = null;
@@ -332,9 +334,7 @@ public sealed class LinkRunner(
             return Refuse(existing, "It has not finished downloading.");
         }
 
-        var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
-        var matchedIndex = LibraryMatcher.FindMatchingLibraryIndex(
-            libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList);
+        var (mappedSavePath, matchedIndex) = MatchLibrary(connection, torrent);
         if (matchedIndex is null)
         {
             return Refuse(existing, "No library accepts its qBittorrent category, save path and tags.");
@@ -511,9 +511,6 @@ public sealed class LinkRunner(
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
-
-    private static bool MatchesExtension(string fileName, string? extension) =>
-        extension is not null && string.Equals(Path.GetExtension(fileName).TrimStart('.'), extension, StringComparison.OrdinalIgnoreCase);
 
     private static LibraryMatchRule ToMatchRule(Library library) => new()
     {
