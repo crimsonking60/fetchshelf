@@ -42,5 +42,62 @@ public sealed partial class MamClient
         DownloadHash = row.TryGetProperty("dl", out var dlElement) && dlElement.ValueKind == JsonValueKind.String
             ? dlElement.GetString()
             : null,
+        Details = ParseDetails(row),
     };
+
+    /// <summary>
+    /// The row's metadata fields, named as in the original Rust implementation's `UserDetailsTorrent`. A row
+    /// without `category` is treated as carrying none of them, so callers fall back to looking the torrent up.
+    /// </summary>
+    private static MamSnatchlistDetails? ParseDetails(JsonElement row)
+    {
+        if (!row.TryGetProperty("category", out var categoryElement))
+        {
+            return null;
+        }
+
+        return new MamSnatchlistDetails
+        {
+            LegacyCategoryId = (int)MamJson.GetInt64(categoryElement),
+            GenreCategoryIds = IdNameArray(row, "categories").Select(item => (int)item.Id).ToList(),
+            Authors = IdNameArray(row, "author").ToDictionary(item => item.Id, item => item.Name),
+            Narrators = IdNameArray(row, "narrator").ToDictionary(item => item.Id, item => item.Name),
+            Series = ParseSeries(row),
+            FileTypes = IdNameArray(row, "fileTypes").Select(item => item.Name).ToList(),
+            SizeRaw = OptionalString(row, "size"),
+            TagsRaw = OptionalString(row, "tags"),
+            FlagsRaw = row.TryGetProperty("browseFlags", out var flags) ? (int)MamJson.GetInt64(flags) : 0,
+            IsFree = row.TryGetProperty("free", out var free) && MamJson.GetBool(free),
+            IsPersonalFreeleech = row.TryGetProperty("personalFree", out var personalFree) && MamJson.GetBool(personalFree),
+            IsVip = row.TryGetProperty("vip", out var vip) && MamJson.GetBool(vip),
+            VipExpireUnixSeconds = row.TryGetProperty("vip_expire", out var vipExpire) && vipExpire.ValueKind != JsonValueKind.Null
+                ? MamJson.GetInt64(vipExpire)
+                : 0,
+            UploaderId = row.TryGetProperty("uploaderID", out var uploaderId) ? MamJson.GetInt64(uploaderId) : 0,
+            UploaderName = OptionalString(row, "uploaderName"),
+            TimesCompleted = row.TryGetProperty("times_completed", out var completed) ? MamJson.GetInt64(completed) : 0,
+        };
+    }
+
+    private static string OptionalString(JsonElement row, string name) =>
+        row.TryGetProperty(name, out var element) && element.ValueKind != JsonValueKind.Null ? MamJson.GetString(element) : string.Empty;
+
+    /// <summary>An array of `{ "id": …, "name": … }` objects, in id order; empty when the property is missing.</summary>
+    private static IEnumerable<(long Id, string Name)> IdNameArray(JsonElement row, string name) =>
+        row.TryGetProperty(name, out var array) && array.ValueKind == JsonValueKind.Array
+            ? array.EnumerateArray()
+                .Select(item => (Id: MamJson.GetInt64(item.GetProperty("id")), Name: MamJson.GetString(item.GetProperty("name"))))
+                .OrderBy(item => item.Id)
+                .ToList()
+            : [];
+
+    private static IReadOnlyList<MamSeriesInfo> ParseSeries(JsonElement row) =>
+        row.TryGetProperty("series", out var array) && array.ValueKind == JsonValueKind.Array
+            ? array.EnumerateArray()
+                .OrderBy(item => MamJson.GetInt64(item.GetProperty("id")))
+                .Select(item => new MamSeriesInfo(
+                    MamJson.GetString(item.GetProperty("name")),
+                    item.TryGetProperty("number", out var number) && number.ValueKind != JsonValueKind.Null ? MamJson.GetString(number) : string.Empty))
+                .ToList()
+            : [];
 }

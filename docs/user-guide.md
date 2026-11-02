@@ -818,6 +818,10 @@ stops Fetchshelf downloading a book you got some other way. With the default, `m
 refreshes the details of torrents Fetchshelf already has. See
 [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
+The first `metadata_only_add` run on a long list looks every torrent up on MAM once, so it can take a while.
+Later runs read the list and look up only what is new. Details you edited by hand on a torrent's page are
+kept; a snatchlist only updates their VIP status.
+
 ## Protecting your account
 
 Fetchshelf will not start a download that would break these limits.

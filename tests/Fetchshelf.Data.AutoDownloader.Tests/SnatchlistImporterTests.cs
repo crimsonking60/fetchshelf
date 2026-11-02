@@ -79,7 +79,7 @@ public sealed class SnatchlistImporterTests : IDisposable
 
         Assert.Equal(0, created);
         Assert.Empty(context.Torrents);
-        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("The Way of Kings by A is not stored, skipped"));
+        Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("The Way of Kings (MAM id 1) is not stored, skipped"));
     }
 
     [Fact]
@@ -257,5 +257,104 @@ public sealed class SnatchlistImporterTests : IDisposable
         var messages = logger.Messages(LogLevel.Information);
         Assert.Contains(messages, m => m.Contains("The Way of Kings by A would be recorded as owned"));
         Assert.Contains(messages, m => m.Contains("read 1 snatch list rows, 1 would have been recorded as owned (dry run)"));
+    }
+
+    private const string DetailedRowPageJson = """
+        {"rows":[{
+            "id":1,"title":"The Way of Kings","seeders":5,"leechers":1,
+            "category":39,"categories":[],"author":[{"id":1,"name":"Brandon Sanderson"}],"narrator":[],"series":[],
+            "fileTypes":[{"id":1,"name":"m4b"}],"size":"100 MiB","tags":"","browseFlags":0,
+            "free":0,"vip":1,"vip_expire":null,"personalFree":0,"uploaderName":"uploader","uploaderID":1,"times_completed":10
+        }]}
+        """;
+
+    /// <summary>Serves <see cref="DetailedRowPageJson"/> and counts the searches, which should not be needed.</summary>
+    private static MamClient CreateDetailedRowClient(Action onSearch) =>
+        new(
+            new HttpClient(new FakeHttpMessageHandler(request =>
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                if (path.Contains("jsonLoad.php"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AccountStateJson) };
+                }
+
+                if (path.Contains("loadUserDetailsTorrents.php"))
+                {
+                    var json = request.RequestUri.Query.Contains("iteration=0") ? DetailedRowPageJson : SnatchlistPageJson(empty: true);
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+                }
+
+                onSearch();
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            })),
+            new MamClientOptions { MamId = "cookie" });
+
+    private static async Task StoreAsync(FetchshelfDbContext context, TorrentMetadata metadata)
+    {
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "stored",
+            MamId = metadata.MamId,
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+            Title = metadata.Title,
+            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task RunAsync_StoredTorrentWithDetailedRow_RefreshesFromTheRowWithoutSearching()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        await StoreAsync(context, MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, title: "Old Title")));
+        var searches = 0;
+        var importer = new SnatchlistImporter(context, CreateDetailedRowClient(() => searches++), new MamAccessGate());
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.SeedSat, Cost = ConfiguredCost.MetadataOnlyAdd });
+
+        Assert.Equal(0, searches);
+        Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 1, Failed: 0), summary);
+        var stored = TorrentMetadataSerializer.Deserialize(Assert.Single(context.Torrents).MetadataJson);
+        Assert.Equal("The Way of Kings", stored.Title);
+        Assert.Equal(VipStatusKind.Permanent, stored.VipStatus.Kind);
+        Assert.Equal(Language.English, stored.Language);
+    }
+
+    [Fact]
+    public async Task RunAsync_MetadataEditedByHand_KeepsTheEditsAndUpdatesOnlyTheVipStatus()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var edited = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1)) with
+        {
+            Title = "My Own Title",
+            MetadataSource = MetadataSource.Manual,
+        };
+        await StoreAsync(context, edited);
+        var logger = new ListLogger<SnatchlistImporter>();
+        var importer = new SnatchlistImporter(context, CreateDetailedRowClient(() => { }), new MamAccessGate(), logger);
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.SeedSat });
+
+        Assert.Equal(1, summary.Updated);
+        var stored = TorrentMetadataSerializer.Deserialize(Assert.Single(context.Torrents).MetadataJson);
+        Assert.Equal("My Own Title", stored.Title);
+        Assert.Equal(MetadataSource.Manual, stored.MetadataSource);
+        Assert.Equal(VipStatusKind.Permanent, stored.VipStatus.Kind);
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.Contains("its metadata was edited by hand and is kept"));
+    }
+
+    [Fact]
+    public async Task RunAsync_NotStoredWithMetadataOnly_SkipsWithoutSearching()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var searches = 0;
+        var importer = new SnatchlistImporter(context, CreateDetailedRowClient(() => searches++), new MamAccessGate());
+
+        var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.SeedSat });
+
+        Assert.Equal(0, searches);
+        Assert.Equal(new SnatchlistRunSummary(Rows: 1, Recorded: 0, Updated: 0, Failed: 0), summary);
     }
 }

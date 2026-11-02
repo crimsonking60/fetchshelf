@@ -371,7 +371,14 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 | `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
 | `max_pages` | 50 | Pages of 250 rows to read. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
-| `dry_run` | `false` | Read the snatch list and look each torrent up, but record nothing. What would be recorded is logged. |
+| `dry_run` | `false` | Read the snatch list and work out every change, but record nothing. What would be recorded is logged. |
+
+- **Stored torrents** are refreshed from the snatch list itself, with no further request to MAM. The list
+  does not carry the language, media type, file count, upload date, description or ISBN, so those keep
+  their stored values. Metadata you edited by hand is kept; only its VIP status follows MAM.
+- **New torrents** (with `metadata_only_add`) are looked up on MAM one at a time, because the list does not
+  say which language they are in. The first run on a long list therefore takes a while; later runs only
+  look up what is new.
 
 ## `[[notion_list]]`
 

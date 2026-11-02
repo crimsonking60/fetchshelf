@@ -147,58 +147,32 @@ public sealed class SnatchlistImporter(
         string name, MamSnatchlistRow row, TorrentFilter filter, ConfiguredCost cost, bool dryRun, LogLevel detailLevel,
         CancellationToken cancellationToken)
     {
-        // The snatch list row has no uploader or completion count, so the filter is checked against the search record.
-        var result = await mamClient.SearchAsync(new MamSearchQuery { Id = row.MamId }, cancellationToken);
-        if (result.Data.FirstOrDefault() is not { } record)
+        var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.MamId == row.MamId, cancellationToken);
+        if (existing is null && cost != ConfiguredCost.MetadataOnlyAdd)
         {
-            _logger.Log(detailLevel, "Snatchlist {Name}: MAM torrent {MamId} was not found on MAM, skipped", name, row.MamId);
+            _logger.Log(
+                detailLevel, "Snatchlist {Name}: {Title} (MAM id {MamId}) is not stored, skipped (cost metadata_only only updates stored torrents)",
+                name, row.Title, row.MamId);
             return RowOutcome.Skipped;
         }
 
-        var metadata = MamTorrentMapper.Map(record);
-        var candidate = new TorrentFilterCandidate
+        var stored = existing is null ? null : TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
+        var candidate = await ReadCandidateAsync(name, row, stored, detailLevel, cancellationToken);
+        if (candidate is null)
         {
-            Metadata = metadata,
-            UploaderName = record.UploaderName,
-            Seeders = record.Seeders,
-            Leechers = record.Leechers,
-            TimesCompleted = record.TimesCompleted,
-        };
+            return RowOutcome.Skipped;
+        }
+
+        var metadata = candidate.Metadata;
         if (!TorrentFilterMatcher.Matches(filter, candidate))
         {
             _logger.Log(detailLevel, "Snatchlist {Name}: {Torrent} does not pass the filter, skipped", name, metadata.DisplayName());
             return RowOutcome.Skipped;
         }
 
-        var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.MamId == row.MamId, cancellationToken);
         if (existing is not null)
         {
-            var metadataJson = TorrentMetadataSerializer.Serialize(metadata);
-            if (metadataJson == existing.MetadataJson)
-            {
-                _logger.Log(detailLevel, "Snatchlist {Name}: {Torrent} is already up to date", name, metadata.DisplayName());
-                return RowOutcome.Unchanged;
-            }
-
-            _logger.LogInformation(
-                "Snatchlist {Name}: {Torrent} {Action}",
-                name, metadata.DisplayName(), dryRun ? "would have its metadata updated from MAM" : "had its metadata updated from MAM");
-            if (!dryRun)
-            {
-                existing.MetadataJson = metadataJson;
-                existing.Title = metadata.Title;
-                existing.NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title);
-            }
-
-            return RowOutcome.Updated;
-        }
-
-        if (cost != ConfiguredCost.MetadataOnlyAdd)
-        {
-            _logger.Log(
-                detailLevel, "Snatchlist {Name}: {Torrent} is not stored, skipped (cost metadata_only only updates stored torrents)",
-                name, metadata.DisplayName());
-            return RowOutcome.Skipped;
+            return Refresh(name, existing, stored!, metadata, dryRun, detailLevel);
         }
 
         _logger.LogInformation(
@@ -218,6 +192,80 @@ public sealed class SnatchlistImporter(
             CreatedAt = DateTimeOffset.UtcNow,
         });
         return RowOutcome.Recorded;
+    }
+
+    /// <summary>
+    /// The torrent's current metadata and filter fields. A stored torrent is refreshed from its row, which needs no
+    /// request; a new torrent, or a row without metadata, is looked up on MAM, since the row lacks the language.
+    /// Null when MAM no longer has the torrent.
+    /// </summary>
+    private async Task<TorrentFilterCandidate?> ReadCandidateAsync(
+        string name, MamSnatchlistRow row, TorrentMetadata? stored, LogLevel detailLevel, CancellationToken cancellationToken)
+    {
+        if (stored is not null && row.Details is { } details)
+        {
+            return new TorrentFilterCandidate
+            {
+                Metadata = MamSnatchlistRowMapper.Map(row, details, stored),
+                UploaderName = details.UploaderName,
+                Seeders = row.Seeders,
+                Leechers = row.Leechers,
+                TimesCompleted = details.TimesCompleted,
+            };
+        }
+
+        var result = await mamClient.SearchAsync(new MamSearchQuery { Id = row.MamId }, cancellationToken);
+        if (result.Data.FirstOrDefault() is not { } record)
+        {
+            _logger.Log(detailLevel, "Snatchlist {Name}: {Title} (MAM id {MamId}) was not found on MAM, skipped", name, row.Title, row.MamId);
+            return null;
+        }
+
+        return new TorrentFilterCandidate
+        {
+            Metadata = MamTorrentMapper.Map(record),
+            UploaderName = record.UploaderName,
+            Seeders = record.Seeders,
+            Leechers = record.Leechers,
+            TimesCompleted = record.TimesCompleted,
+        };
+    }
+
+    /// <summary>
+    /// Stores <paramref name="fresh"/> over a stored torrent's metadata when it differs. Metadata edited by hand is
+    /// kept: only its VIP status follows MAM.
+    /// </summary>
+    private RowOutcome Refresh(string name, TorrentEntity existing, TorrentMetadata stored, TorrentMetadata fresh, bool dryRun, LogLevel detailLevel)
+    {
+        var editedByHand = stored.MetadataSource == MetadataSource.Manual;
+        var updated = editedByHand ? stored with { VipStatus = fresh.VipStatus } : fresh;
+        var updatedJson = TorrentMetadataSerializer.Serialize(updated);
+        if (updatedJson == existing.MetadataJson)
+        {
+            _logger.Log(
+                detailLevel, "Snatchlist {Name}: {Torrent} is already up to date{Note}",
+                name, stored.DisplayName(), editedByHand ? " (its metadata was edited by hand and is kept)" : string.Empty);
+            return RowOutcome.Unchanged;
+        }
+
+        _logger.LogInformation(
+            "Snatchlist {Name}: {Torrent} {Action}",
+            name, updated.DisplayName(),
+            (dryRun, editedByHand) switch
+            {
+                (true, true) => "would have its VIP status updated from MAM; its metadata was edited by hand and is kept",
+                (false, true) => "had its VIP status updated from MAM; its metadata was edited by hand and is kept",
+                (true, false) => "would have its metadata updated from MAM",
+                (false, false) => "had its metadata updated from MAM",
+            });
+        if (!dryRun)
+        {
+            existing.MetadataJson = updatedJson;
+            existing.Title = updated.Title;
+            existing.NormalizedTitleKey = TitleNormalizer.Normalize(updated.Title);
+        }
+
+        return RowOutcome.Updated;
     }
 
     private static MamSnatchlistKind ToMamKind(SnatchlistType type) => type switch
