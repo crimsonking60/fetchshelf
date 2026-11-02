@@ -13,14 +13,14 @@ public class FlagNameResolverTests
     [InlineData("explicit", BookFlags.Explicit)]
     [InlineData("abridged", BookFlags.Abridged)]
     [InlineData("lgbt", BookFlags.Lgbt)]
-    public void ResolvesDocumentedAliases(string name, BookFlags expected)
+    public void TryResolve_DocumentedAlias_ResolvesToTheFlag(string name, BookFlags expected)
     {
         Assert.True(FlagNameResolver.TryResolve(name, out var flag));
         Assert.Equal(expected, flag);
     }
 
     [Fact]
-    public void UnrecognizedName_ReturnsFalse()
+    public void TryResolve_UnrecognizedName_ReturnsFalse()
     {
         Assert.False(FlagNameResolver.TryResolve("not-a-flag", out _));
     }

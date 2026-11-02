@@ -45,7 +45,7 @@ public class SeriesParserTests
     }
 
     [Fact]
-    public void SortedEntries_OrdersByFirstNumberWithTieBreaking()
+    public void SortedEntries_SameFirstNumber_OrdersNumberThenPartThenRange()
     {
         var series = new Series
         {
@@ -66,7 +66,7 @@ public class SeriesParserTests
     }
 
     [Fact]
-    public void RangeEntry_DisplaysAsFirstDashSecond()
+    public void Display_RangeEntry_IsFirstDashSecond()
     {
         var entry = SeriesEntry.ForRange(1, 3);
 
@@ -74,7 +74,7 @@ public class SeriesParserTests
     }
 
     [Fact]
-    public void PartEntry_DisplaysAsBookPPart()
+    public void Display_PartEntry_IsBookPPart()
     {
         var entry = SeriesEntry.ForPart(2, 1);
 

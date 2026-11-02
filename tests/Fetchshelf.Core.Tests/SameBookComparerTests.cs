@@ -52,7 +52,7 @@ public class SameBookComparerTests
     }
 
     [Fact]
-    public void AreSameBook_EditionNumberZeroRequiresMatchingLabel()
+    public void AreSameBook_EditionNumberZeroWithDifferentLabels_ReturnsFalse()
     {
         var a = Build(edition: new Edition("UK Edition", 0));
         var b = Build(edition: new Edition("US Edition", 0));

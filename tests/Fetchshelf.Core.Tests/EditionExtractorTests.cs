@@ -30,7 +30,7 @@ public class EditionExtractorTests
     }
 
     [Fact]
-    public void RemoveFromTitle_TextAfterPhraseBecomesSubtitle()
+    public void RemoveFromTitle_TextAfterPhrase_BecomesSubtitle()
     {
         var title = "Foo - 25th Anniversary Edition: The Return";
         var match = EditionExtractor.TryExtract(title)!;

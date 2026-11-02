@@ -5,7 +5,7 @@ namespace Fetchshelf.Core.Tests;
 public class NullMetadataLookupTests
 {
     [Fact]
-    public async Task TryLookupByInfoHashAsync_AlwaysReturnsNull()
+    public async Task TryLookupByInfoHashAsync_AnyHash_ReturnsNull()
     {
         var lookup = new NullMetadataLookup();
 

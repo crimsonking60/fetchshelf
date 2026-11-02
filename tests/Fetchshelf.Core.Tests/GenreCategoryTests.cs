@@ -13,7 +13,7 @@ public class GenreCategoryTests
     [InlineData(GenreCategory.DramaPlays, 60)]
     [InlineData(GenreCategory.Occult, 61)]
     [InlineData(GenreCategory.SliceOfLife, 62)]
-    public void NumericValue_MatchesRealTrackerId(GenreCategory category, int expectedId)
+    public void NumericValue_EachCategory_MatchesRealTrackerId(GenreCategory category, int expectedId)
     {
         Assert.Equal(expectedId, (int)category);
     }

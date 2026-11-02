@@ -12,13 +12,13 @@ public class BookFlagsTests
     [InlineData(BookFlags.Explicit, 1 << 4)]
     [InlineData(BookFlags.Abridged, 1 << 5)]
     [InlineData(BookFlags.Lgbt, 1 << 6)]
-    public void NumericValue_MatchesRealTrackerBit(BookFlags flag, int expectedBit)
+    public void NumericValue_EachFlag_MatchesRealTrackerBit(BookFlags flag, int expectedBit)
     {
         Assert.Equal(expectedBit, (int)flag);
     }
 
     [Fact]
-    public void RawBitfield_RoundTripsToCorrectFlags()
+    public void Cast_RawTrackerBitfield_GivesTheMatchingFlags()
     {
         // violence (bit 2) + abridged (bit 5), as the tracker would report in `browseflags`.
         const int rawBitfield = (1 << 2) | (1 << 5);

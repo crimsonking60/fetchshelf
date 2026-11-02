@@ -5,7 +5,7 @@ namespace Fetchshelf.Core.Tests;
 public class MamMetadataCleanerTests
 {
     [Fact]
-    public void DecodeHtmlEntities_DecodesAmpersandEntity()
+    public void DecodeHtmlEntities_AmpersandEntity_IsDecoded()
     {
         var result = MamMetadataCleaner.DecodeHtmlEntities("Smith &amp; Jones");
 
@@ -45,7 +45,7 @@ public class MamMetadataCleanerTests
     }
 
     [Fact]
-    public void StripSeriesSuffix_RemovesTrailingDigitalMarker()
+    public void StripSeriesSuffix_TrailingDigitalMarker_IsRemoved()
     {
         var result = MamMetadataCleaner.StripSeriesSuffix("Some Series (Digital)");
 
@@ -53,7 +53,7 @@ public class MamMetadataCleanerTests
     }
 
     [Fact]
-    public void StripSeriesSuffix_RemovesTrailingLightNovelMarker()
+    public void StripSeriesSuffix_TrailingLightNovelMarker_IsRemoved()
     {
         var result = MamMetadataCleaner.StripSeriesSuffix("Some Series (Light Novel)");
 
@@ -117,7 +117,7 @@ public class MamMetadataCleanerTests
     [InlineData("Great Book [epub]", "Great Book")]
     [InlineData("Great Book (digital)", "Great Book")]
     [InlineData("Great Book - 123.epub", "Great Book")]
-    public void RemoveTitleNoise_RemovesKnownPatterns(string input, string expected)
+    public void RemoveTitleNoise_KnownPatterns_AreRemoved(string input, string expected)
     {
         Assert.Equal(expected, MamMetadataCleaner.RemoveTitleNoise(input));
     }

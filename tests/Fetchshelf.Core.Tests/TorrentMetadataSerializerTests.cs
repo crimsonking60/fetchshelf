@@ -6,7 +6,7 @@ namespace Fetchshelf.Core.Tests;
 public class TorrentMetadataSerializerTests
 {
     [Fact]
-    public void SerializeThenDeserialize_RoundTripsUnchanged()
+    public void SerializeThenDeserialize_FullMetadata_RoundTripsUnchanged()
     {
         var metadata = new TorrentMetadata
         {
