@@ -1,3 +1,8 @@
+using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Fetchshelf.Web.Tests;
 
 public class TorrentsIndexPageTests
@@ -117,7 +122,7 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
-    public async Task Get_Filtered_SearchFormKeepsFilter_AndShowAllClearsIt()
+    public async Task Get_Filtered_DropdownShowsTheFilter_AndClearFiltersKeepsTheSearch()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
@@ -125,11 +130,136 @@ public class TorrentsIndexPageTests
 
         var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Kings&Language=English"));
 
-        Assert.Contains("<input type=\"hidden\" name=\"Language\" value=\"English\" />", html);
-        var activeFilters = html[html.IndexOf("id=\"active-filters\"", StringComparison.Ordinal)..];
-        var showAllLink = System.Text.RegularExpressions.Regex.Match(activeFilters, @"href=""([^""]*)""").Groups[1].Value;
-        Assert.Contains("Q=Kings", showAllLink);
-        Assert.DoesNotContain("Language=", showAllLink);
+        Assert.Contains("<option value=\"English\" selected=\"selected\">English</option>", html);
+        var clearLink = System.Text.RegularExpressions.Regex.Match(html, @"<a id=""clear-filters"" href=""([^""]*)""").Groups[1].Value;
+        Assert.Contains("Q=Kings", clearLink);
+        Assert.DoesNotContain("Language=", clearLink);
+    }
+
+    [Fact]
+    public async Task Get_Unfiltered_HasNoClearFiltersLink_AndOffersTheValuesInUse()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(
+            fixture, "hash1", OrganizerTestSupport.BuildMetadata("Paper Book") with { MediaType = Fetchshelf.Core.Metadata.MediaType.Ebook });
+        await SeedAsync(fixture, "hash2", "Audio Book", t => { t.LibraryPath = "/library/a"; t.LinkerName = "Audiobooks"; });
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents?Q=Kings");
+
+        Assert.DoesNotContain("id=\"clear-filters\"", html);
+        Assert.Contains("<option value=\"Ebook\">Ebook</option>", html);
+        Assert.Contains("<option value=\"Audiobook\">Audiobook</option>", html);
+        Assert.Contains("<option value=\"Audiobooks\">Audiobooks</option>", html);
+    }
+
+    [Theory]
+    [InlineData("linked", "Linked Book")]
+    [InlineData("waiting", "Waiting Book")]
+    [InlineData("replaced", "Replaced Book")]
+    [InlineData("unlinked", "Unlinked Book")]
+    [InlineData("metadata-only", "Metadata Book")]
+    public async Task Get_StatusFilter_ShowsOnlyTorrentsInThatState(string status, string expected)
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAllStatusesAsync(fixture);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/torrents?Status={status}");
+
+        foreach (var title in AllStatusTitles)
+        {
+            if (title == expected)
+            {
+                Assert.Contains(title, html);
+            }
+            else
+            {
+                Assert.DoesNotContain(title, html);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Get_NotLinkedFilter_ShowsEverythingButLinkedTorrents()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAllStatusesAsync(fixture);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents?Status=not-linked");
+
+        Assert.DoesNotContain("Linked Book", html.Replace("Unlinked Book", string.Empty, StringComparison.Ordinal));
+        foreach (var title in AllStatusTitles.Where(t => t != "Linked Book"))
+        {
+            Assert.Contains(title, html);
+        }
+    }
+
+    [Fact]
+    public async Task Get_LibraryAndProblemFilters_Combine()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Moved Audiobook", t => { t.LibraryPath = "/a"; t.LinkerName = "Audiobooks"; t.LibraryMismatchState = "NewPath"; });
+        await SeedAsync(fixture, "hash2", "Fine Audiobook", t => { t.LibraryPath = "/b"; t.LinkerName = "Audiobooks"; });
+        await SeedAsync(fixture, "hash3", "Moved Ebook", t => { t.LibraryPath = "/c"; t.LinkerName = "Ebooks"; t.LibraryMismatchState = "NewPath"; });
+        await SeedAsync(fixture, "hash4", "Missing Ebook", t => { t.LibraryPath = "/d"; t.LinkerName = "Ebooks"; t.ClientStatus = "not in client"; });
+        var client = fixture.CreateClient();
+
+        var audiobookProblems = await client.GetStringAsync("/torrents?Library=Audiobooks&Problem=any");
+        var missing = await client.GetStringAsync("/torrents?Problem=not-in-client");
+
+        Assert.Contains("Moved Audiobook", audiobookProblems);
+        Assert.DoesNotContain("Fine Audiobook", audiobookProblems);
+        Assert.DoesNotContain("Moved Ebook", audiobookProblems);
+        Assert.Contains("Missing Ebook", missing);
+        Assert.DoesNotContain("Moved Ebook", missing);
+    }
+
+    [Fact]
+    public async Task Post_Bulk_ComesBackToTheSameFilters()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateNoRedirectClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["selectedIds"] = "hash1",
+            ["action"] = "removeRecord",
+            ["Status"] = "waiting",
+            ["Library"] = "Audiobooks",
+            ["Problem"] = "mismatch",
+            ["__RequestVerificationToken"] = token,
+        });
+        var response = await client.PostAsync("/torrents?handler=Bulk", form);
+
+        var location = response.Headers.Location!.ToString();
+        Assert.Contains("Status=waiting", location);
+        Assert.Contains("Library=Audiobooks", location);
+        Assert.Contains("Problem=mismatch", location);
+    }
+
+    private static readonly string[] AllStatusTitles = ["Linked Book", "Waiting Book", "Replaced Book", "Unlinked Book", "Metadata Book"];
+
+    private static async Task SeedAllStatusesAsync(FetchshelfWebAppFixture fixture)
+    {
+        await SeedAsync(fixture, "hash1", "Linked Book", t => t.LibraryPath = "/library/Linked");
+        await SeedAsync(fixture, "hash2", "Waiting Book", _ => { });
+        await SeedAsync(fixture, "hash3", "Replaced Book", t => { t.ReplacedWithTorrentId = "hash1"; t.ReplacedAt = DateTimeOffset.UtcNow; });
+        await SeedAsync(fixture, "hash4", "Unlinked Book", t => t.UnlinkedAt = DateTimeOffset.UtcNow);
+        await SeedAsync(fixture, "mam:5", "Metadata Book", _ => { });
+    }
+
+    private static async Task SeedAsync(FetchshelfWebAppFixture fixture, string id, string title, Action<TorrentEntity> configure)
+    {
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, id, OrganizerTestSupport.BuildMetadata(title));
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        var entity = await dbContext.Torrents.SingleAsync(t => t.Id == id);
+        configure(entity);
+        await dbContext.SaveChangesAsync();
     }
 
     [Fact]

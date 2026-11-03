@@ -25,7 +25,7 @@ public class AbsMatcherJobRegistrationTests
 
         var html = await (await client.GetAsync("/Jobs")).Content.ReadAsStringAsync();
 
-        Assert.Contains("AbsMatcher", html);
+        Assert.Contains("Audiobookshelf", html);
     }
 
     [Fact]
@@ -38,13 +38,13 @@ public class AbsMatcherJobRegistrationTests
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["jobName"] = "AbsMatcher",
+            ["jobName"] = "Audiobookshelf",
             ["__RequestVerificationToken"] = token,
         });
         var response = await client.PostAsync("/Jobs?handler=Trigger", form);
 
         response.EnsureSuccessStatusCode();
-        Assert.NotNull(fixture.JobRegistry.Get("AbsMatcher")!.LastRun);
+        Assert.NotNull(fixture.JobRegistry.Get("Audiobookshelf")!.LastRun);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public class AbsMatcherJobRegistrationTests
         var client = fixture.CreateClient();
         await client.GetAsync("/");
 
-        Assert.Null(fixture.JobRegistry.Get("AbsMatcher"));
+        Assert.Null(fixture.JobRegistry.Get("Audiobookshelf"));
     }
 
     private static string ExtractAntiforgeryToken(string html)

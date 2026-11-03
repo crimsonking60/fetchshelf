@@ -30,8 +30,22 @@ public class PagingTests
         Assert.Equal(1, Paging.Slice(Seven, 7, pageNumber: 0, pageSize: 3).PageNumber);
 
     [Fact]
-    public void Slice_PageSizeZero_UsesTheDefaultPageSize() =>
-        Assert.Equal(1, Paging.Slice(Seven, 7, pageNumber: 1, pageSize: 0).TotalPages);
+    public void Slice_PageSizeAll_PutsEverythingOnOnePage()
+    {
+        var (items, pageNumber, totalPages) = Paging.Slice(Seven, 7, pageNumber: 3, pageSize: Paging.All);
+
+        Assert.Equal(Seven, items);
+        Assert.Equal(1, pageNumber);
+        Assert.Equal(1, totalPages);
+    }
+
+    [Fact]
+    public void Slice_NegativePageSize_UsesTheDefaultPageSize()
+    {
+        var thirty = Enumerable.Range(1, 30).ToList();
+
+        Assert.Equal(2, Paging.Slice(thirty, 30, pageNumber: 1, pageSize: -1).TotalPages);
+    }
 
     [Fact]
     public void Slice_NoItems_HasOneEmptyPage()

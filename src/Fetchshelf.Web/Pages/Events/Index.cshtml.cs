@@ -34,7 +34,7 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
     public int TotalPages { get; private set; } = 1;
 
     public PagerViewModel Pager =>
-        new("/Events/Index", FilterRouteValues(), PageNumber, TotalPages, Events.Count, TotalCount, "event-pager", "Event pages");
+        new("/Events/Index", FilterRouteValues(), PageNumber, TotalPages, Events.Count, TotalCount, PageSize, "event-pager", "Event pages");
 
     /// <summary>The filters and page size as route values, leaving out empty ones; paging is left out, so a new filter starts at page 1.</summary>
     public Dictionary<string, string> FilterRouteValues()
@@ -58,6 +58,7 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 
     public async Task OnGetAsync()
     {
+        PageSize = PageSizeCookie.Apply(HttpContext, "events", PageSize);
         var query = dbContext.Events.AsNoTracking().AsQueryable();
 
         if (Type is { } type)

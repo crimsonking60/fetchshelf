@@ -5,21 +5,6 @@
     <p id="check-message" class="notice@(Model.CheckFailed ? " error" : "")" role="@(Model.CheckFailed ? "alert" : "status")">@Model.CheckMessage</p>
 }
 
-@if (!string.IsNullOrEmpty(Model.Language) || !string.IsNullOrEmpty(Model.MediaType))
-{
-    <p id="active-filters" class="muted">
-        Showing only:
-        @if (!string.IsNullOrEmpty(Model.Language))
-        {
-            <span>language @Model.Language (<a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = null }).ToRouteValues()">show all</a>)</span>
-        }
-        @if (!string.IsNullOrEmpty(Model.MediaType))
-        {
-            <span>media type @Model.MediaType (<a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = null }).ToRouteValues()">show all</a>)</span>
-        }
-    </p>
-}
-
 @if (Model.Torrents.Count == 0)
 {
     <p id="no-torrents-message" class="empty">No torrents found.</p>

@@ -158,7 +158,7 @@ if (settings.BackgroundJobsEnabled)
     if (settings.Audiobookshelf is { } scheduledAbsSettings)
     {
         builder.Services.AddSingleton<IHostedService>(sp => new IntervalJobScheduler(
-            sp.GetRequiredService<IJobRegistry>(), JobNames.AbsMatcher, TimeSpan.FromMinutes(scheduledAbsSettings.Interval)));
+            sp.GetRequiredService<IJobRegistry>(), JobNames.Audiobookshelf, TimeSpan.FromMinutes(scheduledAbsSettings.Interval)));
     }
 
     for (var i = 0; i < settings.Autograb.Count; i++)
@@ -275,7 +275,7 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
 
     if (settings.Audiobookshelf is not null)
     {
-        jobRegistry.Register(JobNames.AbsMatcher, async ct =>
+        jobRegistry.Register(JobNames.Audiobookshelf, async ct =>
         {
             using var scope = scopeFactory.CreateScope();
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
@@ -346,7 +346,7 @@ internal static class JobNames
     public const string Link = "Link";
     public const string Clean = "Clean";
     public const string Download = "Download";
-    public const string AbsMatcher = "AbsMatcher";
+    public const string Audiobookshelf = "Audiobookshelf";
 }
 
 /// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>

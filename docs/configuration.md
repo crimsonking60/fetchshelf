@@ -178,7 +178,7 @@ Optional. Leave the section out to turn the integration off.
 |---|---|---|
 | `url` | (required) | Base URL of your Audiobookshelf server. Also used for the links to Audiobookshelf on torrent pages, so use the address you open it at in a browser, such as `http://192.168.1.10:13378`, rather than a Docker service name. |
 | `token` | (required) | API token for Audiobookshelf. Treat it as a secret. |
-| `interval` | `10` | Minutes between runs of the matcher. |
+| `interval` | `10` | Minutes between runs of the **Audiobookshelf** job, which matches linked books to Audiobookshelf items. |
 
 What it does:
 

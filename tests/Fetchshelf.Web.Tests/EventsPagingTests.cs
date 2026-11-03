@@ -93,4 +93,18 @@ public class EventsPagingTests
         Assert.Contains("Showing 2 of 2. Page 1 of 1.", html);
         Assert.DoesNotContain("id=\"event-pager\"", html);
     }
+
+    [Fact]
+    public async Task Get_PageSizes_KeepTheFilters()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, 30);
+        using var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/events?Type=Linked"));
+
+        var hundred = System.Text.RegularExpressions.Regex.Match(html, @"<option value=""([^""]*)"">100</option>").Groups[1].Value;
+        Assert.Contains("PageSize=100", hundred);
+        Assert.Contains("Type=Linked", hundred);
+    }
 }

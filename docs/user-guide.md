@@ -994,10 +994,21 @@ reported, so they cannot be chosen by hand.
 
 - **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
   several words each must appear somewhere in those, in any order. The newest torrents come first; click
-  the **Title** heading to sort by title, and click it again to reverse the order. Click a torrent's media
-  type or language to show only torrents of that kind. Searching, sorting and filtering combine; the
-  filters in use are listed above the table, each with a **show all** link to remove it. Pages hold 25
-  torrents. Use **First**, **Previous**, **Next** and **Last** below the list.
+  the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns next to the
+  search box show only some of the torrents, and apply as soon as you choose:
+  - *Status*: *Linked*, or *Not linked*, which covers the four kinds below. *Waiting to be linked* means the
+    Link job hasn't linked it yet, because it is still downloading or no library matched it. *Replaced*
+    means the Clean job retired it for a better copy, and *Unlinked by you* that you unlinked it. *Metadata
+    only* is a book recorded with `metadata_only_add`, which Fetchshelf never downloads.
+  - *Library*: the `[[library]]` the torrent was linked into.
+  - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
+    from qBittorrent, or either.
+  - *Media type* and *Language*. Clicking a media type or language in the list does the same.
+
+  Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
+  Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page* below the list. Your browser
+  remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move between
+  pages.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
@@ -1038,7 +1049,9 @@ reported, so they cannot be chosen by hand.
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
 by event type, by the autograb that grabbed a torrent, by the library that linked it, or by a
-changed field. Pages hold 25 events. Use **First**, **Previous**, **Next** and **Last** below the list.
+changed field. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
+browser remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move
+between pages.
 
 ### Errors
 
@@ -1073,7 +1086,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Download | Starts selected torrents in qBittorrent within your limits. | After autograb runs select something, and every `search_interval` minutes. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
-| AbsMatcher | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
+| Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 
 Autograb and snatchlist jobs are named after the block's `name`, or `autograb[0]`, `snatchlist[1]`
 and so on if it has none. Give your blocks names so the Jobs page is easy to read. Below the jobs, the page
@@ -1084,7 +1097,7 @@ lists each kind of optional job you have not configured, such as *Snatchlist is 
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows success or the error. A failed job tries again at its next interval. One failing
-  torrent never stops the others: the Download, Link, Clean, AbsMatcher and snatchlist jobs then show
+  torrent never stops the others: the Download, Link, Clean, Audiobookshelf and snatchlist jobs then show
   *Finished with errors* with the number of torrents that failed, and the log has a line for each. Link
   and Clean problems, and downloads removed from the queue, are also listed on the **Errors** page.
 - With an empty `mam_id`, no job runs at all.
@@ -1273,7 +1286,7 @@ author used is the **first** author.
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
 Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
-**Run now** on the **AbsMatcher** job.
+**Run now** on the **Audiobookshelf** job.
 
 The log says what happened to each book:
 
