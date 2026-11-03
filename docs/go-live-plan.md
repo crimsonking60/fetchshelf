@@ -198,16 +198,18 @@ some accounts).
 
 ### Actions from forks
 
-- [ ] **You:** Under **Settings → Actions → General**, keep **Require approval for first-time contributors**
-  (or stricter), so a stranger's first pull request cannot run workflows until you have looked at it.
+- [x] **You:** Under **Settings → Actions → General**, keep **Require approval for first-time contributors**
+  (or stricter), so a stranger's first pull request cannot run workflows until you have looked at it. Done
+  on 2026-11-03: **Require approval for all external contributors**.
   Fork pull requests only ever run the check workflow with a read-only token: the develop image and release
   workflows run on pushes to this repository only, and skip themselves anywhere else.
 
 ## 5. Check that it works
 
-- [ ] **You:** In a private browser window, signed out: the repository, `README.md` and the guides display, and
-  the links between them work.
-- [ ] **You:** Without being logged in to the registry, the image can be pulled:
+- [x] **You:** In a private browser window, signed out: the repository, `README.md` and the guides display, and
+  the links between them work. Done on 2026-11-03; every link to the repository in the docs also resolves
+  without logging in.
+- [x] **You:** Without being logged in to the registry, the image can be pulled (done on 2026-11-03):
 
   ```sh
   docker logout ghcr.io
@@ -216,8 +218,10 @@ some accounts).
 
 - [ ] **You:** Open a small pull request into `develop`: the "Build, test and format" check runs and is shown as
   required, the pull request asks for code-owner review, and you can merge it by bypassing the rules.
-- [ ] **You:** A direct push to `develop` still works, with a note that rules were bypassed.
-- [ ] **You:** **Report a vulnerability** appears on the **Security** tab.
+- [x] **You:** A direct push to `develop` still works, with a note that rules were bypassed. Done on
+  2026-11-03.
+- [x] **You:** **Report a vulnerability** appears on the **Security** tab. Done on 2026-11-03; the
+  **Security problem** choice on the new-issue page leads to the same private form.
 
 ## 6. Follow up
 
