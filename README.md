@@ -40,8 +40,6 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
 - More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
-- [Unlinking a book](docs/user-guide.md#unlinking-a-book-you-dont-want), including `on_unlinked`, and
-  **Relink selected** on the Torrents page.
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release
