@@ -1,3 +1,11 @@
+#
+#
+# This is not the docker-compose.yaml you're looking for.
+# 
+# It is for maintainer use. Instead, take a look at the
+# Docker Compose section of the docs/user-guide.md
+#
+#
 services:
   fetchshelf:
     build: .
