@@ -93,13 +93,13 @@ These decisions change what is published, so make them before anything becomes p
 
 ## 3. Go public
 
-- [ ] **You:** Make the repository public: **Settings → General → Danger Zone → Change repository
+- [x] **You:** Make the repository public: **Settings → General → Danger Zone → Change repository
   visibility**. The whole history, the existing releases, issues and Actions logs become visible.
-- [ ] **You:** Make the container image public. Packages published from a private repository stay private
+- [x] **You:** Make the container image public. Packages published from a private repository stay private
   until changed: open the `fetchshelf` package from the repository's **Packages** sidebar, then **Package
   settings → Danger Zone → Change package visibility → Public**. The image already carries the
   `org.opencontainers.image.source` label, so the package is linked to the repository.
-- [ ] **You:** Right away, turn on private vulnerability reporting, which
+- [x] **You:** Right away, turn on private vulnerability reporting, which
   [Security problems](contributors-guide.md#security-problems) and `CONTRIBUTING.md` rely on. GitHub only
   offers it for public repositories (it answers "Not Found" while the repository is private), so it cannot
   be done earlier:
@@ -127,25 +127,24 @@ requests. GitHub never lets an author approve their own pull request, so code-ow
 otherwise be met while the owner is the only code owner. A bypass also skips the required check, so look at
 the checks before merging that way.
 
-GitHub Actions may also bypass the `develop` ruleset, so the release workflow can push its merge of `main`
-back into `develop`. Without that, the workflow opens a pull request for the merge instead. Workflows run
-from forks only ever get a read-only token, so they cannot use this.
+GitHub Actions cannot bypass the rulesets: GitHub only accepts the GitHub Actions app as a bypass actor in
+repositories owned by an organization, and refuses it here with "Actor GitHub Actions integration must be
+part of the ruleset source or owner organization". So the release workflow cannot push its merge of `main`
+back into `develop`, and opens a pull request for the merge instead (see
+[After the release](maintainer-guide.md#after-the-release)). For that, GitHub Actions must be allowed to
+create pull requests.
 
-- [ ] **You:** Create the rulesets:
+- [x] **You:** Create the rulesets:
 
   ```sh
-  ruleset() {  # name, branch, require code-owner review (true/false), let GitHub Actions bypass (true/false)
-    bypass='{ "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }'
-    if [ "$4" = true ]; then
-      bypass="$bypass, { \"actor_id\": 15368, \"actor_type\": \"Integration\", \"bypass_mode\": \"always\" }"
-    fi
+  ruleset() {  # name, branch, require code-owner review (true/false)
     gh api --method POST repos/crimsonking60/fetchshelf/rulesets --input - <<EOF
   {
     "name": "$1",
     "target": "branch",
     "enforcement": "active",
     "conditions": { "ref_name": { "include": ["refs/heads/$2"], "exclude": [] } },
-    "bypass_actors": [ $bypass ],
+    "bypass_actors": [ { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" } ],
     "rules": [
       { "type": "deletion" },
       { "type": "non_fast_forward" },
@@ -162,16 +161,28 @@ from forks only ever get a read-only token, so they cannot use this.
   }
   EOF
   }
-  ruleset "Protect develop" develop true true
-  ruleset "Protect main" main false false
+  ruleset "Protect develop" develop true
+  ruleset "Protect main" main false
   ```
 
-  `actor_id` 5 is the built-in Repository admin role, and the `Integration` with id 15368 is the GitHub
-  Actions app. The required check is named `Build, test and format`
+  `actor_id` 5 is the built-in Repository admin role. The required check is named `Build, test and format`
   on pull requests; on pushes the same job shows as `checks / Build, test and format`, because the develop
   image and release workflows call it. If the check on the first pull request stays at "Expected — Waiting
   for status to be reported", edit the check's name in **Settings → Rules → Rulesets** to match the name
   shown on the pull request.
+
+  Done on 2026-11-03. The first attempt at "Protect develop" failed, because it let GitHub Actions bypass
+  it; it was created without that bypass.
+
+- [x] **You:** Let the release workflow open its back-merge pull request: **Settings → Actions → General →
+  Workflow permissions → Allow GitHub Actions to create and approve pull requests**, or:
+
+  ```sh
+  gh api --method PUT repos/crimsonking60/fetchshelf/actions/permissions/workflow \
+    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
+  ```
+
+  Nothing in the workflows approves pull requests. Done on 2026-11-03.
 
 ### Security features
 
