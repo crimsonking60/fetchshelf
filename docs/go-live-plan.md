@@ -66,8 +66,9 @@ These decisions change what is published, so make them before anything becomes p
   `mam_id`, token and password values, Notion and GitHub tokens, JWTs and private keys. The only matches
   are the made-up values in `tests/Fetchshelf.Web.Tests/ConfigPageTests.cs`, which test that the Config page
   hides secrets.
-- [ ] **Me:** Repeat the scan right before switching, with a dedicated scanner such as
+- [x] **Me:** Repeat the scan right before switching, with a dedicated scanner such as
   [gitleaks](https://github.com/gitleaks/gitleaks) (`gitleaks git .`), to cover anything committed since.
+  Done on 2026-11-03 with gitleaks over every branch and tag, and over the working tree: no leaks found.
 
 ### Repository settings that already work while private
 
