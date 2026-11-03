@@ -55,7 +55,7 @@ These decisions change what is published, so make them before anything becomes p
   about. Done: on the Config page, and as the first log line.
 - [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
 - [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
-- [ ] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
+- [x] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
 
 ### Secrets in the history
 
