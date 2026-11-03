@@ -49,8 +49,6 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
                 CostDecision = payload.CostDecision,
                 Category = payload.Category,
                 TagsJson = payload.TagsJson,
-                UnsatBuffer = payload.UnsatBuffer,
-                WedgeBuffer = payload.WedgeBuffer,
                 GrabberName = payload.GrabberName,
                 MetadataJson = payload.MetadataJson,
                 NormalizedTitleKey = payload.NormalizedTitleKey,

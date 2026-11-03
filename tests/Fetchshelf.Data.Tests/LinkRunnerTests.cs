@@ -481,6 +481,88 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RelinkAsync_StoredTitleChanged_MovesTheBookWithoutAskingMam()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, oldPath) = await LinkOnceAsync(context, libraries);
+        var stored = await context.Torrents.SingleAsync();
+        stored.MetadataJson = TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata(title: "Stored Title"));
+        await context.SaveChangesAsync();
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(null), libraries)
+            .RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var updated = await context.Torrents.SingleAsync();
+        Assert.EndsWith("Stored Title", updated.LibraryPath, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(updated.LibraryPath!, "book.m4b")));
+        Assert.False(Directory.Exists(oldPath));
+    }
+
+    [Fact]
+    public async Task RelinkAsync_ReplacedTorrent_IsLinkedAndNoLongerMarkedReplaced()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        var replaced = await context.Torrents.SingleAsync();
+        LibraryFileRemover.Remove(libraryPath, [new("book.m4b", 4)], folderSharedWithAnotherTorrent: false);
+        (replaced.LibraryPath, replaced.ReplacedWithTorrentId, replaced.ReplacedAt) = (null, "better", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(null), libraries)
+            .RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var updated = await context.Torrents.SingleAsync();
+        Assert.Equal(libraryPath, updated.LibraryPath);
+        Assert.Null(updated.ReplacedWithTorrentId);
+        Assert.True(File.Exists(Path.Combine(libraryPath, "book.m4b")));
+    }
+
+    [Fact]
+    public async Task RunAsync_TorrentReplacedByTheCleaner_IsNotLinkedAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        var replaced = await context.Torrents.SingleAsync();
+        LibraryFileRemover.Remove(libraryPath, [new("book.m4b", 4)], folderSharedWithAnotherTorrent: false);
+        (replaced.LibraryPath, replaced.LinkedFilesJson, replaced.ReplacedWithTorrentId) = (null, null, "better");
+        await context.SaveChangesAsync();
+
+        var summary = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(new LinkRunSummary(0, 0), summary);
+        var after = await context.Torrents.SingleAsync();
+        Assert.Null(after.LibraryPath);
+        Assert.Equal("better", after.ReplacedWithTorrentId);
+        Assert.False(Directory.Exists(libraryPath));
+    }
+
+    [Fact]
+    public async Task RunAsync_UnlinkedTorrent_IsNotLinkedAgainUntilRelinked()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        await new Cleaner(context, new EventStore(context), Formats).UnlinkAsync("hash1", []);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries);
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+        var afterLinkRun = await context.Torrents.AsNoTracking().SingleAsync();
+        var relinked = await runner.RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.Null(afterLinkRun.LibraryPath);
+        Assert.True(relinked.Succeeded, relinked.Message);
+        var after = await context.Torrents.SingleAsync();
+        Assert.Equal(libraryPath, after.LibraryPath);
+        Assert.Null(after.UnlinkedAt);
+    }
+
+    [Fact]
     public async Task RunAsync_ManualSourceTorrent_MetadataUnchangedByPlainLinkRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

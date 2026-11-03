@@ -39,14 +39,11 @@ These features are built and covered by automated tests, but have not yet been c
 setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
-- More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
-- [Better formats replacing worse ones](docs/user-guide.md#better-formats-replace-worse-ones), including
-  `on_cleaned`.
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release
 
-**2026.11.1** (2026-11-02). See [RELEASES.md](RELEASES.md#2026111---2026-11-02) for what changed, and for
+**2026.11.2** (2026-11-03). See [RELEASES.md](RELEASES.md#2026112---2026-11-03) for what changed, and for
 every earlier release.
 
 ## Contributing

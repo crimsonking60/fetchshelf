@@ -5,6 +5,43 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.2 - 2026-11-03
+
+You can now take a book out of your library while qBittorrent keeps seeding it, and relink several torrents
+at once. Changed `unsat_buffer` and `wedge_buffer` values now also apply to torrents already queued, and the
+Link job no longer puts back copies the Clean job retired.
+
+### Upgrading
+
+- **An `[[autograb]]` that sets its own `unsat_buffer` or `wedge_buffer` needs a `name`.** Without one,
+  Fetchshelf doesn't start, and the error says so.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+
+### Added
+
+- **Unlink** on a torrent's page, and **Unlink selected** on the **Torrents** page: remove what Fetchshelf
+  placed in the library, and the Audiobookshelf item, while qBittorrent keeps the torrent. Fetchshelf still
+  counts the book as owned, and the Link job leaves it alone. **Refresh and relink** or **Relink selected**
+  bring it back.
+- `on_unlinked` on a `[[qbittorrent]]` entry: the category and tags to give a torrent you unlink, like
+  `on_cleaned`.
+- **Relink selected** on the **Torrents** page: relink the ticked torrents from the details Fetchshelf already
+  has, without asking MAM. One that fails doesn't stop the rest, and the page says how many were relinked and
+  why any weren't.
+
+### Changed
+
+- The Download job reads `unsat_buffer` and `wedge_buffer` from the current settings when it starts each
+  torrent, using the autograb's own values when it has them. Torrents already waiting on the **Selected**
+  page used to keep the values in force when they were queued.
+- A *Cleaned* event says when `on_cleaned` couldn't be applied because qBittorrent doesn't have the torrent.
+
+### Fixed
+
+- The Link job linked copies retired by the Clean job straight back, and Clean then left them next to the
+  better copy. The first Clean run after upgrading retires any such copies again.
+
 ## 2026.11.1 - 2026-11-02
 
 The Docker database folder moves to `/database`, Notion lists are gone, and the Clean job no longer mistakes a

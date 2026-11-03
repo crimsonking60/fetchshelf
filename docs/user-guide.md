@@ -1,7 +1,5 @@
 # Fetchshelf user guide
 
-> **Work in progress.** This guide is incomplete and may change.
-
 This guide is for people who run Fetchshelf. It assumes you use Docker, optionally with Docker Compose,
 are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
@@ -99,7 +97,7 @@ Docker picks the right one for your machine automatically. These tags are availa
 | `develop` | The current development build, for testing only. It can change several times a day and can break your setup. |
 
 Versions are written `YYYY.MM.N`: the year and month of the release, then a number that counts releases
-within that month from `0`. Every release and what changed in it is listed in
+within that month from `1`. Every release and what changed in it is listed in
 [RELEASES.md](../RELEASES.md).
 
 1. Create folders on the host for Fetchshelf's configuration and database:
@@ -317,7 +315,7 @@ container log shows each job starting and finishing.
 All settings live in one TOML file, `config.toml`, in the folder mounted at `/config`.
 
 - **Where to start.** Pick the closest of the [numbered examples](config-examples/README.md), copy it to
-  `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 6
+  `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 5
   shows every option.
 - **Reference.** Every setting is described in the [configuration reference](configuration.md).
 - **Mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
@@ -408,9 +406,11 @@ Things to know:
   next interval.
 - **Blocked account.** If MAM temporarily blocks the account, any running download aborts. Wait, then
   check the account on MAM before running jobs again.
-- **Expired or invalid session.** If jobs fail with an authentication error, check the session id with the
-  `curl` command above. If MAM does not accept it, create a new session, update `mam_id` (or the file
-  `mam_id_file` points to) and restart.
+- **Expired or invalid session.** When MAM refuses a request (HTTP 403), usually because the session has
+  expired or is locked to a different address, Fetchshelf pauses all its MAM requests for 30 minutes, and
+  the job's error says until when. Check the session id with the `curl` command above. If MAM does not
+  accept it, create a new session, update `mam_id` (or the file `mam_id_file` points to) and restart:
+  restarting also ends the pause.
 
 ## Connecting to qBittorrent
 
@@ -470,6 +470,17 @@ tags = ["superseded"]
 
 Fetchshelf never deletes the downloaded data itself in this step. It removes only the library files it
 linked.
+
+### `on_unlinked`
+
+The same for a book you take out of the library yourself with **Unlink** (see
+[Unlinking a book you don't want](#unlinking-a-book-you-dont-want)), for example to move it to a category
+no library uses:
+
+```toml
+[qbittorrent.on_unlinked]
+category = "unlinked"
+```
 
 ## Setting up your library
 
@@ -563,7 +574,8 @@ every book. With it, Fetchshelf also:
 
 - finds each linked book in Audiobookshelf and stores the link, shown on the torrent's page;
 - pushes updated metadata to Audiobookshelf after linking or a refresh;
-- deletes the old Audiobookshelf item when a book is replaced by a better format.
+- deletes the old Audiobookshelf item when a book is replaced by a better format in another folder, or
+  when you **Unlink** it.
 
 1. In Audiobookshelf, open **Settings → API Keys** and create a key for a user that can see your libraries.
 2. Add the section:
@@ -718,7 +730,7 @@ you set. The details are in the [configuration reference](configuration.md#the-s
 |---|---|
 | `free` (default) | Only freeleech or VIP torrents. |
 | `ratio` or `all` | Pay with ratio. |
-| `wedge` | Always use a wedge on torrents that are not already free. |
+| `wedge` | Always use a wedge on torrents that are not already free. With no wedge to spare above `wedge_buffer`, the torrent waits on the **Selected** page. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
 | `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
 | `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
@@ -801,7 +813,9 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb can override `unsat_buffer` and `wedge_buffer` for itself.
+Each autograb with a `name` can override `unsat_buffer` and `wedge_buffer` for itself. The values are
+checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
+apply to torrents already waiting on the **Selected** page.
 
 How a run works out how much it may download:
 
@@ -896,8 +910,8 @@ example:
 | `explicit`, `abridged` | From MAM's flags. |
 
 The file is rewritten when you **Refresh and relink** a book, and removed with the book's other files when a
-better copy replaces it. With the `no_link` method no files are placed, so no `metadata.json` is written
-either.
+better copy replaces it or you **Unlink** it, unless another torrent still uses the same folder. With the
+`no_link` method no files are placed, so no `metadata.json` is written either.
 
 ### Better formats replace worse ones
 
@@ -907,9 +921,28 @@ kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an ep
 same book.
 
 The replaced copy has its linked files, its folder (if empty), `cover.jpg` and `metadata.json` removed, is
-tagged or moved in qBittorrent according to `on_cleaned`, and is shown as *replaced*. When the better copy
-was linked into the same folder, `cover.jpg` and `metadata.json` stay, since they now belong to it. The downloaded data
-itself is not deleted. You can still relink a replaced torrent later.
+tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
+was linked into the same folder, `cover.jpg` and `metadata.json` stay, since they now belong to it. The
+downloaded data itself is not deleted.
+
+The Link job leaves a replaced torrent alone. To bring one back, for example after removing the better
+copy, use **Refresh and relink** on its page or **Relink selected** on the **Torrents** page: it is linked
+again and no longer marked replaced. If the better copy is still linked, the next Clean retires it again.
+
+### Unlinking a book you don't want
+
+To take a book out of your library while qBittorrent keeps seeding it, use **Unlink** on its torrent page,
+or tick several on the **Torrents** page and choose **Unlink selected**. Fetchshelf then:
+
+- removes the files it linked, `cover.jpg` and `metadata.json` (unless another torrent shares the folder),
+  and the folder if that leaves it empty, and deletes the book's Audiobookshelf item;
+- applies `on_unlinked` to the torrent in qBittorrent, if you set it;
+- keeps its record, marked *unlinked*, so the book still counts as one you have and is not downloaded again;
+- leaves it alone in later Link runs, whatever its category.
+
+The downloaded data is not touched. To bring the book back, use **Refresh and relink** on its page or
+**Relink selected** on the **Torrents** page. **Remove record** is not the same: Fetchshelf then forgets the
+book, and the next Link run links it again if a library still accepts it.
 
 ### When the folder no longer matches
 
@@ -920,7 +953,8 @@ from where it is. The torrent is then flagged in the *Mismatch* column on the **
 - **Different library:** it now belongs in another library.
 - **Different folder:** it belongs in the same library, but in a different folder.
 
-Open it and choose **Refresh and relink**.
+Open it and choose **Refresh and relink**, or tick several on the **Torrents** page and choose **Relink
+selected**.
 
 **Refresh and relink** links a book again from the download in qBittorrent. It picks the library from the
 torrent's current category, save path and tags, removes the files Fetchshelf placed before, and places the
@@ -943,7 +977,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. Below them, the kinds of job you have not configured. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
-| **Events** | A log of what happened: grabbed, linked, cleaned, updated. |
+| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
 | **Errors** | Problems found by the Download, Link and Clean jobs. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
@@ -966,9 +1000,10 @@ reported, so they cannot be chosen by hand.
   torrents. Use **First**, **Previous**, **Next** and **Last** below the list.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
-  [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
-  metadata editor.
-- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected** or **Remove selected**.
+  [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
+  *(unlinked)* after its title. **Edit** on each row opens the metadata editor.
+- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
+  selected** or **Remove selected**.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
@@ -976,17 +1011,23 @@ reported, so they cannot be chosen by hand.
     empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
     does nothing. The Clean job does the same automatically after every link run.
   - *Refresh* re-reads its metadata from MAM.
+  - *Relink* does what **Refresh and relink** does on a torrent's page, but with the details Fetchshelf already
+    has, without asking MAM. That is what you want after a configuration change, or after **Refresh** or
+    **Edit**. It then says above the list how many were relinked and why any were not. One that can't be
+    relinked doesn't stop the rest. For fresh details from MAM as well, use **Refresh selected** first.
+  - *Unlink* takes the books out of your library and keeps qBittorrent seeding them (see
+    [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
-  show a library mismatch and, for a replaced book, a link to the torrent that replaced it. Actions:
-  **Clean**, **Refresh**, **Refresh and relink**, **Start** and **Stop** in qBittorrent, **Remove from
-  qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear replaced marker**. While
-  qBittorrent has the torrent, you can also change its category and tags there: untick a tag to remove it,
-  type new ones separated by commas, and press **Set category and tags**.
+  show a library mismatch, an unlinked book and, for a replaced book, a link to the torrent that replaced
+  it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
+  qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
+  replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
+  untick a tag to remove it, type new ones separated by commas, and press **Set category and tags**.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
   through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
@@ -1044,8 +1085,8 @@ lists each kind of optional job you have not configured, such as *Snatchlist is 
   turn.
 - The *last result* shows success or the error. A failed job tries again at its next interval. One failing
   torrent never stops the others: the Download, Link, Clean, AbsMatcher and snatchlist jobs then show
-  *Finished with errors* with the number of torrents that failed, and the log has a line for each. Link and Clean problems,
-  and downloads removed from the queue, are also listed on the **Errors** page.
+  *Finished with errors* with the number of torrents that failed, and the log has a line for each. Link
+  and Clean problems, and downloads removed from the queue, are also listed on the **Errors** page.
 - With an empty `mam_id`, no job runs at all.
 
 ## Common setups
@@ -1184,9 +1225,10 @@ An empty `mam_id` means no jobs run. Also check the interval: `0` means the job 
 
 ### MAM login fails, or "too many requests", or the account is blocked
 
-An authentication error means the session has expired or does not match your address. Create a new session
-and update `mam_id`. For rate limiting, wait: the job tries again at its next interval. A blocked account
-(HTTP 406) aborts downloads; wait and check your account on MAM.
+*MAM refused the request (HTTP 403)* usually means the session has expired or does not match your address.
+Fetchshelf then pauses its MAM requests for 30 minutes. Create a new session, update `mam_id` and restart,
+which also ends the pause. For rate limiting, wait: the job tries again at its next interval. A blocked
+account (HTTP 406) aborts downloads; wait and check your account on MAM.
 
 ### qBittorrent cannot be reached
 
@@ -1201,8 +1243,8 @@ container name rather than `localhost`, and make sure both containers share a ne
 - *Cross-device link.* Hardlinks need the same filesystem, and in Docker the same mount: two separate
   mounts count as different devices even on one disk. Mount the folder that holds both downloads and
   library, or use `hardlink_or_copy`.
-- *No library matched.* The torrent has no category your libraries accept. Check your `[[tag]]` rules and
-  `[[library]]` entries.
+- *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
+  rules and `[[library]]` entries.
 - *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
 - *No wanted file type.* None of the torrent's files has an extension from the format list for its media
   type: `audio_types`, `ebook_types`, `music_types` or `radio_types`.
@@ -1259,8 +1301,8 @@ well. Audiobookshelf is just the one app it has a direct integration with.
 
 **Can I use it without qBittorrent?** No. Both halves work through qBittorrent.
 
-**Does it ever delete my downloaded data?** The cleaner only removes files that Fetchshelf itself linked,
-and empty folders, `cover.jpg` and `metadata.json` in a book's own library folder. The one action that
+**Does it ever delete my downloaded data?** Clean and **Unlink** only remove files that Fetchshelf itself
+linked, and empty folders, `cover.jpg` and `metadata.json` in a book's own library folder. The one action that
 deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
 and then confirm.
 

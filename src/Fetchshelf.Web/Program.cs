@@ -138,6 +138,9 @@ builder.Services.AddScoped(sp => new DownloadRunner(
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     settings.MinRatio,
     settings.AddTorrentsStopped,
+    new SafetyBuffers(
+        settings.UnsatBuffer, settings.WedgeBuffer,
+        settings.Autograb.Where(a => a.Name is not null).Select(a => new AutograbBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer)).ToList()),
     sp.GetRequiredService<ILogger<DownloadRunner>>()));
 builder.Services.AddScoped(sp => new RetroactiveTagApplier(
     sp.GetRequiredService<FetchshelfDbContext>(),
@@ -300,7 +303,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<AutograbberRunner>();
-            var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, settings.WedgeBuffer, ignoreTorrents, ct);
+            var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
             if (selectedCount > 0)
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);

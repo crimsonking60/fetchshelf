@@ -81,6 +81,10 @@ password = "replace-with-your-qbittorrent-admin-password"
 category = "superseded"
 tags = ["superseded"]
 
+# The same for a torrent you Unlink from the library yourself; qBittorrent keeps seeding it.
+[qbittorrent.on_unlinked]
+category = "unlinked"
+
 # Same shape. Accepted and validated, but not acted on yet.
 [qbittorrent.on_invalid_torrent]
 category = "invalid"
@@ -108,8 +112,8 @@ search_in = ["author"] # any of: author, description, filenames, file_types, nar
 sort_by = "newest_first" # "newest_first" (default), "oldest_first", "random", "low_seeders", "low_snatches"
 max_pages = 2          # pages of 100 results per run; default 50 for bookmarks/freeleech/mine, else 1
 search_interval = 20   # overrides the global search_interval; 0 = only from the UI
-unsat_buffer = 15      # overrides the global buffer for this block
-wedge_buffer = 5       # overrides the global buffer for this block
+unsat_buffer = 15      # overrides the global buffer for this block; needs 'name'
+wedge_buffer = 5       # overrides the global buffer for this block; needs 'name'
 max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
 dry_run = false        # true: do everything except write or download, and only log
 mark_removed = false   # accepted and validated, but not acted on yet

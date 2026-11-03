@@ -25,6 +25,7 @@ public sealed class DownloadRunner(
     IReadOnlyList<QBittorrentClient> qbClients,
     double minRatio,
     bool addTorrentsStopped,
+    SafetyBuffers safetyBuffers,
     ILogger<DownloadRunner>? logger = null)
 {
     private readonly ILogger<DownloadRunner> _logger = logger ?? NullLogger<DownloadRunner>.Instance;
@@ -167,7 +168,7 @@ public sealed class DownloadRunner(
         var metadata = TorrentMetadataSerializer.Deserialize(selected.MetadataJson);
         var cost = Enum.Parse<SelectedTorrentCost>(selected.CostDecision);
 
-        if (!DownloadBudget.HasFreeUnsatSlot(budget.UnsatLimit, budget.UnsatCount, selected.UnsatBuffer))
+        if (!DownloadBudget.HasFreeUnsatSlot(budget.UnsatLimit, budget.UnsatCount, safetyBuffers.UnsatBufferFor(selected.GrabberName)))
         {
             return (DownloadOutcome.NoUnsatSlot, false);
         }
@@ -198,7 +199,7 @@ public sealed class DownloadRunner(
                 isAlreadyFree = IsFreeNow(current);
             }
 
-            var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, selected.WedgeBuffer, isAlreadyFree);
+            var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, safetyBuffers.WedgeBufferFor(selected.GrabberName), isAlreadyFree);
             if (decision == WedgeDecision.Fail)
             {
                 return (DownloadOutcome.WedgeUnavailable, false);
@@ -288,8 +289,6 @@ public sealed class DownloadRunner(
             CostDecision = selected.CostDecision,
             Category = selected.Category,
             TagsJson = selected.TagsJson,
-            UnsatBuffer = selected.UnsatBuffer,
-            WedgeBuffer = selected.WedgeBuffer,
             GrabberName = selected.GrabberName,
             MetadataJson = selected.MetadataJson,
             NormalizedTitleKey = selected.NormalizedTitleKey,

@@ -34,7 +34,8 @@ to `5-everything.toml`, which uses every option.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
-  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that fails validation is rejected as a whole.
+  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that
+  fails validation is rejected as a whole.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.
@@ -76,7 +77,8 @@ Fetchshelf has two halves that can be used independently.
 - `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
   download gets.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
-  `unsat_buffer` / `wedge_buffer` override the global ones.
+  `unsat_buffer` / `wedge_buffer` override the global ones. The downloader reads them when it starts each
+  torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
 
@@ -132,8 +134,8 @@ Notes:
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
-- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job with interval `0` is still listed on the Jobs page and can be started with
-  **Run now**.
+- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job
+  with interval `0` is still listed on the Jobs page and can be started with **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
@@ -184,7 +186,8 @@ What it does:
   library whose folders contain the book's library path, and stores the matching item's id. Audiobookshelf
   must therefore see the library at the same path as Fetchshelf.
 - After linking, and after a metadata refresh, updated metadata is pushed to matched items.
-- When a lesser format is retired, the old Audiobookshelf item is deleted.
+- When a lesser format is retired into another folder than the better copy's, and when a book is unlinked,
+  its Audiobookshelf item is deleted.
 - The torrent pages link to the matched Audiobookshelf item.
 
 ## `[[qbittorrent]]`
@@ -199,6 +202,7 @@ against every entry.
 | `password` | (required) | Web UI password. Treat it as a secret. |
 | `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. |
 | `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list. |
+| `on_unlinked` | unset | What to do in qBittorrent to a torrent you **Unlink** from the library. The same table shape. |
 | `on_invalid_torrent` | unset | The same table shape. It is accepted and validated, but nothing acts on it yet. |
 
 ```toml
@@ -213,12 +217,15 @@ password = "replace-with-your-qbittorrent-admin-password"
 [qbittorrent.on_cleaned]
 category = "superseded"
 tags = ["superseded"]
+
+[qbittorrent.on_unlinked]
+category = "unlinked"
 ```
 
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
+- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
   automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
@@ -232,7 +239,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads` on an autograb. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. See [languages](#languages). |
@@ -282,8 +289,8 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
 | `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run. A page is 100 results (fixed). Paging stops early when a page comes back short. |
 | `search_interval` | global `search_interval` | Minutes between runs. `0` means UI-triggered only. |
-| `unsat_buffer` | global | Overrides the global buffer for this block. |
-| `wedge_buffer` | global | Overrides the global buffer for this block. |
+| `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
+| `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |
@@ -338,7 +345,7 @@ max_size = "30 MiB"
 | Value | Meaning |
 |---|---|
 | `free` (default) | Only torrents that are free: VIP, personal freeleech or global freeleech. Others are not selected. |
-| `wedge` | Use a freeleech wedge on torrents that are not already free. The download fails if wedges are at or below `wedge_buffer`. |
+| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Selected** page. |
 | `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
@@ -467,8 +474,10 @@ Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
-it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink**, which
-links the book again from its download into the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
+it as a mismatch (*No library*, *Different library* or *Different folder*). **Refresh and relink** on the
+torrent's page, or **Relink selected** on the Torrents page, links the book again from its download into
+the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count
+as a mismatch.
 
 ## Reference data
 

@@ -14,6 +14,7 @@ public sealed record TorrentListItemViewModel(
     string? QBittorrentCategory,
     string? ClientStatus,
     string? LibraryMismatchState,
+    bool Unlinked,
     DateTimeOffset CreatedAt)
 {
     public static TorrentListItemViewModel From(TorrentEntity entity)
@@ -29,6 +30,7 @@ public sealed record TorrentListItemViewModel(
             entity.QBittorrentCategory,
             entity.ClientStatus,
             entity.LibraryMismatchState,
+            entity.UnlinkedAt is not null,
             entity.CreatedAt);
     }
 }

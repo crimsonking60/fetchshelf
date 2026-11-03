@@ -158,6 +158,10 @@ public sealed class LibraryConfigTests : IDisposable
             category = "cleaned"
             tags = ["replaced"]
 
+            [qbittorrent.on_unlinked]
+            category = "unlinked"
+            tags = ["not-wanted"]
+
             [qbittorrent.on_invalid_torrent]
             category = "invalid"
             tags = ["needs-review"]
@@ -169,6 +173,8 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Equal("/downloads", connection.PathMapping["/data"]);
         Assert.Equal("cleaned", connection.OnCleaned?.Category);
         Assert.Equal(["replaced"], connection.OnCleaned?.Tags);
+        Assert.Equal("unlinked", connection.OnUnlinked?.Category);
+        Assert.Equal(["not-wanted"], connection.OnUnlinked?.Tags);
         Assert.Equal("invalid", connection.OnInvalidTorrent?.Category);
         Assert.Equal(["needs-review"], connection.OnInvalidTorrent?.Tags);
     }
@@ -190,6 +196,7 @@ public sealed class LibraryConfigTests : IDisposable
         var connection = Assert.Single(settings.QBittorrent);
         Assert.Empty(connection.PathMapping);
         Assert.Null(connection.OnCleaned);
+        Assert.Null(connection.OnUnlinked);
         Assert.Null(connection.OnInvalidTorrent);
     }
 }

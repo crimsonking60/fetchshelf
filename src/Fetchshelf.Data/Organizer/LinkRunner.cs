@@ -106,6 +106,13 @@ public sealed class LinkRunner(
             existing.ClientStatus = torrent.State;
             metadata = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
 
+            if ((existing.ReplacedWithTorrentId is not null || existing.UnlinkedAt is not null) && existing.LibraryPath is null)
+            {
+                // Retired in favour of a better copy, or unlinked by hand; only an explicit relink brings it back.
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
             if (existing.LibraryPath is not null)
             {
                 // Already linked: sync and recompute mismatch; do not touch files or metadata here.
@@ -309,15 +316,32 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
-    /// Refreshes a torrent's metadata and links it into its library again, from the files qBittorrent has: the
-    /// library comes from the torrent's current category, save path and tags, the files Fetchshelf placed before are
-    /// removed, and the wanted files are placed in the folder the metadata now calls for. Everything that could stop
-    /// it is checked before any file is touched, so a refusal leaves the library as it was.
+    /// Refreshes a torrent's metadata from MAM and links it into its library again, as <see cref="RelinkAsync"/> does.
     /// </summary>
-    public async Task<RelinkResult> RefreshAndRelinkAsync(
+    public Task<RelinkResult> RefreshAndRelinkAsync(
         string torrentId,
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RelinkCoreAsync(torrentId, connections, refreshFromMam: true, cancellationToken);
+
+    /// <summary>
+    /// Links a torrent into its library again by its stored metadata, from the files qBittorrent has: the library
+    /// comes from the torrent's current category, save path and tags, the files Fetchshelf placed before are removed,
+    /// and the wanted files are placed in the folder the metadata calls for. Everything that could stop it is checked
+    /// before any file is touched, so a refusal leaves the library as it was. A replaced or unlinked torrent stops being
+    /// marked so; a replaced one is then weighed against the other copies again by the Clean job.
+    /// </summary>
+    public Task<RelinkResult> RelinkAsync(
+        string torrentId,
+        IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken = default) =>
+        RelinkCoreAsync(torrentId, connections, refreshFromMam: false, cancellationToken);
+
+    private async Task<RelinkResult> RelinkCoreAsync(
+        string torrentId,
+        IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        bool refreshFromMam,
+        CancellationToken cancellationToken)
     {
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
             ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
@@ -344,13 +368,17 @@ public sealed class LinkRunner(
 
         // Metadata edited by hand is what the book is linked by; only its VIP status follows MAM.
         var stored = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
-        var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
-        if (looked is null && !HandEdits.AreIn(stored))
+        var metadata = stored;
+        if (refreshFromMam)
         {
-            return Refuse(existing, "MAM has no torrent with this info-hash.");
-        }
+            var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
+            if (looked is null && !HandEdits.AreIn(stored))
+            {
+                return Refuse(existing, "MAM has no torrent with this info-hash.");
+            }
 
-        var metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
+            metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
+        }
 
         if (metadata.Authors.Count == 0)
         {
@@ -396,6 +424,9 @@ public sealed class LinkRunner(
         }
 
         RecordPlacement(existing, torrent, library, placement, audio, ebook);
+        existing.ReplacedWithTorrentId = null;
+        existing.ReplacedAt = null;
+        existing.UnlinkedAt = null;
         await UpdateAudiobookshelfAfterRelinkAsync(existing, metadata, folderChanged: oldPath != placement.Folder, cancellationToken);
         await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrentId, cancellationToken);

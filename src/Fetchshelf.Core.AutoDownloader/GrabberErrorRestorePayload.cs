@@ -18,10 +18,6 @@ public sealed record GrabberErrorRestorePayload
 
     public string? TagsJson { get; init; }
 
-    public int UnsatBuffer { get; init; }
-
-    public int WedgeBuffer { get; init; }
-
     public string? GrabberName { get; init; }
 
     public required string MetadataJson { get; init; }

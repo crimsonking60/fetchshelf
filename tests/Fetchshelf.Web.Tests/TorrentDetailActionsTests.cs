@@ -223,6 +223,36 @@ public partial class TorrentDetailActionsTests
         Assert.Contains(addedTags, t => t.Contains("tags=c,d", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Post_Unlink_RemovesTheBookFromTheLibraryAndMarksItUnlinked()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("fetchshelf-detail-unlink-tests-").FullName;
+        try
+        {
+            var bookFolder = Path.Combine(tempDir, "library", "Brandon Sanderson", "The Way of Kings");
+            Directory.CreateDirectory(bookFolder);
+            File.WriteAllText(Path.Combine(bookFolder, "metadata.json"), "{}");
+            using var fixture = new FetchshelfWebAppFixture(
+                ConfigWithQBittorrent(Path.Combine(tempDir, "library")), qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer(Hash));
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, libraryPath: bookFolder);
+            var client = fixture.CreateClient();
+            var before = await client.GetStringAsync($"/torrents/{Hash}");
+            Assert.Contains("onsubmit=\"return confirm(", System.Text.RegularExpressions.Regex.Match(before, @"<form[^>]*handler=Unlink[^>]*>").Value);
+
+            var html = System.Net.WebUtility.HtmlDecode(await PostAsync(client, "Unlink"));
+
+            Assert.Contains($"Unlinked: removed 0 files from {bookFolder}.", html);
+            Assert.Contains("id=\"unlinked-marker\"", html);
+            Assert.DoesNotContain("handler=Unlink", html);
+            Assert.False(Directory.Exists(bookFolder));
+            Assert.Contains("(unlinked)", await client.GetStringAsync("/torrents"));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     [GeneratedRegex(@"<form[^>]*handler=RemoveWithData[^>]*>")]
     private static partial Regex RemoveWithDataFormPattern();
 

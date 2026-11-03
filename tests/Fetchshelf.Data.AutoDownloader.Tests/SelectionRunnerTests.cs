@@ -23,7 +23,7 @@ public sealed class SelectionRunnerTests : IDisposable
         ConfiguredCost cost = ConfiguredCost.Free,
         string? category = null,
         string? grabberName = "test-grabber") =>
-        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, category, grabberName, unsatBuffer: 0, wedgeBuffer: 0);
+        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, category, grabberName);
 
     [Fact]
     public async Task ProcessCandidateAsync_IgnoredMamId_ReturnsIgnored()
@@ -33,7 +33,7 @@ public sealed class SelectionRunnerTests : IDisposable
         var runner = CreateRunner(context);
 
         var outcome = await runner.ProcessCandidateAsync(
-            record, MamTorrentMapper.Map(record), [7], ConfiguredCost.Free, null, null, 0, 0);
+            record, MamTorrentMapper.Map(record), [7], ConfiguredCost.Free, null, null);
 
         Assert.Equal(SelectionOutcome.Ignored, outcome);
         Assert.Empty(context.SelectedTorrents);
@@ -256,7 +256,7 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     private static Task<SelectionOutcome> DryRun(SelectionRunner runner, MamTorrentRecord record, ConfiguredCost cost = ConfiguredCost.Ratio) =>
-        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, null, "test-grabber", 0, 0, dryRun: true);
+        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, null, "test-grabber", dryRun: true);
 
     private static async Task AddSelectedAsync(FetchshelfDbContext context, MamTorrentRecord record)
     {

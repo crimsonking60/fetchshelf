@@ -14,5 +14,7 @@ public sealed class QBittorrentConnection
 
     public QBittorrentCategoryAndTags? OnCleaned { get; set; }
 
+    public QBittorrentCategoryAndTags? OnUnlinked { get; set; }
+
     public QBittorrentCategoryAndTags? OnInvalidTorrent { get; set; }
 }

@@ -237,7 +237,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         var selectionRunner = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists);
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
-            candidateRecord, MamTorrentMapper.Map(candidateRecord), [], ConfiguredCost.Ratio, null, null, 0, 0);
+            candidateRecord, MamTorrentMapper.Map(candidateRecord), [], ConfiguredCost.Ratio, null, null);
 
         Assert.Equal(SelectionOutcome.DuplicateOfLibrary, outcome);
     }

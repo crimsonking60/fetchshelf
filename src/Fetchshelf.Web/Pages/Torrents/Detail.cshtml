@@ -11,7 +11,7 @@
     {
         <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
     }
-    @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
+    @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, unlink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     <div class="meta-block">
         <p><span class="label">Authors</span><span class="value">@string.Join(", ", torrent.Metadata.Authors)</span></p>
         <p><span class="label">Narrators</span><span class="value">@string.Join(", ", torrent.Metadata.Narrators)</span></p>
@@ -28,6 +28,10 @@
     @if (torrent.ReplacedWithTorrentId is not null)
     {
         <p id="replaced-marker" class="notice">Replaced with: <a asp-page="/Torrents/Detail" asp-route-id="@torrent.ReplacedWithTorrentId">@torrent.ReplacedWithTorrentId</a></p>
+    }
+    @if (torrent.UnlinkedAt is { } unlinkedAt)
+    {
+        <p id="unlinked-marker" class="notice">Unlinked <local-time value="unlinkedAt" />. The Link job leaves it alone; Refresh and relink links it again.</p>
     }
     @if (torrent.MamLink is not null)
     {
@@ -76,6 +80,10 @@
         <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
         <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
+        @if (torrent.UnlinkedAt is null)
+        {
+            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it.')">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
+        }
         <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
         <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
         <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.')">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>

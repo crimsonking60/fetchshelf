@@ -1,7 +1,5 @@
 # Fetchshelf contributors guide
 
-> **Work in progress.** This guide is incomplete and may change.
-
 This guide is for volunteers who want to help develop Fetchshelf. It covers getting the code, setting up a
 Linux development machine, building and testing, and the fork, branch, commit and pull request workflow on
 GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md) instead.

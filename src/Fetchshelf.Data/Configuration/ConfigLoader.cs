@@ -346,6 +346,13 @@ public static class ConfigLoader
                     "Invalid configuration: an [[autograb]] section setting 'max_active_downloads' must also set 'name'.");
             }
 
+            // Its queued torrents are matched to it by name when they are downloaded.
+            if ((autograb.UnsatBuffer is not null || autograb.WedgeBuffer is not null) && string.IsNullOrWhiteSpace(autograb.Name))
+            {
+                throw new ConfigurationException(
+                    "Invalid configuration: an [[autograb]] section setting 'unsat_buffer' or 'wedge_buffer' must also set 'name'.");
+            }
+
             if (!AutograbSearchOptions.TryParseSortBy(autograb.SortBy, out _))
             {
                 throw new ConfigurationException(

@@ -90,6 +90,24 @@ public class DetailModel(
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostUnlinkAsync(string id)
+    {
+        try
+        {
+            var result = await cleaner.UnlinkAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
+            ActionMessage = result.Message;
+            ActionFailed = !result.Succeeded;
+        }
+        catch (Exception ex) when (!IsRequestAborted(ex))
+        {
+            logger.LogWarning(ex, "Unlink of {TorrentId} failed", id);
+            ActionFailed = true;
+            ActionMessage = $"Unlinking failed: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent or Audiobookshelf")}";
+        }
+
+        return RedirectToPage(new { id });
+    }
+
     /// <summary>True when the browser gave up on the request: nobody is left to show an error to, so let it propagate.</summary>
     private bool IsRequestAborted(Exception exception) =>
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;

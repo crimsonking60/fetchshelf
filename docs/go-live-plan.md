@@ -27,7 +27,8 @@ These decisions change what is published, so make them before anything becomes p
 - [ ] **You:** Run the `linux/arm/v7` image on a real 32-bit ARM device, for example a Raspberry Pi with a
   32-bit operating system. The image is checked to contain the right native code, but has never been
   started.
-- [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
+- [x] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
+  Decided on 2026-11-03: they don't, and the note was removed.
 
 ## 2. Prepare while still private
 
@@ -52,9 +53,12 @@ These decisions change what is published, so make them before anything becomes p
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about. Done: on the Config page, and as the first log line.
-- [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
-- [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
-- [ ] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
+- [x] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
+  Done on 2026-11-03: the steps worked as written.
+- [x] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
+  Done on 2026-11-03: inconsistencies fixed; every relative link and anchor resolves, and the external links
+  work, except the GitHub ones, which need the repository to be public.
+- [x] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
 
 ### Secrets in the history
 
@@ -62,8 +66,9 @@ These decisions change what is published, so make them before anything becomes p
   `mam_id`, token and password values, Notion and GitHub tokens, JWTs and private keys. The only matches
   are the made-up values in `tests/Fetchshelf.Web.Tests/ConfigPageTests.cs`, which test that the Config page
   hides secrets.
-- [ ] **Me:** Repeat the scan right before switching, with a dedicated scanner such as
+- [x] **Me:** Repeat the scan right before switching, with a dedicated scanner such as
   [gitleaks](https://github.com/gitleaks/gitleaks) (`gitleaks git .`), to cover anything committed since.
+  Done on 2026-11-03 with gitleaks over every branch and tag, and over the working tree: no leaks found.
 
 ### Repository settings that already work while private
 
