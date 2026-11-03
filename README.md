@@ -43,7 +43,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.1** (2026-11-02). See [RELEASES.md](RELEASES.md#2026111---2026-11-02) for what changed, and for
+**2026.11.2** (2026-11-03). See [RELEASES.md](RELEASES.md#2026112---2026-11-03) for what changed, and for
 every earlier release.
 
 ## Contributing
