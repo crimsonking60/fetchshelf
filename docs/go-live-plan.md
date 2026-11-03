@@ -216,8 +216,10 @@ some accounts).
   docker pull ghcr.io/crimsonking60/fetchshelf:latest
   ```
 
-- [ ] **You:** Open a small pull request into `develop`: the "Build, test and format" check runs and is shown as
-  required, the pull request asks for code-owner review, and you can merge it by bypassing the rules.
+- [x] **You:** Open a small pull request into `develop`: the "Build, test and format" check runs and is shown as
+  required, the pull request asks for code-owner review, and you can merge it by bypassing the rules. Done
+  on 2026-11-03 with #4. GitHub never asks authors to review their own pull requests, so the request for
+  code-owner review only shows up on other people's.
 - [x] **You:** A direct push to `develop` still works, with a note that rules were bypassed. Done on
   2026-11-03.
 - [x] **You:** **Report a vulnerability** appears on the **Security** tab. Done on 2026-11-03; the
