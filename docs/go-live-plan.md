@@ -189,10 +189,12 @@ create pull requests.
 These are free for public repositories, under **Settings → Advanced Security** (named **Code security** on
 some accounts).
 
-- [ ] **You:** Turn on **Secret scanning** and **Push protection**, so a pushed token is caught.
-- [ ] **You:** Turn on **Dependabot alerts** and **Dependabot security updates** for the NuGet packages and the
-  workflow actions.
-- [ ] **You:** Set up **CodeQL** code scanning with the default setup for C#.
+- [x] **You:** Turn on **Secret scanning** and **Push protection**, so a pushed token is caught. Done on
+  2026-11-03.
+- [x] **You:** Turn on **Dependabot alerts** and **Dependabot security updates** for the NuGet packages and the
+  workflow actions. Done on 2026-11-03, together with malware alerts.
+- [x] **You:** Set up **CodeQL** code scanning with the default setup for C#. Done on 2026-11-03; the default
+  setup also covers the workflows and the JavaScript. The AI options on the same page are left off for now.
 
 ### Actions from forks
 
