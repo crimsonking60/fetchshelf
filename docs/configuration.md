@@ -34,7 +34,8 @@ to `5-everything.toml`, which uses every option.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
-  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that fails validation is rejected as a whole.
+  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that
+  fails validation is rejected as a whole.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.
@@ -133,8 +134,8 @@ Notes:
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
-- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job with interval `0` is still listed on the Jobs page and can be started with
-  **Run now**.
+- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job
+  with interval `0` is still listed on the Jobs page and can be started with **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
@@ -185,7 +186,8 @@ What it does:
   library whose folders contain the book's library path, and stores the matching item's id. Audiobookshelf
   must therefore see the library at the same path as Fetchshelf.
 - After linking, and after a metadata refresh, updated metadata is pushed to matched items.
-- When a lesser format is retired, the old Audiobookshelf item is deleted.
+- When a lesser format is retired into another folder than the better copy's, and when a book is unlinked,
+  its Audiobookshelf item is deleted.
 - The torrent pages link to the matched Audiobookshelf item.
 
 ## `[[qbittorrent]]`
@@ -343,7 +345,7 @@ max_size = "30 MiB"
 | Value | Meaning |
 |---|---|
 | `free` (default) | Only torrents that are free: VIP, personal freeleech or global freeleech. Others are not selected. |
-| `wedge` | Use a freeleech wedge on torrents that are not already free. The download fails if wedges are at or below `wedge_buffer`. |
+| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Selected** page. |
 | `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
@@ -472,8 +474,10 @@ Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
-it as a mismatch (`NoLibrary`, `NewLibraryDir` or `NewPath`) and offers **refresh and relink**, which
-links the book again from its download into the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count as a mismatch.
+it as a mismatch (*No library*, *Different library* or *Different folder*). **Refresh and relink** on the
+torrent's page, or **Relink selected** on the Torrents page, links the book again from its download into
+the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count
+as a mismatch.
 
 ## Reference data
 

@@ -53,8 +53,11 @@ These decisions change what is published, so make them before anything becomes p
   ideas, issues for bugs and feature requests, and the **Security** tab for security problems.
 - [x] **Me:** Show the version in the web UI and the startup log, so bug reports can say which version they are
   about. Done: on the Config page, and as the first log line.
-- [ ] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
-- [ ] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
+- [x] **You:** Check the Audiobookshelf steps in [Connecting to Audiobookshelf](user-guide.md#connecting-to-audiobookshelf).
+  Done on 2026-11-03: the steps worked as written.
+- [x] **Me:** Final read-through of the user guide against the configuration reference, then check all links.
+  Done on 2026-11-03: inconsistencies fixed; every relative link and anchor resolves, and the external links
+  work, except the GitHub ones, which need the repository to be public.
 - [x] **Me:** Update the "Status" section of `README.md` to say what state the project is in for new readers.
 
 ### Secrets in the history
