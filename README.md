@@ -39,7 +39,6 @@ These features are built and covered by automated tests, but have not yet been c
 setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
-- More than one [`[[qbittorrent]]`](docs/configuration.md#qbittorrent) entry, and `path_mapping`.
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 
 ## Latest release
