@@ -27,7 +27,8 @@ These decisions change what is published, so make them before anything becomes p
 - [ ] **You:** Run the `linux/arm/v7` image on a real 32-bit ARM device, for example a Raspberry Pi with a
   32-bit operating system. The image is checked to contain the right native code, but has never been
   started.
-- [ ] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
+- [x] **You:** Whether the user, contributors and maintainer guides keep their "Work in progress" note.
+  Decided on 2026-11-03: they don't, and the note was removed.
 
 ## 2. Prepare while still private
 

@@ -1,7 +1,5 @@
 # Fetchshelf user guide
 
-> **Work in progress.** This guide is incomplete and may change.
-
 This guide is for people who run Fetchshelf. It assumes you use Docker, optionally with Docker Compose,
 are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
