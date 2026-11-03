@@ -33,8 +33,6 @@ public sealed class SelectionRunner(
         ConfiguredCost configuredCost,
         string? autograbCategory,
         string? grabberName,
-        int unsatBuffer,
-        int wedgeBuffer,
         bool dryRun = false,
         CancellationToken cancellationToken = default)
     {
@@ -52,7 +50,7 @@ public sealed class SelectionRunner(
 
         if (existingSelected is not null)
         {
-            RefreshSelectedMetadata(existingSelected, metadata, unsatBuffer, wedgeBuffer);
+            RefreshSelectedMetadata(existingSelected, metadata);
             await dbContext.SaveChangesAsync(cancellationToken);
             return SelectionOutcome.RefreshedSelected;
         }
@@ -139,19 +137,17 @@ public sealed class SelectionRunner(
             return SelectionOutcome.Selected;
         }
 
-        CreateSelected(record, metadata, cost.Value, category, tags, grabberName, unsatBuffer, wedgeBuffer);
+        CreateSelected(record, metadata, cost.Value, category, tags, grabberName);
         await dbContext.SaveChangesAsync(cancellationToken);
         return SelectionOutcome.Selected;
     }
 
     private sealed record DryRunSelection(long MamId, TorrentMetadata Metadata, string NormalizedTitle);
 
-    private static void RefreshSelectedMetadata(SelectedTorrentEntity existing, TorrentMetadata metadata, int unsatBuffer, int wedgeBuffer)
+    private static void RefreshSelectedMetadata(SelectedTorrentEntity existing, TorrentMetadata metadata)
     {
         existing.MetadataJson = TorrentMetadataSerializer.Serialize(metadata);
         existing.NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title);
-        existing.UnsatBuffer = unsatBuffer;
-        existing.WedgeBuffer = wedgeBuffer;
     }
 
     private async Task RefreshLibraryMetadataAsync(TorrentEntity existing, TorrentMetadata metadata, CancellationToken cancellationToken)
@@ -294,9 +290,7 @@ public sealed class SelectionRunner(
         SelectedTorrentCost cost,
         string? category,
         IReadOnlySet<string> tags,
-        string? grabberName,
-        int unsatBuffer,
-        int wedgeBuffer)
+        string? grabberName)
     {
         dbContext.SelectedTorrents.Add(new SelectedTorrentEntity
         {
@@ -305,8 +299,6 @@ public sealed class SelectionRunner(
             CostDecision = cost.ToString(),
             Category = category,
             TagsJson = System.Text.Json.JsonSerializer.Serialize(tags),
-            UnsatBuffer = unsatBuffer,
-            WedgeBuffer = wedgeBuffer,
             GrabberName = grabberName,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
             NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),

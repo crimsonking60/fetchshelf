@@ -102,7 +102,7 @@ public sealed class AutograbberRunnerTests : IDisposable
         var runner = new AutograbberRunner(
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context);
 
-        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
+        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
 
         Assert.Equal(1, selectedCount);
         var selected = Assert.Single(context.SelectedTorrents);
@@ -118,7 +118,7 @@ public sealed class AutograbberRunnerTests : IDisposable
         var runner = new AutograbberRunner(
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context);
 
-        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 20, globalWedgeBuffer: 0, ignoreTorrents: []);
+        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 20, ignoreTorrents: []);
 
         Assert.Equal(0, selectedCount);
         Assert.Empty(searchRequestPaths);
@@ -135,7 +135,7 @@ public sealed class AutograbberRunnerTests : IDisposable
             logger);
 
         // Unsat limit 20, none in use, buffer 19 => a limit of 1.
-        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 19, globalWedgeBuffer: 0, ignoreTorrents: []);
+        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 19, ignoreTorrents: []);
 
         Assert.Equal(1, selectedCount);
         Assert.Contains(
@@ -159,7 +159,7 @@ public sealed class AutograbberRunnerTests : IDisposable
         entry.Name = "Bookmarks";
         entry.DryRun = true;
 
-        var selectedCount = await runner.RunAsync(entry, globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
+        var selectedCount = await runner.RunAsync(entry, globalUnsatBuffer: 0, ignoreTorrents: []);
 
         Assert.Equal(0, selectedCount);
         Assert.Empty(context.SelectedTorrents);
@@ -180,7 +180,7 @@ public sealed class AutograbberRunnerTests : IDisposable
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context,
             logger);
 
-        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, globalWedgeBuffer: 0, ignoreTorrents: []);
+        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
 
         Assert.Equal(1, selectedCount);
         Assert.Contains(logger.Messages(LogLevel.Information), m => m.Contains("2 search results, 1 selected"));

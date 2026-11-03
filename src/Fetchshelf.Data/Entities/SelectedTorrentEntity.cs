@@ -15,10 +15,6 @@ public sealed class SelectedTorrentEntity
 
     public string? TagsJson { get; set; }
 
-    public int UnsatBuffer { get; set; }
-
-    public int WedgeBuffer { get; set; }
-
     public string? GrabberName { get; set; }
 
     public required string MetadataJson { get; set; }

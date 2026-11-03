@@ -25,7 +25,6 @@ public sealed class AutograbberRunner(
     public async Task<int> RunAsync(
         AutograbEntry entry,
         int globalUnsatBuffer,
-        int globalWedgeBuffer,
         IReadOnlyList<long> ignoreTorrents,
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +33,6 @@ public sealed class AutograbberRunner(
         var name = entry.Name ?? entry.Type?.Kind ?? "autograb";
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
         var unsatBuffer = entry.UnsatBuffer ?? globalUnsatBuffer;
-        var wedgeBuffer = entry.WedgeBuffer ?? globalWedgeBuffer;
 
         var currentActive = entry.MaxActiveDownloads is null
             ? 0
@@ -101,7 +99,7 @@ public sealed class AutograbberRunner(
                 }
 
                 var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name, unsatBuffer, wedgeBuffer,
+                    record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name,
                     dryRun: entry.DryRun, cancellationToken: cancellationToken);
                 _logger.Log(
                     detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",

@@ -167,12 +167,6 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("TagsJson")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("UnsatBuffer")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("WedgeBuffer")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
                     b.HasIndex("MamId");

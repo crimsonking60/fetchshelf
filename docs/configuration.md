@@ -76,7 +76,8 @@ Fetchshelf has two halves that can be used independently.
 - `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
   download gets.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
-  `unsat_buffer` / `wedge_buffer` override the global ones.
+  `unsat_buffer` / `wedge_buffer` override the global ones. The downloader reads them when it starts each
+  torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
 
@@ -236,7 +237,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads` on an autograb. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. See [languages](#languages). |
@@ -286,8 +287,8 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
 | `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run. A page is 100 results (fixed). Paging stops early when a page comes back short. |
 | `search_interval` | global `search_interval` | Minutes between runs. `0` means UI-triggered only. |
-| `unsat_buffer` | global | Overrides the global buffer for this block. |
-| `wedge_buffer` | global | Overrides the global buffer for this block. |
+| `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
+| `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |

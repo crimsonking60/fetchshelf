@@ -167,6 +167,26 @@ public sealed class AutograbConfigTests : IDisposable
             exception.Message);
     }
 
+    [Theory]
+    [InlineData("unsat_buffer = 20")]
+    [InlineData("wedge_buffer = 3")]
+    public void Load_OwnBufferWithoutName_Throws(string bufferLine)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[autograb]]
+            type = "bookmarks"
+            {bufferLine}
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal(
+            "Invalid configuration: an [[autograb]] section setting 'unsat_buffer' or 'wedge_buffer' must also set 'name'.",
+            exception.Message);
+    }
+
     [Fact]
     public void Load_MaxActiveDownloadsWithoutName_Throws()
     {

@@ -812,7 +812,9 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb can override `unsat_buffer` and `wedge_buffer` for itself.
+Each autograb with a `name` can override `unsat_buffer` and `wedge_buffer` for itself. The values are
+checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
+apply to torrents already waiting on the **Selected** page.
 
 How a run works out how much it may download:
 

@@ -25,18 +25,18 @@ public sealed class DownloadRunnerTests : IDisposable
 
     private string DbPath => Path.Combine(_root, "test.db");
 
+    private static readonly SafetyBuffers NoBuffers = new(0, 0, []);
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private static SelectedTorrentEntity BuildSelected(
-        long mamId, SelectedTorrentCost cost, string downloadLink = "dl1", int unsatBuffer = 0, int wedgeBuffer = 0) => new()
+        long mamId, SelectedTorrentCost cost, string downloadLink = "dl1") => new()
         {
             MamId = mamId,
             DownloadLink = downloadLink,
             CostDecision = cost.ToString(),
             MetadataJson = TorrentMetadataSerializer.Serialize(Metadata(mamId)),
             NormalizedTitleKey = TitleNormalizer.Normalize("T"),
-            UnsatBuffer = unsatBuffer,
-            WedgeBuffer = wedgeBuffer,
             GrabberName = "grabber",
             CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -68,7 +68,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -95,7 +95,7 @@ public sealed class DownloadRunnerTests : IDisposable
         });
         var gate = new MamAccessGate();
         var runner = new DownloadRunner(
-            context, new EventStore(context), mam, gate, [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false);
+            context, new EventStore(context), mam, gate, [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
         var otherJob = await gate.AcquireAsync();
 
         var runTask = runner.RunAsync();
@@ -119,7 +119,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var logger = new ListLogger<DownloadRunner>();
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [], minRatio: 2, addTorrentsStopped: false, logger);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers, logger);
 
         var summary = await runner.RunAsync();
 
@@ -138,7 +138,7 @@ public sealed class DownloadRunnerTests : IDisposable
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var logger = new ListLogger<DownloadRunner>();
         var runner = new DownloadRunner(
-            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false, logger);
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers, logger);
 
         await runner.RunAsync();
 
@@ -179,7 +179,7 @@ public sealed class DownloadRunnerTests : IDisposable
             })),
             new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin"));
         var logger = new ListLogger<DownloadRunner>();
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, logger);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers, logger);
 
         var summary = await runner.RunAsync();
 
@@ -219,7 +219,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -253,7 +253,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var summary = await runner.RunAsync();
 
@@ -276,7 +276,7 @@ public sealed class DownloadRunnerTests : IDisposable
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "uploading", Progress = 1.0 };
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -297,7 +297,7 @@ public sealed class DownloadRunnerTests : IDisposable
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5 };
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -326,7 +326,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -347,7 +347,7 @@ public sealed class DownloadRunnerTests : IDisposable
             """;
         var mam = DownloadTestSupport.CreateMamClient(tightAccountJson, _ => null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -359,16 +359,37 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_UnsatBufferExhausted_SkipsTorrent()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, unsatBuffer: 10));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
         await context.SaveChangesAsync();
 
-        // unsat count 15, limit 20 -> only 5 free slots, less than this torrent's buffer of 10.
+        // unsat count 15, limit 20 -> only 5 free slots, less than the buffer of 10.
         const string accountJson = """
             {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":15,"limit":20}}}
             """;
         var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(10, 0, []));
+
+        var started = (await runner.RunAsync()).Started;
+
+        Assert.Equal(0, started);
+    }
+
+    [Fact]
+    public async Task RunAsync_ItsAutograbKeepsMoreSlotsFree_HoldsTheTorrentBack()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio)); // queued by "grabber"
+        await context.SaveChangesAsync();
+
+        // 5 free slots: enough for the global buffer of 0, not for the autograb's own 10.
+        const string accountJson = """
+            {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":15,"limit":20}}}
+            """;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
+        var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
+        var buffers = new SafetyBuffers(0, 0, [new AutograbBuffers("grabber", UnsatBuffer: 10, WedgeBuffer: null)]);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: buffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -379,7 +400,7 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_UseWedgeAtBuffer_Fails()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
         await context.SaveChangesAsync();
 
         const string accountJson = """
@@ -387,7 +408,7 @@ public sealed class DownloadRunnerTests : IDisposable
             """;
         var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(0, 5, []));
 
         var started = (await runner.RunAsync()).Started;
 
@@ -398,7 +419,7 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_TryWedgeAlreadyFree_SkipsWedgeAndStarts()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge, wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge));
         await context.SaveChangesAsync();
 
         const string accountJson = """
@@ -423,7 +444,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(0, 5, []));
 
         var started = (await runner.RunAsync()).Started;
 
@@ -458,7 +479,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -498,7 +519,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
@@ -510,9 +531,9 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_TryWedgeTorrentsInOneRun_StopUsingWedgesAtTheBuffer()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge, downloadLink: "dl1", wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge, downloadLink: "dl1"));
         await Task.Delay(1);
-        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.TryWedge, downloadLink: "dl2", wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.TryWedge, downloadLink: "dl2"));
         await context.SaveChangesAsync();
 
         // 6 wedges and a buffer of 5: only one wedge may be used.
@@ -539,7 +560,7 @@ public sealed class DownloadRunnerTests : IDisposable
                 : null;
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(0, 5, []));
 
         var started = (await runner.RunAsync()).Started;
 
@@ -551,9 +572,9 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_WedgeSpentOnTorrentAlreadyInClient_CountsAgainstTheBuffer()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, downloadLink: "dl1", wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, downloadLink: "dl1"));
         await Task.Delay(1);
-        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.UseWedge, downloadLink: "dl2", wedgeBuffer: 5));
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.UseWedge, downloadLink: "dl2"));
         await context.SaveChangesAsync();
 
         const string accountJson = """
@@ -580,7 +601,7 @@ public sealed class DownloadRunnerTests : IDisposable
         // The first torrent turns out to be in qBittorrent already, after its file was fetched with a wedge.
         var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5 };
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(0, 5, []));
 
         await runner.RunAsync();
 
@@ -592,9 +613,9 @@ public sealed class DownloadRunnerTests : IDisposable
     public async Task RunAsync_SecondTorrentInSameRun_SeesFirstsUnsatConsumption_WithoutSecondAccountFetch()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
-        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "dl1", unsatBuffer: 1));
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "dl1"));
         await Task.Delay(1);
-        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2", unsatBuffer: 1));
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2"));
         await context.SaveChangesAsync();
 
         // 2 free slots with a buffer of 1: the first torrent fits (2 > 1), and starting it leaves 1, which no longer does.
@@ -619,7 +640,7 @@ public sealed class DownloadRunnerTests : IDisposable
             return DownloadResponse(dlHash == "dl1" ? TorrentBytes1 : TorrentBytes2);
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(1, 0, []));
 
         var started = (await runner.RunAsync()).Started;
 
@@ -644,7 +665,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
             request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 
         var started = (await runner.RunAsync()).Started;
 
