@@ -191,4 +191,23 @@ public sealed class CleanerTests : IDisposable
         Assert.True(File.Exists(Path.Combine(bookPath, "keeper.m4b")));
         Assert.True(File.Exists(Path.Combine(bookPath, "metadata.json")));
     }
+
+    [Fact]
+    public async Task RunAsync_ReplacedCopyLinkedAgain_IsRetiredAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var loserPath = Path.Combine(_root, "loser");
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
+        var loser = await AddLinkedTorrentAsync(context, "loser", "mp3", 100, loserPath);
+        (loser.ReplacedWithTorrentId, loser.ReplacedAt) = ("keeper", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+
+        var summary = await CreateCleaner(context).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(Retired: 1, Failed: 0), summary);
+        var retired = await context.Torrents.SingleAsync(t => t.Id == "loser");
+        Assert.Equal("keeper", retired.ReplacedWithTorrentId);
+        Assert.Null(retired.LibraryPath);
+        Assert.False(Directory.Exists(loserPath));
+    }
 }

@@ -31,6 +31,8 @@ public sealed class Cleaner(
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
         CancellationToken cancellationToken = default)
     {
+        await UnmarkReplacedCopiesLinkedAgainAsync(cancellationToken);
+
         var linked = await dbContext.Torrents
             .Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null)
             .ToListAsync(cancellationToken);
@@ -68,6 +70,32 @@ public sealed class Cleaner(
         }
 
         return new CleanRunSummary(retired, failed);
+    }
+
+    /// <summary>
+    /// Earlier versions of the Link job linked retired copies straight back, and this job then skipped them because
+    /// they were still marked replaced. Unmarking them lets this run weigh them against the other copies again.
+    /// </summary>
+    private async Task UnmarkReplacedCopiesLinkedAgainAsync(CancellationToken cancellationToken)
+    {
+        var linkedAgain = await dbContext.Torrents
+            .Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId != null)
+            .ToListAsync(cancellationToken);
+        if (linkedAgain.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var torrent in linkedAgain)
+        {
+            torrent.ReplacedWithTorrentId = null;
+            torrent.ReplacedAt = null;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "{Count} replaced {Copies} had been linked again; checking them against the other copies again",
+            linkedAgain.Count, linkedAgain.Count == 1 ? "copy" : "copies");
     }
 
     /// <summary>Cleans a single torrent against the rest of the currently-linked set (manual "clean" action).</summary>

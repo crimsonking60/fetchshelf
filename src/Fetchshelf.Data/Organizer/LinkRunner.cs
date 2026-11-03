@@ -106,6 +106,13 @@ public sealed class LinkRunner(
             existing.ClientStatus = torrent.State;
             metadata = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
 
+            if (existing.ReplacedWithTorrentId is not null && existing.LibraryPath is null)
+            {
+                // Retired by the Clean job in favour of a better copy; only an explicit relink brings it back.
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
             if (existing.LibraryPath is not null)
             {
                 // Already linked: sync and recompute mismatch; do not touch files or metadata here.

@@ -522,6 +522,27 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_TorrentReplacedByTheCleaner_IsNotLinkedAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        var replaced = await context.Torrents.SingleAsync();
+        LibraryFileRemover.Remove(libraryPath, [new("book.m4b", 4)], folderSharedWithAnotherTorrent: false);
+        (replaced.LibraryPath, replaced.LinkedFilesJson, replaced.ReplacedWithTorrentId) = (null, null, "better");
+        await context.SaveChangesAsync();
+
+        var summary = await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(new LinkRunSummary(0, 0), summary);
+        var after = await context.Torrents.SingleAsync();
+        Assert.Null(after.LibraryPath);
+        Assert.Equal("better", after.ReplacedWithTorrentId);
+        Assert.False(Directory.Exists(libraryPath));
+    }
+
+    [Fact]
     public async Task RunAsync_ManualSourceTorrent_MetadataUnchangedByPlainLinkRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
