@@ -908,8 +908,12 @@ same book.
 
 The replaced copy has its linked files, its folder (if empty), `cover.jpg` and `metadata.json` removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is shown as *replaced*. When the better copy
-was linked into the same folder, `cover.jpg` and `metadata.json` stay, since they now belong to it. The downloaded data
-itself is not deleted. You can still relink a replaced torrent later.
+was linked into the same folder, `cover.jpg` and `metadata.json` stay, since they now belong to it. The
+downloaded data itself is not deleted.
+
+The Link job leaves a replaced torrent alone. To bring one back, for example after removing the better
+copy, use **Refresh and relink** on its page or **Relink selected** on the **Torrents** page: it is linked
+again and no longer marked replaced. If the better copy is still linked, the next Clean retires it again.
 
 ### When the folder no longer matches
 
@@ -920,7 +924,8 @@ from where it is. The torrent is then flagged in the *Mismatch* column on the **
 - **Different library:** it now belongs in another library.
 - **Different folder:** it belongs in the same library, but in a different folder.
 
-Open it and choose **Refresh and relink**.
+Open it and choose **Refresh and relink**, or tick several on the **Torrents** page and choose **Relink
+selected**.
 
 **Refresh and relink** links a book again from the download in qBittorrent. It picks the library from the
 torrent's current category, save path and tags, removes the files Fetchshelf placed before, and places the
@@ -968,7 +973,8 @@ reported, so they cannot be chosen by hand.
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
   metadata editor.
-- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected** or **Remove selected**.
+- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected** or **Remove
+  selected**.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
@@ -976,6 +982,10 @@ reported, so they cannot be chosen by hand.
     empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
     does nothing. The Clean job does the same automatically after every link run.
   - *Refresh* re-reads its metadata from MAM.
+  - *Relink* does what **Refresh and relink** does on a torrent's page, but with the details Fetchshelf already
+    has, without asking MAM. That is what you want after a configuration change, or after **Refresh** or
+    **Edit**. It then says above the list how many were relinked and why any were not. One that can't be
+    relinked doesn't stop the rest. For fresh details from MAM as well, use **Refresh selected** first.
   - *Remove* deletes Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.

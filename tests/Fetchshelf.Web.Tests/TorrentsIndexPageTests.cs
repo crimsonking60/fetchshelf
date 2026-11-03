@@ -132,6 +132,59 @@ public class TorrentsIndexPageTests
         Assert.DoesNotContain("Language=", showAllLink);
     }
 
+    [Fact]
+    public async Task Post_BulkRelink_RelinksByStoredDetailsAndSaysWhyTheRestWasNot()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("fetchshelf-bulk-relink-tests-").FullName;
+        try
+        {
+            var downloads = Path.Combine(tempDir, "downloads");
+            var libraryDir = Path.Combine(tempDir, "library");
+            Directory.CreateDirectory(downloads);
+            File.WriteAllText(Path.Combine(downloads, "book.m4b"), "data");
+            var metadata = OrganizerTestSupport.BuildMetadata("The Way of Kings");
+            using var fixture = new FetchshelfWebAppFixture(
+                $$"""
+                mam_id = ""
+
+                [[qbittorrent]]
+                url = "http://qbittorrent.test"
+                username = "admin"
+                password = "adminadmin"
+
+                [[library]]
+                library_dir = "{{libraryDir.Replace("\\", "\\\\")}}"
+                category = "audiobooks"
+                """,
+                metadataLookup: new FakeMetadataLookup(null), // MAM finds nothing: the stored details must be enough
+                qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1", downloads, ["book.m4b"]));
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", metadata);
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Gone From Client"));
+            var client = fixture.CreateClient();
+            var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+
+            using var form = new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("selectedIds", "hash1"),
+                new KeyValuePair<string, string>("selectedIds", "hash2"),
+                new KeyValuePair<string, string>("action", "relink"),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            ]);
+            var response = await client.PostAsync("/torrents?handler=Bulk", form);
+
+            response.EnsureSuccessStatusCode();
+            var html = System.Net.WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+            Assert.Contains(
+                "Relinked 1 of 2 torrents. Gone From Client: Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.",
+                html);
+            Assert.True(File.Exists(Path.Combine(libraryDir, "Brandon Sanderson", "The Way of Kings", "book.m4b")));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = System.Text.RegularExpressions.Regex.Match(
