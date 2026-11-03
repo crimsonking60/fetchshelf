@@ -58,6 +58,9 @@ else
                             case Fetchshelf.Data.Entities.EventKind.Cleaned:
                                 @:Cleaned@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
                                 break;
+                            case Fetchshelf.Data.Entities.EventKind.Unlinked:
+                                @:Unlinked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
+                                break;
                             case Fetchshelf.Data.Entities.EventKind.Updated:
                                 @:@EventLabels.FieldChanges(e.FieldChangesJson)
                                 break;

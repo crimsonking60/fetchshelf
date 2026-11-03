@@ -106,9 +106,9 @@ public sealed class LinkRunner(
             existing.ClientStatus = torrent.State;
             metadata = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
 
-            if (existing.ReplacedWithTorrentId is not null && existing.LibraryPath is null)
+            if ((existing.ReplacedWithTorrentId is not null || existing.UnlinkedAt is not null) && existing.LibraryPath is null)
             {
-                // Retired by the Clean job in favour of a better copy; only an explicit relink brings it back.
+                // Retired in favour of a better copy, or unlinked by hand; only an explicit relink brings it back.
                 await dbContext.SaveChangesAsync(cancellationToken);
                 return;
             }
@@ -328,8 +328,8 @@ public sealed class LinkRunner(
     /// Links a torrent into its library again by its stored metadata, from the files qBittorrent has: the library
     /// comes from the torrent's current category, save path and tags, the files Fetchshelf placed before are removed,
     /// and the wanted files are placed in the folder the metadata calls for. Everything that could stop it is checked
-    /// before any file is touched, so a refusal leaves the library as it was. A replaced torrent stops being marked
-    /// replaced, so the Clean job weighs it against the other copies again.
+    /// before any file is touched, so a refusal leaves the library as it was. A replaced or unlinked torrent stops being
+    /// marked so; a replaced one is then weighed against the other copies again by the Clean job.
     /// </summary>
     public Task<RelinkResult> RelinkAsync(
         string torrentId,
@@ -426,6 +426,7 @@ public sealed class LinkRunner(
         RecordPlacement(existing, torrent, library, placement, audio, ebook);
         existing.ReplacedWithTorrentId = null;
         existing.ReplacedAt = null;
+        existing.UnlinkedAt = null;
         await UpdateAudiobookshelfAfterRelinkAsync(existing, metadata, folderChanged: oldPath != placement.Folder, cancellationToken);
         await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrentId, cancellationToken);

@@ -543,6 +543,26 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_UnlinkedTorrent_IsNotLinkedAgainUntilRelinked()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, libraryPath) = await LinkOnceAsync(context, libraries);
+        await new Cleaner(context, new EventStore(context), Formats).UnlinkAsync("hash1", []);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries);
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+        var afterLinkRun = await context.Torrents.AsNoTracking().SingleAsync();
+        var relinked = await runner.RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.Null(afterLinkRun.LibraryPath);
+        Assert.True(relinked.Succeeded, relinked.Message);
+        var after = await context.Torrents.SingleAsync();
+        Assert.Equal(libraryPath, after.LibraryPath);
+        Assert.Null(after.UnlinkedAt);
+    }
+
+    [Fact]
     public async Task RunAsync_ManualSourceTorrent_MetadataUnchangedByPlainLinkRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

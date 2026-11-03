@@ -15,7 +15,12 @@ namespace Fetchshelf.Data.Organizer;
 /// <summary>What one clean run did: superseded copies retired, and copies whose retirement failed.</summary>
 public sealed record CleanRunSummary(int Retired, int Failed);
 
-/// <summary>Retires superseded duplicates among linked torrents</summary>
+/// <summary>Whether an unlink went ahead, and what it did or why it did not.</summary>
+public sealed record UnlinkResult(bool Succeeded, string Message);
+
+/// <summary>
+/// Takes copies out of the library: superseded duplicates among linked torrents, and torrents unlinked by hand.
+/// </summary>
 public sealed class Cleaner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
@@ -57,7 +62,7 @@ public sealed class Cleaner(
                 var forceAbsDeletion = keeper.LibraryPath is not null && keeper.LibraryPath != member.LibraryPath;
                 try
                 {
-                    await ReplaceAsync(member, keeper, connections, forceAbsDeletion, cancellationToken);
+                    await RetireAsync(member, keeper, connections, forceAbsDeletion, cancellationToken);
                     retired++;
                 }
                 catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -125,11 +130,36 @@ public sealed class Cleaner(
             var keeper = PickKeeper([target, other]);
             var loser = keeper.Id == target.Id ? other : target;
             // Manual clean always deletes the loser's ABS item when one is stored, regardless of path.
-            await ReplaceAsync(loser, keeper, connections, forceAbsDeletion: true, cancellationToken);
+            await RetireAsync(loser, keeper, connections, deleteAbsItem: true, cancellationToken);
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Takes a torrent's files out of the library and applies `on_unlinked` to it in qBittorrent, which keeps the
+    /// torrent and its data. The record stays, marked unlinked, so the book still counts as owned and the Link job
+    /// leaves it alone until it is relinked.
+    /// </summary>
+    public async Task<UnlinkResult> UnlinkAsync(
+        string torrentId, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken = default)
+    {
+        var torrent = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
+            ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
+        if (MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id))
+        {
+            return new UnlinkResult(false, "Not unlinked: Fetchshelf never downloaded this torrent, so it has nothing to unlink.");
+        }
+
+        if (torrent.UnlinkedAt is not null)
+        {
+            return new UnlinkResult(false, "Not unlinked: it already is.");
+        }
+
+        var details = await RetireAsync(torrent, keeper: null, connections, deleteAbsItem: true, cancellationToken);
+        return new UnlinkResult(true, $"Unlinked: {string.Join("; ", details)}.");
     }
 
     private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) =>
@@ -157,31 +187,43 @@ public sealed class Cleaner(
     private static List<LinkedFileRecord> DeserializeLinkedFiles(string? json) =>
         json is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(json) ?? [];
 
-    private async Task ReplaceAsync(
-        TorrentEntity member, TorrentEntity keeper,
+    /// <summary>
+    /// Removes what Fetchshelf placed in the library for <paramref name="member"/>, applies `on_cleaned` (with a
+    /// <paramref name="keeper"/>) or `on_unlinked` (without one) in qBittorrent, and marks it replaced or unlinked.
+    /// Returns what was done, for the log and the page.
+    /// </summary>
+    private async Task<List<string>> RetireAsync(
+        TorrentEntity member, TorrentEntity? keeper,
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
-        bool forceAbsDeletion,
+        bool deleteAbsItem,
         CancellationToken cancellationToken)
     {
-        var owning = await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), member.Id, cancellationToken);
-        var onCleaned = connections.FirstOrDefault(c => c.Client == owning).Connection?.OnCleaned;
-        if (owning is not null && onCleaned is not null)
-        {
-            if (!string.IsNullOrEmpty(onCleaned.Category))
-            {
-                await owning.SetCategoryAsync(member.Id, onCleaned.Category, cancellationToken);
-            }
-
-            if (onCleaned.Tags.Count > 0)
-            {
-                await owning.AddTagsAsync(member.Id, onCleaned.Tags, cancellationToken);
-            }
-        }
+        var settingName = keeper is null ? "on_unlinked" : "on_cleaned";
+        QBittorrentCategoryAndTags? SettingOf(QBittorrentConnection? connection) =>
+            keeper is null ? connection?.OnUnlinked : connection?.OnCleaned;
 
         var details = new List<string>();
-        if (onCleaned is not null)
+        var owning = await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), member.Id, cancellationToken);
+        if (owning is null)
         {
-            details.Add(owning is null ? "not found in qBittorrent, so on_cleaned was not applied" : "applied on_cleaned in qBittorrent");
+            if (connections.Any(c => SettingOf(c.Connection) is not null))
+            {
+                details.Add($"not found in qBittorrent, so {settingName} was not applied");
+            }
+        }
+        else if (SettingOf(connections.First(c => c.Client == owning).Connection) is { } setting)
+        {
+            if (!string.IsNullOrEmpty(setting.Category))
+            {
+                await owning.SetCategoryAsync(member.Id, setting.Category, cancellationToken);
+            }
+
+            if (setting.Tags.Count > 0)
+            {
+                await owning.AddTagsAsync(member.Id, setting.Tags, cancellationToken);
+            }
+
+            details.Add($"applied {settingName} in qBittorrent");
         }
 
         var removedFiles = new List<string>();
@@ -191,16 +233,28 @@ public sealed class Cleaner(
             removedFiles = LibraryFileRemover.Remove(member.LibraryPath, DeserializeLinkedFiles(member.LinkedFilesJson), shared);
             details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
         }
+        else
+        {
+            details.Insert(0, "it was not linked, so no files were removed");
+        }
 
-        if (forceAbsDeletion && member.AbsId is not null && absClient is not null)
+        if (deleteAbsItem && member.AbsId is not null && absClient is not null)
         {
             await absClient.DeleteItemAsync(member.AbsId, cancellationToken);
             details.Add($"deleted Audiobookshelf item {member.AbsId}");
         }
 
         var oldLibraryPath = member.LibraryPath;
-        member.ReplacedWithTorrentId = keeper.Id;
-        member.ReplacedAt = DateTimeOffset.UtcNow;
+        if (keeper is null)
+        {
+            member.UnlinkedAt = DateTimeOffset.UtcNow;
+        }
+        else
+        {
+            member.ReplacedWithTorrentId = keeper.Id;
+            member.ReplacedAt = DateTimeOffset.UtcNow;
+        }
+
         member.LibraryPath = null;
         member.LinkedFilesJson = null;
         member.AbsId = null;
@@ -211,7 +265,7 @@ public sealed class Cleaner(
             OccurredAt = DateTimeOffset.UtcNow,
             TorrentId = member.Id,
             MamId = member.MamId,
-            Kind = EventKind.Cleaned,
+            Kind = keeper is null ? EventKind.Unlinked : EventKind.Cleaned,
             LinkerName = member.LinkerName,
             LibraryPath = oldLibraryPath,
             FilesRemovedJson = JsonSerializer.Serialize(removedFiles),
@@ -220,9 +274,20 @@ public sealed class Cleaner(
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Cleaner, member.Id, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
-            "Retired {Title} (MAM id {MamId}, {Format}) in favour of MAM id {KeeperMamId} ({KeeperFormat}): {Details}",
-            member.Title, member.MamId, FormatOf(member), keeper.MamId, FormatOf(keeper), string.Join("; ", details));
+        if (keeper is null)
+        {
+            _logger.LogInformation(
+                "Unlinked {Title} (MAM id {MamId}, {Format}): {Details}",
+                member.Title, member.MamId, FormatOf(member), string.Join("; ", details));
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Retired {Title} (MAM id {MamId}, {Format}) in favour of MAM id {KeeperMamId} ({KeeperFormat}): {Details}",
+                member.Title, member.MamId, FormatOf(member), keeper.MamId, FormatOf(keeper), string.Join("; ", details));
+        }
+
+        return details;
     }
 
     private async Task RecordCleanErrorAsync(TorrentEntity member, TorrentEntity keeper, string errorText, CancellationToken cancellationToken)

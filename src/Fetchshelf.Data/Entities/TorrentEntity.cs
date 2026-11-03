@@ -39,6 +39,9 @@ public sealed class TorrentEntity
 
     public DateTimeOffset? ReplacedAt { get; set; }
 
+    /// <summary>When its files were taken out of the library by hand; the Link job then leaves it alone.</summary>
+    public DateTimeOffset? UnlinkedAt { get; set; }
+
     public string? LibraryMismatchState { get; set; }
 
     public string? ClientStatus { get; set; }

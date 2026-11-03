@@ -46,7 +46,13 @@ else
             {
                 <tr>
                     <td><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" /></td>
-                    <td><a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a></td>
+                    <td>
+                        <a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a>
+                        @if (torrent.Unlinked)
+                        {
+                            <span class="muted">(unlinked)</span>
+                        }
+                    </td>
                     <td>@torrent.Authors</td>
                     <td>@torrent.Series</td>
                     <td class="nowrap"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a></td>
@@ -64,6 +70,8 @@ else
         <button type="submit" name="action" value="clean">Clean selected</button>
         <button type="submit" name="action" value="refresh">Refresh selected</button>
         <button type="submit" name="action" value="relink">Relink selected</button>
+        <button type="submit" name="action" value="unlink"
+                onclick="return confirm('Remove the selected books from your library? qBittorrent keeps the torrents and their data, and Fetchshelf stops linking them until you relink them.')">Unlink selected</button>
         <button type="submit" name="action" value="removeRecord" class="danger">Remove selected</button>
     </div>
 

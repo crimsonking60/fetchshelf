@@ -471,6 +471,17 @@ tags = ["superseded"]
 Fetchshelf never deletes the downloaded data itself in this step. It removes only the library files it
 linked.
 
+### `on_unlinked`
+
+The same for a book you take out of the library yourself with **Unlink** (see
+[Unlinking a book you don't want](#unlinking-a-book-you-dont-want)), for example to move it to a category
+no library uses:
+
+```toml
+[qbittorrent.on_unlinked]
+category = "unlinked"
+```
+
 ## Setting up your library
 
 A `[[library]]` tells Fetchshelf where finished books go. For each finished torrent the **first** library,
@@ -915,6 +926,21 @@ The Link job leaves a replaced torrent alone. To bring one back, for example aft
 copy, use **Refresh and relink** on its page or **Relink selected** on the **Torrents** page: it is linked
 again and no longer marked replaced. If the better copy is still linked, the next Clean retires it again.
 
+### Unlinking a book you don't want
+
+To take a book out of your library while qBittorrent keeps seeding it, use **Unlink** on its torrent page,
+or tick several on the **Torrents** page and choose **Unlink selected**. Fetchshelf then:
+
+- removes the files it linked, `cover.jpg` and `metadata.json` (unless another torrent shares the folder),
+  and the folder if that leaves it empty, and deletes the book's Audiobookshelf item;
+- applies `on_unlinked` to the torrent in qBittorrent, if you set it;
+- keeps its record, marked *unlinked*, so the book still counts as one you have and is not downloaded again;
+- leaves it alone in later Link runs, whatever its category.
+
+The downloaded data is not touched. To bring the book back, use **Refresh and relink** on its page or
+**Relink selected** on the **Torrents** page. **Remove record** is not the same: Fetchshelf then forgets the
+book, and the next Link run links it again if a library still accepts its category.
+
 ### When the folder no longer matches
 
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
@@ -971,10 +997,10 @@ reported, so they cannot be chosen by hand.
   torrents. Use **First**, **Previous**, **Next** and **Last** below the list.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
-  [When the folder no longer matches](#when-the-folder-no-longer-matches)). **Edit** on each row opens the
-  metadata editor.
-- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected** or **Remove
-  selected**.
+  [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
+  *(unlinked)* after its title. **Edit** on each row opens the metadata editor.
+- **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
+  selected** or **Remove selected**.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
@@ -986,15 +1012,18 @@ reported, so they cannot be chosen by hand.
     has, without asking MAM. That is what you want after a configuration change, or after **Refresh** or
     **Edit**. It then says above the list how many were relinked and why any were not. One that can't be
     relinked doesn't stop the rest. For fresh details from MAM as well, use **Refresh selected** first.
+  - *Unlink* takes the books out of your library and keeps qBittorrent seeding them (see
+    [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
-  show a library mismatch and, for a replaced book, a link to the torrent that replaced it. Actions:
-  **Clean**, **Refresh**, **Refresh and relink**, **Start** and **Stop** in qBittorrent, **Remove from
-  qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear replaced marker**. While
+  show a library mismatch, an unlinked book and, for a replaced book, a link to the torrent that replaced
+  it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
+  qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
+  replaced marker**. While
   qBittorrent has the torrent, you can also change its category and tags there: untick a tag to remove it,
   type new ones separated by commas, and press **Set category and tags**.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series

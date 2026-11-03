@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Entities;
 
-/// <summary>The five event payload shapes.</summary>
+/// <summary>The six event payload shapes.</summary>
 public enum EventKind
 {
     Grabbed,
@@ -8,6 +8,7 @@ public enum EventKind
     Cleaned,
     Updated,
     RemovedFromMam,
+    Unlinked,
 }
 
 /// <summary>
@@ -34,7 +35,7 @@ public sealed class EventEntity
 
     public bool? WedgeUsed { get; set; }
 
-    // Linked / Cleaned
+    // Linked / Cleaned / Unlinked
     public string? LinkerName { get; set; }
 
     public string? LibraryPath { get; set; }

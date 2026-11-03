@@ -81,6 +81,10 @@ password = "replace-with-your-qbittorrent-admin-password"
 category = "superseded"
 tags = ["superseded"]
 
+# The same for a torrent you Unlink from the library yourself; qBittorrent keeps seeding it.
+[qbittorrent.on_unlinked]
+category = "unlinked"
+
 # Same shape. Accepted and validated, but not acted on yet.
 [qbittorrent.on_invalid_torrent]
 category = "invalid"

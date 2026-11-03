@@ -185,6 +185,31 @@ public class TorrentsIndexPageTests
         }
     }
 
+    [Fact]
+    public async Task Post_BulkUnlink_UnlinksEachAndSaysHowMany()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("First Book"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Second Book"));
+        var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/torrents");
+        Assert.Matches(@"<button[^>]*value=""unlink""[^>]*onclick=""return confirm\(", page);
+
+        using var form = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("selectedIds", "hash1"),
+            new KeyValuePair<string, string>("selectedIds", "hash2"),
+            new KeyValuePair<string, string>("action", "unlink"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(page)),
+        ]);
+        var response = await client.PostAsync("/torrents?handler=Bulk", form);
+
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Unlinked 2 torrents.", html);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, @"\(unlinked\)").Count);
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = System.Text.RegularExpressions.Regex.Match(

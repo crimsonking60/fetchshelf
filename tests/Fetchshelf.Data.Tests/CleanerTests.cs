@@ -210,4 +210,85 @@ public sealed class CleanerTests : IDisposable
         Assert.Null(retired.LibraryPath);
         Assert.False(Directory.Exists(loserPath));
     }
+
+    [Fact]
+    public async Task UnlinkAsync_LinkedTorrent_RemovesItsFilesAndKeepsTheRecordMarkedUnlinked()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var bookPath = Path.Combine(_root, "book");
+        await AddLinkedTorrentAsync(context, "hash1", "m4b", 100, bookPath);
+
+        var result = await CreateCleaner(context).UnlinkAsync("hash1", []);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal($"Unlinked: removed 1 file from {bookPath}.", result.Message);
+        Assert.False(Directory.Exists(bookPath));
+        var unlinked = await context.Torrents.SingleAsync();
+        Assert.NotNull(unlinked.UnlinkedAt);
+        Assert.Null(unlinked.LibraryPath);
+        Assert.Null(unlinked.ReplacedWithTorrentId);
+        var unlinkedEvent = await context.Events.SingleAsync();
+        Assert.Equal((EventKind.Unlinked, bookPath), (unlinkedEvent.Kind, unlinkedEvent.LibraryPath));
+    }
+
+    [Fact]
+    public async Task UnlinkAsync_OnUnlinkedConfigured_SetsItsCategoryAndTagsInQBittorrent()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "hash1", "m4b", 100, Path.Combine(_root, "book"));
+        var bodies = new List<string>();
+        var client = new QBittorrentClient(
+            new HttpClient(new FakeHttpMessageHandler(request =>
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                if (path.Contains("torrents/info"))
+                {
+                    return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                    {
+                        Content = System.Net.Http.Json.JsonContent.Create(new[] { new QBittorrentTorrent { Hash = "hash1", Name = "Book", SavePath = "/downloads", State = "uploading" } }),
+                    };
+                }
+
+                if (path.Contains("setCategory") || path.Contains("addTags"))
+                {
+                    bodies.Add($"{path.Split('/')[^1]}: {Uri.UnescapeDataString(request.Content!.ReadAsStringAsync().Result)}");
+                }
+
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("{}") };
+            })),
+            new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin"));
+        var connection = new QBittorrentConnection { OnUnlinked = new QBittorrentCategoryAndTags { Category = "unlinked", Tags = ["not-wanted"] } };
+
+        var result = await CreateCleaner(context).UnlinkAsync("hash1", [(connection, client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Contains("applied on_unlinked in qBittorrent", result.Message);
+        Assert.Equal(["setCategory: hashes=hash1&category=unlinked", "addTags: hashes=hash1&tags=not-wanted"], bodies);
+    }
+
+    [Fact]
+    public async Task UnlinkAsync_AlreadyUnlinked_ChangesNothing()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "hash1", "m4b", 100, Path.Combine(_root, "book"));
+        var cleaner = CreateCleaner(context);
+        await cleaner.UnlinkAsync("hash1", []);
+
+        var again = await cleaner.UnlinkAsync("hash1", []);
+
+        Assert.False(again.Succeeded);
+        Assert.Single(await context.Events.ToListAsync());
+    }
+
+    [Fact]
+    public async Task UnlinkAsync_MetadataOnlyRecord_IsRefused()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await OrganizerTestSupport.SeedTorrentAsync(context, "mam:42", 42);
+
+        var result = await CreateCleaner(context).UnlinkAsync("mam:42", []);
+
+        Assert.False(result.Succeeded);
+        Assert.Null((await context.Torrents.SingleAsync()).UnlinkedAt);
+    }
 }

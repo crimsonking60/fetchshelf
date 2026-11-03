@@ -50,7 +50,7 @@ public class IndexModel(
         new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, "torrent-pager", "Torrent pages");
 
     /// <summary>
-    /// The outcome of a "Check qBittorrent" or a bulk "Relink", shown above the list; set by the htmx
+    /// The outcome of a "Check qBittorrent" or a bulk relink or unlink, shown above the list; set by the htmx
     /// response itself or, after a redirect, read back from TempData.
     /// </summary>
     public string? CheckMessage { get; private set; }
@@ -128,9 +128,18 @@ public class IndexModel(
 
                 break;
             case "relink":
-                var (message, failed) = await RelinkAsync(selectedIds);
-                TempData["CheckMessage"] = message;
-                TempData["CheckFailed"] = failed;
+                await RunEachAsync(selectedIds, "Relinked", "Relinking", async (id, connections) =>
+                {
+                    var result = await linkRunner.RelinkAsync(id, connections, HttpContext.RequestAborted);
+                    return (result.Succeeded, result.Message);
+                });
+                break;
+            case "unlink":
+                await RunEachAsync(selectedIds, "Unlinked", "Unlinking", async (id, connections) =>
+                {
+                    var result = await cleaner.UnlinkAsync(id, connections, HttpContext.RequestAborted);
+                    return (result.Succeeded, result.Message);
+                });
                 break;
             case "removeRecord":
                 var toRemove = await dbContext.Torrents.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
@@ -142,44 +151,49 @@ public class IndexModel(
         return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
     }
 
-    /// <summary>Relinks each torrent in turn; one that is refused or fails is reported and the rest still run.</summary>
-    private async Task<(string Message, bool Failed)> RelinkAsync(List<string> ids)
+    /// <summary>
+    /// Runs a relink or unlink on each torrent in turn and leaves a summary for the page; one that is refused or fails
+    /// is reported and the rest still run.
+    /// </summary>
+    private async Task RunEachAsync(
+        List<string> ids, string doneVerb, string failedVerb,
+        Func<string, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)>, Task<(bool Succeeded, string Message)>> action)
     {
         var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
         var titles = await dbContext.Torrents.AsNoTracking()
             .Where(t => ids.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id, t => t.Title, HttpContext.RequestAborted);
-        var relinked = 0;
+        var done = 0;
         var problems = new List<string>();
         foreach (var id in ids.Where(titles.ContainsKey))
         {
             try
             {
-                var result = await linkRunner.RelinkAsync(id, connections, HttpContext.RequestAborted);
-                if (result.Succeeded)
+                var (succeeded, message) = await action(id, connections);
+                if (succeeded)
                 {
-                    relinked++;
+                    done++;
                 }
                 else
                 {
-                    problems.Add($"{titles[id]}: {result.Message}");
+                    problems.Add($"{titles[id]}: {message}");
                 }
             }
             catch (Exception ex) when (!HttpContext.RequestAborted.IsCancellationRequested)
             {
-                logger.LogWarning(ex, "Relink of {TorrentId} failed", id);
-                // What the failed relink changed must not be saved along with the next torrent.
+                logger.LogWarning(ex, "{Action} {TorrentId} failed", failedVerb, id);
+                // What the failed attempt changed must not be saved along with the next torrent.
                 dbContext.DiscardPendingChanges();
-                problems.Add($"{titles[id]}: Relinking failed: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent or Audiobookshelf")}");
+                problems.Add($"{titles[id]}: {failedVerb} failed: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent or Audiobookshelf")}");
             }
         }
 
-        var total = relinked + problems.Count;
+        var total = done + problems.Count;
         var torrents = total == 1 ? "1 torrent" : $"{total} torrents";
-        var summary = problems.Count == 0
-            ? $"Relinked {torrents}."
-            : $"Relinked {relinked} of {torrents}. {string.Join(" ", problems)}";
-        return (summary, problems.Count > 0);
+        TempData["CheckMessage"] = problems.Count == 0
+            ? $"{doneVerb} {torrents}."
+            : $"{doneVerb} {done} of {torrents}. {string.Join(" ", problems)}";
+        TempData["CheckFailed"] = problems.Count > 0;
     }
 
     private async Task<List<TorrentListItemViewModel>> LoadAsync()

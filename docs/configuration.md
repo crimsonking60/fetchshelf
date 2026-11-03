@@ -199,6 +199,7 @@ against every entry.
 | `password` | (required) | Web UI password. Treat it as a secret. |
 | `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. |
 | `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list. |
+| `on_unlinked` | unset | What to do in qBittorrent to a torrent you **Unlink** from the library. The same table shape. |
 | `on_invalid_torrent` | unset | The same table shape. It is accepted and validated, but nothing acts on it yet. |
 
 ```toml
@@ -213,12 +214,15 @@ password = "replace-with-your-qbittorrent-admin-password"
 [qbittorrent.on_cleaned]
 category = "superseded"
 tags = ["superseded"]
+
+[qbittorrent.on_unlinked]
+category = "unlinked"
 ```
 
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
+- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
   automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
