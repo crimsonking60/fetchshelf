@@ -14,9 +14,9 @@ application.
 
 Fetchshelf has two independent, optional halves:
 
-1. **Auto-downloader** — finds torrents on MAM matching user-defined rules and adds them to
-   qBittorrent, while protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge
-   supply.
+1. **Auto-downloader** — finds torrents on MAM matching user-defined rules, or the books on your
+   [Hardcover](https://hardcover.app) *Want to Read* shelf and lists, and adds them to qBittorrent, while
+   protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge supply.
 2. **Library organizer** — watches qBittorrent for finished torrents and links the wanted files into
    a clean `Author/Series/Title` folder tree, with a `metadata.json` file next to every title holding
    its authors, series, description, ISBN, genres and more. The tree and the metadata files work
@@ -40,6 +40,8 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
+- [Books you want, from Hardcover](docs/user-guide.md#books-you-want-from-hardcover): `[[hardcover_list]]`
+  and the **Lists** page.
 
 ## Latest release
 

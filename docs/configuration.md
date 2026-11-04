@@ -12,11 +12,13 @@ to `5-everything.toml`, which uses every option.
 - [Top-level settings](#top-level-settings)
 - [`[search]`](#search)
 - [`[audiobookshelf]`](#audiobookshelf)
+- [`[hardcover]`](#hardcover)
 - [`[[qbittorrent]]`](#qbittorrent)
 - [The shared torrent filter](#the-shared-torrent-filter)
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
 - [`[[snatchlist]]`](#snatchlist)
+- [`[[hardcover_list]]`](#hardcover_list)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [Reference data](#reference-data)
@@ -43,7 +45,8 @@ to `5-everything.toml`, which uses every option.
   named `FETCHSHELF_CONF_<setting>` with the setting name exactly as written in the file, in lower case,
   for example `FETCHSHELF_CONF_mam_id`. Overrides apply on top of the file. List values are given
   comma-separated: `FETCHSHELF_CONF_ebook_types="epub,pdf"`. Sections (`[[autograb]]`,
-  `[[qbittorrent]]`, ...) cannot be overridden this way.
+  `[[qbittorrent]]`, ...) cannot be overridden this way, with one exception: the Hardcover token, as
+  `FETCHSHELF_CONF_hardcover_token` or `FETCHSHELF_CONF_hardcover_token_file` (see [`[hardcover]`](#hardcover)).
 - **Read-only view.** The Config page in the web UI shows the active configuration with secrets hidden.
   Changes to the file take effect after a restart.
 - **Logging** is not part of the file: `FETCHSHELF_LOG` sets the level and `FETCHSHELF_LOG_DIR` enables a
@@ -68,6 +71,8 @@ Fetchshelf has two halves that can be used independently.
 [[autograb]]        search MAM on a schedule        ───▶ selection ─▶ download ─▶ qBittorrent
                                                             ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
+                                                            │
+[[hardcover_list]]  books you want, from Hardcover ─────────┘
 ```
 
 - Every source decides **which** torrents qualify using the [shared torrent filter](#the-shared-torrent-filter)
@@ -189,6 +194,30 @@ What it does:
 - When a lesser format is retired into another folder than the better copy's, and when a book is unlinked,
   its Audiobookshelf item is deleted.
 - The torrent pages link to the matched Audiobookshelf item.
+
+## `[hardcover]`
+
+Optional. The token for [Hardcover](https://hardcover.app)'s API, which the
+[`[[hardcover_list]]`](#hardcover_list) entries need. Leave the section out if you don't use Hardcover.
+
+| Setting | Default | Description |
+|---|---|---|
+| `token` | (required, or `token_file`) | A personal access token from Hardcover: **Settings → Hardcover API → New API Key**. It may start with `Bearer `. Treat it as a secret. |
+| `token_file` | unset | Full path of a file that holds the token, instead of writing it in `token`. Works like [`mam_id_file`](#reading-mam_id-from-a-file). |
+
+```toml
+[hardcover]
+token_file = "/run/secrets/hardcover_token"
+```
+
+- **Permissions.** When you create the token, Hardcover asks which permissions it gets. Fetchshelf only
+  reads, and needs `read:me` (to know which user you are), `read:library` (your reading statuses) and, for
+  `list`, `read:lists`. Without one of them the job fails with a message naming the missing permission.
+- **Expiry.** Hardcover tokens expire on the date you chose. After that the jobs fail with "Hardcover
+  rejected the token"; create a new token and restart Fetchshelf.
+- **Environment.** `FETCHSHELF_CONF_hardcover_token` and `FETCHSHELF_CONF_hardcover_token_file` set the two
+  settings, and create the section if the file has none.
+- **Beta.** Hardcover's API is still in beta, and Hardcover may change it or reset tokens without notice.
 
 ## `[[qbittorrent]]`
 
@@ -340,7 +369,7 @@ max_size = "30 MiB"
 
 ## Cost
 
-`cost` appears on `[[autograb]]` and `[[snatchlist]]`.
+`cost` appears on `[[autograb]]`, `[[snatchlist]]` and the `grab` blocks of `[[hardcover_list]]`.
 
 | Value | Meaning |
 |---|---|
@@ -381,6 +410,57 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 - **New torrents** (with `metadata_only_add`) are looked up on MAM one at a time, because the list does not
   say which language they are in. The first run on a long list therefore takes a while; later runs only
   look up what is new.
+
+## `[[hardcover_list]]`
+
+Repeatable. Follows the books with one reading status on [Hardcover](https://hardcover.app), such as *Want to
+Read*, or the books on one of your Hardcover lists, and searches MAM for each of them. Needs
+[`[hardcover]`](#hardcover).
+
+| Setting | Default | Description |
+|---|---|---|
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. |
+| `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
+| `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
+| `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
+| `search_interval` | global `search_interval` | Minutes between runs. |
+| `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
+| `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). The first block that finds a format decides what that format costs. `metadata_only` costs are not allowed. |
+
+```toml
+[[hardcover_list]]
+name = "Want to Read"
+status = "want_to_read"
+prefer_format = "audio"
+
+[[hardcover_list.grab]]            # free copies of either format first
+cost = "free"
+languages = ["English"]
+
+[[hardcover_list.grab]]            # then audiobooks worth a wedge
+cost = "wedge"
+languages = ["English"]
+categories = { ebook = false }
+```
+
+What each run does:
+
+1. **Reads the list** from Hardcover: title, authors (not narrators or illustrators), series and cover of each
+   book. A book that has left the list is no longer searched for; one that comes back is searched again.
+2. **Checks the library.** A book Fetchshelf already has, as an audiobook or an ebook, counts as found in that
+   format, including books recorded by a snatch list.
+3. **Searches MAM** by title and author for each format still missing, with each `grab` block in turn. The
+   closest result must match the title and an author well enough; it then goes through the same selection
+   rules as an autograb's: duplicates, preferred file types, `cost`, the unsatisfied-snatch budget and the
+   [buffers](#top-level-settings).
+4. **Waits a day** before searching again for a book that is still missing a format, so a long list doesn't
+   mean a MAM search for every book on every run. New books are searched for on the next run.
+
+- A format the grab blocks never look for (for example `categories = { ebook = false }` in every block) is
+  not searched for at all.
+- The **Lists** page shows every book and what was found for each format, and lets you mark a book done so
+  it is no longer searched for.
+- Selected torrents go to the **Selected** page and are downloaded by the Download job, as autograbs' are.
 
 ## `[[tag]]`
 
@@ -554,6 +634,9 @@ wedge_over = "100 MiB"
 url = "http://192.168.1.10:13378"
 token = "abs-api-token"
 
+[hardcover]
+token = "hardcover-api-token"
+
 [[qbittorrent]]
 url = "http://qbittorrent:8080"
 username = "admin"
@@ -611,3 +694,14 @@ library_dir = "/data/library/ebooks"
 name = "Audiobooks"
 category = "audiobooks"
 library_dir = "/data/library/audiobooks"
+
+# Search MAM for the books marked Want to Read on Hardcover.
+[[hardcover_list]]
+name = "Want to Read"
+status = "want_to_read"
+prefer_format = "audio"
+
+[[hardcover_list.grab]]
+cost = "free"
+languages = ["English"]
+```
