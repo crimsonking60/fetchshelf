@@ -54,3 +54,6 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and se
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
+Oh, and, by the way: Trans rights are still human rights.
