@@ -80,6 +80,12 @@ public sealed class FetchshelfSettings
     /// <summary>Optional `[audiobookshelf]` section. Null when not configured.</summary>
     public AudiobookshelfSettings? Audiobookshelf { get; set; }
 
+    /// <summary>Optional `[hardcover]` section. Null when not configured.</summary>
+    public HardcoverSettings? Hardcover { get; set; }
+
+    /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
+    public List<HardcoverListEntry> HardcoverList { get; set; } = [];
+
     /// <summary>False while `mam_id` is empty: then no background job is scheduled or run.</summary>
     public bool BackgroundJobsEnabled => !string.IsNullOrWhiteSpace(MamId);
 }
