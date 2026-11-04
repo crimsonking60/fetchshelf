@@ -33,4 +33,32 @@ public class AutoDownloaderJobRegistrationTests
         Assert.NotNull(fixture.JobRegistry.Get("my-snatchlist"));
         Assert.NotNull(fixture.JobRegistry.Get("Download"));
     }
+
+    [Fact]
+    public async Task HomePage_WithHardcoverListsConfigured_RegistersAJobForEach()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = "test-mam-id"
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            name = "Want to Read"
+            status = "want_to_read"
+
+            [[hardcover_list.grab]]
+
+            [[hardcover_list]]
+            list = "books-to-fetch"
+            search_interval = 0
+
+            [[hardcover_list.grab]]
+            """);
+        var client = fixture.CreateClient();
+        await client.GetAsync("/");
+
+        Assert.NotNull(fixture.JobRegistry.Get("Want to Read"));
+        Assert.NotNull(fixture.JobRegistry.Get("hardcover_list[1]"));
+    }
 }

@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Fetchshelf.Data.AutoDownloader\Fetchshelf.Data.AutoDownloader.csproj" />
     <ProjectReference Include="..\Fetchshelf.Clients.QBittorrent\Fetchshelf.Clients.QBittorrent.csproj" />
     <ProjectReference Include="..\Fetchshelf.Clients.Mam\Fetchshelf.Clients.Mam.csproj" />
+    <ProjectReference Include="..\Fetchshelf.Clients.Hardcover\Fetchshelf.Clients.Hardcover.csproj" />
   </ItemGroup>
 
   <ItemGroup>
