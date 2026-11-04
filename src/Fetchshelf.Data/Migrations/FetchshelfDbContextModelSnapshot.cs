@@ -124,6 +124,107 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.ListEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ListType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Lists");
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.ListItemEntity", b =>
+                {
+                    b.Property<string>("ListId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExternalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AllowAudio")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AllowEbook")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("AudioAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("AudioMamId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AudioStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthorsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BookTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BookUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CoverUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EbookAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EbookMamId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("EbookStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastSearchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("MarkedDoneAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PreferFormat")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeriesName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("SeriesNumber")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("ListId", "ExternalId");
+
+                    b.HasIndex("ListId");
+
+                    b.ToTable("ListItems");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.SelectedTorrentEntity", b =>
                 {
                     b.Property<int>("Id")
