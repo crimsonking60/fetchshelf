@@ -1,0 +1,83 @@
+@page "{id}"
+@model Fetchshelf.Web.Pages.Lists.DetailModel
+@{
+    ViewData["Title"] = Model.ListName;
+}
+
+<h2>@Model.ListName</h2>
+@await Html.PartialAsync("_PageExplanation", "This page shows the books on this Hardcover shelf or list and what Fetchshelf found on MAM for each format. A book still missing a format is searched for again once a day. Mark a book done to stop searching for it.")
+<p class="muted">Last read from Hardcover: <local-time value="Model.UpdatedAt" empty="never" /></p>
+
+<form method="get" class="toolbar">
+    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+    <select name="Show" aria-label="Show" onchange="this.form.requestSubmit()">
+        <option value="" selected="@(string.IsNullOrEmpty(Model.Show))">All books</option>
+        <option value="any" selected="@(Model.Show == "any")">Missing a format</option>
+        <option value="audio" selected="@(Model.Show == "audio")">Missing the audiobook</option>
+        <option value="ebook" selected="@(Model.Show == "ebook")">Missing the ebook</option>
+    </select>
+    <label><input type="checkbox" name="Removed" value="true" checked="@Model.Removed" onchange="this.form.requestSubmit()" /> Include books no longer on the list</label>
+    <button type="submit">Filter</button>
+</form>
+
+@if (Model.Items.Count == 0)
+{
+    <p id="no-items-message" class="empty">No books to show.</p>
+}
+else
+{
+    @foreach (var item in Model.Items)
+    {
+        <div class="list_item">
+            @if (item.CoverUrl is not null)
+            {
+                <img src="@item.CoverUrl" alt="" loading="lazy" />
+            }
+            else
+            {
+                <div></div>
+            }
+            <div>
+                <h3>
+                    @item.Title
+                    @if (item.Removed)
+                    {
+                        <span class="muted">(no longer on the list)</span>
+                    }
+                    @if (item.MarkedDone)
+                    {
+                        <span class="muted">(done)</span>
+                    }
+                </h3>
+                <p class="author">by @string.Join(", ", item.Authors)</p>
+                @if (item.SeriesText is not null)
+                {
+                    <p>@item.SeriesText</p>
+                }
+                @if (item.Audio is { } audio)
+                {
+                    <p>Audiobook: @if (audio.Link is not null) { <a href="@audio.Link">@audio.Text</a> } else { @audio.Text }</p>
+                }
+                @if (item.Ebook is { } ebook)
+                {
+                    <p>Ebook: @if (ebook.Link is not null) { <a href="@ebook.Link">@ebook.Text</a> } else { @ebook.Text }</p>
+                }
+                <p>
+                    <a href="@item.MamSearchUrl">Search MAM</a>
+                    @if (item.BookUrl is not null)
+                    {
+                        <text> · </text><a href="@item.BookUrl" target="_blank" rel="noreferrer">On Hardcover</a>
+                    }
+                </p>
+                <form method="post" asp-page-handler="@(item.MarkedDone ? "UndoDone" : "MarkDone")" asp-all-route-data="Model.RouteValues()">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="externalId" value="@item.ExternalId" />
+                    <input type="hidden" name="PageNumber" value="@Model.Pager.PageNumber" />
+                    <button type="submit">@(item.MarkedDone ? "Undo done" : "Mark done")</button>
+                </form>
+            </div>
+        </div>
+    }
+
+    @await Html.PartialAsync("_Pager", Model.Pager)
+}

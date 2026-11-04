@@ -1,0 +1,50 @@
+@page
+@model Fetchshelf.Web.Pages.Lists.IndexModel
+@{
+    ViewData["Title"] = "Lists";
+}
+
+<h2>Lists</h2>
+@await Html.PartialAsync("_PageExplanation", "This page shows the Hardcover shelves and lists Fetchshelf follows. Open one to see what was found on MAM for each of its books.")
+
+@if (Model.ConfiguredLists.Count == 0)
+{
+    <p id="no-lists-message" class="empty">No [[hardcover_list]] entries configured.</p>
+}
+else
+{
+    <table id="configured-lists">
+        <thead><tr><th>List</th><th>Books</th><th>Missing a format</th><th>Last read from Hardcover</th></tr></thead>
+        <tbody>
+            @foreach (var list in Model.ConfiguredLists)
+            {
+                <tr>
+                    <td><a asp-page="/Lists/Detail" asp-route-id="@list.Id">@list.Name</a></td>
+                    <td>@list.Books</td>
+                    <td>@list.Missing</td>
+                    <td><local-time value="list.UpdatedAt" empty="never" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (Model.InactiveLists.Count > 0)
+{
+    <h3>No longer configured</h3>
+    <p class="muted">These lists were removed from the configuration. Fetchshelf keeps what it found, but no longer reads them or searches for their books.</p>
+    <table id="inactive-lists">
+        <thead><tr><th>List</th><th>Books</th><th>Missing a format</th><th>Last read from Hardcover</th></tr></thead>
+        <tbody>
+            @foreach (var list in Model.InactiveLists)
+            {
+                <tr>
+                    <td><a asp-page="/Lists/Detail" asp-route-id="@list.Id">@list.Name</a></td>
+                    <td>@list.Books</td>
+                    <td>@list.Missing</td>
+                    <td><local-time value="list.UpdatedAt" empty="never" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

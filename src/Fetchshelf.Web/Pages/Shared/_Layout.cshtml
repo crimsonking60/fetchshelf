@@ -8,7 +8,7 @@
             ? currentPage == "/Index"
             : currentPage.StartsWith(navPage[..(navPage.LastIndexOf('/') + 1)], StringComparison.Ordinal);
 
-    var navItems = new (string Page, string Label)[]
+    var navItems = new List<(string Page, string Label)>
     {
         ("/Index", "Search"),
         ("/Jobs/Index", "Jobs"),
@@ -17,8 +17,14 @@
         ("/Events/Index", "Events"),
         ("/Errors/Index", "Errors"),
         ("/Duplicates/Index", "Duplicates"),
-        ("/Config/Index", "Config"),
     };
+    // Only of use to those who follow Hardcover lists; the page itself stays reachable either way.
+    if (Settings.HardcoverList.Count > 0)
+    {
+        navItems.Add(("/Lists/Index", "Lists"));
+    }
+
+    navItems.Add(("/Config/Index", "Config"));
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="@theme">
