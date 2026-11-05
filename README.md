@@ -40,8 +40,6 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
-- [Books you want, from Hardcover](docs/user-guide.md#books-you-want-from-hardcover): `[[hardcover_list]]`
-  and the **Lists** page.
 
 ## Latest release
 
