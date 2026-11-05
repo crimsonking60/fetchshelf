@@ -171,6 +171,21 @@ public partial class IndexPageTests
         Assert.Contains("Not in qBittorrent", html);
     }
 
+    [Theory]
+    [InlineData(true, ">Download</button>", "Wedge&#xA0;download</button>")]
+    [InlineData(false, ">Select</button>", "Wedge&#xA0;select</button>")]
+    public async Task GetResults_ButtonsSayWhatHappens_DownloadOrOnlySelect(bool downloadAfterSelection, string plain, string wedge)
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            $"mam_id = \"\"\ndownload_after_selection = {(downloadAfterSelection ? "true" : "false")}\n",
+            mamHandler: MamHandler(SearchResponseJson(large: false)));
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains(plain, html);
+        Assert.Contains(wedge, html);
+    }
+
     [Fact]
     public async Task GetResults_TorrentInQBittorrent_OffersImportInsteadOfDownload()
     {
@@ -182,7 +197,7 @@ public partial class IndexPageTests
 
         Assert.Contains(">Import</button>", html);
         Assert.DoesNotContain(">Download</button>", html);
-        Assert.DoesNotContain("Wedge&nbsp;download", html);
+        Assert.DoesNotContain("Wedge&#xA0;download", html);
     }
 
     [Fact]

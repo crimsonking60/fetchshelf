@@ -643,7 +643,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library, or that none of its file types is in your
-  preferred types.
+  preferred types. With `download_after_selection = false` the buttons say **Select** and **Wedge
+  select**, since the torrent then waits on the **Selected** page for the next Download run.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
   know, such as one you added by hand. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
