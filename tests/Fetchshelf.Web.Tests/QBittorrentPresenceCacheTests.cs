@@ -82,6 +82,24 @@ public class QBittorrentPresenceCacheTests
     }
 
     [Fact]
+    public async Task Warm_StartsTheRead_SoTheNextGetFindsItWithoutAnotherRead()
+    {
+        var (cache, _, reads, _) = Create();
+
+        cache.Warm();
+        var waited = 0;
+        while (reads() == 0 && ++waited < 250)
+        {
+            await Task.Delay(20);
+        }
+
+        var presence = await cache.GetAsync();
+
+        Assert.True(presence.Loaded);
+        Assert.Equal(1, reads());
+    }
+
+    [Fact]
     public void CategoryOf_FallsBackToAKnownHash()
     {
         var presence = QBittorrentPresence.From([

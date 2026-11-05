@@ -14,9 +14,13 @@ public sealed record QBittorrentPresence(
     public static readonly QBittorrentPresence Unknown =
         new(new Dictionary<long, string>(), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), Loaded: false);
 
+    /// <summary>The info hash of the torrent qBittorrent has for this MAM id, from MAM's comment.</summary>
+    public IReadOnlyDictionary<long, string> HashByMamId { get; init; } = new Dictionary<long, string>();
+
     public static QBittorrentPresence From(IEnumerable<QBittorrentTorrent> torrents)
     {
         var byMamId = new Dictionary<long, string>();
+        var hashByMamId = new Dictionary<long, string>();
         var byHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var torrent in torrents)
         {
@@ -24,10 +28,11 @@ public sealed record QBittorrentPresence(
             if (torrent.MamId is { } mamId)
             {
                 byMamId.TryAdd(mamId, torrent.Category);
+                hashByMamId.TryAdd(mamId, torrent.Hash);
             }
         }
 
-        return new QBittorrentPresence(byMamId, byHash, Loaded: true);
+        return new QBittorrentPresence(byMamId, byHash, Loaded: true) { HashByMamId = hashByMamId };
     }
 
     /// <summary>The torrent's category if qBittorrent has it ("" for none), found by MAM id or else by info hash.</summary>
@@ -55,17 +60,21 @@ public sealed class QBittorrentPresenceCache(
     private DateTimeOffset _readAt;
     private Task? _refresh;
 
+    /// <summary>Starts reading qBittorrent's list in the background if it is missing or old, without waiting for it.</summary>
+    public void Warm()
+    {
+        lock (_lock)
+        {
+            StartRefreshIfStale();
+        }
+    }
+
     public async Task<QBittorrentPresence> GetAsync()
     {
         Task? refresh;
         lock (_lock)
         {
-            var stale = _current is null || _time.GetUtcNow() - _readAt > MaxAge;
-            if (stale && _refresh is null)
-            {
-                _refresh = Task.Run(RefreshAsync);
-            }
-
+            StartRefreshIfStale();
             if (_current is not null)
             {
                 return _current;
@@ -86,6 +95,16 @@ public sealed class QBittorrentPresenceCache(
         lock (_lock)
         {
             return _current ?? QBittorrentPresence.Unknown;
+        }
+    }
+
+    // Called with _lock held.
+    private void StartRefreshIfStale()
+    {
+        var stale = _current is null || _time.GetUtcNow() - _readAt > MaxAge;
+        if (stale && _refresh is null)
+        {
+            _refresh = Task.Run(RefreshAsync);
         }
     }
 

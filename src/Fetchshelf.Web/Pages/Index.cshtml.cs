@@ -2,9 +2,12 @@ using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Entities;
+using Fetchshelf.Web.Pages.Torrents;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -39,11 +42,10 @@ public class IndexModel(
 
     /// <summary>
     /// Renders the page shell without waiting on MAM; the browser then fetches the table through
-    /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it.
+    /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it. Reading qBittorrent's torrent
+    /// list starts here, so it is usually ready by the time the results are.
     /// </summary>
-    public void OnGet()
-    {
-    }
+    public void OnGet() => qbittorrentPresence.Warm();
 
     /// <summary>The results table for <see cref="Q"/>, swapped into the Search page by htmx.</summary>
     public async Task<PartialViewResult> OnGetResultsAsync()
@@ -62,11 +64,13 @@ public class IndexModel(
 
         try
         {
+            // Read alongside the MAM search, not after it, in case the page's own warm-up hasn't finished.
+            var presenceTask = qbittorrentPresence.GetAsync();
             var result = await mamClient.SearchAsync(query);
             var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
             var statusByMamId = await LoadStatusesAsync(mamIds);
-            var presence = await qbittorrentPresence.GetAsync();
+            var presence = await presenceTask;
             var hashesByMamId = await KnownHashesAsync(mamIds);
 
             Results = result.Data
@@ -183,17 +187,100 @@ public class IndexModel(
         }
 
         // Set only on the redirect path above: TempData would otherwise show this message again on the next page load.
-        SearchResultViewModel? row = null;
-        if (record is not null)
+        var row = record is null ? null : await BuildRowAsync(record, withQBittorrent: false);
+        return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
+    }
+
+    /// <summary>
+    /// Records a torrent qBittorrent already has, with MAM's details, instead of downloading it: it then shows on the
+    /// Torrents page, and the Link job links it once a library accepts it. Its category in qBittorrent stays as it is.
+    /// </summary>
+    public async Task<IActionResult> OnPostImportAsync(long mamId)
+    {
+        MamTorrentRecord? record = null;
+        var failed = false;
+        string message;
+        try
         {
-            var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
-            var statuses = await LoadStatusesAsync([record.MamId]);
-            row = SearchResultViewModel.From(
-                record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-                statuses.GetValueOrDefault(record.MamId, MamResultStatus.None));
+            var presence = await qbittorrentPresence.GetAsync();
+            var hash = presence.HashByMamId.GetValueOrDefault(mamId);
+            record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId })).Data.FirstOrDefault();
+            if (record is null)
+            {
+                message = $"MAM returned no torrent with id {mamId}.";
+            }
+            else if (hash is null)
+            {
+                message = $"\"{record.Title}\" was not imported: qBittorrent doesn't have it (any more).";
+            }
+            else
+            {
+                message = await ImportAsync(record, hash, presence.CategoryByMamId.GetValueOrDefault(mamId) ?? string.Empty);
+            }
+        }
+        catch (Exception ex) when (!IsRequestAborted(ex))
+        {
+            logger.LogError("Import of MAM torrent {MamId} failed: {Error}", mamId, ex.Message);
+            failed = true;
+            record = null;
+            message = $"Import failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}";
         }
 
+        if (!Request.Headers.ContainsKey("HX-Request"))
+        {
+            DownloadMessage = message;
+            return RedirectToPage(new { Q });
+        }
+
+        var row = record is null ? null : await BuildRowAsync(record, withQBittorrent: true);
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
+    }
+
+    private async Task<string> ImportAsync(MamTorrentRecord record, string hash, string category)
+    {
+        var metadata = MamTorrentMapper.Map(record);
+        var title = $"\"{metadata.Title}\"";
+        if (await dbContext.Torrents.AnyAsync(t => t.Id == hash))
+        {
+            return $"{title} is already in Fetchshelf.";
+        }
+
+        dbContext.Torrents.Add(new TorrentEntity
+        {
+            Id = hash,
+            MamId = metadata.MamId,
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+            Title = metadata.Title,
+            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+            QBittorrentCategory = category,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        // A queued selection of the same torrent has nothing left to do.
+        foreach (var selected in await dbContext.SelectedTorrents.Where(s => s.MamId == metadata.MamId && s.RemovedAt == null && s.StartedAt == null).ToListAsync())
+        {
+            selected.RemovedAt = DateTimeOffset.UtcNow;
+        }
+
+        await dbContext.SaveChangesAsync();
+        logger.LogInformation("Imported {Torrent} from qBittorrent (category {Category})", metadata.DisplayName(), category.Length == 0 ? "none" : category);
+        return LibraryCategories.IsLibraryCategory(settings, category)
+            ? $"Imported {title}; the next Link run links it."
+            : $"Imported {title}. Its qBittorrent category, {(category.Length == 0 ? "none" : category)}, is not one of your libraries': "
+                + "unless a library picks it up by its save path, give it a library's category with Set category on the Torrents page.";
+    }
+
+    /// <summary>A result row as it stands now, for swapping into the page after Download or Import.</summary>
+    private async Task<SearchResultViewModel> BuildRowAsync(MamTorrentRecord record, bool withQBittorrent)
+    {
+        var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
+        var statuses = await LoadStatusesAsync([record.MamId]);
+        var row = SearchResultViewModel.From(
+            record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
+            statuses.GetValueOrDefault(record.MamId, MamResultStatus.None));
+        return withQBittorrent
+            ? WithQBittorrent(row, await qbittorrentPresence.GetAsync(), (await KnownHashesAsync([record.MamId])).GetValueOrDefault(record.MamId) ?? [])
+            : row;
     }
 
     /// <summary>

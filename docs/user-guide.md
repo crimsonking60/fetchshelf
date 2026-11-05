@@ -638,6 +638,11 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library, or that none of its file types is in your
   preferred types.
+- **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
+  know, such as one you added by hand. It records the torrent with MAM's details without downloading
+  anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
+  uses that category, the next Link run links it; otherwise give it one with **Set category** on the
+  **Torrents** page. A torrent that Fetchshelf already has and qBittorrent too gets no buttons.
 - If you set `wedge_over` in the `[search]` section, results larger than that size have the
   **Wedge download** button highlighted:
 

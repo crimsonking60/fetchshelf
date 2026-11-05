@@ -172,6 +172,101 @@ public partial class IndexPageTests
     }
 
     [Fact]
+    public async Task GetResults_TorrentInQBittorrent_OffersImportInsteadOfDownload()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hashx", "MID=1,UID=9", "mouse")));
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains(">Import</button>", html);
+        Assert.DoesNotContain(">Download</button>", html);
+        Assert.DoesNotContain("Wedge&nbsp;download", html);
+    }
+
+    [Fact]
+    public async Task GetResults_TorrentFetchshelfHasInQBittorrent_OffersNeither()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hash1", "MID=1", "audiobooks")));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: "/library/x");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Single().MamId = 1;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.DoesNotContain(">Import</button>", html);
+        Assert.DoesNotContain(">Download</button>", html);
+    }
+
+    [Fact]
+    public async Task Post_Import_RecordsTheTorrentWithItsHashAndCategory()
+    {
+        var config = ConfigWithQBittorrent + """
+
+            [[library]]
+            library_dir = "/library/books"
+            category = "mouse"
+            """;
+        using var fixture = new FetchshelfWebAppFixture(
+            config, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hashx", "MID=1,UID=9", "mouse")));
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Import")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+
+        Assert.Contains("Imported \"The Way of Kings\"; the next Link run links it.", body);
+        Assert.Contains("status-downloaded", body);
+        Assert.DoesNotContain(">Import</button>", body);
+        using var scope = fixture.CreateScope();
+        var torrent = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.Single();
+        Assert.Equal("hashx", torrent.Id);
+        Assert.Equal(1, torrent.MamId);
+        Assert.Equal("mouse", torrent.QBittorrentCategory);
+        Assert.Null(torrent.LibraryPath);
+    }
+
+    [Fact]
+    public async Task Post_Import_CategoryNoLibraryUses_SaysHowToGetItLinked()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hashx", "MID=1,UID=9", "mouse")));
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Import")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+
+        Assert.Contains("Its qBittorrent category, mouse, is not one of your libraries'", body);
+        Assert.Contains("Set category", body);
+    }
+
+    [Fact]
     public async Task GetResults_QBittorrentUnreachable_StillShowsTheResults_WithoutAQBittorrentMark()
     {
         using var fixture = new FetchshelfWebAppFixture(
