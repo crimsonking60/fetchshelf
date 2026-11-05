@@ -283,18 +283,38 @@ public sealed class LinkRunner(
     {
         var (_, matchedIndex) = MatchLibrary(connection, torrent);
 
+        // The library it is linked into, from where its folder is: the library its category points to now can be
+        // another one, which the mismatch below reports. This also repairs names an earlier version set that way.
+        if (LibraryContaining(existing.LibraryPath!) is { } linkedInto)
+        {
+            existing.LinkerName = linkedInto.Name;
+        }
+
         string? recomputedLibraryDir = null;
         string? recomputedFullPath = null;
         if (matchedIndex is not null)
         {
             var library = libraries[matchedIndex.Value];
-            existing.LinkerName = library.Name;
             recomputedLibraryDir = library.LibraryDir;
             recomputedFullPath = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);
         existing.LibraryMismatchState = state == LibraryMismatchState.None ? null : state.ToString();
+    }
+
+    /// <summary>The library whose folder holds <paramref name="libraryPath"/>, the deepest one if folders nest.</summary>
+    private Library? LibraryContaining(string libraryPath) =>
+        libraries
+            .Where(l => !string.IsNullOrEmpty(l.LibraryDir) && IsSameOrUnder(libraryPath, l.LibraryDir))
+            .OrderByDescending(l => l.LibraryDir.Length)
+            .FirstOrDefault();
+
+    private static bool IsSameOrUnder(string path, string folder)
+    {
+        var trimmed = folder.TrimEnd('/', '\\');
+        return path == trimmed
+            || (path.StartsWith(trimmed, StringComparison.Ordinal) && path.Length > trimmed.Length && path[trimmed.Length] is '/' or '\\');
     }
 
     /// <summary>

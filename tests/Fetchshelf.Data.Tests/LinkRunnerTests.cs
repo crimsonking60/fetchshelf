@@ -594,6 +594,36 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_CategoryNowPointsToAnotherLibrary_KeepsTheLibraryItIsLinkedInto_AndFlagsTheMismatch()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var ebooksDir = Path.Combine(_root, "ebooks");
+        var comicsDir = Path.Combine(_root, "comics");
+        var ebooks = CreateLibrary(ebooksDir, "ebooks");
+        ebooks.Name = "ebooks";
+        var comics = CreateLibrary(comicsDir, "comics");
+        comics.Name = "comics";
+        var libraries = new List<Library> { ebooks, comics };
+        var (_, libraryPath) = await LinkOnceAsync(context, libraries, category: "ebooks");
+        // As an earlier version left it: the name of the library the category points to, not the one it is in.
+        var stored = await context.Torrents.SingleAsync();
+        stored.LinkerName = "comics";
+        await context.SaveChangesAsync();
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir, "comics")],
+            new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries)
+            .RunAsync(new QBittorrentConnection(), client);
+
+        var after = await context.Torrents.AsNoTracking().SingleAsync();
+        Assert.Equal(libraryPath, after.LibraryPath);
+        Assert.Equal("ebooks", after.LinkerName);
+        Assert.Equal("comics", after.QBittorrentCategory);
+        Assert.Equal(nameof(LibraryMismatchState.NewLibraryDir), after.LibraryMismatchState);
+    }
+
+    [Fact]
     public async Task RunAsync_ManualSourceTorrent_MetadataUnchangedByPlainLinkRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
