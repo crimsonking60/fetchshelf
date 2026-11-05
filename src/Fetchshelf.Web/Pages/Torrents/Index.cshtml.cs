@@ -21,6 +21,19 @@ public class IndexModel(
     public string? Q { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? Status { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Library { get; set; }
+
+    /// <summary>The torrent's qBittorrent category. Not called Category: the bulk form posts a `category` of its own.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? QbCategory { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Problem { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string? Language { get; set; }
 
     [BindProperty(SupportsGet = true)]
@@ -38,7 +51,16 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
-    public TorrentListQuery Query => new(Q, Language, MediaType, Sort, Dir, PageSize);
+    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize);
+
+    /// <summary>The choices for the Library, Language and Media type filters: the values among all tracked torrents.</summary>
+    public IReadOnlyList<string> LibraryOptions { get; private set; } = [];
+
+    public IReadOnlyList<string> QbCategoryOptions { get; private set; } = [];
+
+    public IReadOnlyList<string> LanguageOptions { get; private set; } = [];
+
+    public IReadOnlyList<string> MediaTypeOptions { get; private set; } = [];
 
     public IReadOnlyList<TorrentListItemViewModel> Torrents { get; private set; } = [];
 
@@ -47,7 +69,7 @@ public class IndexModel(
     public int TotalPages { get; private set; } = 1;
 
     public PagerViewModel Pager =>
-        new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, "torrent-pager", "Torrent pages");
+        new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, PageSize, "torrent-pager", "Torrent pages");
 
     /// <summary>
     /// The outcome of a "Check qBittorrent" or a bulk relink or unlink, shown above the list; set by the htmx
@@ -61,6 +83,7 @@ public class IndexModel(
     {
         CheckMessage = TempData["CheckMessage"] as string;
         CheckFailed = TempData["CheckFailed"] as bool? ?? false;
+        PageSize = PageSizeCookie.Apply(HttpContext, "torrents", PageSize);
         Torrents = await LoadAsync();
     }
 
@@ -80,7 +103,7 @@ public class IndexModel(
             // Plain TempData entries rather than [TempData] properties, so the htmx path below leaves nothing behind for the next page load.
             TempData["CheckMessage"] = CheckMessage;
             TempData["CheckFailed"] = CheckFailed;
-            return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
+            return RedirectToPage(CurrentPageRouteValues());
         }
 
         Torrents = await LoadAsync();
@@ -108,10 +131,35 @@ public class IndexModel(
                 + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}{skipped}";
     }
 
-    public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds)
+    /// <summary>The library categories the bulk category dropdown offers.</summary>
+    public IReadOnlyList<LibraryCategory> CategoryOptions => LibraryCategories.For(settings);
+
+    public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds, string? category)
     {
         switch (action)
         {
+            case "setCategory" when !LibraryCategories.IsLibraryCategory(settings, category):
+                TempData["CheckMessage"] = "Choose one of your libraries' categories first.";
+                TempData["CheckFailed"] = true;
+                break;
+            case "setCategory":
+                await RunEachAsync(selectedIds, $"Set the category to {category} for", "Setting the category", async (id, connections) =>
+                {
+                    var client = await QBittorrentConnectionResolver.ResolveAsync(
+                        connections.Select(c => c.Client).ToList(), id, HttpContext.RequestAborted);
+                    if (client is null)
+                    {
+                        return (false, "qBittorrent doesn't have it.");
+                    }
+
+                    await client.SetCategoryAsync(id, category!, HttpContext.RequestAborted);
+                    // Shown in the list straight away; the Link job keeps it in step with qBittorrent from now on.
+                    var torrent = await dbContext.Torrents.FirstAsync(t => t.Id == id, HttpContext.RequestAborted);
+                    torrent.QBittorrentCategory = category;
+                    await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+                    return (true, string.Empty);
+                });
+                break;
             case "clean":
                 var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
                 foreach (var id in selectedIds)
@@ -148,7 +196,7 @@ public class IndexModel(
                 break;
         }
 
-        return RedirectToPage(new { Q, Language, MediaType, Sort, Dir, PageNumber, PageSize });
+        return RedirectToPage(CurrentPageRouteValues());
     }
 
     /// <summary>
@@ -196,32 +244,45 @@ public class IndexModel(
         TempData["CheckFailed"] = problems.Count > 0;
     }
 
+    /// <summary>The search, filters, sort and page, so a redirect comes back to the same list.</summary>
+    private RouteValueDictionary CurrentPageRouteValues()
+    {
+        var values = new RouteValueDictionary();
+        foreach (var (name, value) in Query.ToRouteValues())
+        {
+            values[name] = value;
+        }
+
+        values[nameof(PageNumber)] = PageNumber;
+        return values;
+    }
+
     private async Task<List<TorrentListItemViewModel>> LoadAsync()
     {
-        var query = dbContext.Torrents.AsNoTracking().AsQueryable();
+        // Filtering, sorting and paging happen in memory, not in SQL: the SQLite EF Core provider cannot translate an
+        // ORDER BY over a DateTimeOffset column (CreatedAt), SQLite's substring match is case-sensitive, and the
+        // language, media type, authors and series are inside the serialized metadata. This app's realistic data
+        // volume (a self-hosted single-user library) makes that an acceptable trade-off.
+        var all = (await dbContext.Torrents.AsNoTracking().ToListAsync())
+            .Select(t => (Entity: t, Metadata: TorrentMetadataSerializer.Deserialize(t.MetadataJson)))
+            .ToList();
 
-        if (!string.IsNullOrWhiteSpace(Language))
-        {
-            query = query.Where(t => t.MetadataJson.Contains($"\"Language\":\"{Language}\""));
-        }
+        // The value in use stays a choice even when no torrent has it any more, so the dropdown still shows it.
+        LibraryOptions = Distinct(all.Select(t => t.Entity.LinkerName).Append(Library));
+        QbCategoryOptions = Distinct(all.Select(t => t.Entity.QBittorrentCategory).Append(QbCategory));
+        LanguageOptions = Distinct(all.Select(t => t.Metadata.Language.ToString()).Append(Language));
+        MediaTypeOptions = Distinct(all.Select(t => t.Metadata.MediaType.ToString()).Append(MediaType));
 
-        if (!string.IsNullOrWhiteSpace(MediaType))
-        {
-            query = query.Where(t => t.MetadataJson.Contains($"\"MediaType\":\"{MediaType}\""));
-        }
-
-        // Sorting/paging happens in memory, not via ORDER BY/OFFSET in SQL: the SQLite EF Core
-        // provider cannot translate an ORDER BY over a DateTimeOffset column (CreatedAt), and this
-        // app's realistic data volume (a self-hosted single-user library) makes that an acceptable
-        // trade-off against adding a global DateTimeOffset value-conversion/migration for it.
-        var matched = await query.ToListAsync();
-
-        // The search runs here rather than in SQL: SQLite's substring match is case-sensitive, and authors and
-        // series are inside the serialized metadata, where a raw substring match would also hit descriptions.
-        if (!string.IsNullOrWhiteSpace(Q))
-        {
-            matched = matched.Where(t => TorrentSearchMatcher.Matches(TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q)).ToList();
-        }
+        var matched = all
+            .Where(t => TorrentListFilters.MatchesStatus(t.Entity, Status))
+            .Where(t => string.IsNullOrEmpty(Library) || t.Entity.LinkerName == Library)
+            .Where(t => string.IsNullOrEmpty(QbCategory) || t.Entity.QBittorrentCategory == QbCategory)
+            .Where(t => TorrentListFilters.MatchesProblem(t.Entity, Problem))
+            .Where(t => string.IsNullOrEmpty(Language) || t.Metadata.Language.ToString() == Language)
+            .Where(t => string.IsNullOrEmpty(MediaType) || t.Metadata.MediaType.ToString() == MediaType)
+            .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(t.Metadata, Q))
+            .Select(t => t.Entity)
+            .ToList();
 
         IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
         {
@@ -236,4 +297,7 @@ public class IndexModel(
         (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
         return entities.Select(TorrentListItemViewModel.From).ToList();
     }
+
+    private static List<string> Distinct(IEnumerable<string?> values) =>
+        values.OfType<string>().Where(v => v.Length > 0).Distinct().Order(StringComparer.OrdinalIgnoreCase).ToList();
 }

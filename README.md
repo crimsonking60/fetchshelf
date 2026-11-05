@@ -14,9 +14,9 @@ application.
 
 Fetchshelf has two independent, optional halves:
 
-1. **Auto-downloader** — finds torrents on MAM matching user-defined rules and adds them to
-   qBittorrent, while protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge
-   supply.
+1. **Auto-downloader** — finds torrents on MAM matching user-defined rules, or the books on your
+   [Hardcover](https://hardcover.app) *Want to Read* shelf and lists, and adds them to qBittorrent, while
+   protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge supply.
 2. **Library organizer** — watches qBittorrent for finished torrents and links the wanted files into
    a clean `Author/Series/Title` folder tree, with a `metadata.json` file next to every title holding
    its authors, series, description, ISBN, genres and more. The tree and the metadata files work
@@ -43,7 +43,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.2** (2026-11-03). See [RELEASES.md](RELEASES.md#2026112---2026-11-03) for what changed, and for
+**2026.11.3** (2026-11-05). See [RELEASES.md](RELEASES.md#2026113---2026-11-05) for what changed, and for
 every earlier release.
 
 ## Contributing
@@ -54,3 +54,6 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and se
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
+Oh, and, by the way: Trans rights are still human rights.

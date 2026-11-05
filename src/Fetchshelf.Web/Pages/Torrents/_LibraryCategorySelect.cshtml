@@ -1,0 +1,15 @@
+@model Fetchshelf.Web.Pages.Torrents.LibraryCategorySelectViewModel
+<select id="@Model.Id" name="category" form="@Model.Form">
+    @if (Model.Placeholder is not null)
+    {
+        <option value="" selected="@(Model.Current is null)">@Model.Placeholder</option>
+    }
+    @if (Model.CurrentIsOther)
+    {
+        <option value="@Model.Current" selected="selected">@Model.Current (not a library's category)</option>
+    }
+    @foreach (var option in Model.Options)
+    {
+        <option value="@option.Category" selected="@(option.Category == Model.Current)">@option.Label</option>
+    }
+</select>

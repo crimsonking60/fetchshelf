@@ -21,7 +21,11 @@
         <p><span class="label">Metadata source</span><span class="value">@torrent.Metadata.MetadataSource</span></p>
         <p><span class="label">Library path</span><span class="value mono">@(torrent.LibraryPath ?? "-")</span></p>
     </div>
-    @if (torrent.LibraryMismatchState is not null)
+    @if (torrent.LibraryMismatchState == nameof(Fetchshelf.Core.Organizer.LibraryMismatchState.NoLibrary) && torrent.LibraryPath is null)
+    {
+        <p id="mismatch-state" class="notice">Not linked: no library accepts this torrent's qBittorrent category, save path or tags. Give it one of your libraries' categories, here or with <strong>Set category</strong> on the Torrents page, and the next Link run links it.</p>
+    }
+    else if (torrent.LibraryMismatchState is not null)
     {
         <p id="mismatch-state" class="notice">Library mismatch: @LibraryMismatchLabel.For(torrent.LibraryMismatchState)</p>
     }
@@ -59,7 +63,7 @@
         @* Untick a tag to remove it; add new ones, separated by commas. *@
         <form id="category-tags-form" method="post" asp-page-handler="SetCategoryAndTags" asp-route-id="@torrent.Id" class="edit-form">
             @Html.AntiForgeryToken()
-            <label>Category <input type="text" name="category" value="@state.Category" /></label>
+            <label>Category @await Html.PartialAsync("_LibraryCategorySelect", new LibraryCategorySelectViewModel(Model.CategoryOptions, state.Category, "category-select"))</label>
             @if (state.TagList.Count > 0)
             {
                 <fieldset>

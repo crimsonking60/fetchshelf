@@ -220,4 +220,23 @@ public sealed class ConfigLoaderTests : IDisposable
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_link_method", null);
         }
     }
+
+    [Fact]
+    public void Load_DownloadAfterSelection_IsOnByDefault_AndCanBeTurnedOff()
+    {
+        var dir = Directory.CreateTempSubdirectory("fetchshelf-download-after-selection-").FullName;
+        try
+        {
+            var path = Path.Combine(dir, "config.toml");
+            File.WriteAllText(path, "mam_id = \"\"\n");
+            Assert.True(ConfigLoader.Load(path).DownloadAfterSelection);
+
+            File.WriteAllText(path, "mam_id = \"\"\ndownload_after_selection = false\n");
+            Assert.False(ConfigLoader.Load(path).DownloadAfterSelection);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

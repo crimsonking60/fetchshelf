@@ -185,9 +185,39 @@ public partial class TorrentDetailActionsTests
         var html = await client.GetStringAsync($"/torrents/{Hash}");
 
         Assert.Contains("id=\"category-tags-form\"", html);
-        Assert.Matches("name=\"category\" value=\"audiobooks\"", html);
+        Assert.Contains("<option value=\"audiobooks\" selected=\"selected\">audiobooks</option>", html);
         Assert.Matches("type=\"checkbox\" name=\"tags\" value=\"a\" checked", html);
         Assert.Matches("type=\"checkbox\" name=\"tags\" value=\"b\" checked", html);
+    }
+
+    [Fact]
+    public async Task Post_SetCategoryAndTags_ACategoryNoLibraryUses_IsRefused()
+    {
+        var categoriesSet = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent("/library"),
+            qbittorrentHandler: request =>
+            {
+                if (request.RequestUri!.AbsolutePath.Contains("setCategory"))
+                {
+                    categoriesSet.Add(request.Content!.ReadAsStringAsync().Result);
+                }
+
+                return OrganizerTestSupport.FakeQBittorrentServer(Hash)(request);
+            });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync($"/torrents/{Hash}"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["category"] = "somewhere-else",
+            ["__RequestVerificationToken"] = token,
+        });
+        var response = await client.PostAsync($"/torrents/{Hash}?handler=SetCategoryAndTags", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(categoriesSet);
     }
 
     [Fact]

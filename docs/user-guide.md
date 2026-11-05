@@ -19,6 +19,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
 - [Snatchlists](#snatchlists)
+- [Books you want, from Hardcover](#books-you-want-from-hardcover)
 - [Protecting your account](#protecting-your-account)
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
 - [Using the web interface](#using-the-web-interface)
@@ -43,7 +44,8 @@ It has two halves that you can use together or separately:
 - **The auto-downloader** finds torrents on MAM that match rules you write (your bookmarks, a favourite
   author, new uploads in a category, and so on) and adds them to qBittorrent. While doing so it protects your
   account: it keeps your ratio above a limit, leaves some unsatisfied-snatch slots free and holds back a
-  number of freeleech wedges.
+  number of freeleech wedges. It can also look for the books on your *Want to Read* shelf or your lists on
+  [Hardcover](https://hardcover.app).
 - **The library organizer** watches qBittorrent for finished torrents and links the files into a tidy
   `Author/Series/Title` folder tree. Next to every title it writes a `metadata.json` file with the
   authors, series, description, ISBN, genres and more, taken from MAM (see
@@ -79,9 +81,8 @@ You need:
   library needs nothing from Fetchshelf.
 - **Disk layout that allows hardlinks**, if you want files to appear in the library without using extra
   space. Hardlinks only work when the download folder and the library folder are on the **same
-  filesystem** and, in Docker, reach Fetchshelf through the **same mount**. Otherwise use the copy or
-  symlink link methods (see
-  [Setting up your library](#setting-up-your-library)).
+  filesystem** and, in Docker, reach Fetchshelf through the **same mount**. Otherwise Fetchshelf copies
+  the files, which takes as much space again (see [Link methods](#link-methods)).
 
 ## Installing with Docker
 
@@ -216,7 +217,7 @@ Fetchshelf, which it needs to match them.
 
 Fetchshelf must mount the shared parent folder, not `torrents` and `library` separately. A hardlink cannot
 cross from one mount to another, even when both are on the same disk, so with two separate mounts every
-hardlink fails.
+hardlink fails and Fetchshelf copies the files instead, using twice the space.
 
 If you do not use Audiobookshelf, leave out its service. Any other app that reads your library just needs
 access to `/srv/media/library`.
@@ -547,8 +548,8 @@ linked into it.
 
 | Method | Behaviour | When to use it |
 |---|---|---|
-| `hardlink` (default) | A second name for the same file. No extra space. Needs the same filesystem. | Downloads and library share a filesystem and you keep seeding. |
-| `hardlink_or_copy` | Hardlink, falling back to a copy. | You are not sure the folders are on the same filesystem. |
+| `hardlink` | A second name for the same file. No extra space. Needs the same filesystem; fails otherwise. | Downloads and library share a filesystem, and you would rather see an error than use space on a copy. |
+| `hardlink_or_copy` (default) | Hardlink, falling back to a copy. | Most setups: no extra space where hardlinks work, a copy where they don't. |
 | `hardlink_or_symlink` | Hardlink, falling back to a symbolic link. | As above, but you prefer links to copies. |
 | `copy` | A full copy. | The library is on a different disk. Uses extra space. |
 | `symlink` | A symbolic link to the download. | Rarely. Some programs cannot follow links. |
@@ -561,7 +562,7 @@ To use the same method for all your libraries, set it once at the top of the fil
 `[[library]]`. A library's own `method` still wins:
 
 ```toml
-link_method = "hardlink_or_copy"
+link_method = "hardlink"
 ```
 
 ## Connecting to Audiobookshelf
@@ -610,8 +611,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead. Either way you get at most the 100 newest matches; there
   are no further pages, so make the search more specific if what you want is not there.
-- **Hide downloaded torrents** hides every result that has a status (see below), so only torrents Fetchshelf
-  has not handled yet remain.
+- **Hide downloaded torrents** hides every result that has a status or is in qBittorrent (see below), so
+  only torrents you don't have yet remain.
 - **Show** limits the list to one kind of torrent:
 
   | Choice | Shows |
@@ -624,15 +625,30 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 
   These two filters only hide rows in the results already on the page. They do not change what is asked
   of MAM, so they cannot bring in more results, and they are reset when you run a new search.
+- Click a result's title for everything MAM returns for it: cover, narrators, series, language,
+  categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
+  info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
+  and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
+  **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
+  its own.
 - Each result shows its title, authors, media type, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
-  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. It does not
-  show torrents you snatched outside Fetchshelf.
+  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.
+- Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
+  you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
+  `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded
+  or linked that qBittorrent no longer has. Fetchshelf reads qBittorrent's torrent list at most every two
+  minutes, in the background, so a torrent added a moment ago can take that long to show.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library, or that none of its file types is in your
   preferred types.
+- **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
+  know, such as one you added by hand. It records the torrent with MAM's details without downloading
+  anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
+  uses that category, the next Link run links it; otherwise give it one with **Set category** on the
+  **Torrents** page. A torrent that Fetchshelf already has and qBittorrent too gets no buttons.
 - If you set `wedge_over` in the `[search]` section, results larger than that size have the
   **Wedge download** button highlighted:
 
@@ -644,7 +660,12 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 A manual download goes through the same steps as an automatic one. It becomes a **selection**, which the
 downloader processes with the ratio, unsatisfied-slot and wedge checks (see
 [Protecting your account](#protecting-your-account)) and then adds to qBittorrent with the category and tags
-from your `[[tag]]` rules. You can follow it on the **Selected** page.
+from your `[[tag]]` rules. The download starts straight away, unless `download_after_selection = false`
+makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
+
+If qBittorrent already has the torrent, in any category, Fetchshelf doesn't add it again and spends no
+wedge on it. It records the torrent, which then shows on the **Torrents** page, and leaves its category in
+qBittorrent as it is. The Link job links it once its category or save path matches one of your libraries.
 
 ## Automatic downloads
 
@@ -803,6 +824,57 @@ The first `metadata_only_add` run on a long list looks every torrent up on MAM o
 Later runs read the list and look up only what is new. Details you edited by hand on a torrent's page are
 kept; a snatchlist only updates their VIP status.
 
+## Books you want, from Hardcover
+
+[Hardcover](https://hardcover.app) is a site for keeping track of what you read and want to read. A
+`[[hardcover_list]]` follows one reading status there, usually *Want to Read*, or one of your Hardcover
+lists, and searches MAM for each book on it. What it finds goes through the same rules as an autograb's,
+so your ratio, unsatisfied-snatch slots and wedges are protected the same way. Fetchshelf only reads from
+Hardcover; it never changes anything there.
+
+1. **Create a token.** On Hardcover, open **Settings → Hardcover API** and choose **New API Key**. Give it
+   the permissions `read:me`, `read:library` and, if you will follow a list, `read:lists`, and an expiry
+   date you will remember: when it passes, the token stops working.
+2. **Add it to `config.toml`**, or to a file named by `token_file`:
+
+   ```toml
+   [hardcover]
+   token = "your-hardcover-api-token"
+   ```
+
+3. **Add a `[[hardcover_list]]`** with one or more `grab` blocks, which work like an autograb's `cost` and
+   filter:
+
+   ```toml
+   [[hardcover_list]]
+   name = "Want to Read"
+   status = "want_to_read"
+   prefer_format = "audio"     # leave out to get both the audiobook and the ebook
+
+   [[hardcover_list.grab]]
+   cost = "free"
+   languages = ["English"]
+   ```
+
+   For one of your lists, write `list = "books-to-fetch"` instead of `status`, with the last part of the
+   list's address.
+
+4. **Restart Fetchshelf.** The list gets a job on the **Jobs** page, and **Lists** appears in the menu.
+   Press **Run now** to try it straight away.
+
+On each run Fetchshelf reads the list from Hardcover and, for every book still missing a format, first
+checks your library (including books a snatchlist recorded), then searches MAM by title and author with
+each `grab` block in turn. A result must match the title and an author closely; Hardcover and MAM sometimes
+name a book differently, so the **Lists** page has a **Search MAM** link on every book for the ones it
+misses. A book that is still missing a format is searched for again once a day, not on every run, and
+books you take off the list on Hardcover are no longer searched for.
+
+Use `dry_run = true` first to see in the log what a list would select. See
+[`[[hardcover_list]]`](configuration.md#hardcover_list) for every setting.
+
+Hardcover's API is still in beta, so Hardcover may change it or reset tokens without notice. If the job
+starts failing, see [A Hardcover list fails](#a-hardcover-list-fails).
+
 ## Protecting your account
 
 Fetchshelf will not start a download that would break these limits.
@@ -949,7 +1021,9 @@ book, and the next Link run links it again if a library still accepts it.
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
 from where it is. The torrent is then flagged in the *Mismatch* column on the **Torrents** page:
 
-- **No library:** no library accepts the torrent any more.
+- **No library:** no library accepts the torrent any more. A torrent Fetchshelf knows but has never linked,
+  such as one that was already in qBittorrent under another category, gets this flag too, and the log says
+  which category it has. Give it a library's category with **Set category** and the next Link run links it.
 - **Different library:** it now belongs in another library.
 - **Different folder:** it belongs in the same library, but in a different folder.
 
@@ -980,6 +1054,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
 | **Errors** | Problems found by the Download, Link and Clean jobs. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
+| **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
 
 ### Selected
@@ -994,10 +1069,24 @@ reported, so they cannot be chosen by hand.
 
 - **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
   several words each must appear somewhere in those, in any order. The newest torrents come first; click
-  the **Title** heading to sort by title, and click it again to reverse the order. Click a torrent's media
-  type or language to show only torrents of that kind. Searching, sorting and filtering combine; the
-  filters in use are listed above the table, each with a **show all** link to remove it. Pages hold 25
-  torrents. Use **First**, **Previous**, **Next** and **Last** below the list.
+  the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns below the
+  search box show only some of the torrents, and apply as soon as you choose:
+  - *Status*: *Linked*, or *Not linked*, which covers the four kinds below. *Waiting to be linked* means the
+    Link job hasn't linked it yet, because it is still downloading or no library accepts it (then it is also
+    flagged *No library*). *Replaced* means the Clean job retired it for a better copy, and *Unlinked by
+    you* that you unlinked it. *Metadata only* is a book recorded with `metadata_only_add`, which Fetchshelf
+    never downloads.
+  - *Library*: the `[[library]]` the torrent was linked into.
+  - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
+    **Check qBittorrent**.
+  - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
+    from qBittorrent, or either.
+  - *Media type* and *Language*. Clicking a media type or language in the list does the same.
+
+  Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
+  Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page* below the list. Your browser
+  remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move between
+  pages.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
@@ -1018,6 +1107,12 @@ reported, so they cannot be chosen by hand.
   - *Unlink* takes the books out of your library and keeps qBittorrent seeding them (see
     [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
+  - **Set category**, below the other buttons, gives the ticked torrents one of the qBittorrent categories
+    your `[[library]]` blocks use, chosen from the dropdown. That is how a torrent added outside Fetchshelf, or
+    under another category, gets linked: the next Link run picks it up. Moving an already linked torrent to
+    another library's category marks it with a library mismatch; **Relink selected** then moves it. In
+    qBittorrent, a torrent in Automatic Torrent Management mode also moves its files to the new category's
+    save path.
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
@@ -1027,7 +1122,9 @@ reported, so they cannot be chosen by hand.
   it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
   qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
   replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
-  untick a tag to remove it, type new ones separated by commas, and press **Set category and tags**.
+  choose one of your libraries' categories, untick a tag to remove it, type new ones separated by commas,
+  and press **Set category and tags**. A category no library uses is only offered when the torrent already
+  has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
   through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
@@ -1038,7 +1135,9 @@ reported, so they cannot be chosen by hand.
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
 by event type, by the autograb that grabbed a torrent, by the library that linked it, or by a
-changed field. Pages hold 25 events. Use **First**, **Previous**, **Next** and **Last** below the list.
+changed field. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
+browser remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move
+between pages.
 
 ### Errors
 
@@ -1056,6 +1155,18 @@ listed here too. Each entry links to the skipped torrent on MAM and shows what i
 page when Fetchshelf has it, otherwise the queued selection or the torrent on MAM. Tick the entries you no
 longer need and use **Remove selected**.
 
+### Lists
+
+One row per `[[hardcover_list]]`: how many books it has, how many still miss a format, and when it was last
+read from Hardcover. Lists removed from the configuration are shown below, with what was found for them.
+
+A list's page shows its books in Hardcover's order. For each format the list looks for, it says what
+Fetchshelf found: *In the library* (linked to the torrent), *Selected for download*, *Not found on MAM*,
+*On MAM, but it costs more than the list's grab blocks allow*, *Not wanted* (the list prefers the other
+format) or *Not searched for yet*. Every book has a **Search MAM** link, a link to the book on Hardcover,
+and **Mark done**, which stops Fetchshelf searching for it; **Undo done** takes that back. Show only the
+books missing a format with the dropdown, and tick **Include books no longer on the list** to see those too.
+
 ### Config
 
 Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
@@ -1070,23 +1181,26 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | After autograb runs select something, and every `search_interval` minutes. |
+| Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
-| AbsMatcher | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
+| Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 
-Autograb and snatchlist jobs are named after the block's `name`, or `autograb[0]`, `snatchlist[1]`
-and so on if it has none. Give your blocks names so the Jobs page is easy to read. Below the jobs, the page
-lists each kind of optional job you have not configured, such as *Snatchlist is not configured*.
+Autograb, snatchlist and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
+`snatchlist[1]`, `hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
+easy to read. Below the jobs, the page lists each kind of optional job you have not configured, such as
+*Snatchlist is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - An interval of `0` means the job never runs by itself.
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows success or the error. A failed job tries again at its next interval. One failing
-  torrent never stops the others: the Download, Link, Clean, AbsMatcher and snatchlist jobs then show
-  *Finished with errors* with the number of torrents that failed, and the log has a line for each. Link
-  and Clean problems, and downloads removed from the queue, are also listed on the **Errors** page.
+  torrent never stops the others: the Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list
+  jobs then show *Finished with errors* with the number of torrents or books that failed, and the log has a
+  line for each. Link and Clean problems, and downloads removed from the queue, are also listed on the
+  **Errors** page.
 - With an empty `mam_id`, no job runs at all.
 
 ## Common setups
@@ -1240,9 +1354,9 @@ container name rather than `localhost`, and make sure both containers share a ne
 
 - *Source missing.* Fetchshelf cannot see the path qBittorrent reported. Add or fix `path_mapping`, or
   mount the same folder in both containers.
-- *Cross-device link.* Hardlinks need the same filesystem, and in Docker the same mount: two separate
-  mounts count as different devices even on one disk. Mount the folder that holds both downloads and
-  library, or use `hardlink_or_copy`.
+- *Cross-device link* (with `method = "hardlink"`). Hardlinks need the same filesystem, and in Docker the
+  same mount: two separate mounts count as different devices even on one disk. Mount the folder that holds
+  both downloads and library, or use the default `hardlink_or_copy`.
 - *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
   rules and `[[library]]` entries.
 - *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
@@ -1273,7 +1387,7 @@ author used is the **first** author.
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
 Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
-**Run now** on the **AbsMatcher** job.
+**Run now** on the **Audiobookshelf** job.
 
 The log says what happened to each book:
 
@@ -1284,6 +1398,21 @@ The log says what happened to each book:
   different path, or the library is missing from Audiobookshelf. The job then shows *Finished with errors*.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
+
+### A Hardcover list fails
+
+The job's *last result* on the **Jobs** page, and the log, say why:
+
+- *Hardcover rejected the token: it is wrong or has expired*: the token was mistyped, revoked, or its expiry
+  date has passed. Create a new one and restart Fetchshelf.
+- *The Hardcover token lacks the … permission*: create a token with `read:me`, `read:library` and, for a
+  `list`, `read:lists`.
+- *You have no Hardcover list with the slug …*: check `list` against the last part of the list's address.
+- *Hardcover's rate limit is used up*: Hardcover allows a limited number of requests a day. Run the list
+  less often with `search_interval`.
+
+When Hardcover can't be reached, the run fails before it asks MAM anything, so the other jobs carry on as
+usual.
 
 ### Getting more detail
 

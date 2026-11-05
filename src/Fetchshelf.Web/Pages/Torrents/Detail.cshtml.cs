@@ -162,6 +162,14 @@ public class DetailModel(
     public async Task<IActionResult> OnPostSetCategoryAndTagsAsync(string id, string? category, List<string> tags, string? newTags)
     {
         category ??= string.Empty;
+        // Only a library's category, or the one the torrent already has, which the dropdown also offers.
+        var currentCategory = await dbContext.Torrents.Where(t => t.Id == id).Select(t => t.QBittorrentCategory).FirstOrDefaultAsync();
+        if (!LibraryCategories.IsLibraryCategory(settings, category) && category != (currentCategory ?? string.Empty)
+            && !await HasCategoryInClientAsync(id, category))
+        {
+            return BadRequest();
+        }
+
         tags = tags
             .Concat((newTags ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -186,6 +194,17 @@ public class DetailModel(
             }
         });
         return RedirectToPage(new { id });
+    }
+
+    /// <summary>The library categories the category dropdown offers.</summary>
+    public IReadOnlyList<LibraryCategory> CategoryOptions => LibraryCategories.For(settings);
+
+    private async Task<bool> HasCategoryInClientAsync(string hash, string category)
+    {
+        var found = false;
+        await WithOwningClientAsync(hash, async client =>
+            found = (await client.ListTorrentsAsync()).Any(t => t.Hash == hash && t.Category == category));
+        return found;
     }
 
     private async Task WithOwningClientAsync(string hash, Func<QBittorrentClient, Task> action)

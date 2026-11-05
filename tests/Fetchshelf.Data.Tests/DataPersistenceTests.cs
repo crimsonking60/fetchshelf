@@ -42,16 +42,12 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events",
+            "Events", "Lists", "ListItems",
         ];
         foreach (var expected in expectedTables)
         {
             Assert.Contains(expected, tableNames);
         }
-
-        // The Goodreads list tables are dropped again by a later migration.
-        Assert.DoesNotContain("Lists", tableNames);
-        Assert.DoesNotContain("ListItems", tableNames);
     }
 
     [Fact]
@@ -109,14 +105,15 @@ public sealed class DataPersistenceTests : IDisposable
         context.Database.ExecuteSql(
             $"INSERT INTO ErroredTorrents (Stage, Key, ErrorText, OccurredAt) VALUES (1, 'hash2', 'boom', '2026-10-28 10:00:00+00:00')");
 
-        DatabaseMigrator.Migrate(context);
+        context.GetService<IMigrator>().Migrate("20261030222248_RemoveGoodreadsLists");
 
         var tableNames = context.Database.SqlQueryRaw<string>("SELECT name FROM sqlite_master WHERE type = 'table'").ToList();
         Assert.DoesNotContain("Lists", tableNames);
         Assert.DoesNotContain("ListItems", tableNames);
-        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
-        Assert.Equal("/library/Author/Title", context.Events.Single().LibraryPath);
-        Assert.Equal("boom", context.ErroredTorrents.Single().ErrorText);
+        // Read with SQL: the current model has columns this older schema doesn't have yet.
+        Assert.Equal("Kept Torrent", context.Database.SqlQueryRaw<string>("SELECT Title AS Value FROM Torrents").Single());
+        Assert.Equal("/library/Author/Title", context.Database.SqlQueryRaw<string>("SELECT LibraryPath AS Value FROM Events").Single());
+        Assert.Equal("boom", context.Database.SqlQueryRaw<string>("SELECT ErrorText AS Value FROM ErroredTorrents").Single());
     }
 
     [Fact]
@@ -138,6 +135,31 @@ public sealed class DataPersistenceTests : IDisposable
         Assert.DoesNotContain("ConfigStore", tableNames);
         Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
         Assert.Equal("kept selected", context.SelectedTorrents.Single().NormalizedTitleKey);
+    }
+
+    [Fact]
+    public void Migrate_DatabaseFromBeforeHardcoverLists_AddsEmptyListTablesAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261103113254_DropStoredSafetyBuffers");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Empty(context.Lists);
+        Assert.Empty(context.ListItems);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        context.Lists.Add(new ListEntity { Id = "hardcover:status:want_to_read", Name = "Want to Read", ListType = "Hardcover", CreatedAt = DateTimeOffset.UtcNow });
+        context.ListItems.Add(new ListItemEntity
+        {
+            ListId = "hardcover:status:want_to_read",
+            ExternalId = "312460",
+            BookTitle = "Dune",
+            AuthorsJson = "[\"Frank Herbert\"]",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        context.SaveChanges();
+        Assert.Equal("Dune", context.ListItems.AsNoTracking().Single(i => i.ExternalId == "312460").BookTitle);
     }
 
     private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>

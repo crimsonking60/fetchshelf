@@ -3,8 +3,10 @@
     var result = Model.Result;
 }
 @* SwapOob is set when htmx returns this row after a download, to replace the row already on the page (see _DownloadFeedbackPartial). *@
-<tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()">
-    <td>@result.Title</td>
+<tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()" data-in-qbittorrent="@(result.InQBittorrent == true ? "true" : null)">
+    @* A click opens the details in a dialog over the results, which stay as they are; the link itself is the full page, for a new tab. *@
+    <td><a asp-page="/Search/Detail" asp-route-mamId="@result.MamId" asp-route-Q="@Context.Request.Query["Q"]"
+           hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = result.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@result.Title</a></td>
     <td>
         @if (result.AuthorsShortened)
         {
@@ -30,6 +32,15 @@
                 <span class="status-badge status-linked">Linked</span>
                 break;
         }
+        @if (result.InQBittorrent == true)
+        {
+            var category = string.IsNullOrEmpty(result.QBittorrentCategory) ? "no category" : result.QBittorrentCategory;
+            <span class="status-badge status-qbittorrent" title="In qBittorrent, category: @category">qBittorrent: @category</span>
+        }
+        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloaded or MamResultStatus.Linked)
+        {
+            <span class="status-badge status-not-in-qbittorrent" title="Fetchshelf has this torrent, but qBittorrent no longer does">Not in qBittorrent</span>
+        }
     </td>
     <td class="nowrap">@result.SizeDisplay</td>
     <td class="nowrap">
@@ -38,18 +49,31 @@
         @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
     </td>
     <td>
-        <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-              hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="mamId" value="@result.MamId" />
-            <button type="submit">Download</button>
-        </form>
-        <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-              hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="mamId" value="@result.MamId" />
-            <input type="hidden" name="wedge" value="true" />
-            <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">Wedge&nbsp;download</button>
-        </form>
+        @if (result.InQBittorrent == true && result.Status is MamResultStatus.None or MamResultStatus.Selected)
+        {
+            @* qBittorrent has it already: downloading again makes no sense, recording it does. *@
+            <form method="post" asp-page="/Index" asp-page-handler="Import" class="inline"
+                  hx-post="@Url.Page("/Index", "Import")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="mamId" value="@result.MamId" />
+                <button type="submit" title="Record this torrent in Fetchshelf without downloading it again">Import</button>
+            </form>
+        }
+        else if (result.InQBittorrent != true)
+        {
+            <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="mamId" value="@result.MamId" />
+                <button type="submit">Download</button>
+            </form>
+            <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="mamId" value="@result.MamId" />
+                <input type="hidden" name="wedge" value="true" />
+                <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">Wedge&nbsp;download</button>
+            </form>
+        }
     </td>
 </tr>

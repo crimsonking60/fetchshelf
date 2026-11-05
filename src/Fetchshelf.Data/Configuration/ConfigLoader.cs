@@ -32,6 +32,7 @@ public static class ConfigLoader
         ["unsat_buffer"] = (s, v) => s.UnsatBuffer = int.Parse(v, CultureInfo.InvariantCulture),
         ["wedge_buffer"] = (s, v) => s.WedgeBuffer = int.Parse(v, CultureInfo.InvariantCulture),
         ["add_torrents_stopped"] = (s, v) => s.AddTorrentsStopped = bool.Parse(v),
+        ["download_after_selection"] = (s, v) => s.DownloadAfterSelection = bool.Parse(v),
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
@@ -43,6 +44,8 @@ public static class ConfigLoader
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
         ["music_types"] = (s, v) => s.MusicTypes = SplitList(v),
         ["radio_types"] = (s, v) => s.RadioTypes = SplitList(v),
+        ["hardcover_token"] = (s, v) => (s.Hardcover ??= new()).Token = v,
+        ["hardcover_token_file"] = (s, v) => (s.Hardcover ??= new()).TokenFile = v,
     };
 
     /// <summary>
@@ -66,11 +69,13 @@ public static class ConfigLoader
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
         ResolveMamIdFile(settings);
+        ResolveHardcoverTokenFile(settings);
         ApplyGlobalLinkMethod(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
+        ValidateHardcover(settings);
         return settings;
     }
 
@@ -254,25 +259,47 @@ public static class ConfigLoader
             throw new ConfigurationException("Invalid configuration: set either 'mam_id' or 'mam_id_file', not both.");
         }
 
+        settings.MamId = ReadSecretFile("mam_id_file", path, "/run/secrets/mam_id");
+    }
+
+    /// <summary>Reads the Hardcover token from the file <c>token_file</c> names, if set, like <c>mam_id_file</c>.</summary>
+    private static void ResolveHardcoverTokenFile(FetchshelfSettings settings)
+    {
+        var path = settings.Hardcover?.TokenFile;
+        if (settings.Hardcover is null || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.Hardcover.Token))
+        {
+            throw new ConfigurationException("Invalid configuration: set either 'token' or 'token_file' in [hardcover], not both.");
+        }
+
+        settings.Hardcover.Token = ReadSecretFile("token_file", path, "/run/secrets/hardcover_token");
+    }
+
+    private static string ReadSecretFile(string setting, string path, string example)
+    {
         if (!Path.IsPathFullyQualified(path))
         {
             throw new ConfigurationException(
-                $"Invalid configuration: 'mam_id_file' must be a full path, such as /run/secrets/mam_id; got '{path}'.");
+                $"Invalid configuration: '{setting}' must be a full path, such as {example}; got '{path}'.");
         }
 
         if (!File.Exists(path))
         {
-            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' does not exist.");
+            throw new ConfigurationException($"Invalid configuration: the '{setting}' '{path}' does not exist.");
         }
 
         try
         {
-            // Secret files usually end with a newline, which is not part of the session id.
-            settings.MamId = File.ReadAllText(path).Trim();
+            // Secret files usually end with a newline, which is not part of the secret.
+            return File.ReadAllText(path).Trim();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new ConfigurationException($"Invalid configuration: the 'mam_id_file' '{path}' could not be read: {ex.Message}", ex);
+            throw new ConfigurationException($"Invalid configuration: the '{setting}' '{path}' could not be read: {ex.Message}", ex);
         }
     }
 
@@ -390,6 +417,48 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
+            }
+        }
+    }
+
+    private static void ValidateHardcover(FetchshelfSettings settings)
+    {
+        if (settings.Hardcover is { } hardcover && string.IsNullOrWhiteSpace(hardcover.Token))
+        {
+            throw new ConfigurationException("Invalid configuration: the [hardcover] section needs 'token' or 'token_file'.");
+        }
+
+        foreach (var list in settings.HardcoverList)
+        {
+            var label = string.IsNullOrWhiteSpace(list.Name) ? "a [[hardcover_list]] section" : $"the [[hardcover_list]] '{list.Name}'";
+
+            if (settings.Hardcover is null)
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {label} needs a [hardcover] section with the token for Hardcover's API.");
+            }
+
+            var hasList = !string.IsNullOrWhiteSpace(list.List);
+            if (list.Status is null == !hasList)
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {label} must set one of 'status' or 'list', not both.");
+            }
+
+            if (list.Grab.Count == 0)
+            {
+                throw new ConfigurationException($"Invalid configuration: {label} must have at least one 'grab' block.");
+            }
+
+            if (list.PreferFormat is not (null or Core.Metadata.FilterMainType.Audio or Core.Metadata.FilterMainType.Ebook))
+            {
+                throw new ConfigurationException($"Invalid configuration: {label} has a 'prefer_format' that is not 'audio' or 'ebook'.");
+            }
+
+            if (list.Grab.Any(g => g.Cost is Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {label} has a 'grab' block with a metadata-only 'cost'; Hardcover lists download books.");
             }
         }
     }

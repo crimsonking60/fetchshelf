@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.Abs;
+using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
@@ -63,6 +64,7 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IJobRegistry, JobRegistry>();
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
+builder.Services.AddSingleton<QBittorrentPresenceCache>();
 builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId });
 builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 {
@@ -93,6 +95,16 @@ if (settings.Audiobookshelf is { } absSettings)
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));
     builder.Services.AddScoped(sp => new AbsMatcher(
         sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>(), sp.GetRequiredService<ILogger<AbsMatcher>>()));
+}
+
+if (settings.Hardcover is { } hardcoverSettings)
+{
+    builder.Services.AddSingleton(new HardcoverClientOptions { Token = hardcoverSettings.Token, UserAgent = $"Fetchshelf/{AppVersion.Current}" });
+    builder.Services.AddHttpClient("hardcover");
+    builder.Services.AddSingleton(sp => new HardcoverClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("hardcover"), sp.GetRequiredService<HardcoverClientOptions>()));
+    // A singleton, so the token's user is looked up once rather than on every run.
+    builder.Services.AddSingleton<IHardcoverBookSource>(sp => new HardcoverBookSource(sp.GetRequiredService<HardcoverClient>()));
 }
 
 var formatPreferenceLists = new FormatPreferenceLists
@@ -130,6 +142,18 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
 builder.Services.AddScoped(sp => new SnatchlistImporter(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
+if (settings.Hardcover is not null)
+{
+    builder.Services.AddScoped(sp => new HardcoverListImporter(
+        sp.GetRequiredService<FetchshelfDbContext>(),
+        sp.GetRequiredService<MamClient>(),
+        sp.GetRequiredService<MamAccessGate>(),
+        sp.GetRequiredService<SelectionRunner>(),
+        sp.GetRequiredService<IHardcoverBookSource>(),
+        formatPreferenceLists,
+        logger: sp.GetRequiredService<ILogger<HardcoverListImporter>>()));
+}
+
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
@@ -158,7 +182,7 @@ if (settings.BackgroundJobsEnabled)
     if (settings.Audiobookshelf is { } scheduledAbsSettings)
     {
         builder.Services.AddSingleton<IHostedService>(sp => new IntervalJobScheduler(
-            sp.GetRequiredService<IJobRegistry>(), JobNames.AbsMatcher, TimeSpan.FromMinutes(scheduledAbsSettings.Interval)));
+            sp.GetRequiredService<IJobRegistry>(), JobNames.Audiobookshelf, TimeSpan.FromMinutes(scheduledAbsSettings.Interval)));
     }
 
     for (var i = 0; i < settings.Autograb.Count; i++)
@@ -183,6 +207,17 @@ if (settings.BackgroundJobsEnabled)
         }
     }
 
+    for (var i = 0; i < settings.HardcoverList.Count; i++)
+    {
+        var jobName = AutoDownloaderJobNames.HardcoverList(settings.HardcoverList[i], i);
+        var intervalMinutes = settings.HardcoverList[i].SearchInterval ?? settings.SearchInterval;
+        if (intervalMinutes > 0)
+        {
+            builder.Services.AddSingleton<IHostedService>(sp =>
+                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
+        }
+    }
+
     if (settings.SearchInterval > 0)
     {
         builder.Services.AddSingleton<IHostedService>(sp =>
@@ -194,6 +229,7 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AddPageRoute("/Torrents/Detail", "torrents/{id}");
     options.Conventions.AddPageRoute("/Torrents/Edit", "torrents/{id}/edit");
+    options.Conventions.AddPageRoute("/Search/Detail", "search/{mamId:long}");
 });
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
@@ -275,7 +311,7 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
 
     if (settings.Audiobookshelf is not null)
     {
-        jobRegistry.Register(JobNames.AbsMatcher, async ct =>
+        jobRegistry.Register(JobNames.Audiobookshelf, async ct =>
         {
             using var scope = scopeFactory.CreateScope();
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
@@ -304,7 +340,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<AutograbberRunner>();
             var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0)
+            if (selectedCount > 0 && settings.DownloadAfterSelection)
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);
             }
@@ -328,6 +364,28 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
+    for (var i = 0; i < settings.HardcoverList.Count; i++)
+    {
+        var entry = settings.HardcoverList[i];
+        var jobName = AutoDownloaderJobNames.HardcoverList(entry, i);
+        jobRegistry.Register(jobName, async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var importer = scope.ServiceProvider.GetRequiredService<HardcoverListImporter>();
+            var summary = await importer.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
+            if (summary.Selected > 0 && settings.DownloadAfterSelection)
+            {
+                await jobRegistry.TriggerAsync(JobNames.Download, ct);
+            }
+
+            if (summary.Failed > 0)
+            {
+                throw new JobCompletedWithErrorsException(
+                    $"{summary.Failed} {(summary.Failed == 1 ? "book" : "books")} could not be searched for; see the log.");
+            }
+        }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
+    }
+
     jobRegistry.Register(JobNames.Download, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
@@ -346,7 +404,7 @@ internal static class JobNames
     public const string Link = "Link";
     public const string Clean = "Clean";
     public const string Download = "Download";
-    public const string AbsMatcher = "AbsMatcher";
+    public const string Audiobookshelf = "Audiobookshelf";
 }
 
 /// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>
@@ -357,6 +415,9 @@ internal static class AutoDownloaderJobNames
 
     public static string Snatchlist(SnatchlistEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
+
+    public static string HardcoverList(HardcoverListEntry entry, int index) =>
+        string.IsNullOrWhiteSpace(entry.Name) ? $"hardcover_list[{index}]" : entry.Name;
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

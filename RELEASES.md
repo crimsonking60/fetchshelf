@@ -5,6 +5,69 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.3 - 2026-11-05
+
+Hardcover lists replace the Goodreads shelf import, the Torrents page gets filters and can set the qBittorrent
+category of several torrents at once, and the Search page shows which torrents qBittorrent already has, with an
+**Import** button for them.
+
+### Upgrading
+
+- **Files are copied where they can't be hardlinked.** `link_method`, and a library's `method` when it sets
+  none, now default to `hardlink_or_copy`. Such a library used to fail with *Cross-device link* when the
+  download and the library were on different filesystems or mounts; now it copies the files, which takes as
+  much space again. Set `link_method = "hardlink"` to keep the old behaviour.
+- **A Search page download starts straight away.** It used to wait for the next scheduled Download run, up to
+  `search_interval` minutes. Set `download_after_selection = false` to leave all selections, from autograbs and
+  Hardcover lists too, waiting on the **Selected** page for the scheduled run.
+- The **AbsMatcher** job is now called **Audiobookshelf**, on the Jobs page and in the log.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+
+### Added
+
+- Hardcover lists: a `[[hardcover_list]]` follows one of your reading statuses on
+  [Hardcover](https://hardcover.app), such as *Want to Read*, or one of your Hardcover lists, and searches MAM
+  for each book on it with the usual selection rules. Needs a `[hardcover]` section with an API token. The
+  **Lists** page is back and shows what was found for each book (#7).
+- `download_after_selection`: whether the Download job starts as soon as something is selected (default
+  `true`).
+- **Torrents** page: filters for status (linked, waiting, replaced, unlinked, metadata only), library,
+  qBittorrent category, problems (library mismatch, not in qBittorrent), media type and language, on a row
+  below the search box, with **Clear filters**.
+- **Torrents** and **Events** pages: *Per page* 25, 50, 100, 500 or *All*, remembered for each list.
+- **Torrents** page: **Set category** gives the ticked torrents one of the qBittorrent categories your
+  libraries use. The category on a torrent's page is the same dropdown.
+- **Search** page: each result says whether qBittorrent has the torrent and in which category, also when you
+  added it outside Fetchshelf (this needs qBittorrent 5), or that qBittorrent no longer has one Fetchshelf
+  downloaded. **Import** replaces the download buttons on a torrent qBittorrent has but Fetchshelf doesn't
+  know: it records the torrent without downloading it.
+- **Search** page: a result's title opens everything MAM returns for it, over the results: cover, narrators,
+  series, language, categories, flags, tags, ISBN or ASIN, files, uploader, seeders, cost, the description, the
+  media info (duration, format, bitrate and more, where MAM has it) and every raw field, and whether Fetchshelf
+  and qBittorrent have it.
+
+### Changed
+
+- **Hide downloaded torrents** on the Search page also hides torrents qBittorrent has.
+- A torrent the Download job finds already in qBittorrent, in whatever category and finished or not, is now
+  recorded, so it shows on the **Torrents** page and is linked once its category matches a library.
+- A torrent Fetchshelf knows but no library accepts is flagged *No library* in the Mismatch column and logged
+  with its category, instead of waiting without a word. Its page says how to get it linked.
+
+### Fixed
+
+- The Download job used a wedge on a torrent qBittorrent already had: it fetched the torrent file with the
+  wedge before checking. It now checks first.
+- A torrent still downloading in qBittorrent when the Download job found it was never recorded, so it was
+  never linked.
+- The Link job didn't save the current qBittorrent category of a torrent no library accepts, so the
+  **Torrents** page showed an old one.
+- A linked torrent whose category was changed to another library's showed that other library in the
+  **Library** column, next to the *Different library* flag that said it wasn't there. The column now shows the
+  library the files are in, and corrects itself on the next Link run. **Relink selected** moves such torrents to
+  the library their category points to.
+
 ## 2026.11.2 - 2026-11-03
 
 You can now take a book out of your library while qBittorrent keeps seeding it, and relink several torrents

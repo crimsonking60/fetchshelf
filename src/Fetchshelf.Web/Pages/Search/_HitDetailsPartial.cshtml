@@ -1,0 +1,112 @@
+@model Fetchshelf.Web.Pages.Search.DetailModel
+@using Fetchshelf.Core.Metadata
+@using Fetchshelf.Core.Organizer
+@* One MAM hit's details: the body of its own page, and of the dialog the Search page opens. *@
+@if (Model.Error is { } error)
+{
+    <h2>Torrent @Model.MamId on MAM</h2>
+    <p id="hit-error" class="notice error" role="alert">@error</p>
+    <p><a href="@Model.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
+}
+else if (Model.Record is { } record)
+{
+    <h2>@record.Title</h2>
+    <p><a id="open-on-mam" href="@Model.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
+
+    <div class="hit-summary">
+        @if (Model.ThumbnailUrl is { } thumbnail)
+        {
+            <img class="hit-cover" src="@thumbnail" alt="Cover" loading="lazy" referrerpolicy="no-referrer" />
+        }
+        <div class="meta-block">
+            <p><span class="label">Authors</span><span class="value">@string.Join(", ", record.Authors.Values)</span></p>
+            <p><span class="label">Narrators</span><span class="value">@(record.Narrators.Count == 0 ? "-" : string.Join(", ", record.Narrators.Values))</span></p>
+            <p><span class="label">Series</span><span class="value">@(Model.Metadata is { Series.Count: > 0 } withSeries
+                ? string.Join(", ", withSeries.Series.Select(s => LibraryMetadataJsonBuilder.FormatSequence(s) is { } number ? $"{s.Name} #{number}" : s.Name))
+                : "-")</span></p>
+            <p><span class="label">Media type</span><span class="value">@(Model.Metadata?.MediaType.ToString() ?? record.MediaTypeId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
+            <p><span class="label">Language</span><span class="value">@(Model.Metadata?.Language.ToString() ?? record.LanguageId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
+            <p><span class="label">Categories</span><span class="value">@(Model.Genres.Count == 0 ? "-" : string.Join(", ", Model.Genres))</span></p>
+            <p><span class="label">Flags</span><span class="value">@(Model.Metadata is { Flags: not BookFlags.None } flagged ? flagged.Flags.ToString() : "-")</span></p>
+            <p><span class="label">Tags</span><span class="value">@(string.IsNullOrWhiteSpace(record.TagsRaw) ? "-" : record.TagsRaw)</span></p>
+            <p><span class="label">ISBN / ASIN</span><span class="value">@(record.Isbn ?? "-")</span></p>
+            <p><span class="label">Files</span><span class="value">@record.FileCount: @record.FileTypesRaw, @record.SizeRaw</span></p>
+            <p><span class="label">Uploaded</span><span class="value"><local-time value="record.UploadedAt" /> by @record.UploaderName</span></p>
+            <p><span class="label">Seeders / leechers</span><span class="value">@record.Seeders / @record.Leechers, snatched @record.TimesCompleted times</span></p>
+            <p><span class="label">Cost</span><span class="value">
+                @if (record.IsVip) { <span class="badge-vip">VIP</span> }
+                @if (record.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
+                @if (record.IsFree) { <span class="badge-freeleech">FL</span> }
+                @if (!record.IsVip && !record.IsPersonalFreeleech && !record.IsFree) { <text>Not free</text> }
+                @if (record.IsVip) { <text> VIP until @Model.VipUntil.</text> }
+                @if (record.IsFreeleechVip) { <text> Freeleech for VIP members.</text> }
+            </span></p>
+            <p><span class="label">In Fetchshelf</span><span class="value">
+                @if (Model.TorrentId is { } torrentId)
+                {
+                    <a asp-page="/Torrents/Detail" asp-route-id="@torrentId">@(Model.IsLinked ? "Linked" : "Downloaded")</a>
+                }
+                else if (Model.IsSelected)
+                {
+                    <a asp-page="/Selected/Index">Selected</a>
+                }
+                else
+                {
+                    <text>No</text>
+                }
+            </span></p>
+            <p><span class="label">In qBittorrent</span><span class="value">@(Model.InQBittorrent switch
+            {
+                true => string.IsNullOrEmpty(Model.QBittorrentCategory) ? "Yes, with no category" : $"Yes, category {Model.QBittorrentCategory}",
+                false => "No",
+                null => "Unknown: qBittorrent could not be asked",
+            })</span></p>
+        </div>
+    </div>
+
+    <h3>Description</h3>
+    @if (Model.Description is { } description)
+    {
+        <p id="hit-description" class="hit-description">@description</p>
+    }
+    else
+    {
+        <p class="muted">No description.</p>
+    }
+
+    <h3>Media info</h3>
+    @if (Model.MediaInfo.Count == 0)
+    {
+        <p class="muted">MAM has no media info for this torrent.</p>
+    }
+    else
+    {
+        @foreach (var part in Model.MediaInfo)
+        {
+            @if (part.Title.Length > 0)
+            {
+                <h4>@part.Title</h4>
+            }
+            <table class="hit-fields">
+                <tbody>
+                    @foreach (var (name, value) in part.Rows)
+                    {
+                        <tr><th>@name</th><td>@value</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    <details id="raw-fields">
+        <summary>All fields from MAM</summary>
+        <table class="hit-fields">
+            <tbody>
+                @foreach (var (name, value) in Model.RawFields)
+                {
+                    <tr><th>@name</th><td class="mono">@value</td></tr>
+                }
+            </tbody>
+        </table>
+    </details>
+}

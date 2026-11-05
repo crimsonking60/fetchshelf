@@ -1,0 +1,10 @@
+@page
+@model Fetchshelf.Web.Pages.Search.DetailModel
+@{
+    ViewData["Title"] = Model.Record?.Title ?? "Torrent on MAM";
+}
+
+<p><a id="back-to-search" asp-page="/Index" asp-route-Q="@Model.Q">Back to the search</a></p>
+@await Html.PartialAsync("_PageExplanation", "This page shows everything MAM returns for this torrent, as a search sees it, and whether Fetchshelf and qBittorrent have it.")
+
+@await Html.PartialAsync("_HitDetailsPartial", Model)

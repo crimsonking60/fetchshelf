@@ -4,7 +4,8 @@ namespace Fetchshelf.Web.Pages.Torrents;
 /// The Torrents list's search, filters and sort, so a link that changes one of them (a sort heading, a filter value)
 /// keeps the others. Paging is left out: any such change starts again at page 1.
 /// </summary>
-public sealed record TorrentListQuery(string? Q, string? Language, string? MediaType, string Sort, string Dir, int PageSize)
+public sealed record TorrentListQuery(
+    string? Q, string? Status, string? Library, string? QbCategory, string? Problem, string? Language, string? MediaType, string Sort, string Dir, int PageSize)
 {
     /// <summary>The query as route values for a link, leaving out empty values.</summary>
     public Dictionary<string, string> ToRouteValues()
@@ -12,6 +13,10 @@ public sealed record TorrentListQuery(string? Q, string? Language, string? Media
         var values = new Dictionary<string, string>
         {
             [nameof(Q)] = Q ?? string.Empty,
+            [nameof(Status)] = Status ?? string.Empty,
+            [nameof(Library)] = Library ?? string.Empty,
+            [nameof(QbCategory)] = QbCategory ?? string.Empty,
+            [nameof(Problem)] = Problem ?? string.Empty,
             [nameof(Language)] = Language ?? string.Empty,
             [nameof(MediaType)] = MediaType ?? string.Empty,
             [nameof(Sort)] = Sort,
@@ -20,6 +25,11 @@ public sealed record TorrentListQuery(string? Q, string? Language, string? Media
         };
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
+
+    /// <summary>Whether any filter is set, not counting the search text.</summary>
+    public bool HasFilters =>
+        !string.IsNullOrEmpty(Status) || !string.IsNullOrEmpty(Library) || !string.IsNullOrEmpty(QbCategory) || !string.IsNullOrEmpty(Problem)
+        || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType);
 
     /// <summary>Sorted by title: ascending first, reversed when already sorted by title ascending.</summary>
     public TorrentListQuery ToggleTitleSort() =>

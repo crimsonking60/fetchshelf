@@ -30,6 +30,12 @@ public sealed class FetchshelfSettings
 
     public bool AddTorrentsStopped { get; set; }
 
+    /// <summary>
+    /// When true, the Download job starts as soon as an autograb, a Hardcover list or the Search page selects a
+    /// torrent. When false, selections wait on the Selected page for the next scheduled Download run.
+    /// </summary>
+    public bool DownloadAfterSelection { get; set; } = true;
+
     /// <summary>When true, each web page shows a brief explanation of what it does below its title.</summary>
     public bool PageExplanations { get; set; } = true;
 
@@ -39,7 +45,7 @@ public sealed class FetchshelfSettings
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
     /// <summary>The `method` of every `[[library]]` that does not set its own.</summary>
-    public LibraryLinkMethod LinkMethod { get; set; } = LibraryLinkMethod.Hardlink;
+    public LibraryLinkMethod LinkMethod { get; set; } = LibraryLinkMethod.HardlinkOrCopy;
 
     public int SearchInterval { get; set; } = 30;
 
@@ -79,6 +85,12 @@ public sealed class FetchshelfSettings
 
     /// <summary>Optional `[audiobookshelf]` section. Null when not configured.</summary>
     public AudiobookshelfSettings? Audiobookshelf { get; set; }
+
+    /// <summary>Optional `[hardcover]` section. Null when not configured.</summary>
+    public HardcoverSettings? Hardcover { get; set; }
+
+    /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
+    public List<HardcoverListEntry> HardcoverList { get; set; } = [];
 
     /// <summary>False while `mam_id` is empty: then no background job is scheduled or run.</summary>
     public bool BackgroundJobsEnabled => !string.IsNullOrWhiteSpace(MamId);

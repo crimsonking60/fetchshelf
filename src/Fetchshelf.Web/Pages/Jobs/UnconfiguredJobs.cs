@@ -12,8 +12,9 @@ public static class UnconfiguredJobs
     {
         var kinds = new (string Name, bool Configured)[]
         {
-            ("AbsMatcher", settings.Audiobookshelf is not null),
+            ("Audiobookshelf", settings.Audiobookshelf is not null),
             ("Autograb", settings.Autograb.Count > 0),
+            ("Hardcover list", settings.HardcoverList.Count > 0),
             ("Snatchlist", settings.Snatchlist.Count > 0),
         };
         return kinds.Where(kind => !kind.Configured).Select(kind => kind.Name).Order(StringComparer.Ordinal).ToList();

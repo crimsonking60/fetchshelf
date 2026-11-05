@@ -5,16 +5,67 @@
 }
 
 <h2>Torrents</h2>
-@await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, sort by title, click a media type or language to show only those, or select several at once to clean, refresh, relink, unlink, or remove them in bulk. Check qBittorrent asks the client for the current state of every tracked torrent and updates the Client status column.")
+@await Html.PartialAsync("_PageExplanation", "This page lists every torrent Fetchshelf is tracking. Search, filter, sort by title, or select several at once to clean, refresh, relink, unlink, remove them or set their category in bulk. Click a torrent's title to see its details, files and events, and to act on it, for example relink, unlink, or change its category and tags in qBittorrent. Check qBittorrent asks the client for the current state of every tracked torrent and updates the Client status column.")
 
 <div class="toolbar-bar">
-    <form method="get" class="toolbar">
-        <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" />
-        @foreach (var (name, value) in (Model.Query with { Q = null }).ToRouteValues())
-        {
-            <input type="hidden" name="@name" value="@value" />
-        }
-        <button type="submit">Search</button>
+    @* A changed dropdown applies straight away; the button is for the search text. *@
+    <form method="get" class="toolbar-stack">
+        <div class="toolbar">
+            <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" aria-label="Search" />
+            <button type="submit">Search</button>
+        </div>
+        <div class="toolbar">
+            <select name="Status" aria-label="Status" onchange="this.form.requestSubmit()">
+                <option value="">Any status</option>
+                @foreach (var (value, label) in TorrentListFilters.StatusOptions)
+                {
+                    <option value="@value" selected="@(Model.Status == value)">@label</option>
+                }
+            </select>
+            <select name="Library" aria-label="Library" onchange="this.form.requestSubmit()">
+                <option value="">Any library</option>
+                @foreach (var library in Model.LibraryOptions)
+                {
+                    <option value="@library" selected="@(Model.Library == library)">@library</option>
+                }
+            </select>
+            <select name="QbCategory" aria-label="qBittorrent category" onchange="this.form.requestSubmit()">
+                <option value="">Any qBittorrent category</option>
+                @foreach (var category in Model.QbCategoryOptions)
+                {
+                    <option value="@category" selected="@(Model.QbCategory == category)">@category</option>
+                }
+            </select>
+            <select name="Problem" aria-label="Problems" onchange="this.form.requestSubmit()">
+                <option value="">Problems or not</option>
+                @foreach (var (value, label) in TorrentListFilters.ProblemOptions)
+                {
+                    <option value="@value" selected="@(Model.Problem == value)">@label</option>
+                }
+            </select>
+            <select name="MediaType" aria-label="Media type" onchange="this.form.requestSubmit()">
+                <option value="">Any media type</option>
+                @foreach (var mediaType in Model.MediaTypeOptions)
+                {
+                    <option value="@mediaType" selected="@(Model.MediaType == mediaType)">@mediaType</option>
+                }
+            </select>
+            <select name="Language" aria-label="Language" onchange="this.form.requestSubmit()">
+                <option value="">Any language</option>
+                @foreach (var language in Model.LanguageOptions)
+                {
+                    <option value="@language" selected="@(Model.Language == language)">@language</option>
+                }
+            </select>
+            @if (Model.Query.HasFilters)
+            {
+                <a id="clear-filters" asp-page="/Torrents/Index"
+                   asp-all-route-data="(Model.Query with { Status = null, Library = null, QbCategory = null, Problem = null, Language = null, MediaType = null }).ToRouteValues()">Clear filters</a>
+            }
+        </div>
+        <input type="hidden" name="Sort" value="@Model.Sort" />
+        <input type="hidden" name="Dir" value="@Model.Dir" />
+        <input type="hidden" name="PageSize" value="@Model.PageSize" />
     </form>
 
     @* Asks qBittorrent about every tracked torrent (not just this page) and swaps in the refreshed list, keeping the current filters, sort and page. *@
@@ -22,13 +73,11 @@
           hx-post="@Url.Page("/Torrents/Index", "CheckClient")" hx-target="#torrent-list-body" hx-swap="innerHTML"
           hx-indicator="#torrent-loading" hx-disabled-elt="find button">
         @Html.AntiForgeryToken()
-        <input type="hidden" name="Q" value="@Model.Q" />
-        <input type="hidden" name="Language" value="@Model.Language" />
-        <input type="hidden" name="MediaType" value="@Model.MediaType" />
-        <input type="hidden" name="Sort" value="@Model.Sort" />
-        <input type="hidden" name="Dir" value="@Model.Dir" />
+        @foreach (var (name, value) in Model.Query.ToRouteValues())
+        {
+            <input type="hidden" name="@name" value="@value" />
+        }
         <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
-        <input type="hidden" name="PageSize" value="@Model.PageSize" />
         <button type="submit">Check qBittorrent</button>
     </form>
 </div>

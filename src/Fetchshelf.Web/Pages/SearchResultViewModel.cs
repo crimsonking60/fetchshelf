@@ -7,6 +7,12 @@ public sealed record SearchResultViewModel(
     long MamId, string Title, string AuthorsDisplay, long SizeBytes, string SizeDisplay, bool IsFree, bool IsPersonalFreeleech, bool IsVip,
     bool WedgePreHighlighted, MamResultStatus Status, string MediaTypeSlug, string MediaTypeLabel)
 {
+    /// <summary>True when qBittorrent has the torrent, false when it doesn't, null when qBittorrent couldn't be asked.</summary>
+    public bool? InQBittorrent { get; init; }
+
+    /// <summary>The torrent's category in qBittorrent, "" for none; only set when <see cref="InQBittorrent"/> is true.</summary>
+    public string? QBittorrentCategory { get; init; }
+
     public static SearchResultViewModel From(MamTorrentRecord record, long sizeBytes, long? wedgeOverBytes, MamResultStatus status) => new(
         record.MamId, record.Title, AuthorsDisplayOf(record), sizeBytes, record.SizeRaw, record.IsFree, record.IsPersonalFreeleech, record.IsVip,
         WedgePreHighlighted: wedgeOverBytes is { } threshold && sizeBytes > threshold,

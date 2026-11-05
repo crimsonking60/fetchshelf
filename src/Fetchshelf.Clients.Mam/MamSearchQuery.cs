@@ -52,6 +52,12 @@ public sealed record MamSearchQuery
 
     public bool ReturnDownloadLink { get; init; }
 
+    /// <summary>Also return each torrent's cover image (<see cref="MamTorrentRecord.Thumbnail"/>).</summary>
+    public bool ReturnThumbnail { get; init; }
+
+    /// <summary>Also return each torrent's technical file details (<see cref="MamTorrentRecord.MediaInfoJson"/>).</summary>
+    public bool ReturnMediaInfo { get; init; }
+
     /// <summary>Set to look up one torrent by MAM id instead of searching.</summary>
     public long? Id { get; init; }
 

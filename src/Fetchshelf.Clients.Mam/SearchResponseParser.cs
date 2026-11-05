@@ -93,7 +93,39 @@ internal static class SearchResponseParser
             IsVip = element.TryGetProperty("vip", out var vipEl) && MamJson.GetBool(vipEl),
             VipExpireUnixSeconds = element.TryGetProperty("vip_expire", out var vipExpireEl) ? MamJson.GetInt64(vipExpireEl) : 0,
             DownloadHash = downloadHash,
+            Thumbnail = GetOptionalString(element, "thumbnail"),
+            MediaInfoJson = ParseMediaInfo(element),
+            RawJson = element.GetRawText(),
         };
+    }
+
+    /// <summary>"mediainfo" is a JSON object, usually sent as a string holding it; anything else counts as none.</summary>
+    private static string? ParseMediaInfo(JsonElement element)
+    {
+        if (!element.TryGetProperty("mediainfo", out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            return value.GetRawText();
+        }
+
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { Length: > 0 } text)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(text);
+            return document.RootElement.ValueKind == JsonValueKind.Object ? document.RootElement.GetRawText() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static string? GetOptionalString(JsonElement element, string propertyName)

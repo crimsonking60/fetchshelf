@@ -19,7 +19,7 @@ public sealed class Library
     /// <summary>How files are placed. Falls back to the global `link_method` when the library sets none.</summary>
     public LibraryLinkMethod Method
     {
-        get => _method ?? LibraryLinkMethod.Hardlink;
+        get => _method ?? LibraryLinkMethod.HardlinkOrCopy;
         set => _method = value;
     }
 

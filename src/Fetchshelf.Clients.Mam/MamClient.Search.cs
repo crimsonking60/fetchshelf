@@ -70,6 +70,8 @@ public sealed partial class MamClient
         Description = true,
         Isbn = true,
         DlLink = query.ReturnDownloadLink,
+        Thumbnail = query.ReturnThumbnail,
+        MediaInfo = query.ReturnMediaInfo,
         PerPage = query.PerPage,
         Tor = new TorDto
         {
