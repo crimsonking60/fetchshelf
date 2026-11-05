@@ -38,6 +38,34 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Get_ConfigPage_ListsHardcoverLists_ButNeverTheToken()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [hardcover]
+            token = "secret-hardcover-token"
+
+            [[hardcover_list]]
+            name = "Wishlist"
+            list = "books-to-fetch"
+            prefer_format = "ebook"
+
+            [[hardcover_list.grab]]
+            cost = "wedge"
+            """);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/config");
+
+        Assert.DoesNotContain("secret-hardcover-token", html);
+        Assert.Contains("Wishlist", html);
+        Assert.Contains("list books-to-fetch", html);
+        Assert.Contains("Ebook", html);
+        Assert.Contains("Wedge", html);
+    }
+
+    [Fact]
     public async Task Post_TriggerAutograbFromConfigPage_RunsThatAutograbbersJob()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);

@@ -62,6 +62,14 @@ token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
 
 # =====================================================================================================
+# [hardcover]: optional. The API token the [[hardcover_list]] blocks below need. Create it in Hardcover
+# under Settings -> Hardcover API, with the permissions read:me, read:library and read:lists.
+# =====================================================================================================
+[hardcover]
+token = "replace-with-your-hardcover-api-token"
+# token_file = "/run/secrets/hardcover_token"   # alternative to token: read it from this file.
+
+# =====================================================================================================
 # [[qbittorrent]]: repeatable. New downloads go to the FIRST entry; linking runs against all of them.
 # =====================================================================================================
 [[qbittorrent]]
@@ -186,6 +194,36 @@ search_interval = 60     # overrides the global search_interval
 dry_run = false
 media_type = ["Audiobook", "Ebook"]
 max_size = "10 GiB"
+
+# =====================================================================================================
+# [[hardcover_list]]: repeatable. Searches MAM for the books with a reading status on Hardcover, or on
+# one of your Hardcover lists. Needs [hardcover]. A book still missing a format is searched for again
+# once a day; the Lists page shows what was found.
+# =====================================================================================================
+[[hardcover_list]]
+name = "Want to Read"
+status = "want_to_read"  # want_to_read, currently_reading, read, paused, did_not_finish
+prefer_format = "audio"  # when both formats are found, download only this one; unset = both
+search_interval = 360    # overrides the global search_interval
+dry_run = false
+
+# One or more grab blocks, tried in order: a cost plus the shared torrent filter. Metadata-only costs
+# are not allowed here.
+[[hardcover_list.grab]]
+cost = "free"
+languages = ["English"]
+
+[[hardcover_list.grab]]
+cost = "wedge"
+languages = ["English"]
+categories = { audio = true, ebook = false }
+
+[[hardcover_list]]
+name = "Books to fetch"
+list = "books-to-fetch"  # instead of status: the slug of one of your lists, from its address
+
+[[hardcover_list.grab]]
+cost = "free"
 
 # =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.

@@ -160,6 +160,32 @@
 </section>
 
 <section>
+    <h3>Hardcover lists</h3>
+    @if (settings.HardcoverList.Count == 0)
+    {
+        <p class="empty">No [[hardcover_list]] entries configured.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Dry run</th></tr></thead>
+            <tbody>
+                @foreach (var entry in settings.HardcoverList)
+                {
+                    <tr>
+                        <td>@entry.Name</td>
+                        <td>@(entry.List is { } slug ? $"list {slug}" : $"status {entry.Status}")</td>
+                        <td>@(entry.PreferFormat?.ToString() ?? "-")</td>
+                        <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
+                        <td>@(entry.DryRun ? "yes" : "no")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Tag rules</h3>
     @if (settings.Tag.Count == 0)
     {

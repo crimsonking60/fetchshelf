@@ -16,6 +16,10 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<EventEntity> Events => Set<EventEntity>();
 
+    public DbSet<ListEntity> Lists => Set<ListEntity>();
+
+    public DbSet<ListItemEntity> ListItems => Set<ListItemEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TorrentEntity>(entity =>
@@ -39,6 +43,17 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasIndex(e => e.TorrentId);
             entity.HasIndex(e => e.MamId);
+        });
+
+        modelBuilder.Entity<ListEntity>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+        });
+
+        modelBuilder.Entity<ListItemEntity>(entity =>
+        {
+            entity.HasKey(i => new { i.ListId, i.ExternalId });
+            entity.HasIndex(i => i.ListId);
         });
     }
 }
