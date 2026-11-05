@@ -76,8 +76,8 @@ public sealed class HardcoverListImporter(
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
             _logger.LogInformation(
-                "Hardcover list {Name}: {Count} books, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
-                name, books.Count, explanation);
+                "Hardcover list {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
+                name, Books(books.Count), explanation);
             return new HardcoverListRunSummary(0, 0);
         }
 
@@ -112,8 +112,8 @@ public sealed class HardcoverListImporter(
         }
 
         _logger.LogInformation(
-            "Hardcover list {Name}: {Count} books, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
-            name, books.Count, searched, selected, entry.DryRun ? "would have been selected (dry run)" : "selected",
+            "Hardcover list {Name}: {Books}, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
+            name, Books(books.Count), searched, selected, entry.DryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
         return new HardcoverListRunSummary(entry.DryRun ? 0 : selected, failed);
     }
@@ -317,6 +317,8 @@ public sealed class HardcoverListImporter(
             name, item.BookTitle, format, winner.Payload.MamId, outcome.Describe(entry.DryRun));
         return outcome == SelectionOutcome.Selected ? 1 : 0;
     }
+
+    private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
 
     private static LogLevel Detail(HardcoverListEntry entry) => entry.DryRun ? LogLevel.Information : LogLevel.Debug;
 
