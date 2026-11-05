@@ -84,7 +84,7 @@ else
                 const hideDownloaded = hideDownloadedCheckbox != null && hideDownloadedCheckbox.checked;
                 document.querySelectorAll('#search-results tbody tr').forEach(function (row) {
                     const matchesMedia = !mediaSlug || row.dataset.mediaType === mediaSlug;
-                    const matchesStatus = !hideDownloaded || row.dataset.status === 'none';
+                    const matchesStatus = !hideDownloaded || (row.dataset.status === 'none' && row.dataset.inQbittorrent !== 'true');
                     row.hidden = !(matchesMedia && matchesStatus);
                 });
                 document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {

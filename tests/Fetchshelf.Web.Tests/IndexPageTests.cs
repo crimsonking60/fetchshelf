@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,6 +87,102 @@ public partial class IndexPageTests
             ]
         }
         """;
+
+    private const string ConfigWithQBittorrent = """
+        mam_id = ""
+
+        [[qbittorrent]]
+        url = "http://qbittorrent.test"
+        username = "admin"
+        password = "adminadmin"
+        """;
+
+    /// <summary>A qBittorrent that has the given torrents; null makes every request fail.</summary>
+    private static Func<HttpRequestMessage, HttpResponseMessage> QBittorrentWith(params QBittorrentTorrent[]? torrents) => request =>
+    {
+        if (torrents is null)
+        {
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        }
+
+        if (request.RequestUri!.AbsolutePath.Contains("auth/login"))
+        {
+            var login = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+            login.Headers.Add("Set-Cookie", "SID=abc; path=/");
+            return login;
+        }
+
+        return request.RequestUri.AbsolutePath.Contains("torrents/info")
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(torrents) }
+            : new HttpResponseMessage(HttpStatusCode.OK);
+    };
+
+    private static QBittorrentTorrent InClient(string hash, string comment, string category) =>
+        new() { Hash = hash, Name = "Some torrent", SavePath = "/downloads", State = "uploading", Progress = 1.0, Comment = comment, Category = category };
+
+    [Fact]
+    public async Task GetResults_TorrentInQBittorrent_ShowsItWithItsCategory()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hashx", "MID=1,UID=9", "mouse")));
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("qBittorrent: mouse", html);
+    }
+
+    [Fact]
+    public async Task GetResults_KnownTorrentWithoutMamComment_IsFoundByItsHash()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hash1", "", "")));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata() with { MamId = 1 }, libraryPath: "/library/x");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Single().MamId = 1;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("qBittorrent: no category", html);
+    }
+
+    [Fact]
+    public async Task GetResults_LinkedTorrentQBittorrentNoLongerHas_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("other", "MID=99", "")));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: "/library/x");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Single().MamId = 1;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("status-linked", html);
+        Assert.Contains("Not in qBittorrent", html);
+    }
+
+    [Fact]
+    public async Task GetResults_QBittorrentUnreachable_StillShowsTheResults_WithoutAQBittorrentMark()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)), qbittorrentHandler: QBittorrentWith(null));
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("The Way of Kings", html);
+        Assert.DoesNotContain("qBittorrent:", html);
+        Assert.DoesNotContain("Not in qBittorrent", html);
+    }
 
     private static Func<HttpRequestMessage, HttpResponseMessage> MamHandler(string searchJson) => request =>
     {

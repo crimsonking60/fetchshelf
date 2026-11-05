@@ -611,8 +611,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead. Either way you get at most the 100 newest matches; there
   are no further pages, so make the search more specific if what you want is not there.
-- **Hide downloaded torrents** hides every result that has a status (see below), so only torrents Fetchshelf
-  has not handled yet remain.
+- **Hide downloaded torrents** hides every result that has a status or is in qBittorrent (see below), so
+  only torrents you don't have yet remain.
 - **Show** limits the list to one kind of torrent:
 
   | Choice | Shows |
@@ -627,8 +627,12 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   of MAM, so they cannot bring in more results, and they are reset when you run a new search.
 - Each result shows its title, authors, media type, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
-  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. It does not
-  show torrents you snatched outside Fetchshelf.
+  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.
+- Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
+  you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
+  `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded
+  or linked that qBittorrent no longer has. Fetchshelf reads qBittorrent's torrent list at most every two
+  minutes, in the background, so a torrent added a moment ago can take that long to show.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:

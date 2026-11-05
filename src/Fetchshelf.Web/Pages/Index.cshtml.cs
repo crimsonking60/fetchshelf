@@ -19,6 +19,7 @@ namespace Fetchshelf.Web.Pages;
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
     FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
+    QBittorrentPresenceCache qbittorrentPresence,
     ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
@@ -63,12 +64,17 @@ public class IndexModel(
         {
             var result = await mamClient.SearchAsync(query);
             var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
-            var statusByMamId = await LoadStatusesAsync(result.Data.Select(record => record.MamId).ToList());
+            var mamIds = result.Data.Select(record => record.MamId).ToList();
+            var statusByMamId = await LoadStatusesAsync(mamIds);
+            var presence = await qbittorrentPresence.GetAsync();
+            var hashesByMamId = await KnownHashesAsync(mamIds);
 
             Results = result.Data
-                .Select(record => SearchResultViewModel.From(
-                    record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-                    statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)))
+                .Select(record => WithQBittorrent(
+                    SearchResultViewModel.From(
+                        record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
+                        statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)),
+                    presence, hashesByMamId.GetValueOrDefault(record.MamId) ?? []))
                 .ToList();
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
@@ -81,6 +87,23 @@ public class IndexModel(
         ResultsLoaded = true;
         return Partial("_SearchResultsPartial", this);
     }
+
+    /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>
+    private static SearchResultViewModel WithQBittorrent(SearchResultViewModel row, QBittorrentPresence presence, IEnumerable<string> knownHashes)
+    {
+        if (!presence.Loaded)
+        {
+            return row;
+        }
+
+        var category = presence.CategoryOf(row.MamId, knownHashes);
+        return row with { InQBittorrent = category is not null, QBittorrentCategory = category };
+    }
+
+    private async Task<Dictionary<long, List<string>>> KnownHashesAsync(List<long> mamIds) =>
+        (await dbContext.Torrents.Where(t => mamIds.Contains(t.MamId)).Select(t => new { t.MamId, t.Id }).ToListAsync())
+            .GroupBy(t => t.MamId)
+            .ToDictionary(g => g.Key, g => g.Select(t => t.Id).ToList());
 
     /// <summary>
     /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the

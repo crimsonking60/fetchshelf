@@ -281,6 +281,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .status-selected { --badge: var(--c-info); }
 .status-downloaded { --badge: var(--c-warn); }
 .status-linked { --badge: var(--c-ok); }
+.status-not-in-qbittorrent { --badge: var(--c-warn); }
 .badge-freeleech { --badge: var(--c-ok); }
 .badge-personal-freeleech { --badge: var(--c-info); }
 .badge-vip { --badge: var(--c-vip); }

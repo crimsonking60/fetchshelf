@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Clients.QBittorrent;
 
 /// <summary>A torrent as reported by qBittorrent's `torrents/info`.</summary>
-public sealed record QBittorrentTorrent
+public sealed partial record QBittorrentTorrent
 {
     [JsonPropertyName("hash")]
     public required string Hash { get; init; }
@@ -27,10 +29,23 @@ public sealed record QBittorrentTorrent
     [JsonPropertyName("state")]
     public required string State { get; init; }
 
+    /// <summary>The .torrent file's comment, which qBittorrent 5 reports. MAM writes "MID=&lt;torrent id&gt;,UID=&lt;user id&gt;" there.</summary>
+    [JsonPropertyName("comment")]
+    public string Comment { get; init; } = string.Empty;
+
+    /// <summary>The MAM torrent id from <see cref="Comment"/>, or null when the comment has none.</summary>
+    public long? MamId => MamIdPattern().Match(Comment) is { Success: true } match
+        && long.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            ? id
+            : null;
+
     public IReadOnlyList<string> TagList => Tags.Length == 0
         ? []
         : Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>A torrent is finished when, and only when, its progress is 100%.</summary>
     public bool IsFinished => Progress >= 1.0;
+
+    [GeneratedRegex(@"\bMID=(\d+)")]
+    private static partial Regex MamIdPattern();
 }

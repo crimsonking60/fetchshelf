@@ -3,7 +3,7 @@
     var result = Model.Result;
 }
 @* SwapOob is set when htmx returns this row after a download, to replace the row already on the page (see _DownloadFeedbackPartial). *@
-<tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()">
+<tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()" data-in-qbittorrent="@(result.InQBittorrent == true ? "true" : null)">
     <td>@result.Title</td>
     <td>
         @if (result.AuthorsShortened)
@@ -29,6 +29,15 @@
             case MamResultStatus.Linked:
                 <span class="status-badge status-linked">Linked</span>
                 break;
+        }
+        @if (result.InQBittorrent == true)
+        {
+            var category = string.IsNullOrEmpty(result.QBittorrentCategory) ? "no category" : result.QBittorrentCategory;
+            <span class="status-badge status-qbittorrent" title="In qBittorrent, category: @category">qBittorrent: @category</span>
+        }
+        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloaded or MamResultStatus.Linked)
+        {
+            <span class="status-badge status-not-in-qbittorrent" title="Fetchshelf has this torrent, but qBittorrent no longer does">Not in qBittorrent</span>
         }
     </td>
     <td class="nowrap">@result.SizeDisplay</td>

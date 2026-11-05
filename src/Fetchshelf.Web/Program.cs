@@ -64,6 +64,7 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IJobRegistry, JobRegistry>();
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
+builder.Services.AddSingleton<QBittorrentPresenceCache>();
 builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId });
 builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 {

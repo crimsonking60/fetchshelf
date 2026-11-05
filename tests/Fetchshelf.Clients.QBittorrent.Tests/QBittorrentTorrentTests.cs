@@ -22,4 +22,13 @@ public class QBittorrentTorrentTests
     {
         Assert.True(Build(1.0).IsFinished);
     }
+
+    [Theory]
+    [InlineData("MID=1151879,UID=260299", 1151879L)]
+    [InlineData("UID=260299,MID=42", 42L)]
+    [InlineData("", null)]
+    [InlineData("Made with mktorrent", null)]
+    [InlineData("AMID=7", null)]
+    public void MamId_IsReadFromMamsComment(string comment, long? expected) =>
+        Assert.Equal(expected, (Build(1.0) with { Comment = comment }).MamId);
 }
