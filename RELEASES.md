@@ -59,6 +59,10 @@ category of several torrents at once, and the Search page shows which torrents q
   never linked.
 - The Link job didn't save the current qBittorrent category of a torrent no library accepts, so the
   **Torrents** page showed an old one.
+- A linked torrent whose category was changed to another library's showed that other library in the
+  **Library** column, next to the *Different library* flag that said it wasn't there. The column now shows the
+  library the files are in, and corrects itself on the next Link run. **Relink selected** moves such torrents to
+  the library their category points to.
 
 ## 2026.11.2 - 2026-11-03
 
