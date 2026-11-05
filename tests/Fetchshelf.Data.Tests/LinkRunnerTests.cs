@@ -563,6 +563,37 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_KnownTorrentNoLibraryAccepts_IsFlagged_UntilItsCategoryMatchesOne()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var metadata = OrganizerTestSupport.BuildMetadata();
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = metadata.MamId,
+            NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+            Title = metadata.Title,
+            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+        var runner = CreateRunner(context, new FakeMetadataLookup(metadata), [CreateLibrary(LibraryDir)]);
+        var files = new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] };
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient([FinishedTorrent("hash1", DownloadsDir, "elsewhere")], files));
+        var unclaimed = await context.Torrents.AsNoTracking().SingleAsync();
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient([FinishedTorrent("hash1", DownloadsDir, "audiobooks")], files));
+        var linked = await context.Torrents.AsNoTracking().SingleAsync();
+
+        Assert.Null(unclaimed.LibraryPath);
+        Assert.Equal(nameof(LibraryMismatchState.NoLibrary), unclaimed.LibraryMismatchState);
+        Assert.Equal("elsewhere", unclaimed.QBittorrentCategory);
+        Assert.NotNull(linked.LibraryPath);
+        Assert.Null(linked.LibraryMismatchState);
+    }
+
+    [Fact]
     public async Task RunAsync_ManualSourceTorrent_MetadataUnchangedByPlainLinkRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

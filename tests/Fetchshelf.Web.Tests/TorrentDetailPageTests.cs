@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Fetchshelf.Web.Tests;
 
 public class TorrentDetailPageTests
@@ -64,5 +66,23 @@ public class TorrentDetailPageTests
         var match = System.Text.RegularExpressions.Regex.Match(
             html, @"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""");
         return match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+    }
+
+    [Fact]
+    public async Task Get_NotLinkedBecauseNoLibraryAcceptsIt_SaysWhatToDo()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.FetchshelfDbContext>();
+            var torrent = dbContext.Torrents.Single();
+            torrent.LibraryMismatchState = "NoLibrary";
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        Assert.Contains("Not linked: no library accepts this torrent's qBittorrent category", html);
     }
 }

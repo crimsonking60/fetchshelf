@@ -1006,7 +1006,9 @@ book, and the next Link run links it again if a library still accepts it.
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
 from where it is. The torrent is then flagged in the *Mismatch* column on the **Torrents** page:
 
-- **No library:** no library accepts the torrent any more.
+- **No library:** no library accepts the torrent any more. A torrent Fetchshelf knows but has never linked,
+  such as one that was already in qBittorrent under another category, gets this flag too, and the log says
+  which category it has. Give it a library's category with **Set category** and the next Link run links it.
 - **Different library:** it now belongs in another library.
 - **Different folder:** it belongs in the same library, but in a different folder.
 
@@ -1055,9 +1057,10 @@ reported, so they cannot be chosen by hand.
   the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns below the
   search box show only some of the torrents, and apply as soon as you choose:
   - *Status*: *Linked*, or *Not linked*, which covers the four kinds below. *Waiting to be linked* means the
-    Link job hasn't linked it yet, because it is still downloading or no library matched it. *Replaced*
-    means the Clean job retired it for a better copy, and *Unlinked by you* that you unlinked it. *Metadata
-    only* is a book recorded with `metadata_only_add`, which Fetchshelf never downloads.
+    Link job hasn't linked it yet, because it is still downloading or no library accepts it (then it is also
+    flagged *No library*). *Replaced* means the Clean job retired it for a better copy, and *Unlinked by
+    you* that you unlinked it. *Metadata only* is a book recorded with `metadata_only_add`, which Fetchshelf
+    never downloads.
   - *Library*: the `[[library]]` the torrent was linked into.
   - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
     **Check qBittorrent**.

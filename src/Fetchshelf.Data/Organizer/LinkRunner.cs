@@ -149,7 +149,14 @@ public sealed class LinkRunner(
 
         if (matchedIndex is null)
         {
-            return; // tracked but no library claims it
+            // Known but unclaimed: flagged as a problem rather than left waiting without a word. Linking it later,
+            // once a library accepts it, clears the flag.
+            existing!.LibraryMismatchState = nameof(LibraryMismatchState.NoLibrary);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation(
+                "{Title}: no library accepts its qBittorrent category {Category}, save path {SavePath} or tags",
+                existing.Title, string.IsNullOrEmpty(torrent.Category) ? "(none)" : torrent.Category, mappedSavePath);
+            return;
         }
 
         var library = libraries[matchedIndex.Value];
