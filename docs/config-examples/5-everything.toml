@@ -24,6 +24,8 @@ min_ratio = 2        # never download anything that would take the account below
 unsat_buffer = 10    # unsatisfied-snatch slots always left free
 wedge_buffer = 3     # freeleech wedges always left unused
 add_torrents_stopped = false
+download_after_selection = true # start downloading as soon as something is selected; false = wait for the
+                                # next scheduled Download run, leaving time to check the Selected page
 
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page

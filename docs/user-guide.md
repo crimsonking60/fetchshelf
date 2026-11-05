@@ -646,7 +646,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 A manual download goes through the same steps as an automatic one. It becomes a **selection**, which the
 downloader processes with the ratio, unsatisfied-slot and wedge checks (see
 [Protecting your account](#protecting-your-account)) and then adds to qBittorrent with the category and tags
-from your `[[tag]]` rules. You can follow it on the **Selected** page.
+from your `[[tag]]` rules. The download starts straight away, unless `download_after_selection = false`
+makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
 
 ## Automatic downloads
 
@@ -1150,7 +1151,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | After autograb and Hardcover list runs select something, and every `search_interval` minutes. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |

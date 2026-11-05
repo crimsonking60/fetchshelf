@@ -32,6 +32,7 @@ public static class ConfigLoader
         ["unsat_buffer"] = (s, v) => s.UnsatBuffer = int.Parse(v, CultureInfo.InvariantCulture),
         ["wedge_buffer"] = (s, v) => s.WedgeBuffer = int.Parse(v, CultureInfo.InvariantCulture),
         ["add_torrents_stopped"] = (s, v) => s.AddTorrentsStopped = bool.Parse(v),
+        ["download_after_selection"] = (s, v) => s.DownloadAfterSelection = bool.Parse(v),
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),

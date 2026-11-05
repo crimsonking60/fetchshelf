@@ -1,5 +1,6 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
@@ -17,7 +18,8 @@ namespace Fetchshelf.Web.Pages;
 /// </summary>
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
-    FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, ILogger<IndexModel> logger) : PageModel
+    FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
+    ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
     [TempData]
@@ -133,7 +135,8 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autograbCategory: null, grabberName: "Manual search");
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                message = DescribeOutcome(outcome, metadata, formatPreferenceLists);
+                var downloadStarted = outcome == SelectionOutcome.Selected && StartDownload();
+                message = DescribeOutcome(outcome, metadata, formatPreferenceLists, downloadStarted);
             }
             else
             {
@@ -170,16 +173,34 @@ public class IndexModel(
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
     }
 
+    /// <summary>
+    /// Starts the Download job for a new selection, unless `download_after_selection` is off or no jobs run. It runs
+    /// in the background, like Run now on the Jobs page, so the page answers at once.
+    /// </summary>
+    private bool StartDownload()
+    {
+        if (!settings.DownloadAfterSelection || jobRegistry.Get(JobNames.Download) is null)
+        {
+            return false;
+        }
+
+        _ = jobRegistry.TriggerAsync(JobNames.Download, CancellationToken.None);
+        return true;
+    }
+
     /// <summary>True when the browser gave up on the request: nobody is left to show an error to, so let it propagate.</summary>
     private bool IsRequestAborted(Exception exception) =>
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
-    private static string DescribeOutcome(SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists)
+    private static string DescribeOutcome(
+        SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists, bool downloadStarted)
     {
         var title = $"\"{metadata.Title}\"";
         return outcome switch
         {
-            SelectionOutcome.Selected => $"Selected {title}.",
+            SelectionOutcome.Selected => downloadStarted
+                ? $"Selected {title}; the Download job is starting it now."
+                : $"Selected {title}; it starts at the next Download run.",
             SelectionOutcome.RefreshedSelected => $"{title} is already selected.",
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>

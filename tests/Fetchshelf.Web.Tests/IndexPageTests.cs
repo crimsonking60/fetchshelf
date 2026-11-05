@@ -474,6 +474,39 @@ public partial class IndexPageTests
         Assert.Equal("Manual search", selected.GrabberName);
     }
 
+    [Theory]
+    [InlineData(true, "the Download job is starting it now")]
+    [InlineData(false, "it starts at the next Download run")]
+    public async Task Post_Download_StartsTheDownloadJob_UnlessDownloadAfterSelectionIsOff(bool downloadAfterSelection, string expected)
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            $"mam_id = \"\"\ndownload_after_selection = {(downloadAfterSelection ? "true" : "false")}\n",
+            mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register("Download", _ =>
+        {
+            started.TrySetResult();
+            return Task.CompletedTask;
+        });
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+
+        Assert.Contains(expected, body);
+        var finished = await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(downloadAfterSelection ? 10 : 1)));
+        Assert.Equal(downloadAfterSelection, finished == started.Task);
+    }
+
     [Fact]
     public async Task Post_Download_FromHtmx_ReturnsMessageAndRefreshedRowInsteadOfRedirecting()
     {

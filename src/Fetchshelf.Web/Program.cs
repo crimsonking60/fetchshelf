@@ -338,7 +338,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<AutograbberRunner>();
             var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0)
+            if (selectedCount > 0 && settings.DownloadAfterSelection)
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);
             }
@@ -371,7 +371,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<HardcoverListImporter>();
             var summary = await importer.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-            if (summary.Selected > 0)
+            if (summary.Selected > 0 && settings.DownloadAfterSelection)
             {
                 await jobRegistry.TriggerAsync(JobNames.Download, ct);
             }
