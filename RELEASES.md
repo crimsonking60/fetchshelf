@@ -42,6 +42,10 @@ category of several torrents at once, and the Search page shows which torrents q
   added it outside Fetchshelf (this needs qBittorrent 5), or that qBittorrent no longer has one Fetchshelf
   downloaded. **Import** replaces the download buttons on a torrent qBittorrent has but Fetchshelf doesn't
   know: it records the torrent without downloading it.
+- **Search** page: a result's title opens everything MAM returns for it, over the results: cover, narrators,
+  series, language, categories, flags, tags, ISBN or ASIN, files, uploader, seeders, cost, the description, the
+  media info (duration, format, bitrate and more, where MAM has it) and every raw field, and whether Fetchshelf
+  and qBittorrent have it.
 
 ### Changed
 
