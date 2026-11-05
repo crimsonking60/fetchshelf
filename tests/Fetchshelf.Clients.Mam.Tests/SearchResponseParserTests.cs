@@ -103,4 +103,33 @@ public class SearchResponseParserTests
         Assert.Empty(result.Data);
         Assert.Equal(0, result.Found);
     }
+
+    [Fact]
+    public void Parse_ThumbnailMediaInfoAndEveryRawField_AreKept()
+    {
+        var json = ResponseJson.Replace(
+            "\"dl\": \"abcdef0123456789\"",
+            "\"dl\": \"abcdef0123456789\", \"thumbnail\": \"https://cdn.example/t.jpg\", \"lang_code\": \"ENG\", "
+            + "\"mediainfo\": \"{\\\"General\\\":{\\\"Duration\\\":\\\"12h 3m\\\"},\\\"Audio1\\\":{\\\"BitRate\\\":\\\"64 kb/s\\\"}}\"",
+            StringComparison.Ordinal);
+
+        var record = Assert.Single(SearchResponseParser.Parse(Parse(json)).Data);
+
+        Assert.Equal("https://cdn.example/t.jpg", record.Thumbnail);
+        using var mediaInfo = JsonDocument.Parse(record.MediaInfoJson!);
+        Assert.Equal("12h 3m", mediaInfo.RootElement.GetProperty("General").GetProperty("Duration").GetString());
+        using var raw = JsonDocument.Parse(record.RawJson);
+        Assert.Equal("ENG", raw.RootElement.GetProperty("lang_code").GetString());
+    }
+
+    [Theory]
+    [InlineData("\"\"")]
+    [InlineData("\"not json\"")]
+    [InlineData("null")]
+    public void Parse_MediaInfoMissingOrUnreadable_IsNull(string mediaInfo)
+    {
+        var json = ResponseJson.Replace("\"dl\": \"abcdef0123456789\"", $"\"dl\": \"abcdef0123456789\", \"mediainfo\": {mediaInfo}", StringComparison.Ordinal);
+
+        Assert.Null(Assert.Single(SearchResponseParser.Parse(Parse(json)).Data).MediaInfoJson);
+    }
 }

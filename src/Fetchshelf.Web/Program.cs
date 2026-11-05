@@ -229,6 +229,7 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AddPageRoute("/Torrents/Detail", "torrents/{id}");
     options.Conventions.AddPageRoute("/Torrents/Edit", "torrents/{id}/edit");
+    options.Conventions.AddPageRoute("/Search/Detail", "search/{mamId:long}");
 });
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 

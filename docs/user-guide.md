@@ -625,6 +625,12 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 
   These two filters only hide rows in the results already on the page. They do not change what is asked
   of MAM, so they cannot bring in more results, and they are reset when you run a new search.
+- Click a result's title for everything MAM returns for it: cover, narrators, series, language,
+  categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
+  info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
+  and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
+  **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
+  its own.
 - Each result shows its title, authors, media type, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
   library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.

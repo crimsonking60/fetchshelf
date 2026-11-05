@@ -64,4 +64,16 @@ public class SearchRequestBuilderTests
 
         Assert.Equal("abc123", json.GetProperty("tor").GetProperty("hash").GetString());
     }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void BuildSearchRequestBody_ThumbnailAndMediaInfo_AreOnlyAskedForWhenWanted(bool thumbnail, bool mediaInfo)
+    {
+        var dto = MamClient.BuildSearchRequestBody(new MamSearchQuery { Id = 1, ReturnThumbnail = thumbnail, ReturnMediaInfo = mediaInfo });
+        var json = JsonSerializer.SerializeToElement(dto);
+
+        Assert.Equal(thumbnail, json.GetProperty("thumbnail").GetBoolean());
+        Assert.Equal(mediaInfo, json.GetProperty("mediaInfo").GetBoolean());
+    }
 }

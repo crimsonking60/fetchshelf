@@ -82,6 +82,18 @@ public sealed record MamTorrentRecord
 
     /// <summary>The hash used to build a download URL.</summary>
     public string? DownloadHash { get; init; }
+
+    /// <summary>The cover image's address, when the search asked for it (<see cref="MamSearchQuery.ReturnThumbnail"/>).</summary>
+    public string? Thumbnail { get; init; }
+
+    /// <summary>
+    /// The files' technical details as a JSON object (sections such as "General" and "Audio1"), when the search asked
+    /// for them (<see cref="MamSearchQuery.ReturnMediaInfo"/>) and MAM has them. MAM sends it as JSON inside a string.
+    /// </summary>
+    public string? MediaInfoJson { get; init; }
+
+    /// <summary>Every field MAM returned for the torrent, as the JSON object it sent.</summary>
+    public string RawJson { get; init; } = "{}";
 }
 
 public sealed record MamSeriesInfo(string Name, string Number);

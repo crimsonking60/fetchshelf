@@ -4,7 +4,9 @@
 }
 @* SwapOob is set when htmx returns this row after a download, to replace the row already on the page (see _DownloadFeedbackPartial). *@
 <tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()" data-in-qbittorrent="@(result.InQBittorrent == true ? "true" : null)">
-    <td>@result.Title</td>
+    @* A click opens the details in a dialog over the results, which stay as they are; the link itself is the full page, for a new tab. *@
+    <td><a asp-page="/Search/Detail" asp-route-mamId="@result.MamId" asp-route-Q="@Context.Request.Query["Q"]"
+           hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = result.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@result.Title</a></td>
     <td>
         @if (result.AuthorsShortened)
         {
