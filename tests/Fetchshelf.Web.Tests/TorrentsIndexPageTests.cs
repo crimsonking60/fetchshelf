@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -197,6 +198,26 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_QbCategoryFilter_ShowsOnlyThatCategory_AndOffersTheCategoriesInUse()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Ebook One", t => t.QBittorrentCategory = "fetchshelf-ebooks");
+        await SeedAsync(fixture, "hash2", "Audiobook One", t => t.QBittorrentCategory = "fetchshelf-audiobooks");
+        await SeedAsync(fixture, "hash3", "No Category", _ => { });
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?QbCategory=fetchshelf-ebooks"));
+
+        Assert.Contains("Ebook One", html);
+        Assert.DoesNotContain("Audiobook One", html);
+        Assert.DoesNotContain("No Category", html);
+        Assert.Contains("<option value=\"fetchshelf-ebooks\" selected=\"selected\">fetchshelf-ebooks</option>", html);
+        Assert.Contains("<option value=\"fetchshelf-audiobooks\">fetchshelf-audiobooks</option>", html);
+        var clearLink = Regex.Match(html, @"<a id=""clear-filters"" href=""([^""]*)""").Groups[1].Value;
+        Assert.DoesNotContain("QbCategory", clearLink);
+    }
+
+    [Fact]
     public async Task Get_LibraryAndProblemFilters_Combine()
     {
         using var fixture = new FetchshelfWebAppFixture();
@@ -345,5 +366,115 @@ public class TorrentsIndexPageTests
         var match = System.Text.RegularExpressions.Regex.Match(
             html, @"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""");
         return match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+    }
+
+    private const string ConfigWithLibraries = """
+        mam_id = ""
+
+        [[qbittorrent]]
+        url = "http://qbittorrent.test"
+        username = "admin"
+        password = "adminadmin"
+
+        [[library]]
+        name = "Ebooks"
+        library_dir = "/library/ebooks"
+        category = "fetchshelf-ebooks"
+
+        [[library]]
+        name = "Audiobooks"
+        library_dir = "/library/audiobooks"
+        category = "fetchshelf-audiobooks"
+
+        [[library]]
+        library_dir = "/library/other"
+        download_dir = "/downloads/other"
+        """;
+
+    [Fact]
+    public async Task Get_OffersTheCategoriesTheLibrariesUse()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithLibraries);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents");
+
+        var start = html.IndexOf("id=\"bulk-category\"", StringComparison.Ordinal);
+        var select = html[start..html.IndexOf("</select>", start, StringComparison.Ordinal)];
+        var options = Regex.Matches(select, @"<option value=""([^""]*)""[^>]*>([^<]*)</option>").Select(m => m.Groups[2].Value);
+        Assert.Equal(["Choose a category", "fetchshelf-ebooks (Ebooks)", "fetchshelf-audiobooks (Audiobooks)"], options);
+    }
+
+    [Fact]
+    public async Task Get_NoLibraryUsesACategory_HasNoCategoryDropdown()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents");
+
+        Assert.DoesNotContain("id=\"bulk-category\"", html);
+    }
+
+    [Fact]
+    public async Task Post_BulkSetCategory_SetsItInQBittorrentAndShowsIt()
+    {
+        var categoriesSet = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithLibraries, qbittorrentHandler: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("setCategory"))
+            {
+                categoriesSet.Add(Uri.UnescapeDataString(request.Content!.ReadAsStringAsync().Result));
+            }
+
+            return OrganizerTestSupport.FakeQBittorrentServer("hash1")(request);
+        });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["selectedIds"] = "hash1",
+            ["action"] = "setCategory",
+            ["category"] = "fetchshelf-ebooks",
+            ["__RequestVerificationToken"] = token,
+        });
+        var html = System.Net.WebUtility.HtmlDecode(await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync());
+
+        Assert.Contains(categoriesSet, c => c.Contains("hashes=hash1", StringComparison.Ordinal) && c.Contains("category=fetchshelf-ebooks", StringComparison.Ordinal));
+        Assert.Contains("Set the category to fetchshelf-ebooks for 1 torrent.", html);
+        using var scope = fixture.CreateScope();
+        Assert.Equal("fetchshelf-ebooks", scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.Single().QBittorrentCategory);
+    }
+
+    [Fact]
+    public async Task Post_BulkSetCategory_WithoutALibraryCategory_ChangesNothing()
+    {
+        var categoriesSet = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithLibraries, qbittorrentHandler: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("setCategory"))
+            {
+                categoriesSet.Add(request.RequestUri.AbsolutePath);
+            }
+
+            return OrganizerTestSupport.FakeQBittorrentServer("hash1")(request);
+        });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["selectedIds"] = "hash1",
+            ["action"] = "setCategory",
+            ["category"] = "",
+            ["__RequestVerificationToken"] = token,
+        });
+        var html = await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync();
+
+        Assert.Empty(categoriesSet);
+        Assert.Contains("Choose one of your libraries", html);
     }
 }

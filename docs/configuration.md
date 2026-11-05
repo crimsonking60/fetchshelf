@@ -121,7 +121,7 @@ These go at the top of the file, before any section.
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `download_after_selection` | `true` | Start the Download job as soon as an autograb, a Hardcover list or the Search page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
-| `link_method` | `"hardlink"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
+| `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
@@ -517,7 +517,7 @@ library, in file order, that accepts it is used.
 | Value | Behaviour |
 |---|---|
 | `hardlink` | Hard link; fails if source and library are on different filesystems. |
-| `hardlink_or_copy` | Hard link, falling back to a copy. |
+| `hardlink_or_copy` (default) | Hard link, falling back to a copy. |
 | `hardlink_or_symlink` | Hard link, falling back to a symbolic link. |
 | `copy` | Copy the files. |
 | `symlink` | Symbolic link. |

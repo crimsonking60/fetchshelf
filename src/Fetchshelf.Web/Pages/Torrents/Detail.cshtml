@@ -59,7 +59,7 @@
         @* Untick a tag to remove it; add new ones, separated by commas. *@
         <form id="category-tags-form" method="post" asp-page-handler="SetCategoryAndTags" asp-route-id="@torrent.Id" class="edit-form">
             @Html.AntiForgeryToken()
-            <label>Category <input type="text" name="category" value="@state.Category" /></label>
+            <label>Category @await Html.PartialAsync("_LibraryCategorySelect", new LibraryCategorySelectViewModel(Model.CategoryOptions, state.Category, "category-select"))</label>
             @if (state.TagList.Count > 0)
             {
                 <fieldset>

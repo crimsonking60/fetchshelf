@@ -27,7 +27,7 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Equal("/library/audiobooks", library.LibraryDir);
         Assert.Equal("audiobooks", library.Category);
         Assert.Null(library.DownloadDir);
-        Assert.Equal(LibraryLinkMethod.Hardlink, library.Method);
+        Assert.Equal(LibraryLinkMethod.HardlinkOrCopy, library.Method);
         Assert.Empty(library.AllowTags);
         Assert.Empty(library.DenyTags);
         Assert.Null(library.AudioTypes);

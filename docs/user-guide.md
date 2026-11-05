@@ -81,9 +81,8 @@ You need:
   library needs nothing from Fetchshelf.
 - **Disk layout that allows hardlinks**, if you want files to appear in the library without using extra
   space. Hardlinks only work when the download folder and the library folder are on the **same
-  filesystem** and, in Docker, reach Fetchshelf through the **same mount**. Otherwise use the copy or
-  symlink link methods (see
-  [Setting up your library](#setting-up-your-library)).
+  filesystem** and, in Docker, reach Fetchshelf through the **same mount**. Otherwise Fetchshelf copies
+  the files, which takes as much space again (see [Link methods](#link-methods)).
 
 ## Installing with Docker
 
@@ -218,7 +217,7 @@ Fetchshelf, which it needs to match them.
 
 Fetchshelf must mount the shared parent folder, not `torrents` and `library` separately. A hardlink cannot
 cross from one mount to another, even when both are on the same disk, so with two separate mounts every
-hardlink fails.
+hardlink fails and Fetchshelf copies the files instead, using twice the space.
 
 If you do not use Audiobookshelf, leave out its service. Any other app that reads your library just needs
 access to `/srv/media/library`.
@@ -549,8 +548,8 @@ linked into it.
 
 | Method | Behaviour | When to use it |
 |---|---|---|
-| `hardlink` (default) | A second name for the same file. No extra space. Needs the same filesystem. | Downloads and library share a filesystem and you keep seeding. |
-| `hardlink_or_copy` | Hardlink, falling back to a copy. | You are not sure the folders are on the same filesystem. |
+| `hardlink` | A second name for the same file. No extra space. Needs the same filesystem; fails otherwise. | Downloads and library share a filesystem, and you would rather see an error than use space on a copy. |
+| `hardlink_or_copy` (default) | Hardlink, falling back to a copy. | Most setups: no extra space where hardlinks work, a copy where they don't. |
 | `hardlink_or_symlink` | Hardlink, falling back to a symbolic link. | As above, but you prefer links to copies. |
 | `copy` | A full copy. | The library is on a different disk. Uses extra space. |
 | `symlink` | A symbolic link to the download. | Rarely. Some programs cannot follow links. |
@@ -563,7 +562,7 @@ To use the same method for all your libraries, set it once at the top of the fil
 `[[library]]`. A library's own `method` still wins:
 
 ```toml
-link_method = "hardlink_or_copy"
+link_method = "hardlink"
 ```
 
 ## Connecting to Audiobookshelf
@@ -648,6 +647,10 @@ downloader processes with the ratio, unsatisfied-slot and wedge checks (see
 [Protecting your account](#protecting-your-account)) and then adds to qBittorrent with the category and tags
 from your `[[tag]]` rules. The download starts straight away, unless `download_after_selection = false`
 makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
+
+If qBittorrent already has the torrent, in any category, Fetchshelf doesn't add it again and spends no
+wedge on it. It records the torrent, which then shows on the **Torrents** page, and leaves its category in
+qBittorrent as it is. The Link job links it once its category or save path matches one of your libraries.
 
 ## Automatic downloads
 
@@ -1049,13 +1052,15 @@ reported, so they cannot be chosen by hand.
 
 - **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
   several words each must appear somewhere in those, in any order. The newest torrents come first; click
-  the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns next to the
+  the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns below the
   search box show only some of the torrents, and apply as soon as you choose:
   - *Status*: *Linked*, or *Not linked*, which covers the four kinds below. *Waiting to be linked* means the
     Link job hasn't linked it yet, because it is still downloading or no library matched it. *Replaced*
     means the Clean job retired it for a better copy, and *Unlinked by you* that you unlinked it. *Metadata
     only* is a book recorded with `metadata_only_add`, which Fetchshelf never downloads.
   - *Library*: the `[[library]]` the torrent was linked into.
+  - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
+    **Check qBittorrent**.
   - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
     from qBittorrent, or either.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
@@ -1084,6 +1089,12 @@ reported, so they cannot be chosen by hand.
   - *Unlink* takes the books out of your library and keeps qBittorrent seeding them (see
     [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
+  - **Set category**, below the other buttons, gives the ticked torrents one of the qBittorrent categories
+    your `[[library]]` blocks use, chosen from the dropdown. That is how a torrent added outside Fetchshelf, or
+    under another category, gets linked: the next Link run picks it up. Moving an already linked torrent to
+    another library's category marks it with a library mismatch; **Relink selected** then moves it. In
+    qBittorrent, a torrent in Automatic Torrent Management mode also moves its files to the new category's
+    save path.
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
@@ -1093,7 +1104,9 @@ reported, so they cannot be chosen by hand.
   it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
   qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
   replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
-  untick a tag to remove it, type new ones separated by commas, and press **Set category and tags**.
+  choose one of your libraries' categories, untick a tag to remove it, type new ones separated by commas,
+  and press **Set category and tags**. A category no library uses is only offered when the torrent already
+  has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
   through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
@@ -1323,9 +1336,9 @@ container name rather than `localhost`, and make sure both containers share a ne
 
 - *Source missing.* Fetchshelf cannot see the path qBittorrent reported. Add or fix `path_mapping`, or
   mount the same folder in both containers.
-- *Cross-device link.* Hardlinks need the same filesystem, and in Docker the same mount: two separate
-  mounts count as different devices even on one disk. Mount the folder that holds both downloads and
-  library, or use `hardlink_or_copy`.
+- *Cross-device link* (with `method = "hardlink"`). Hardlinks need the same filesystem, and in Docker the
+  same mount: two separate mounts count as different devices even on one disk. Mount the folder that holds
+  both downloads and library, or use the default `hardlink_or_copy`.
 - *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
   rules and `[[library]]` entries.
 - *No author.* The torrent has no author in its metadata. Use **Edit** to add one.

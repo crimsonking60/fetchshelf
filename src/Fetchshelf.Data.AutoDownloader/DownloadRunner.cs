@@ -135,10 +135,12 @@ public sealed class DownloadRunner(
                 _logger.LogError("Could not download {Torrent}: MAM gave no working download link. Removed from the queue; see the Errors page", name);
                 break;
             case DownloadOutcome.AlreadyFinishedInClient:
-                _logger.LogInformation("{Torrent} is already finished in qBittorrent; removed from the queue", name);
+                _logger.LogInformation(
+                    "{Torrent} is already finished in qBittorrent; recorded and removed from the queue, its category in qBittorrent left as it is", name);
                 break;
             case DownloadOutcome.AlreadyDownloadingInClient:
-                _logger.LogInformation("{Torrent} is already downloading in qBittorrent; marked as started", name);
+                _logger.LogInformation(
+                    "{Torrent} is already downloading in qBittorrent; recorded and marked as started, its category in qBittorrent left as it is", name);
                 break;
             case DownloadOutcome.AlreadyLinked:
                 _logger.LogInformation("{Torrent} is already in your library; removed from the queue", name);
@@ -208,7 +210,9 @@ public sealed class DownloadRunner(
             useWedge = decision == WedgeDecision.UseWedge;
         }
 
-        var torrentBytes = await FetchTorrentFileAsync(selected, useWedge, cancellationToken);
+        // Fetched without the wedge first: MAM spends a wedge on every download that asks for one, and only the
+        // file's info hash shows whether qBittorrent already has the torrent.
+        var torrentBytes = await FetchTorrentFileAsync(selected, useWedge: false, cancellationToken);
         if (torrentBytes is null)
         {
             return (DownloadOutcome.LinkStillStaleAfterRefresh, false);
@@ -219,7 +223,7 @@ public sealed class DownloadRunner(
         var dedupOutcome = await CheckExistingAsync(selected, metadata, hash, cancellationToken);
         if (dedupOutcome is not null)
         {
-            return (dedupOutcome.Value, useWedge);
+            return (dedupOutcome.Value, false);
         }
 
         if (cost is SelectedTorrentCost.Vip or SelectedTorrentCost.PersonalFreeleech or SelectedTorrentCost.GlobalFreeleech)
@@ -229,6 +233,15 @@ public sealed class DownloadRunner(
             if (!stillFree)
             {
                 return (DownloadOutcome.NoLongerFree, useWedge);
+            }
+        }
+
+        if (useWedge)
+        {
+            torrentBytes = await FetchTorrentFileAsync(selected, useWedge: true, cancellationToken);
+            if (torrentBytes is null)
+            {
+                return (DownloadOutcome.LinkStillStaleAfterRefresh, false);
             }
         }
 
@@ -304,9 +317,15 @@ public sealed class DownloadRunner(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Whether qBittorrent or the library already has this torrent. A torrent qBittorrent has, in whatever category,
+    /// is recorded if Fetchshelf did not know it, finished or not, so it shows on the Torrents page and can be linked
+    /// once its category or save path matches a library.
+    /// </summary>
     private async Task<DownloadOutcome?> CheckExistingAsync(
         SelectedTorrentEntity selected, Fetchshelf.Core.Metadata.TorrentMetadata metadata, string hash, CancellationToken cancellationToken)
     {
+        var known = await dbContext.Torrents.AnyAsync(t => t.Id == hash, cancellationToken);
         foreach (var client in qbClients)
         {
             var torrents = await client.ListTorrentsAsync(cancellationToken);
@@ -316,9 +335,13 @@ public sealed class DownloadRunner(
                 continue;
             }
 
-            if (match.IsFinished)
+            if (!known)
             {
                 CreateTorrentRecord(hash, metadata);
+            }
+
+            if (match.IsFinished)
+            {
                 selected.RemovedAt = DateTimeOffset.UtcNow;
                 await dbContext.SaveChangesAsync(cancellationToken);
                 return DownloadOutcome.AlreadyFinishedInClient;
@@ -329,7 +352,7 @@ public sealed class DownloadRunner(
             return DownloadOutcome.AlreadyDownloadingInClient;
         }
 
-        if (await dbContext.Torrents.AnyAsync(t => t.Id == hash, cancellationToken))
+        if (known)
         {
             selected.RemovedAt = DateTimeOffset.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);

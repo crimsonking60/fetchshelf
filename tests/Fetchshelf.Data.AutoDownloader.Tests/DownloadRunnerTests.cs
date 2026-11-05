@@ -287,7 +287,7 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_AlreadyDownloadingInClient_MarksStarted()
+    public async Task RunAsync_AlreadyDownloadingInClient_RecordsItAndMarksStarted()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
@@ -302,7 +302,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
-        Assert.Empty(context.Torrents);
+        Assert.Equal(TorrentHash1, Assert.Single(context.Torrents).Id);
         Assert.NotNull(context.SelectedTorrents.Single().StartedAt);
         Assert.Null(context.SelectedTorrents.Single().RemovedAt);
     }
@@ -569,7 +569,7 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_WedgeSpentOnTorrentAlreadyInClient_CountsAgainstTheBuffer()
+    public async Task RunAsync_TorrentAlreadyInClient_SpendsNoWedge_SoTheNextOneGetsIt()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, downloadLink: "dl1"));
@@ -577,10 +577,11 @@ public sealed class DownloadRunnerTests : IDisposable
         context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.UseWedge, downloadLink: "dl2"));
         await context.SaveChangesAsync();
 
+        // 6 wedges and a buffer of 5: only one wedge may be used.
         const string accountJson = """
             {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":6,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
             """;
-        var wedgedDownloads = new List<string>();
+        var downloads = new List<string>();
         var mam = DownloadTestSupport.CreateMamClient(accountJson, request =>
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -590,23 +591,19 @@ public sealed class DownloadRunnerTests : IDisposable
             }
 
             var dlHash = path.Split("download.php/")[1];
-            if (request.RequestUri.Query.Contains("&fl"))
-            {
-                wedgedDownloads.Add(dlHash);
-            }
-
+            downloads.Add(request.RequestUri.Query.Contains("&fl") ? $"{dlHash} with wedge" : dlHash);
             return DownloadResponse(dlHash == "dl1" ? TorrentBytes1 : TorrentBytes2);
         });
 
-        // The first torrent turns out to be in qBittorrent already, after its file was fetched with a wedge.
-        var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5 };
+        // The first torrent is in qBittorrent already, in a category Fetchshelf knows nothing about.
+        var existingTorrent = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5, Category = "other" };
         var qb = DownloadTestSupport.CreateQBittorrentClient([existingTorrent], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(0, 5, []));
 
         await runner.RunAsync();
 
-        Assert.Equal(["dl1"], wedgedDownloads);
-        Assert.Null(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
+        Assert.Equal(["dl1", "dl2", "dl2 with wedge"], downloads);
+        Assert.NotNull(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
     }
 
     [Fact]

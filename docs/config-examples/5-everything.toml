@@ -256,7 +256,7 @@ tags = ["large"]         # no category: only adds a tag, on top of whichever rul
 name = "Audiobooks"
 category = "audiobooks"                  # match torrents in this qBittorrent category
 library_dir = "/data/library/audiobooks"
-method = "hardlink"                      # hardlink (default), hardlink_or_copy, hardlink_or_symlink,
+method = "hardlink"                      # hardlink, hardlink_or_copy (default), hardlink_or_symlink,
                                          # copy, symlink, no_link (record metadata only)
 deny_tags = ["large"]                    # reject torrents with ANY of these tags
 audio_types = ["m4b", "mp3"]             # override the global list for this library

@@ -59,6 +59,15 @@ else
                 onclick="return confirm('Remove the selected books from your library? qBittorrent keeps the torrents and their data, and Fetchshelf stops linking them until you relink them.')">Unlink selected</button>
         <button type="submit" name="action" value="removeRecord" class="danger">Remove selected</button>
     </div>
+    @if (Model.CategoryOptions.Count > 0)
+    {
+        <div class="actions">
+            <label>Category for the selected torrents
+                @await Html.PartialAsync("_LibraryCategorySelect", new LibraryCategorySelectViewModel(Model.CategoryOptions, null, "bulk-category", Placeholder: "Choose a category"))
+            </label>
+            <button type="submit" name="action" value="setCategory">Set category</button>
+        </div>
+    }
 
     @await Html.PartialAsync("_Pager", Model.Pager)
 }
