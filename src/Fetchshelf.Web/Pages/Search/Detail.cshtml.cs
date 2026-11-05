@@ -116,11 +116,10 @@ public class DetailModel(
             QBittorrentCategory = presence.CategoryOf(mamId, known.Select(t => t.Id));
             InQBittorrent = QBittorrentCategory is not null;
         }
-
     }
 
     /// <summary>The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.</summary>
-    public async Task<IActionResult> OnGetCoverAsync(string? url)
+    public async Task<IActionResult> OnGetCoverAsync(long mamId, string? url)
     {
         if (!mamClient.IsMamAddress(url))
         {
@@ -137,7 +136,8 @@ public class DetailModel(
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
         {
-            logger.LogInformation("Could not fetch the cover {Url} from MAM: {Error}", url, ex.Message);
+            // The torrent's id, not the address: the address comes from the request as typed, the id is a number.
+            logger.LogInformation("Could not fetch the cover of MAM torrent {MamId}: {Error}", mamId, ex.Message);
         }
 
         return NotFound();
