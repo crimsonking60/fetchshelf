@@ -262,7 +262,7 @@ public partial class IndexPageTests
         request.Headers.Add("HX-Request", "true");
         var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
 
-        Assert.Contains("Its qBittorrent category, mouse, is not one of your libraries'", body);
+        Assert.Contains("None of your libraries uses its qBittorrent category (mouse).", body);
         Assert.Contains("Set category", body);
     }
 

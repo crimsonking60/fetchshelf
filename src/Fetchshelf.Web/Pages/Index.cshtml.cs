@@ -266,8 +266,8 @@ public class IndexModel(
         logger.LogInformation("Imported {Torrent} from qBittorrent (category {Category})", metadata.DisplayName(), category.Length == 0 ? "none" : category);
         return LibraryCategories.IsLibraryCategory(settings, category)
             ? $"Imported {title}; the next Link run links it."
-            : $"Imported {title}. Its qBittorrent category, {(category.Length == 0 ? "none" : category)}, is not one of your libraries': "
-                + "unless a library picks it up by its save path, give it a library's category with Set category on the Torrents page.";
+            : $"Imported {title}. None of your libraries uses its qBittorrent category ({(category.Length == 0 ? "none" : category)}). "
+                + "Unless a library picks it up by its save path, give it a library's category with Set category on the Torrents page.";
     }
 
     /// <summary>A result row as it stands now, for swapping into the page after Download or Import.</summary>
