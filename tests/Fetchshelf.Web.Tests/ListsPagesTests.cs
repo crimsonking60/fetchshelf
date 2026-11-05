@@ -148,6 +148,19 @@ public class ListsPagesTests
     }
 
     [Fact]
+    public async Task Detail_ConfiguredListNotReadYet_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+
+        var response = await fixture.CreateClient().GetAsync($"/Lists/Detail/{Uri.EscapeDataString(ListId)}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Wishlist", html);
+        Assert.Contains("has not read this list from Hardcover yet", html);
+    }
+
+    [Fact]
     public async Task Detail_UnknownList_IsNotFound()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);

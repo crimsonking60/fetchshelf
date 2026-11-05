@@ -22,7 +22,9 @@
 
 @if (Model.Items.Count == 0)
 {
-    <p id="no-items-message" class="empty">No books to show.</p>
+    <p id="no-items-message" class="empty">@(Model.UpdatedAt is null
+        ? "Fetchshelf has not read this list from Hardcover yet. Its books appear here after the list's first run that is not a dry run."
+        : "No books to show.")</p>
 }
 else
 {

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data;
+using Fetchshelf.Data.AutoDownloader;
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -13,7 +15,7 @@ namespace Fetchshelf.Web.Pages.Lists;
 /// One list's books in the list's own order, with what was found for each format, a filter for books still missing
 /// a format, and Mark done / Undo.
 /// </summary>
-public class DetailModel(FetchshelfDbContext dbContext) : PageModel
+public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings settings) : PageModel
 {
     /// <summary>"any", "audio" or "ebook" to show only books still missing that format; empty for all.</summary>
     [BindProperty(SupportsGet = true)]
@@ -47,12 +49,16 @@ public class DetailModel(FetchshelfDbContext dbContext) : PageModel
     public async Task<IActionResult> OnGetAsync(string id)
     {
         var list = await dbContext.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id);
-        if (list is null)
+        // A configured list has no stored row until its first real (not dry) run; show it as not read yet.
+        var configured = settings.HardcoverList.FirstOrDefault(e => HardcoverListImporter.ListIdFor(e) == id);
+        if (list is null && configured is null)
         {
             return NotFound();
         }
 
-        (ListId, ListName, UpdatedAt) = (list.Id, list.Name, list.UpdatedAt);
+        (ListId, ListName, UpdatedAt) = list is not null
+            ? (list.Id, list.Name, list.UpdatedAt)
+            : (id, HardcoverListImporter.DisplayNameFor(configured!), (DateTimeOffset?)null);
         PageSize = PageSizeCookie.Apply(HttpContext, "lists", PageSize);
 
         var entities = await dbContext.ListItems.AsNoTracking().Where(i => i.ListId == id).ToListAsync();
