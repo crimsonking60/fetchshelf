@@ -375,8 +375,9 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .meta-block .value { overflow-wrap: anywhere; }
 
 /* Search: one hit's page */
-.hit-summary { display: flex; gap: 1.25rem; align-items: flex-start; }
-.hit-summary .meta-block { flex: 1; min-width: 0; }
+.hit-summary { display: flex; gap: 1.25rem; align-items: flex-start; margin: 0.5rem 0; }
+/* The row spaces itself, so the box's own margin doesn't push it below the top of the cover. */
+.hit-summary .meta-block { flex: 1; min-width: 0; margin: 0; }
 .hit-cover { width: 10rem; max-width: 30%; border-radius: 3px; border: 1px solid var(--border); background: var(--surface-2); }
 .hit-description { white-space: pre-line; overflow-wrap: anywhere; }
 .hit-fields th { text-align: left; font-weight: 600; color: var(--text-muted); width: 14rem; vertical-align: top; }

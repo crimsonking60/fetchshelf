@@ -109,13 +109,14 @@ public class SearchResponseParserTests
     {
         var json = ResponseJson.Replace(
             "\"dl\": \"abcdef0123456789\"",
-            "\"dl\": \"abcdef0123456789\", \"thumbnail\": \"https://cdn.example/t.jpg\", \"lang_code\": \"ENG\", "
+            "\"dl\": \"abcdef0123456789\", \"thumbnail\": \"https://cdn.example/t.jpg\", \"poster_type\": \"image/jpeg\", \"lang_code\": \"ENG\", "
             + "\"mediainfo\": \"{\\\"General\\\":{\\\"Duration\\\":\\\"12h 3m\\\"},\\\"Audio1\\\":{\\\"BitRate\\\":\\\"64 kb/s\\\"}}\"",
             StringComparison.Ordinal);
 
         var record = Assert.Single(SearchResponseParser.Parse(Parse(json)).Data);
 
         Assert.Equal("https://cdn.example/t.jpg", record.Thumbnail);
+        Assert.Equal("image/jpeg", record.PosterType);
         using var mediaInfo = JsonDocument.Parse(record.MediaInfoJson!);
         Assert.Equal("12h 3m", mediaInfo.RootElement.GetProperty("General").GetProperty("Duration").GetString());
         using var raw = JsonDocument.Parse(record.RawJson);

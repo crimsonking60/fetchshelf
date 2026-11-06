@@ -97,7 +97,8 @@ public class DetailModel(
 
         Description = MamHitDetails.DescriptionText(Record.Description);
         // Fetched by Fetchshelf with the session, not by the browser, which may not be logged in to MAM.
-        var cover = MamHitDetails.ThumbnailUrl(Record.Thumbnail, mamOptions.BaseUrl);
+        var cover = MamHitDetails.ThumbnailUrl(Record.Thumbnail, mamOptions.BaseUrl)
+            ?? MamHitDetails.CoverUrl(Record.MamId, Record.PosterType, Record.UploadedAt, mamOptions.CdnBaseUrl);
         ThumbnailUrl = mamClient.IsMamAddress(cover) ? Url.Page("/Search/Detail", "Cover", new { mamId, url = cover }) : null;
         MediaInfo = MamHitDetails.MediaInfoSections(Record.MediaInfoJson);
         RawFields = MamHitDetails.RawFields(Record.RawJson);

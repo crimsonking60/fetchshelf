@@ -19,7 +19,7 @@ public class SearchHitPageTests
                     "seeders": 5, "leechers": 1, "times_completed": 42,
                     "free": true, "personal_freeleech": false, "fl_vip": false, "vip": false, "vip_expire": 0, "dl": "dlhash1",
                     "lang_code": "ENG",
-                    "thumbnail": "https://cdn.myanonamouse.net/covers/1.jpg",
+                    "poster_type": "image/jpeg",
                     "mediainfo": "{\"General\":{\"Duration\":\"45h 37m\",\"Format\":\"MPEG-4\"},\"Audio1\":{\"BitRate\":\"64 kb/s\",\"Channels\":2}}"
                 }
             ]
@@ -28,7 +28,7 @@ public class SearchHitPageTests
 
     private static Func<HttpRequestMessage, HttpResponseMessage> Mam(string json, List<string>? bodies = null) => request =>
     {
-        if (request.RequestUri!.AbsolutePath.Contains("/covers/"))
+        if (request.RequestUri!.AbsolutePath.Contains("/t/p/"))
         {
             var content = new ByteArrayContent([7, 7, 7]);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
@@ -58,7 +58,8 @@ public class SearchHitPageTests
         Assert.Contains("Michael Kramer", html);
         Assert.Contains("The Stormlight Archive #1", html);
         Assert.Contains("ASIN:B003P2WO5E", html);
-        Assert.Contains("class=\"hit-cover\" src=\"/search/1?url=https%3A%2F%2Fcdn.myanonamouse.net%2Fcovers%2F1.jpg&handler=Cover\"", html);
+        // 2026-01-01 00:00:00 UTC, the upload time, is 1767225600.
+        Assert.Contains("class=\"hit-cover\" src=\"/search/1?url=https%3A%2F%2Fcdn.myanonamouse.net%2Ft%2Fp%2F1767225600%2Flarge%2F1.jpeg&handler=Cover\"", html);
         Assert.Contains("<h4>Audio1</h4>", html);
         Assert.Contains("45h 37m", html);
         Assert.Contains("<th>lang_code</th>", html);
@@ -94,7 +95,7 @@ public class SearchHitPageTests
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson));
 
-        var response = await fixture.CreateClient().GetAsync("/search/1?handler=Cover&url=" + Uri.EscapeDataString("https://cdn.myanonamouse.net/covers/1.jpg"));
+        var response = await fixture.CreateClient().GetAsync("/search/1?handler=Cover&url=" + Uri.EscapeDataString("https://cdn.myanonamouse.net/t/p/1767225600/large/1.jpeg"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("image/png", response.Content.Headers.ContentType!.MediaType);
@@ -157,6 +158,25 @@ public class SearchHitPageTests
     [InlineData("", null)]
     public void ThumbnailUrl_OnlyWebAddresses(string thumbnail, string? expected) =>
         Assert.Equal(expected, MamHitDetails.ThumbnailUrl(thumbnail, "https://mam.example/"));
+
+    [Theory]
+    [InlineData("image/jpeg", "https://cdn.myanonamouse.net/t/p/1793943776/large/1281386.jpeg")]
+    [InlineData("image/png", "https://cdn.myanonamouse.net/t/p/1793943776/large/1281386.png")]
+    [InlineData(null, null)]
+    [InlineData("application/pdf", null)]
+    public void CoverUrl_FollowsMamsCdnLayout(string? posterType, string? expected) =>
+        Assert.Equal(expected, MamHitDetails.CoverUrl(
+            1281386, posterType, new DateTimeOffset(2026, 11, 6, 5, 42, 56, TimeSpan.Zero), "https://cdn.myanonamouse.net/"));
+
+    [Fact]
+    public async Task Get_HitWithoutACover_HasNoImage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson.Replace("\"poster_type\": \"image/jpeg\",", string.Empty, StringComparison.Ordinal)));
+
+        var html = await fixture.CreateClient().GetStringAsync("/search/1");
+
+        Assert.DoesNotContain("hit-cover", html);
+    }
 
     [Fact]
     public void MediaInfoSections_PutsLooseValuesFirst()
