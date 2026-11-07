@@ -121,6 +121,12 @@ Done, more simply than planned, plus batched commits the plan didn't foresee:
     holding the write lock then would block that job;
   - right after a torrent's files are placed, so a crash can't leave files without a record;
   - when the run ends, including when it ends with an exception.
+- **Statuses by stage:** a status is only written when its stage changes, i.e. when it would show a different
+  label. A seeding torrent's flips between `uploading`, `stalledUP` and `forcedUP` are all "Seeding" and are no
+  longer written. Nothing used them: the list shows the label, and the detail page asks qBittorrent for the
+  live state. The label mapping moved from the Web project to `Fetchshelf.Core.Organizer`, and the list's
+  tooltip with the raw state was dropped, since the stored raw state can now lag within a stage. Batched
+  commits stay for real stage changes, such as many torrents stopped at once.
 - **New tests:** a run over more than one batch saves every status; a run stopped by MAM rate limiting keeps the
   statuses written before it; another connection can write to the database while a lookup is in progress. That
   last test fails within a second if the pre-lookup commit is removed. A new scale test changes a third of the
@@ -309,6 +315,10 @@ TMPDIR=$HOME/.cache/fetchshelf-scale FETCHSHELF_SCALE=10000 dotnet test --filter
 |---|---|---|
 | Link run (all linked, nothing new) | 7.7 s | 7.2 s |
 | Link run, a third of statuses changed | 124 s | 10.7 s |
+
+After status writes became stage-only, on the same hard disk: a run where seeding torrents only flipped between
+`uploading` and `stalledUP` writes nothing, like the nothing-changed run (6.5 s). A run where a third of the
+torrents stopped writes 3,334 stage changes in 9.7 s.
 | Clean run (no new duplicates) | | 0.2 s |
 
 A commit costs about 36 ms on the hard disk, against about 1 ms on NVMe, so batching matters most there. The

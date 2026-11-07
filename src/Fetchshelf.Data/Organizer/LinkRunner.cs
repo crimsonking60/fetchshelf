@@ -148,7 +148,7 @@ public sealed class LinkRunner(
         if (existing is not null)
         {
             existing.QBittorrentCategory = torrent.Category;
-            existing.ClientStatus = torrent.State;
+            ClientStatuses.Update(existing, torrent.State);
             metadata = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
 
             if ((existing.ReplacedWithTorrentId is not null || existing.UnlinkedAt is not null) && existing.LibraryPath is null)
@@ -301,7 +301,7 @@ public sealed class LinkRunner(
         existing.ChosenEbookExtension = ebook;
         existing.QBittorrentCategory = torrent.Category;
         existing.LinkerName = library.Name;
-        existing.ClientStatus = torrent.State;
+        ClientStatuses.Update(existing, torrent.State);
         existing.LibraryMismatchState = null;
     }
 

@@ -650,7 +650,7 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(MetadataSource.Manual, afterSecondRun.MetadataSource);
     }
 
-    /// <summary>Tracked torrents that only get their client status written, as most torrents of a run do.</summary>
+    /// <summary>Tracked torrents that only get their client status written: seeding before, stopped now.</summary>
     private async Task<List<QBittorrentTorrent>> SeedRetiredTorrentsAsync(FetchshelfDbContext context, int count)
     {
         var torrents = new List<QBittorrentTorrent>();
@@ -659,7 +659,7 @@ public sealed class LinkRunnerTests : IDisposable
             var entity = await OrganizerTestSupport.SeedTorrentAsync(context, $"retired{i:D3}", mamId: 1000 + i);
             entity.ReplacedWithTorrentId = "keeper";
             entity.ClientStatus = "uploading";
-            torrents.Add(FinishedTorrent(entity.Id, DownloadsDir) with { State = "stalledUP" });
+            torrents.Add(FinishedTorrent(entity.Id, DownloadsDir) with { State = "stoppedUP" });
         }
 
         await context.SaveChangesAsync();
@@ -677,7 +677,7 @@ public sealed class LinkRunnerTests : IDisposable
         await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
 
         using var reader = OrganizerTestSupport.CreateContext(DbPath);
-        Assert.Equal(250, await reader.Torrents.CountAsync(t => t.ClientStatus == "stalledUP"));
+        Assert.Equal(250, await reader.Torrents.CountAsync(t => t.ClientStatus == "stoppedUP"));
     }
 
     [Fact]
@@ -692,7 +692,7 @@ public sealed class LinkRunnerTests : IDisposable
             runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>())));
 
         using var reader = OrganizerTestSupport.CreateContext(DbPath);
-        Assert.Equal(3, await reader.Torrents.CountAsync(t => t.ClientStatus == "stalledUP"));
+        Assert.Equal(3, await reader.Torrents.CountAsync(t => t.ClientStatus == "stoppedUP"));
     }
 
     [Fact]
@@ -707,6 +707,19 @@ public sealed class LinkRunnerTests : IDisposable
         await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
 
         Assert.True(lookup.Wrote);
+    }
+
+    [Fact]
+    public async Task RunAsync_StateChangedWithinTheSameStage_LeavesTheStoredStatus()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = (await SeedRetiredTorrentsAsync(context, 2)).Select(t => t with { State = "stalledUP" }).ToList();
+        var runner = CreateRunner(context, new FakeMetadataLookup(), [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.All(await reader.Torrents.ToListAsync(), t => Assert.Equal("uploading", t.ClientStatus));
     }
 
     private sealed class RateLimitedLookup : IMetadataLookup
