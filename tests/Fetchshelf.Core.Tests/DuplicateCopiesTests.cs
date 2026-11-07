@@ -41,6 +41,30 @@ public class DuplicateCopiesTests
     }
 
     [Fact]
+    public void GroupBySameBook_InterleavedTitles_KeepsGroupsInOrderOfTheirFirstCopy()
+    {
+        Copy[] copies =
+        [
+            new("a", Book("Emma", "Jane Austen")), new("b", Book("Dune", "Frank Herbert")), new("c", Book("Dune", "Someone Else")),
+            new("d", Book("Dune", "Someone Else")), new("e", Book("Emma", "Jane Austen")), new("f", Book("Dune", "Frank Herbert")),
+        ];
+
+        var groups = DuplicateCopies.GroupBySameBook(copies, c => c.Metadata);
+
+        Assert.Equal([["a", "e"], ["b", "f"], ["c", "d"]], groups.Select(g => g.Select(c => c.Id).ToList()).ToList());
+    }
+
+    [Fact]
+    public void GroupBySameBook_TitlesDifferOnlyInCaseAndArticle_GroupsThem()
+    {
+        Copy[] copies = [new("a", Book("The Way of Kings")), new("b", Book("way of kings"))];
+
+        var groups = DuplicateCopies.GroupBySameBook(copies, c => c.Metadata);
+
+        Assert.Equal([["a", "b"]], groups.Select(g => g.Select(c => c.Id).ToList()).ToList());
+    }
+
+    [Fact]
     public void AreCopiesOfSameBook_TitlesDifferOnlyInCaseAndArticle_ReturnsTrue() =>
         Assert.True(DuplicateCopies.AreCopiesOfSameBook(Book("The Way of Kings"), Book("way of kings")));
 
