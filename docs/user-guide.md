@@ -1366,11 +1366,13 @@ What matters:
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
 
-To back up, **stop the container**, copy both folders, then start it again. While Fetchshelf runs, its
-latest changes are kept in a `data.db-wal` file next to `data.db`, so a copy taken while it runs can be
-missing them or be unusable. When the container stops, they are written into `data.db` and the extra
+To back up, **stop the container**, copy both folders, then start it again. A copy of `data.db` taken while
+Fetchshelf writes to it can be unusable. With [`database_wal = true`](database-setup.md#database_wal), the
+latest changes are also kept in a `data.db-wal` file next to `data.db` while Fetchshelf runs, so a copy
+taken then can be missing them. When the container stops, they are written into `data.db` and the extra
 files are removed. If `data.db-wal` or `data.db-shm` are still there after a stop, for example after a
-crash, copy them as well and keep them next to `data.db`.
+crash, copy them as well and keep them next to `data.db`. See [Database setup](database-setup.md) for where
+the database can safely live.
 
 To move to another machine, install Fetchshelf there, stop it on both machines, copy `config.toml` and
 everything in the data folder into the new config and data folders, and start it. Mount your media at the
