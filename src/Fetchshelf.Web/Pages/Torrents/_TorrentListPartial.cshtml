@@ -1,4 +1,5 @@
 @model Fetchshelf.Web.Pages.Torrents.IndexModel
+@using Fetchshelf.Core.Organizer
 
 @if (Model.CheckMessage is not null)
 {
@@ -43,7 +44,7 @@ else
                     <td class="nowrap"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a></td>
                     <td><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></td>
                     <td>@torrent.QBittorrentCategory</td>
-                    <td class="nowrap" title="@torrent.ClientStatus">@QBittorrentStateLabel.For(torrent.ClientStatus)</td>
+                    <td class="nowrap">@QBittorrentStateLabel.For(torrent.ClientStatus)</td>
                     <td class="nowrap" title="@torrent.LibraryMismatchState">@(LibraryMismatchLabel.For(torrent.LibraryMismatchState) ?? "-")</td>
                     <td class="nowrap"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
                 </tr>

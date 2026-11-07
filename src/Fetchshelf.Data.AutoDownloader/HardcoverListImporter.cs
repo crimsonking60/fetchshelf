@@ -302,7 +302,7 @@ public sealed class HardcoverListImporter(
         }
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
-            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: null, grabberName: entry.Name,
+            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: entry.Category, grabberName: entry.Name,
             dryRun: entry.DryRun, cancellationToken: cancellationToken);
         var status = outcome switch
         {

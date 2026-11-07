@@ -49,6 +49,27 @@ public static partial class MamHitDetails
             : null;
     }
 
+    /// <summary>
+    /// Where MAM keeps a torrent's cover: <c>{cdn}/t/p/{number}/large/{MAM id}.{type}</c>, with the type from
+    /// <c>poster_type</c>. MAM's own pages put the cover's upload time in the number, but its CDN doesn't look at it;
+    /// the torrent's upload time is used, so a changed cover still gets a new address. Null when the torrent has no
+    /// cover, or one of a type this doesn't know.
+    /// </summary>
+    public static string? CoverUrl(long mamId, string? posterType, DateTimeOffset uploadedAt, string cdnBaseUrl)
+    {
+        var extension = posterType?.ToLowerInvariant() switch
+        {
+            "image/jpeg" or "image/jpg" => "jpeg",
+            "image/png" => "png",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            _ => null,
+        };
+        return extension is null
+            ? null
+            : $"{cdnBaseUrl.TrimEnd('/')}/t/p/{uploadedAt.ToUnixTimeSeconds()}/large/{mamId}.{extension}";
+    }
+
     /// <summary>One section per part of the media info ("General", "Audio1", ...); values that aren't sections go in a first, untitled one.</summary>
     public static IReadOnlyList<DetailSection> MediaInfoSections(string? mediaInfoJson)
     {

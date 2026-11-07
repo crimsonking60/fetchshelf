@@ -97,7 +97,8 @@ public class DetailModel(
 
         Description = MamHitDetails.DescriptionText(Record.Description);
         // Fetched by Fetchshelf with the session, not by the browser, which may not be logged in to MAM.
-        var cover = MamHitDetails.ThumbnailUrl(Record.Thumbnail, mamOptions.BaseUrl);
+        var cover = MamHitDetails.ThumbnailUrl(Record.Thumbnail, mamOptions.BaseUrl)
+            ?? MamHitDetails.CoverUrl(Record.MamId, Record.PosterType, Record.UploadedAt, mamOptions.CdnBaseUrl);
         ThumbnailUrl = mamClient.IsMamAddress(cover) ? Url.Page("/Search/Detail", "Cover", new { mamId, url = cover }) : null;
         MediaInfo = MamHitDetails.MediaInfoSections(Record.MediaInfoJson);
         RawFields = MamHitDetails.RawFields(Record.RawJson);
@@ -116,11 +117,10 @@ public class DetailModel(
             QBittorrentCategory = presence.CategoryOf(mamId, known.Select(t => t.Id));
             InQBittorrent = QBittorrentCategory is not null;
         }
-
     }
 
     /// <summary>The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.</summary>
-    public async Task<IActionResult> OnGetCoverAsync(string? url)
+    public async Task<IActionResult> OnGetCoverAsync(long mamId, string? url)
     {
         if (!mamClient.IsMamAddress(url))
         {
@@ -137,7 +137,8 @@ public class DetailModel(
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
         {
-            logger.LogInformation("Could not fetch the cover {Url} from MAM: {Error}", url, ex.Message);
+            // The torrent's id, not the address: the address comes from the request as typed, the id is a number.
+            logger.LogInformation("Could not fetch the cover of MAM torrent {MamId}: {Error}", mamId, ex.Message);
         }
 
         return NotFound();

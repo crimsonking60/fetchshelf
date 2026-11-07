@@ -30,6 +30,12 @@ download_after_selection = true # start downloading as soon as something is sele
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 
+metadata_json = true  # write metadata.json (Audiobookshelf's format) in every library without its own setting
+metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
+
+database_wal = true # SQLite write-ahead log, for a responsive UI during long jobs. Default false;
+                    # only turn it on if the database is on a local disk, not a network share (NFS/SMB)
+
 # Intervals are in minutes. 0 means "only when started from the UI".
 search_interval = 30     # default for every autograb and snatchlist block
 link_interval = 10       # how often finished torrents are scanned and linked
@@ -206,6 +212,7 @@ max_size = "10 GiB"
 name = "Want to Read"
 status = "want_to_read"  # want_to_read, currently_reading, read, paused, did_not_finish
 prefer_format = "audio"  # when both formats are found, download only this one; unset = both
+category = "audiobooks"  # qBittorrent category for everything this list downloads; overrides [[tag]] rules
 search_interval = 360    # overrides the global search_interval
 dry_run = false
 
@@ -268,6 +275,8 @@ library_dir = "/data/library/ebooks"
 method = "hardlink_or_copy"
 allow_tags = ["fetchshelf"]              # if not empty, torrents need at least one of these
 ebook_types = ["epub", "pdf"]
+metadata_opf = true                      # also write a metadata.opf (Calibre's format); default false
+metadata_json = false                    # leave out metadata.json (Audiobookshelf's format); default true
 
 [[library]]
 name = "Everything else"

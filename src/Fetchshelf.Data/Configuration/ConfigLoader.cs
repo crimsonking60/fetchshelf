@@ -36,6 +36,9 @@ public static class ConfigLoader
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
+        ["database_wal"] = (s, v) => s.DatabaseWal = bool.Parse(v),
+        ["metadata_json"] = (s, v) => s.MetadataJson = bool.Parse(v),
+        ["metadata_opf"] = (s, v) => s.MetadataOpf = bool.Parse(v),
         ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
@@ -70,7 +73,7 @@ public static class ConfigLoader
         ApplyEnvironmentOverrides(settings);
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
-        ApplyGlobalLinkMethod(settings);
+        ApplyGlobalLibraryDefaults(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
@@ -327,13 +330,27 @@ public static class ConfigLoader
         }
     }
 
-    /// <summary>Gives every library without its own <c>method</c> the global <c>link_method</c>. Runs after environment
-    /// overrides, so <c>FETCHSHELF_CONF_link_method</c> reaches those libraries too.</summary>
-    private static void ApplyGlobalLinkMethod(FetchshelfSettings settings)
+    /// <summary>Gives every library without its own <c>method</c>, <c>metadata_json</c> or <c>metadata_opf</c> the global
+    /// <c>link_method</c>, <c>metadata_json</c> or <c>metadata_opf</c>. Runs after environment overrides, so
+    /// <c>FETCHSHELF_CONF_link_method</c> and the others reach those libraries too.</summary>
+    private static void ApplyGlobalLibraryDefaults(FetchshelfSettings settings)
     {
-        foreach (var library in settings.Library.Where(l => !l.HasOwnMethod))
+        foreach (var library in settings.Library)
         {
-            library.Method = settings.LinkMethod;
+            if (!library.HasOwnMethod)
+            {
+                library.Method = settings.LinkMethod;
+            }
+
+            if (!library.HasOwnMetadataJson)
+            {
+                library.MetadataJson = settings.MetadataJson;
+            }
+
+            if (!library.HasOwnMetadataOpf)
+            {
+                library.MetadataOpf = settings.MetadataOpf;
+            }
         }
     }
 

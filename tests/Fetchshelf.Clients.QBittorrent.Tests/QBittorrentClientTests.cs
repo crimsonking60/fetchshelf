@@ -475,4 +475,42 @@ public class QBittorrentClientTests
 
         Assert.False(await client.HashExistsAsync("doesnotexist"));
     }
+
+    [Fact]
+    public async Task GetTorrentAsync_AsksForThatHashAloneAndReturnsIt()
+    {
+        string? query = null;
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/v2/auth/login")
+            {
+                return LoginOkResponse();
+            }
+
+            query = request.RequestUri.Query;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new List<QBittorrentTorrent>
+                {
+                    new() { Hash = "abc123", Name = "Dune", SavePath = "/x", Category = "audiobooks", State = "stoppedUP" },
+                }),
+            };
+        });
+
+        var torrent = await client.GetTorrentAsync("abc123");
+
+        Assert.Equal("?hashes=abc123", query);
+        Assert.Equal("Dune", torrent?.Name);
+        Assert.Equal("audiobooks", torrent?.Category);
+    }
+
+    [Fact]
+    public async Task GetTorrentAsync_HashNotPresent_ReturnsNull()
+    {
+        var client = CreateClient(request => request.RequestUri!.AbsolutePath == "/api/v2/auth/login"
+            ? LoginOkResponse()
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new List<QBittorrentTorrent>()) });
+
+        Assert.Null(await client.GetTorrentAsync("doesnotexist"));
+    }
 }

@@ -16,24 +16,38 @@ public static class DuplicateCopies
     /// Groups copies of the same book (<see cref="AreCopiesOfSameBook"/>), in the order given. Each copy is compared
     /// with the first copy of each group, so a group never mixes two books that only resemble a third.
     /// </summary>
+    /// <remarks>
+    /// Only groups with the same normalized title can match, so each copy is compared with those alone: comparing
+    /// it with every group would make a large library's Clean run quadratic.
+    /// </remarks>
     public static List<List<T>> GroupBySameBook<T>(IReadOnlyList<T> copies, Func<T, TorrentMetadata> metadataOf)
     {
-        var groups = new List<(TorrentMetadata First, List<T> Members)>();
+        var groups = new List<List<T>>();
+        var groupsByTitle = new Dictionary<string, List<(TorrentMetadata First, List<T> Members)>>(StringComparer.Ordinal);
         foreach (var copy in copies)
         {
             var metadata = metadataOf(copy);
-            var group = groups.FirstOrDefault(g => AreCopiesOfSameBook(g.First, metadata));
+            var title = TitleNormalizer.Normalize(metadata.Title);
+            if (!groupsByTitle.TryGetValue(title, out var sameTitle))
+            {
+                sameTitle = [];
+                groupsByTitle[title] = sameTitle;
+            }
+
+            var group = sameTitle.FirstOrDefault(g => SameBookComparer.AreSameBook(g.First, metadata));
             if (group.Members is not null)
             {
                 group.Members.Add(copy);
             }
             else
             {
-                groups.Add((metadata, [copy]));
+                List<T> members = [copy];
+                sameTitle.Add((metadata, members));
+                groups.Add(members);
             }
         }
 
-        return groups.Select(g => g.Members).ToList();
+        return groups;
     }
 
     /// <summary>

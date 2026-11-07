@@ -11,6 +11,11 @@
         { Count: 0 } => "none",
         var names => string.Join(", ", names),
     };
+
+    string MetadataFiles(Library library) =>
+        string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
+            ? files
+            : "none";
 }
 
 <h2>Config</h2>
@@ -39,6 +44,9 @@
             <tr><th>job_explanations</th><td>@settings.JobExplanations</td></tr>
             <tr><th>exclude_narrator_in_library_dir</th><td>@settings.ExcludeNarratorInLibraryDir</td></tr>
             <tr><th>link_method</th><td>@settings.LinkMethod</td></tr>
+            <tr><th>metadata_json</th><td>@settings.MetadataJson</td></tr>
+            <tr><th>metadata_opf</th><td>@settings.MetadataOpf</td></tr>
+            <tr><th>database_wal</th><td>@settings.DatabaseWal</td></tr>
             <tr><th>search_interval</th><td>@settings.SearchInterval</td></tr>
             <tr><th>link_interval</th><td>@settings.LinkInterval</td></tr>
             <tr><th>ignore_torrents</th><td>@string.Join(", ", settings.IgnoreTorrents)</td></tr>
@@ -85,7 +93,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th></tr></thead>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th></tr></thead>
             <tbody>
                 @foreach (var library in settings.Library)
                 {
@@ -95,6 +103,7 @@
                         <td>@library.Category</td>
                         <td>@library.DownloadDir</td>
                         <td>@library.Method</td>
+                        <td>@MetadataFiles(library)</td>
                     </tr>
                 }
             </tbody>
@@ -168,7 +177,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Dry run</th></tr></thead>
+            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th><th>Dry run</th></tr></thead>
             <tbody>
                 @foreach (var entry in settings.HardcoverList)
                 {
@@ -177,6 +186,7 @@
                         <td>@(entry.List is { } slug ? $"list {slug}" : $"status {entry.Status}")</td>
                         <td>@(entry.PreferFormat?.ToString() ?? "-")</td>
                         <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
+                        <td>@entry.Category</td>
                         <td>@(entry.DryRun ? "yes" : "no")</td>
                     </tr>
                 }

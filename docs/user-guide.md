@@ -49,7 +49,7 @@ It has two halves that you can use together or separately:
 - **The library organizer** watches qBittorrent for finished torrents and links the files into a tidy
   `Author/Series/Title` folder tree. Next to every title it writes a `metadata.json` file with the
   authors, series, description, ISBN, genres and more, taken from MAM (see
-  [`metadata.json`](#metadatajson)). When a better format of a title arrives, it retires the older copy.
+  [`metadata.json`](#metadatajson)), and, if you want, a [`metadata.opf`](#metadataopf) for Calibre. When a better format of a title arrives, it retires the older copy.
 
 If you only want a tidy library, skip the auto-downloader. If you only want automatic downloads, skip the
 organizer.
@@ -96,6 +96,8 @@ Docker picks the right one for your machine automatically. These tags are availa
 | `latest` | The newest release. The examples in this guide use it. |
 | A version, such as `2026.10.2` | One specific release. It never changes, so use it to upgrade only when you choose to. |
 | `develop` | The current development build, for testing only. It can change several times a day and can break your setup. |
+
+**NEVER run the `develop` image against a database or library you consider valuable. You risk losing both.**
 
 Versions are written `YYYY.MM.N`: the year and month of the release, then a number that counts releases
 within that month from `1`. Every release and what changed in it is listed in
@@ -517,7 +519,8 @@ category = "audiobooks"
 ```
 
 The first matching rule that sets a category decides the category. Tags from every matching rule are
-added. An `[[autograb]]` can also force a category with its own `category` setting.
+added. An `[[autograb]]` or a `[[hardcover_list]]` can also force a category with its own `category`
+setting.
 
 Libraries are not limited to audiobooks and ebooks: add one for anything you want kept apart. For
 example, to give comics and manga their own folder, put this rule **before** the ebooks rule, so it
@@ -643,7 +646,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library, or that none of its file types is in your
-  preferred types.
+  preferred types. With `download_after_selection = false` the buttons say **Select** and **Wedge
+  select**, since the torrent then waits on the **Selected** page for the next Download run.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
   know, such as one you added by hand. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
@@ -859,6 +863,29 @@ Hardcover; it never changes anything there.
    For one of your lists, write `list = "books-to-fetch"` instead of `status`, with the last part of the
    list's address.
 
+   To send a list's downloads to a library of their own, give it a `category`. For example, with fiction
+   and nonfiction kept in separate libraries:
+
+   ```toml
+   [[hardcover_list]]
+   name = "Fiction"
+   list = "fiction"
+   prefer_format = "ebook"
+   category = "MAM_fiction"     # a [[library]] with category = "MAM_fiction" picks these up
+
+   [[hardcover_list.grab]]
+   cost = "free"
+
+   [[hardcover_list]]
+   name = "Nonfiction"
+   list = "nonfiction"
+   prefer_format = "ebook"
+   category = "MAM_nonfiction"
+
+   [[hardcover_list.grab]]
+   cost = "free"
+   ```
+
 4. **Restart Fetchshelf.** The list gets a job on the **Jobs** page, and **Lists** appears in the menu.
    Press **Run now** to try it straight away.
 
@@ -936,12 +963,17 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
   A torrent with no author cannot be linked and shows up on the **Errors** page.
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
-- **`metadata.json`.** Written next to the files of every book, whatever its media type. See below.
+- **Metadata files.** A `metadata.json` next to the files of every book, whatever its media type, and a
+  `metadata.opf` in libraries that ask for one. See below.
+- **Looking torrents up on MAM.** A torrent Fetchshelf doesn't know yet is looked up on MAM by its
+  info-hash, to get its title, authors and series. A run makes at most 200 such lookups. Pointed at a
+  qBittorrent that already holds thousands of books, Fetchshelf works through them over several runs,
+  200 every `link_interval` minutes, while books it already knows keep being linked as usual.
 
 ### `metadata.json`
 
 Every book folder gets a `metadata.json` file describing the book, built from MAM's information about the
-torrent. It is plain JSON, so any program can read it: use it to search or catalogue your library, feed a
+torrent, unless its library sets `metadata_json = false`. It is plain JSON, so any program can read it: use it to search or catalogue your library, feed a
 script, import into another app, or just look up what a folder is. Audiobookshelf reads it as it is. For
 example:
 
@@ -981,9 +1013,60 @@ example:
 | `language` | The language, such as `English`. |
 | `explicit`, `abridged` | From MAM's flags. |
 
-The file is rewritten when you **Refresh and relink** a book, and removed with the book's other files when a
-better copy replaces it or you **Unlink** it, unless another torrent still uses the same folder. With the
-`no_link` method no files are placed, so no `metadata.json` is written either.
+### `metadata.opf`
+
+Calibre keeps a `metadata.opf` next to each of its books, and imports one it finds next to a book. To get
+one in every book folder of a library, set `metadata_opf = true` on that `[[library]]`. Leave out
+`metadata.json` with `metadata_json = false` if no app of yours reads it. Set either at the top of the file
+instead to change it for every library that doesn't set its own:
+
+```toml
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/books/calibre-ingest"
+metadata_opf = true
+metadata_json = false
+```
+
+The file is an OPF 2.0 package with only metadata, the way Calibre writes it. Audiobookshelf reads it too.
+For example:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<package unique-identifier="mam_id" version="2.0" xmlns="http://www.idpf.org/2007/opf">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:identifier id="mam_id" opf:scheme="MAM">123456</dc:identifier>
+    <dc:title>The Way of Kings</dc:title>
+    <dc:creator opf:role="aut">Brandon Sanderson</dc:creator>
+    <dc:creator opf:role="nrt">Michael Kramer</dc:creator>
+    <dc:description>The first book of The Stormlight Archive.</dc:description>
+    <dc:language>eng</dc:language>
+    <dc:identifier opf:scheme="ISBN">9780765326355</dc:identifier>
+    <dc:subject>Fantasy</dc:subject>
+    <meta name="calibre:series" content="Stormlight Archive" />
+    <meta name="calibre:series_index" content="1" />
+  </metadata>
+</package>
+```
+
+| Element | Contents |
+|---|---|
+| `dc:title` | The full title, subtitle included: Calibre has no separate subtitle. |
+| `dc:creator` | The authors (`aut`), then the narrators (`nrt`). Calibre takes the authors; Audiobookshelf both. |
+| `dc:description` | The torrent's description on MAM. Left out when there is none. |
+| `dc:language` | The language as a three-letter ISO 639 code, such as `eng` or `deu`. Left out for MAM's *Other*. |
+| `dc:identifier` | The MAM torrent id, and the ISBN and ASIN when MAM has them. Calibre shows them as `mam:`, `isbn:` and `asin:` identifiers. |
+| `dc:subject` | The same genres as in `metadata.json`. Calibre shows them as tags. |
+| `calibre:series`, `calibre:series_index` | Each series, with the first number of its entry. Calibre uses the first series. |
+
+### When the metadata files are written and removed
+
+The files are rewritten when you **Refresh and relink** a book, and removed with the book's other files when
+a better copy replaces it or you **Unlink** it, unless another torrent still uses the same folder. With the
+`no_link` method no files are placed, so no metadata files are written either. Changing `metadata_json` or
+`metadata_opf` affects books linked from then on; to apply it to books already in the library, use **Relink
+selected** on the **Torrents** page.
 
 ### Better formats replace worse ones
 
@@ -992,9 +1075,9 @@ preference. If two copies of the same book are linked, the one whose format come
 kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
 same book.
 
-The replaced copy has its linked files, its folder (if empty), `cover.jpg` and `metadata.json` removed, is
+The replaced copy has its linked files, its folder (if empty), `cover.jpg` and its metadata files removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
-was linked into the same folder, `cover.jpg` and `metadata.json` stay, since they now belong to it. The
+was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The
 downloaded data itself is not deleted.
 
 The Link job leaves a replaced torrent alone. To bring one back, for example after removing the better
@@ -1006,7 +1089,7 @@ again and no longer marked replaced. If the better copy is still linked, the nex
 To take a book out of your library while qBittorrent keeps seeding it, use **Unlink** on its torrent page,
 or tick several on the **Torrents** page and choose **Unlink selected**. Fetchshelf then:
 
-- removes the files it linked, `cover.jpg` and `metadata.json` (unless another torrent shares the folder),
+- removes the files it linked, `cover.jpg` and the metadata files (unless another torrent shares the folder),
   and the folder if that leaves it empty, and deletes the book's Audiobookshelf item;
 - applies `on_unlinked` to the torrent in qBittorrent, if you set it;
 - keeps its record, marked *unlinked*, so the book still counts as one you have and is not downloaded again;
@@ -1096,7 +1179,7 @@ reported, so they cannot be chosen by hand.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
-    `cover.jpg` and `metadata.json` (unless the kept copy shares the folder), and its folder if that is then
+    `cover.jpg` and metadata files (unless the kept copy shares the folder), and its folder if that is then
     empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
     does nothing. The Clean job does the same automatically after every link run.
   - *Refresh* re-reads its metadata from MAM.
@@ -1143,7 +1226,9 @@ between pages.
 
 One entry per torrent and job, showing the job that ran into the problem (Download, Link or Clean), the
 torrent, the error and when it last failed. The Link job tries a failed torrent again on every run: the
-entry is updated while it keeps failing and disappears once it links. A queued download whose MAM link
+entry is updated while it keeps failing and disappears once it links. The exception is *MAM has no torrent
+with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
+looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
 went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
 Tick the entries you have dealt with and use **Remove selected**.
 
@@ -1422,7 +1507,7 @@ Set `FETCHSHELF_LOG=debug` (the default is `information`) and, for a file you ca
 ## Frequently asked questions
 
 **Does it work without Audiobookshelf?** Yes. Fetchshelf downloads and organizes every kind of book the same
-way without it, and writes the same `metadata.json` files. Use any reader, player or other app you like
+way without it, and writes the same metadata files. Use any reader, player or other app you like
 with the library; Audiobookshelf can still read the files if you add it later.
 
 **Is it only for audiobooks?** No. It handles ebooks, comics and manga, periodicals, musicology and radio as
@@ -1431,7 +1516,7 @@ well. Audiobookshelf is just the one app it has a direct integration with.
 **Can I use it without qBittorrent?** No. Both halves work through qBittorrent.
 
 **Does it ever delete my downloaded data?** Clean and **Unlink** only remove files that Fetchshelf itself
-linked, and empty folders, `cover.jpg` and `metadata.json` in a book's own library folder. The one action that
+linked, and empty folders, `cover.jpg`, `metadata.json` and `metadata.opf` in a book's own library folder. The one action that
 deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
 and then confirm.
 

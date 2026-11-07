@@ -1,3 +1,4 @@
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
@@ -84,6 +85,30 @@ public sealed class LinkRunnerTests : IDisposable
         var events = await context.Events.ToListAsync();
         Assert.Single(events);
         Assert.Equal(EventKind.Linked, events[0].Kind);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task RunAsync_WritesTheMetadataFilesTheLibraryAsksFor(bool json, bool opf)
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var library = CreateLibrary(LibraryDir);
+        library.MetadataJson = json;
+        library.MetadataOpf = opf;
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [library]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var folder = (await context.Torrents.SingleAsync()).LibraryPath!;
+        Assert.True(File.Exists(Path.Combine(folder, "book.m4b")));
+        Assert.Equal(json, File.Exists(Path.Combine(folder, "metadata.json")));
+        Assert.Equal(opf, File.Exists(Path.Combine(folder, "metadata.opf")));
     }
 
     [Fact]
@@ -185,7 +210,9 @@ public sealed class LinkRunnerTests : IDisposable
             [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
 
         await CreateRunner(context, new FakeMetadataLookup(result: null), libraries).RunAsync(new QBittorrentConnection(), client);
-        Assert.Single(context.ErroredTorrents);
+        var error = await context.ErroredTorrents.SingleAsync();
+        error.OccurredAt -= LinkRunner.NotOnMamRetryAfter; // a day later, it is looked up again
+        await context.SaveChangesAsync();
 
         await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries).RunAsync(new QBittorrentConnection(), client);
 
@@ -260,6 +287,93 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(0, lookup.Calls);
         Assert.Empty(context.Torrents);
         Assert.Empty(context.ErroredTorrents);
+    }
+
+    private static async Task SeedNotOnMamErrorAsync(FetchshelfDbContext context, string hash, TimeSpan ago)
+    {
+        context.ErroredTorrents.Add(new ErroredTorrentEntity
+        {
+            Stage = ErrorStage.Linker,
+            Key = hash,
+            Title = "Some Torrent",
+            ErrorText = LinkRunner.NotOnMamError,
+            OccurredAt = DateTimeOffset.UtcNow - ago,
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task RunAsync_NotOnMamLessThanADayAgo_IsNotLookedUpAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedNotOnMamErrorAsync(context, "hash1", TimeSpan.FromHours(23));
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        var summary = await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(0, lookup.Calls);
+        Assert.Equal(new LinkRunSummary(Linked: 0, Failed: 0), summary);
+        Assert.Single(context.ErroredTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_NotOnMamMoreThanADayAgo_IsLookedUpAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedNotOnMamErrorAsync(context, "hash1", TimeSpan.FromHours(25));
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        var summary = await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(1, lookup.Calls);
+        Assert.Equal(1, summary.Failed);
+        var error = await context.ErroredTorrents.AsNoTracking().SingleAsync();
+        Assert.True(DateTimeOffset.UtcNow - error.OccurredAt < TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task RunAsync_OtherLinkerErrorLessThanADayAgo_IsStillTriedEveryRun()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        context.ErroredTorrents.Add(new ErroredTorrentEntity
+        {
+            Stage = ErrorStage.Linker,
+            Key = "hash1",
+            ErrorText = "MAM did not answer.",
+            OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+        });
+        await context.SaveChangesAsync();
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(1, lookup.Calls);
+    }
+
+    [Fact]
+    public async Task RunAsync_MoreUnknownTorrentsThanTheLookupLimit_LooksUpTheRestInTheNextRun()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = Enumerable.Range(0, LinkRunner.MaxLookupsPerRun + 5)
+            .Select(i => FinishedTorrent($"unknown{i:D3}", DownloadsDir))
+            .ToList();
+        var client = OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>());
+        var lookup = new CountingLookup();
+
+        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(LinkRunner.MaxLookupsPerRun, lookup.Calls);
+
+        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(LinkRunner.MaxLookupsPerRun + 5, lookup.Calls);
     }
 
     private sealed class CountingLookup : IMetadataLookup
@@ -647,6 +761,100 @@ public sealed class LinkRunnerTests : IDisposable
         var afterSecondRun = TorrentMetadataSerializer.Deserialize((await context.Torrents.SingleAsync()).MetadataJson);
         Assert.Equal("Manual Title", afterSecondRun.Title);
         Assert.Equal(MetadataSource.Manual, afterSecondRun.MetadataSource);
+    }
+
+    /// <summary>Tracked torrents that only get their client status written: seeding before, stopped now.</summary>
+    private async Task<List<QBittorrentTorrent>> SeedRetiredTorrentsAsync(FetchshelfDbContext context, int count)
+    {
+        var torrents = new List<QBittorrentTorrent>();
+        for (var i = 0; i < count; i++)
+        {
+            var entity = await OrganizerTestSupport.SeedTorrentAsync(context, $"retired{i:D3}", mamId: 1000 + i);
+            entity.ReplacedWithTorrentId = "keeper";
+            entity.ClientStatus = "uploading";
+            torrents.Add(FinishedTorrent(entity.Id, DownloadsDir) with { State = "stoppedUP" });
+        }
+
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return torrents;
+    }
+
+    [Fact]
+    public async Task RunAsync_MoreTorrentsThanOneBatch_SavesEveryStatus()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 250);
+        var runner = CreateRunner(context, new FakeMetadataLookup(), [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.Equal(250, await reader.Torrents.CountAsync(t => t.ClientStatus == "stoppedUP"));
+    }
+
+    [Fact]
+    public async Task RunAsync_StoppedByMamRateLimit_KeepsTheStatusesWrittenBeforeIt()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 3);
+        torrents.Add(FinishedTorrent("untracked", DownloadsDir));
+        var runner = CreateRunner(context, new RateLimitedLookup(), [CreateLibrary(LibraryDir)]);
+
+        await Assert.ThrowsAsync<MamRateLimitedException>(() =>
+            runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>())));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.Equal(3, await reader.Torrents.CountAsync(t => t.ClientStatus == "stoppedUP"));
+    }
+
+    [Fact]
+    public async Task RunAsync_DuringAMamLookup_DoesNotHoldTheDatabaseWriteLock()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 3);
+        torrents.Add(FinishedTorrent("untracked", DownloadsDir));
+        var lookup = new WritingLookup($"Data Source={DbPath};Default Timeout=1");
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        Assert.True(lookup.Wrote);
+    }
+
+    [Fact]
+    public async Task RunAsync_StateChangedWithinTheSameStage_LeavesTheStoredStatus()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = (await SeedRetiredTorrentsAsync(context, 2)).Select(t => t with { State = "stalledUP" }).ToList();
+        var runner = CreateRunner(context, new FakeMetadataLookup(), [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.All(await reader.Torrents.ToListAsync(), t => Assert.Equal("uploading", t.ClientStatus));
+    }
+
+    private sealed class RateLimitedLookup : IMetadataLookup
+    {
+        public Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default) =>
+            throw new MamRateLimitedException("Too many requests.");
+    }
+
+    /// <summary>Writes to the database from another connection, as another job could while this lookup waits on MAM.</summary>
+    private sealed class WritingLookup(string connectionString) : IMetadataLookup
+    {
+        public bool Wrote { get; private set; }
+
+        public async Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)
+        {
+            var options = new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite(connectionString).Options;
+            using var other = new FetchshelfDbContext(options);
+            other.Events.Add(new EventEntity { OccurredAt = DateTimeOffset.UtcNow, Kind = EventKind.Updated });
+            await other.SaveChangesAsync(cancellationToken);
+            Wrote = true;
+            return null;
+        }
     }
 
     [Fact]

@@ -8,6 +8,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -44,6 +45,31 @@ public sealed class LinkRunner(
     private int _linked;
     private int _failed;
 
+    /// <summary>The open transaction of the run's current batch of torrents, if any. See <see cref="RunCoreAsync"/>.</summary>
+    private IDbContextTransaction? _batch;
+    private int _batchCount;
+    private const int BatchSize = 100;
+
+    /// <summary>The error a torrent gets when MAM has no torrent with its info-hash. Such a torrent is looked up again only after <see cref="NotOnMamRetryAfter"/>.</summary>
+    public const string NotOnMamError = "MAM has no torrent with this info-hash.";
+
+    /// <summary>
+    /// A torrent MAM doesn't know is usually from another tracker, or was removed from MAM; neither changes within
+    /// minutes. Asking again every run would only cost MAM requests.
+    /// </summary>
+    public static readonly TimeSpan NotOnMamRetryAfter = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// The most MAM lookups one Link job makes. Pointing Fetchshelf at a client full of torrents it doesn't know yet
+    /// would otherwise send MAM one lookup per torrent in a single run; this way the backlog is worked through over
+    /// several runs, and known torrents keep being processed meanwhile.
+    /// </summary>
+    public const int MaxLookupsPerRun = 200;
+
+    private int _lookups;
+    private int _lookupsDeferred;
+    private int _waitingForRetry;
+
     /// <summary>Processes every 100%-complete torrent reported by one configured qBittorrent connection; a failure on one torrent is recorded as a linker error and the run continues.</summary>
     public async Task<LinkRunSummary> RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
     {
@@ -58,21 +84,87 @@ public sealed class LinkRunner(
         var finished = torrents.Where(t => t.IsFinished).ToList();
         await RetireFinishedSelectionsAsync(finished, cancellationToken);
 
-        foreach (var torrent in finished)
+        // Most torrents only get a status update, and committing each one on its own would cost a disk sync per
+        // torrent: thousands per run in a large library. They are committed in batches instead. A batch's transaction
+        // holds the database's write lock, so it is committed before anything that can wait, such as a MAM lookup,
+        // and right after a torrent's files are placed, so a crash can't leave files in a library without a record.
+        try
         {
-            try
+            foreach (var torrent in finished)
             {
-                await ProcessFinishedTorrentAsync(connection, client, torrent, cancellationToken);
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested
-                && ex is not (MamRateLimitedException or MamAccountBlockedException))
-            {
-                // One bad torrent (e.g. a lookup or file error) must not stop the rest of the run.
-                // Rate limiting and account blocks still end the run: every later lookup would fail too.
-                dbContext.ChangeTracker.Clear();
-                await RecordLinkerErrorAsync(torrent, ex.Message, cancellationToken);
+                _batch ??= await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    await ProcessFinishedTorrentAsync(connection, client, torrent, cancellationToken);
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested
+                    && ex is not (MamRateLimitedException or MamAccountBlockedException))
+                {
+                    // One bad torrent (e.g. a lookup or file error) must not stop the rest of the run.
+                    // Rate limiting and account blocks still end the run: every later lookup would fail too.
+                    dbContext.ChangeTracker.Clear();
+                    await RecordLinkerErrorAsync(torrent, ex.Message, cancellationToken);
+                }
+                finally
+                {
+                    // Every path above saves what it changed, so nothing is lost here. Without this, every torrent of
+                    // the run would stay tracked, and each later save would scan them all: a large library's run would
+                    // grow with the square of its size.
+                    dbContext.ChangeTracker.Clear();
+                }
+
+                if (++_batchCount >= BatchSize)
+                {
+                    await CommitBatchAsync();
+                }
             }
         }
+        finally
+        {
+            // Also when the run ends early: the torrents already processed keep their changes.
+            await CommitBatchAsync();
+        }
+
+        LogSkippedLookups();
+    }
+
+    private void LogSkippedLookups()
+    {
+        if (_waitingForRetry > 0)
+        {
+            _logger.LogInformation(
+                "{Count} {Torrents} MAM didn't know when last asked will be looked up again once a day has passed",
+                _waitingForRetry, _waitingForRetry == 1 ? "torrent" : "torrents");
+        }
+
+        if (_lookupsDeferred > 0)
+        {
+            _logger.LogInformation(
+                "Looked up {Max} torrents on MAM, the most for one run; {Count} more will be looked up in the next runs",
+                MaxLookupsPerRun, _lookupsDeferred);
+        }
+
+        (_waitingForRetry, _lookupsDeferred) = (0, 0);
+    }
+
+    /// <summary>Whether MAM had no torrent with this info-hash when asked less than <see cref="NotOnMamRetryAfter"/> ago.</summary>
+    private async Task<bool> NotOnMamRecentlyAsync(string hash, CancellationToken cancellationToken) =>
+        await dbContext.ErroredTorrents.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Stage == ErrorStage.Linker && e.Key == hash, cancellationToken) is { ErrorText: NotOnMamError } error
+        && DateTimeOffset.UtcNow - error.OccurredAt < NotOnMamRetryAfter;
+
+    /// <summary>Commits the current batch, if one is open; later saves commit on their own until the next batch starts.</summary>
+    private async Task CommitBatchAsync()
+    {
+        if (_batch is null)
+        {
+            return;
+        }
+
+        await _batch.CommitAsync(CancellationToken.None);
+        await _batch.DisposeAsync();
+        _batch = null;
+        _batchCount = 0;
     }
 
     /// <summary>
@@ -103,7 +195,7 @@ public sealed class LinkRunner(
         if (existing is not null)
         {
             existing.QBittorrentCategory = torrent.Category;
-            existing.ClientStatus = torrent.State;
+            ClientStatuses.Update(existing, torrent.State);
             metadata = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
 
             if ((existing.ReplacedWithTorrentId is not null || existing.UnlinkedAt is not null) && existing.LibraryPath is null)
@@ -131,10 +223,25 @@ public sealed class LinkRunner(
                 return; // no library matches; ignored
             }
 
+            if (await NotOnMamRecentlyAsync(torrent.Hash, cancellationToken))
+            {
+                _waitingForRetry++;
+                return;
+            }
+
+            if (_lookups >= MaxLookupsPerRun)
+            {
+                _lookupsDeferred++;
+                return;
+            }
+
+            // A lookup can wait on MAM or on another MAM job: the batch must not hold the write lock meanwhile.
+            await CommitBatchAsync();
+            _lookups++;
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
             if (looked is null)
             {
-                await RecordLinkerErrorAsync(torrent, "MAM has no torrent with this info-hash.", cancellationToken);
+                await RecordLinkerErrorAsync(torrent, NotOnMamError, cancellationToken);
                 return;
             }
 
@@ -194,6 +301,7 @@ public sealed class LinkRunner(
         await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await CommitBatchAsync(); // the files are in place: their record must not wait for the rest of the batch
         _linked++;
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
     }
@@ -221,7 +329,7 @@ public sealed class LinkRunner(
             libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList));
     }
 
-    /// <summary>Links the chosen files into the book's folder with the library's method and writes its `metadata.json`.</summary>
+    /// <summary>Links the chosen files into the book's folder with the library's method and writes the metadata files the library asks for.</summary>
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
     {
@@ -238,7 +346,15 @@ public sealed class LinkRunner(
                 linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
             }
 
-            File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+            if (library.MetadataJson)
+            {
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+            }
+
+            if (library.MetadataOpf)
+            {
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.opf"), LibraryMetadataOpfBuilder.Build(metadata));
+            }
         }
 
         return new Placement(destinationFolder, linkedFiles, outcomes);
@@ -253,7 +369,7 @@ public sealed class LinkRunner(
         existing.ChosenEbookExtension = ebook;
         existing.QBittorrentCategory = torrent.Category;
         existing.LinkerName = library.Name;
-        existing.ClientStatus = torrent.State;
+        ClientStatuses.Update(existing, torrent.State);
         existing.LibraryMismatchState = null;
     }
 
@@ -401,7 +517,7 @@ public sealed class LinkRunner(
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
             if (looked is null && !HandEdits.AreIn(stored))
             {
-                return Refuse(existing, "MAM has no torrent with this info-hash.");
+                return Refuse(existing, NotOnMamError);
             }
 
             metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
@@ -475,9 +591,7 @@ public sealed class LinkRunner(
     {
         foreach (var (connection, client) in connections)
         {
-            var torrent = (await client.ListTorrentsAsync(cancellationToken))
-                .FirstOrDefault(t => string.Equals(t.Hash, hash, StringComparison.OrdinalIgnoreCase));
-            if (torrent is not null)
+            if (await client.GetTorrentAsync(hash, cancellationToken) is { } torrent)
             {
                 return (connection, client, torrent);
             }

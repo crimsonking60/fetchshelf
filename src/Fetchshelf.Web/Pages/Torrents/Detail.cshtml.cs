@@ -177,7 +177,7 @@ public class DetailModel(
         await WithOwningClientAsync(id, async client =>
         {
             await client.SetCategoryAsync(id, category);
-            var current = (await client.ListTorrentsAsync()).FirstOrDefault(t => t.Hash == id);
+            var current = await client.GetTorrentAsync(id);
             if (current is not null)
             {
                 var toRemove = current.TagList.Except(tags, StringComparer.OrdinalIgnoreCase).ToList();
@@ -203,7 +203,7 @@ public class DetailModel(
     {
         var found = false;
         await WithOwningClientAsync(hash, async client =>
-            found = (await client.ListTorrentsAsync()).Any(t => t.Hash == hash && t.Category == category));
+            found = (await client.GetTorrentAsync(hash))?.Category == category);
         return found;
     }
 
@@ -237,7 +237,7 @@ public class DetailModel(
             var client = await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), id);
             if (client is not null)
             {
-                clientState = (await client.ListTorrentsAsync()).FirstOrDefault(t => t.Hash == id);
+                clientState = await client.GetTorrentAsync(id);
             }
         }
         catch (HttpRequestException)

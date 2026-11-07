@@ -35,4 +35,27 @@ public sealed class Library
 
     /// <summary>Overrides the global `ebook_types` preference list for this library when non-null.</summary>
     public List<string>? EbookTypes { get; set; }
+
+    private bool? _metadataJson;
+    private bool? _metadataOpf;
+
+    /// <summary>Write a `metadata.json` (Audiobookshelf's format) into each book folder. Falls back to the global `metadata_json`.</summary>
+    public bool MetadataJson
+    {
+        get => _metadataJson ?? true;
+        set => _metadataJson = value;
+    }
+
+    /// <summary>Write a `metadata.opf` (Calibre's format, also read by Audiobookshelf) into each book folder. Falls back to the global `metadata_opf`.</summary>
+    public bool MetadataOpf
+    {
+        get => _metadataOpf ?? false;
+        set => _metadataOpf = value;
+    }
+
+    /// <summary>True when this library sets its own `metadata_json`, so the global one must not replace it.</summary>
+    internal bool HasOwnMetadataJson => _metadataJson is not null;
+
+    /// <summary>True when this library sets its own `metadata_opf`, so the global one must not replace it.</summary>
+    internal bool HasOwnMetadataOpf => _metadataOpf is not null;
 }

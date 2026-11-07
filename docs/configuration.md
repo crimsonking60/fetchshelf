@@ -30,6 +30,12 @@ to `5-everything.toml`, which uses every option.
   Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
   directory. The file must have a `.toml` extension. The database location is set separately with
   `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/database` are mounted volumes.
+  The database is safest on a disk local to the machine Fetchshelf runs on, which includes a NAS running
+  Fetchshelf in its own Docker: SQLite can't lock files reliably across a network share (NFS or SMB).
+  On a local disk, setting [`database_wal = true`](#top-level-settings) keeps the web UI responsive while
+  a long job writes. SQLite then keeps two working files next to `data.db`: `data.db-wal` and
+  `data.db-shm`. Leave them in place, and stop Fetchshelf before copying the database as a backup. Leave
+  `database_wal` off if the database is on a network share: the write-ahead log can't work over one.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
@@ -79,8 +85,8 @@ Fetchshelf has two halves that can be used independently.
   and **how** to pay for them using [`cost`](#cost).
 - `ebook_types` / `audio_types` / ... decide which torrents have a usable file format at all, and which
   of two copies of the same book is better.
-- `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
-  download gets.
+- `[[tag]]` rules (or an autograb's or Hardcover list's own `category`) decide which qBittorrent category
+  and tags a new download gets.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
   `unsat_buffer` / `wedge_buffer` override the global ones. The downloader reads them when it starts each
   torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
@@ -94,14 +100,14 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
           └─ category/tags set by [[tag]] rules ─────────────┘ client's paths to Fetchshelf's
 ```
 
-- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule or an
-  autograb `category` sets) or by their **save path** (`download_dir`).
+- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule, or an
+  autograb's or Hardcover list's `category`, sets) or by their **save path** (`download_dir`).
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
 - Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
-  book's files, readable by any app or script.
+  book's files, readable by any app or script. A library can also get a `metadata.opf`, Calibre's format.
 - `[audiobookshelf]` is optional; without it Audiobookshelf can still pick the books up from the
-  `metadata.json` files.
+  metadata files.
 - When a better format of a book is linked, the old copy is retired, and `on_cleaned` on the
   `[[qbittorrent]]` entry says what to do to it in the client.
 
@@ -121,7 +127,10 @@ These go at the top of the file, before any section.
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `download_after_selection` | `true` | Start the Download job as soon as an autograb, a Hardcover list or the Search page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
+| `database_wal` | `false` | Use SQLite's write-ahead log, so pages stay responsive while a job writes. Only for a database on a local disk, not a network share. Read at startup; turning it off again switches the database back. See [How the file is loaded](#how-the-file-is-loaded). |
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
+| `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
+| `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
@@ -255,8 +264,8 @@ category = "unlinked"
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
-  automatically if they do not exist.
+- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]`, `[[autograb]]` and `[[hardcover_list]]` are
+  created in qBittorrent automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
   on one disk. See [`method`](#library).
@@ -424,6 +433,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
+| `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
 | `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). The first block that finds a format decides what that format costs. `metadata_only` costs are not allowed. |
@@ -477,7 +487,7 @@ For each new download:
 
 - The **category** comes from the **first** matching rule that sets one.
 - The **tags** are the **union** of the tags from **all** matching rules.
-- An autograb's own `category` overrides the rules' category.
+- An autograb's or Hardcover list's own `category` overrides the rules' category.
 
 The result is applied when the torrent is added to qBittorrent. Each rule can also be applied to torrents
 you already have, from the Config page.
@@ -508,6 +518,8 @@ library, in file order, that accepts it is used.
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
+| `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
+| `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
@@ -529,9 +541,13 @@ library, in file order, that accepts it is used.
   every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened.
-- A `metadata.json` is written next to the files, for every media type. It is plain JSON in the format
-  Audiobookshelf reads; see [`metadata.json`](user-guide.md#metadatajson) in the user guide for its
-  fields.
+- A `metadata.json` is written next to the files, for every media type, unless the library sets
+  `metadata_json = false`. It is plain JSON in the format Audiobookshelf reads; see
+  [`metadata.json`](user-guide.md#metadatajson) in the user guide for its fields.
+- With `metadata_opf = true`, a `metadata.opf` is written as well: the OPF file Calibre keeps next to its
+  books and imports from. See [`metadata.opf`](user-guide.md#metadataopf) in the user guide.
+- Changing either setting affects books linked from then on. To apply it to books already in the library,
+  relink them: tick them on the **Torrents** page and use **Relink selected**.
 - A torrent without any author cannot be linked and is reported on the Errors page.
 
 ### Folder naming

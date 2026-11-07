@@ -94,6 +94,7 @@ internal static class SearchResponseParser
             VipExpireUnixSeconds = element.TryGetProperty("vip_expire", out var vipExpireEl) ? MamJson.GetInt64(vipExpireEl) : 0,
             DownloadHash = downloadHash,
             Thumbnail = GetOptionalString(element, "thumbnail"),
+            PosterType = GetOptionalString(element, "poster_type"),
             MediaInfoJson = ParseMediaInfo(element),
             RawJson = element.GetRawText(),
         };

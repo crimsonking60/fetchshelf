@@ -83,8 +83,11 @@ public sealed record MamTorrentRecord
     /// <summary>The hash used to build a download URL.</summary>
     public string? DownloadHash { get; init; }
 
-    /// <summary>The cover image's address, when the search asked for it (<see cref="MamSearchQuery.ReturnThumbnail"/>).</summary>
+    /// <summary>The cover image's address, when the search asked for it (<see cref="MamSearchQuery.ReturnThumbnail"/>) and MAM sent it.</summary>
     public string? Thumbnail { get; init; }
+
+    /// <summary>The cover image's type, such as "image/jpeg", when the torrent has a cover; MAM's "poster_type".</summary>
+    public string? PosterType { get; init; }
 
     /// <summary>
     /// The files' technical details as a JSON object (sections such as "General" and "Audio1"), when the search asked
