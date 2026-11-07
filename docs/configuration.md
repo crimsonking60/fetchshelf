@@ -30,6 +30,9 @@ to `5-everything.toml`, which uses every option.
   Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
   directory. The file must have a `.toml` extension. The database location is set separately with
   `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/database` are mounted volumes.
+  Keep the database on a local disk, not a network share: SQLite can't lock files reliably over one. Next
+  to `data.db`, SQLite keeps two working files, `data.db-wal` and `data.db-shm`. Leave them in place, and
+  stop Fetchshelf before copying the database as a backup.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.

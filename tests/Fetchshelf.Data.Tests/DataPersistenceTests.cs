@@ -1,5 +1,6 @@
 using System.Reflection;
 using Fetchshelf.Data.Entities;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -14,9 +15,13 @@ public sealed class DataPersistenceTests : IDisposable
 
     public void Dispose()
     {
-        if (File.Exists(_dbPath))
+        SqliteConnection.ClearAllPools();
+        foreach (var path in new[] { _dbPath, $"{_dbPath}-wal", $"{_dbPath}-shm" })
         {
-            File.Delete(_dbPath);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
     }
 
@@ -48,6 +53,19 @@ public sealed class DataPersistenceTests : IDisposable
         {
             Assert.Contains(expected, tableNames);
         }
+    }
+
+    [Fact]
+    public void Migrate_SwitchesTheDatabaseToWriteAheadLogging()
+    {
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context);
+        }
+
+        using var reopened = CreateContext();
+        var journalMode = reopened.Database.SqlQueryRaw<string>("SELECT journal_mode AS Value FROM pragma_journal_mode").Single();
+        Assert.Equal("wal", journalMode);
     }
 
     [Fact]
