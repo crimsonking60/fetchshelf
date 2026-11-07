@@ -5,7 +5,7 @@
 }
 
 <h2>Search</h2>
-@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly for a title or author, or shows the newest torrents on MAM when you haven't typed anything. Download a result straight to qBittorrent, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
+@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly for a title or author, or shows the newest torrents on MAM when you haven't typed anything. The language list starts at the languages set in your configuration. Download a result straight to qBittorrent, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
 
 @* Stays below the sticky header while scrolling, so feedback from a download is visible wherever in the results it was clicked. *@
 <div id="download-message-area" class="download-feedback" aria-live="polite">
@@ -17,6 +17,12 @@
 
 <form method="get" class="toolbar">
     <input type="text" name="Q" value="@Model.Q" placeholder="Search MAM" />
+    <select name="Lang" id="search-language" aria-label="Language" onchange="this.form.requestSubmit()">
+        @foreach (var (value, label) in Model.LanguageOptions)
+        {
+            <option value="@value" selected="@(value == Model.SelectedLanguageOption)">@label</option>
+        }
+    </select>
     <button type="submit">Search</button>
 </form>
 
@@ -50,17 +56,22 @@
     </span>
 </div>
 
+@{
+    var languageSuffix = Model.SearchLanguages.Count == 0
+        ? string.Empty
+        : " in " + string.Join(", ", Model.SearchLanguages.Select(Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName));
+}
 @if (string.IsNullOrWhiteSpace(Model.Q))
 {
-    <h3>Newest on MAM</h3>
+    <h3>Newest on MAM@(languageSuffix)</h3>
 }
 else
 {
-    <h3>Matches for '@Model.Q'</h3>
+    <h3>Matches for '@Model.Q'@(languageSuffix)</h3>
 }
 
 <div class="results-wrap">
-    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading">
+    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q, Model.Lang })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading">
         @await Html.PartialAsync("_SearchResultsPartial", Model)
     </div>
     @* Starts visible (htmx-request) so the table is never shown empty before the first request begins; htmx clears it when the request ends. *@

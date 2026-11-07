@@ -65,6 +65,12 @@ public sealed class FetchshelfSettings
 
     public List<string> IgnoreTorrents { get; set; } = [];
 
+    /// <summary>
+    /// The `languages` of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the
+    /// Search page's default. Empty means any language. `[[tag]]` rules don't use it.
+    /// </summary>
+    public List<string> Languages { get; set; } = [];
+
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
 
     public List<string> EbookTypes { get; set; } = ["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"];

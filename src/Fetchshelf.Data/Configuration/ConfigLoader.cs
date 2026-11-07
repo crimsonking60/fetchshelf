@@ -43,6 +43,7 @@ public static class ConfigLoader
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
+        ["languages"] = (s, v) => s.Languages = SplitList(v),
         ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
         ["music_types"] = (s, v) => s.MusicTypes = SplitList(v),
@@ -74,6 +75,7 @@ public static class ConfigLoader
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
         ApplyGlobalLibraryDefaults(settings);
+        ApplyGlobalLanguages(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
@@ -414,6 +416,28 @@ public static class ConfigLoader
         }
     }
 
+    /// <summary>
+    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c> and <c>[[hardcover_list.grab]]</c>
+    /// block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
+    /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
+    /// <c>[[snatchlist]]</c> blocks don't take <c>languages</c> at all. Runs after environment overrides, so
+    /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
+    /// </summary>
+    private static void ApplyGlobalLanguages(FetchshelfSettings settings)
+    {
+        var unknown = settings.Languages.FirstOrDefault(name => !Core.Metadata.LanguageNameResolver.TryResolve(name, out _));
+        if (unknown is not null)
+        {
+            throw new ConfigurationException($"Invalid configuration: unrecognized language '{unknown}' in the top-level 'languages'.");
+        }
+
+        var blocks = settings.Autograb.Cast<SharedFilterConfig>().Concat(settings.HardcoverList.SelectMany(list => list.Grab));
+        foreach (var block in blocks.Where(block => block.Languages is null))
+        {
+            block.Languages = [.. settings.Languages];
+        }
+    }
+
     private static void ValidateSnatchlists(FetchshelfSettings settings)
     {
         foreach (var snatchlist in settings.Snatchlist)
@@ -424,7 +448,7 @@ public static class ConfigLoader
                     "Invalid configuration: a [[snatchlist]] section's 'cost' must be 'metadata_only' or 'metadata_only_add'.");
             }
 
-            if (snatchlist.Languages.Count > 0)
+            if (snatchlist.Languages is { Count: > 0 })
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'languages'.");

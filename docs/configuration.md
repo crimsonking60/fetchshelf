@@ -128,6 +128,7 @@ These go at the top of the file, before any section.
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
+| `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
@@ -275,7 +276,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 | `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
-| `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. See [languages](#languages). |
+| `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
 | `flags` | Table of flag name to `true` (flag required) or `false` (flag forbidden). Flags you do not mention are ignored. See [flags](#flags). |
 | `min_size`, `max_size` | [Sizes](#value-types-used-below), inclusive. |
 | `exclude_uploader` | List of uploader names to reject. |
@@ -482,6 +483,10 @@ For each new download:
 - The **category** comes from the **first** matching rule that sets one.
 - The **tags** are the **union** of the tags from **all** matching rules.
 - An autograb's or Hardcover list's own `category` overrides the rules' category.
+- **The top-level `languages` does not apply to tag rules.** A rule matches by language only if it sets
+  `languages` itself; without it, the rule matches downloads in every language. Tag rules sort out what has
+  already been selected, so an inherited language would leave a book that an autograb with `languages = []`
+  selected in another language without its category, and without a library.
 
 The result is applied when the torrent is added to qBittorrent. Each rule can also be applied to torrents
 you already have, from the Config page.
@@ -615,7 +620,7 @@ Used inside `flags`. Names are case-insensitive.
 
 ### Languages
 
-Used by `languages`. Names are case-insensitive and common aliases work (for example `Brazilian`,
+Used by `languages`, at the top of the file and in filters. Names are case-insensitive and common aliases work (for example `Brazilian`,
 `Castilian`, `Scottish`).
 
 English, Chinese, Gujarati, Spanish, Kannada, Burmese, Thai, Hindi, Marathi, Telugu, Tamil, Javanese,

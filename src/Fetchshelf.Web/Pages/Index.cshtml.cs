@@ -32,6 +32,57 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
+    /// <summary>
+    /// The language to search in: unset for the top-level <c>languages</c>, <see cref="AnyLanguage"/> for every
+    /// language, or one <see cref="Core.Metadata.Language"/> name.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Lang { get; set; }
+
+    public const string AnyLanguage = "any";
+
+    /// <summary>The top-level <c>languages</c>, which a search uses unless <see cref="Lang"/> says otherwise. Validated when the config loads.</summary>
+    public IReadOnlyList<Language> DefaultLanguages => settings.Languages
+        .Select(name => LanguageNameResolver.TryResolve(name, out var language) ? language : (Language?)null)
+        .OfType<Language>()
+        .Distinct()
+        .ToList();
+
+    /// <summary>The languages this search is limited to; empty means any language.</summary>
+    public IReadOnlyList<Language> SearchLanguages =>
+        string.Equals(Lang, AnyLanguage, StringComparison.OrdinalIgnoreCase) ? []
+        : Enum.TryParse<Language>(Lang, ignoreCase: true, out var language) && Enum.IsDefined(language) ? [language]
+        : DefaultLanguages;
+
+    /// <summary>The language dropdown: the default first, then any language when the default restricts it, then every language A-Z.</summary>
+    public IReadOnlyList<(string Value, string Label)> LanguageOptions
+    {
+        get
+        {
+            var options = new List<(string Value, string Label)>();
+            if (DefaultLanguages.Count > 0)
+            {
+                options.Add((string.Empty, $"Your languages ({string.Join(", ", DefaultLanguages.Select(LanguageNameResolver.DisplayName))})"));
+                options.Add((AnyLanguage, "Any language"));
+            }
+            else
+            {
+                options.Add((string.Empty, "Any language"));
+            }
+
+            options.AddRange(Enum.GetValues<Language>()
+                .Select(language => (language.ToString(), LanguageNameResolver.DisplayName(language)))
+                .OrderBy(option => option.Item2, StringComparer.OrdinalIgnoreCase));
+            return options;
+        }
+    }
+
+    /// <summary>The dropdown value matching <see cref="Lang"/>, so the current choice stays selected.</summary>
+    public string SelectedLanguageOption =>
+        string.Equals(Lang, AnyLanguage, StringComparison.OrdinalIgnoreCase) ? (DefaultLanguages.Count > 0 ? AnyLanguage : string.Empty)
+        : Enum.TryParse<Language>(Lang, ignoreCase: true, out var language) && Enum.IsDefined(language) ? language.ToString()
+        : string.Empty;
+
     public IReadOnlyList<SearchResultViewModel> Results { get; private set; } = [];
 
     /// <summary>False while the page shell is rendered; the results arrive afterwards via <see cref="OnGetResultsAsync"/>.</summary>
@@ -60,6 +111,7 @@ public class IndexModel(
             SearchFields = string.IsNullOrWhiteSpace(Q) ? [] : [MamSearchField.Title, MamSearchField.Author],
             Target = MamSearchTarget.New,
             ReturnDownloadLink = true,
+            LanguageIds = SearchLanguages.Select(language => (int)language).ToList(),
         };
 
         try

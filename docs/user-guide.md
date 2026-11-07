@@ -614,6 +614,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead. Either way you get at most the 100 newest matches; there
   are no further pages, so make the search more specific if what you want is not there.
+- **The language list** next to the box limits the search to a language. It starts at *Your languages*, the
+  top-level `languages` in your configuration (see [Filtering](#filtering)); choose *Any language* or one
+  language for a search of its own. Without a top-level `languages`, it starts at *Any language*. Unlike the
+  filters below, the language is part of what is asked of MAM, so it does change which results come back.
 - **Hide downloaded torrents** hides every result that has a status or is in qBittorrent (see below), so
   only torrents you don't have yet remain.
 - **Show** limits the list to one kind of torrent:
@@ -748,6 +752,29 @@ Every autograb can use the same filter fields: media type, categories, languages
 or `abridged`, file size, uploader, upload date, seeders, leechers, times snatched, and `max_authors` (which
 skips anthologies, keeping a book like Good Omens with two authors). A torrent must satisfy **every** field
 you set. The details are in the [configuration reference](configuration.md#the-shared-torrent-filter).
+
+If most of what you want is in the same languages, set them once at the top of the file instead of in every
+block:
+
+```toml
+languages = ["English"]          # the default for every autograb and Hardcover list grab block
+
+[[autograb]]
+name = "New ebooks"              # no languages here: English, from the top
+type = "new"
+cost = "free"
+
+[[autograb]]
+name = "Freeleech in any language"
+type = "freeleech"
+cost = "free"
+languages = []                   # any language, whatever the top-level setting says
+```
+
+A block's own `languages` always wins, and `languages = []` means any language. The Search page starts at
+these languages too. **`[[tag]]` rules are the exception: they never use the top-level `languages`.** A tag
+rule without its own `languages` matches every language, so a book selected in another language still gets
+its category and reaches its library.
 
 ### What to pay: `cost`
 

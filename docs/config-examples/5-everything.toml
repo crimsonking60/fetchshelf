@@ -30,6 +30,10 @@ download_after_selection = true # start downloading as soon as something is sele
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 
+languages = ["English"] # the default 'languages' of every [[autograb]] and [[hardcover_list.grab]] block
+                        # that doesn't set its own, and the Search page's starting language. Empty = any.
+                        # Not used by [[tag]] rules.
+
 metadata_json = true  # write metadata.json (Audiobookshelf's format) in every library without its own setting
 metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
 
@@ -142,7 +146,7 @@ media_type = ["Ebook", "ComicBook"] # Audiobook, Ebook, Musicology, Radio, Manga
 # Per main type: true = all categories, false = none, or a list of names. Defaults: audio and ebook
 # true, musicology and radio false.
 categories = { audio = false, ebook = ["Fantasy", "Science Fiction", "Humor"], musicology = false, radio = false }
-languages = ["English", "German"]
+languages = ["English", "German"]  # overrides the top-level languages; languages = [] means any language
 # true = the flag must be present, false = it must be absent, unlisted flags are ignored. Names:
 # crude_language, violence, some_explicit, explicit, abridged, lgbt.
 flags = { crude_language = false, violence = false, some_explicit = false, explicit = false, abridged = false, lgbt = false }
@@ -237,6 +241,8 @@ cost = "free"
 # =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
 # Category: first matching rule that sets one. Tags: union over all matching rules.
+# Tag rules do NOT use the top-level 'languages': a rule without its own 'languages' matches every
+# language, so a book an autograb selected in another language still gets its category.
 # =====================================================================================================
 [[tag]]
 name = "Ebooks"

@@ -151,6 +151,21 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Load_TopLevelLanguagesFromEnvironmentVariable_ReachAutograbsWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n\n[[autograb]]\ntype = \"new\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_languages", "English,German");
+        try
+        {
+            Assert.Equal(["English", "German"], Assert.Single(ConfigLoader.Load(ConfigPath).Autograb).Languages);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_languages", null);
+        }
+    }
+
+    [Fact]
     public void Load_DatabaseWalOn_InFileOrFromEnvironmentVariable()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\ndatabase_wal = true\n");
