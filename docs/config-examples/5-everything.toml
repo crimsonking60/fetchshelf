@@ -209,11 +209,12 @@ max_size = "10 GiB"
 
 # =====================================================================================================
 # [opds]: optional. Serves the ebook libraries as an OPDS catalog at http://<fetchshelf>/opds, for
-# e-readers and reading apps. Leave it out to serve nothing; an empty [opds] serves every library.
+# e-readers and reading apps. Leave it out to serve nothing; an empty [opds] serves the ebooks in every
+# library. Audiobooks are never served.
 # No login: only on a trusted network, or behind a reverse proxy that asks for credentials.
 # =====================================================================================================
 [opds]
-libraries = ["Ebooks"]   # [[library]] names to serve; empty or left out = every library
+libraries = ["Ebooks"]   # [[library]] names whose ebooks to serve; empty or left out = every library
 
 # =====================================================================================================
 # [[hardcover_list]]: repeatable. Searches MAM for the books with a reading status on Hardcover, or on

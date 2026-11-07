@@ -616,8 +616,8 @@ integration off.
 Fetchshelf can serve your ebook libraries as an OPDS catalog, the format e-readers and reading apps use to
 browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, KyBook and many others.
 
-1. **Turn it on** by adding an `[opds]` section to `config.toml`, empty to serve every library, or with the
-   libraries to serve (see [`[opds]`](configuration.md#opds)):
+1. **Turn it on** by adding an `[opds]` section to `config.toml`, empty to serve the ebooks in every
+   library, or with the libraries to serve (see [`[opds]`](configuration.md#opds)):
 
    ```toml
    [opds]

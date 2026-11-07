@@ -235,12 +235,12 @@ token_file = "/run/secrets/hardcover_token"
 
 Optional. Serves your ebook libraries as an [OPDS](https://opds.io) catalog at `http://<fetchshelf>/opds`,
 for e-readers and reading apps such as KOReader, Moon+ Reader or Thorium. Leave the section out to serve
-nothing; an empty `[opds]` turns it on for every library. See
+nothing; an empty `[opds]` serves the ebooks in every library. Audiobooks are never served. See
 [Reading on an e-reader](user-guide.md#reading-on-an-e-reader-opds) in the user guide.
 
 | Setting | Default | Description |
 |---|---|---|
-| `libraries` | `[]` | The `name`s of the `[[library]]` entries to serve. Empty serves every library. |
+| `libraries` | `[]` | The `name`s of the `[[library]]` entries whose ebooks to serve. Empty serves the ebooks in every library; a library with only audiobooks has nothing to serve and doesn't appear in the catalog. |
 
 ```toml
 [opds]
