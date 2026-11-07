@@ -113,6 +113,23 @@
 </section>
 
 <section>
+    <h3>OPDS catalog</h3>
+    @if (settings.Opds is not { } opds)
+    {
+        <p class="empty">No [opds] section configured, so no OPDS catalog is served.</p>
+    }
+    else
+    {
+        <table>
+            <tbody>
+                <tr><th>Catalog address</th><td><code id="opds-url">@($"{ViewContext.HttpContext.Request.Scheme}://{ViewContext.HttpContext.Request.Host}/opds")</code></td></tr>
+                <tr><th>libraries</th><td>@(opds.Libraries.Count == 0 ? "all" : string.Join(", ", opds.Libraries))</td></tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Autograbbers</h3>
     @if (settings.Autograb.Count == 0)
     {
