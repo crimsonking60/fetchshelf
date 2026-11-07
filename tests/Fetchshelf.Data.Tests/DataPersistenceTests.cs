@@ -63,9 +63,32 @@ public sealed class DataPersistenceTests : IDisposable
             DatabaseMigrator.Migrate(context);
         }
 
-        using var reopened = CreateContext();
-        var journalMode = reopened.Database.SqlQueryRaw<string>("SELECT journal_mode AS Value FROM pragma_journal_mode").Single();
-        Assert.Equal("wal", journalMode);
+        Assert.Equal("wal", JournalMode());
+    }
+
+    [Fact]
+    public void Migrate_WithoutWriteAheadLog_SwitchesAnEarlierWalDatabaseBack()
+    {
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context);
+        }
+
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context, writeAheadLog: false);
+        }
+
+        Assert.Equal("delete", JournalMode());
+        Assert.False(File.Exists($"{_dbPath}-wal"));
+    }
+
+    /// <summary>The journal mode a freshly opened connection reports, i.e. the one stored in the database file.</summary>
+    private string JournalMode()
+    {
+        SqliteConnection.ClearAllPools();
+        using var context = CreateContext();
+        return context.Database.SqlQueryRaw<string>("SELECT journal_mode AS Value FROM pragma_journal_mode").Single();
     }
 
     [Fact]

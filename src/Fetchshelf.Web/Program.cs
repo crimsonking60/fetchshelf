@@ -237,7 +237,7 @@ var app = builder.Build();
 
 using (var startupScope = app.Services.CreateScope())
 {
-    DatabaseMigrator.Migrate(startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>());
+    DatabaseMigrator.Migrate(startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal);
 }
 
 if (args.Contains("--update-search-title"))

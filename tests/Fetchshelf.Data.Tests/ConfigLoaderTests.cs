@@ -47,6 +47,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Equal(0, settings.WedgeBuffer);
         Assert.False(settings.AddTorrentsStopped);
         Assert.False(settings.ExcludeNarratorInLibraryDir);
+        Assert.True(settings.DatabaseWal);
         Assert.True(settings.PageExplanations);
         Assert.True(settings.JobExplanations);
         Assert.Equal(30, settings.SearchInterval);
@@ -144,6 +145,24 @@ public sealed class ConfigLoaderTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id", null);
+        }
+    }
+
+    [Fact]
+    public void Load_DatabaseWalOff_InFileOrFromEnvironmentVariable()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ndatabase_wal = false\n");
+        Assert.False(ConfigLoader.Load(ConfigPath).DatabaseWal);
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_database_wal", "false");
+        try
+        {
+            Assert.False(ConfigLoader.Load(ConfigPath).DatabaseWal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_database_wal", null);
         }
     }
 

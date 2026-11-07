@@ -5,13 +5,15 @@ namespace Fetchshelf.Data;
 /// <summary>Applies pending EF Core migrations at startup, so an existing database is upgraded in place.</summary>
 public static class DatabaseMigrator
 {
-    /// <remarks>
-    /// Also switches the database to write-ahead logging, so pages can still read while a long job writes. The
-    /// setting is stored in the database file, so this only changes something the first time.
-    /// </remarks>
-    public static void Migrate(FetchshelfDbContext dbContext)
+    /// <param name="dbContext">The context whose database is migrated.</param>
+    /// <param name="writeAheadLog">
+    /// Whether the database uses SQLite's write-ahead log (`database_wal`), so pages can still read while a long job
+    /// writes. The journal mode is stored in the database file, so turning this off switches back to SQLite's
+    /// default mode rather than just not switching.
+    /// </param>
+    public static void Migrate(FetchshelfDbContext dbContext, bool writeAheadLog = true)
     {
         dbContext.Database.Migrate();
-        dbContext.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+        dbContext.Database.ExecuteSqlRaw(writeAheadLog ? "PRAGMA journal_mode=WAL;" : "PRAGMA journal_mode=DELETE;");
     }
 }

@@ -70,6 +70,8 @@ Done. What was built:
 
 Done. `DatabaseMigrator.Migrate` switches the database to WAL after migrating, and `docs/configuration.md` says
 to keep the database on local disk and leave the `-wal` and `-shm` files in place.
+A top-level `database_wal` setting (default `true`) turns it off for databases on a network share. Off
+switches an already-switched database back to SQLite's default journal mode.
 
 - At startup, after migrations, run `PRAGMA journal_mode=WAL;` (it persists in the database file once set).
 - Keep `synchronous` at its default (`FULL`). `NORMAL` is safe with WAL too, but needs no decision at this

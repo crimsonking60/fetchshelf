@@ -36,6 +36,7 @@ public static class ConfigLoader
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
+        ["database_wal"] = (s, v) => s.DatabaseWal = bool.Parse(v),
         ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
