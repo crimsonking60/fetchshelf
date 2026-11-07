@@ -4,6 +4,10 @@ This guide is for people who run Fetchshelf. It assumes you use Docker, optional
 are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
 
+> [!NOTE]
+> This page follows the branch you are viewing: on `develop` it describes changes that are not released yet.
+> For the version you run, see [this page on `main`](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md), which matches the latest release.
+
 ## Contents
 
 - [What is Fetchshelf?](#what-is-fetchshelf)

@@ -5,6 +5,10 @@ does and how the settings relate to each other. For working configs to start fro
 [`docs/config-examples/`](config-examples/): five numbered examples, from a bare-bones `1-minimal.toml`
 to `5-everything.toml`, which uses every option.
 
+> [!NOTE]
+> This page follows the branch you are viewing: on `develop` it describes changes that are not released yet.
+> For the version you run, see [this page on `main`](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md), which matches the latest release.
+
 ## Contents
 
 - [How the file is loaded](#how-the-file-is-loaded)

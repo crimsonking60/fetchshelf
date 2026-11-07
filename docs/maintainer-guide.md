@@ -43,6 +43,12 @@ Rules that keep this working:
   `develop` (see [After the release](#after-the-release)).
 - Because `develop` is the default branch, pull requests target it automatically, and `Fixes #123` in a pull
   request closes the issue when it is merged into `develop`.
+- **Visitors land on `develop`,** being the default branch, so the documentation they see first is for
+  changes not released yet. The README's notice and the notes at the top of the user guide and the
+  configuration reference say so in words that are true on both branches, so they can be merged into `main`
+  as they are. Keep it that way: no wording that only fits one branch. The README's links for people who run
+  Fetchshelf (the user guide, the configuration reference, getting help) are absolute links to `main`; a
+  link to a page that isn't on `main` yet stays relative until the release that brings it.
 
 Repository rulesets enforce this:
 
