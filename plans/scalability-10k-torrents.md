@@ -39,23 +39,32 @@ guard, and new tests cover the new code paths.
 
 Before changing anything, make the problem measurable.
 
-- **Seeder:** a test helper (`tests/Fetchshelf.Data.Tests/Scale/ScaleSeeder.cs`) that fills a SQLite database
-  with N torrents and events. Realistic shapes:
-  - mixed audiobooks and ebooks, a few languages, a few libraries and categories;
-  - about 5% duplicates (the same book in two formats or two editions) so the Clean job has real groups;
-  - a handful of linker errors;
-  - two or three events per torrent, plus Updated events for some.
-- **Fake qBittorrent:** the existing qBittorrent client tests already stub HTTP. Reuse that pattern to serve a
-  `torrents/info` list and per-torrent file lists for the seeded torrents.
-- **Timing tests:** in a `Scale` category, excluded from the default run with a trait filter so CI stays fast:
-  - a Link run over 10k finished, already-linked torrents;
-  - a Clean run over 10k linked torrents;
-  - Torrents page `LoadAsync` with no filter, with a text filter, and on the last page;
-  - Events page load with 50k events.
+Done. What was built:
 
-  Each test logs its time and asserts a generous upper bound, set after the fixes land, so a regression shows up
-  when the suite is run with `--filter "Category=Scale"`.
-- Record the baseline timings for 1k, 5k and 10k in this plan's "Results" section, below.
+- **Seeder:** `tests/Shared/Scale/ScaleSeeder.cs`, compiled into both `Fetchshelf.Data.Tests` and
+  `Fetchshelf.Web.Tests`. It builds N torrent rows of a library in steady state, the same data for the same N:
+  - 60% audiobooks and 40% ebooks, 85% English, with shared authors, narrators and series;
+  - every 20th book has a lesser copy already retired by the Clean job (about 5% of rows);
+  - a Grabbed and a Linked event per book, Updated events for 10%, and a Cleaned event per retired copy, about
+    two events per torrent in all;
+  - 1% extra finished torrents in a library's category whose MAM lookup failed, recorded as linker errors;
+  - 10% extra torrents in a category no library takes.
+- **Fake qBittorrent:** the existing `OrganizerTestSupport.CreateQBittorrentClient`, serving the seeded list.
+- **Timing tests:** `[ScaleFact]` tests in the `Scale` category. They are skipped unless `FETCHSHELF_SCALE`
+  holds the number of torrents to seed, so `dotnet test` and CI skip them without a filter:
+
+  ```
+  FETCHSHELF_SCALE=10000 dotnet test --filter "Category=Scale" --logger "console;verbosity=detailed"
+  ```
+
+  - `OrganizerScaleTests`: a Link run with everything already linked, and a Clean run with no new duplicates.
+    Both check the outcome (nothing linked or retired, one failed lookup per linker error) as well as the time.
+  - `PageScaleTests`: the Torrents page with no filter, a text filter and the last page, and the Events page
+    with and without a type filter. Each request is warmed up once and then averaged over three.
+
+  The tests log their timings but don't assert time limits yet. Add generous limits once the fixes have landed.
+- The seeded libraries' folders don't exist on disk, so the `Directory.Exists` probes in the Link run are as
+  cheap as they get. On network storage the Link run will be slower than measured here.
 
 ## Step 1 — SQLite WAL mode
 
@@ -200,20 +209,36 @@ where they save inside a loop: one `SaveChangesAsync` at the end, or in batches.
 
 ## Results
 
-Fill in from the Step 0 tests: baseline, then after each step.
+From the Step 0 tests, on a development machine with the database on local disk. Add a row set after each step.
+
+**Baseline (before any fix), 2026-11-07:**
 
 | Test | 1k | 5k | 10k |
 |---|---|---|---|
-| Link run (all linked, nothing new) | | | |
-| Clean run | | | |
-| Torrents page, no filter | | | |
-| Torrents page, text filter | | | |
-| Events page, 50k events | | | |
+| Link run (all linked, nothing new) | 4.5 s | 38 s | 145 s |
+| Clean run (no new duplicates) | 1.4 s | 21 s | 84 s |
+| Torrents page, no filter | 42 ms | 159 ms | 286 ms |
+| Torrents page, text filter | 33 ms | 135 ms | 219 ms |
+| Torrents page, last page | 35 ms | 130 ms | 188 ms |
+| Events page, no filter | 17 ms | 54 ms | 97 ms |
+| Events page, type filter | 8 ms | 24 ms | 48 ms |
+| Events seeded | 2,056 | 10,223 | 20,477 |
+
+What the baseline shows:
+
+- **The Link and Clean jobs are quadratic, as expected.** Going from 1k to 10k makes them about 32× and 60×
+  slower. At 10k a Link run with nothing to do takes almost 2.5 minutes, every 10 minutes, before any
+  network-storage cost. Steps 2, 3 and 4 matter most.
+- **The pages grow linearly and are still fast at 10k.** Even loading everything, a page takes under 0.3 s. The
+  estimate that they would struggle first was wrong. Step 7 drops in priority: worth doing for 50k and beyond,
+  not needed for 10k.
+- **MAM lookups:** one per failed lookup on every run (100 at 10k), as expected. Step 5 stays.
 
 ## Order and size
 
 Steps 1, 2, 5 and 6 are small and independent; do them first. Step 3 comes before Step 4. Step 7 is the largest
-and can land last. It only affects page speed, not correctness or MAM safety.
+and can land last. It only affects page speed, not correctness or MAM safety, and the baseline shows the pages
+are already fast enough at 10k, so it can also wait until a larger target calls for it.
 
 ## Docs to update
 
