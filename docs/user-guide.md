@@ -97,6 +97,8 @@ Docker picks the right one for your machine automatically. These tags are availa
 | A version, such as `2026.10.2` | One specific release. It never changes, so use it to upgrade only when you choose to. |
 | `develop` | The current development build, for testing only. It can change several times a day and can break your setup. |
 
+**NEVER run the `develop` image against a database or library you consider valuable. You risk losing both.**
+
 Versions are written `YYYY.MM.N`: the year and month of the release, then a number that counts releases
 within that month from `1`. Every release and what changed in it is listed in
 [RELEASES.md](../RELEASES.md).
