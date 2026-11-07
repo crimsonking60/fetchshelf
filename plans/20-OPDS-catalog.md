@@ -35,8 +35,8 @@ Decisions made:
 
 Implemented on `feature/opds`, following this plan, with one change: author and series names are passed in
 the query string rather than the path (see Step 2). Scale check at 10,000 seeded torrents: the first request
-reads the catalog in about 0.5 s, and after that every feed answers in 1–5 ms. Step 7, trying real readers,
-is left to a real setup.
+reads the catalog in about 0.5 s, and after that every feed answers in 1–5 ms. Step 7: tried on 2026-11-07
+with Yomu on an iPad, which browsed the catalog and downloaded and opened an EPUB and a manga.
 
 ## Settled questions
 
