@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Metadata;
@@ -7,6 +8,8 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
+using Fetchshelf.Data.Organizer;
+using Fetchshelf.Web.Jobs;
 using Fetchshelf.Web.Pages.Torrents;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -22,7 +25,7 @@ namespace Fetchshelf.Web.Pages;
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
     FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
-    QBittorrentPresenceCache qbittorrentPresence,
+    QBittorrentPresenceCache qbittorrentPresence, QBittorrentClientFactory qbittorrentFactory,
     ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
@@ -121,8 +124,8 @@ public class IndexModel(
             var result = await mamClient.SearchAsync(query);
             var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
-            var statusByMamId = await LoadStatusesAsync(mamIds);
             var presence = await presenceTask;
+            var statusByMamId = await LoadStatusesAsync(mamIds, presence.Loaded ? presence.StateByHash : null);
             var hashesByMamId = await KnownHashesAsync(mamIds);
 
             Results = result.Data
@@ -150,8 +153,55 @@ public class IndexModel(
     /// </summary>
     public async Task<PartialViewResult> OnGetStatusAsync(long mamId, int round)
     {
+        await RefreshDownloadingAsync(mamId);
         var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
         return Partial("_SearchResultStatusPartial", new SearchResultStatusViewModel(mamId, status, round));
+    }
+
+    /// <summary>
+    /// Asks qBittorrent about this MAM id's torrents that Fetchshelf still has as downloading, one torrent at a time (not
+    /// the whole list), and stores their state. When one has finished, the Link job starts straight away instead of at
+    /// its next interval, so the status moves on to Linked within seconds. If qBittorrent can't be asked, the stored
+    /// status stands.
+    /// </summary>
+    private async Task RefreshDownloadingAsync(long mamId)
+    {
+        var downloading = (await dbContext.Torrents.Where(t => t.MamId == mamId && t.LibraryPath == null).ToListAsync())
+            .Where(t => !MetadataOnlyTorrentId.IsMetadataOnly(t.Id) && (t.ClientStatus is null || QBittorrentStateLabel.IsDownloadStage(t.ClientStatus)))
+            .ToList();
+        if (downloading.Count == 0 || settings.QBittorrent.Count == 0)
+        {
+            return;
+        }
+
+        var finished = false;
+        try
+        {
+            var clients = QBittorrentConnections.Build(settings, qbittorrentFactory).Select(c => c.Client).ToList();
+            foreach (var torrent in downloading)
+            {
+                foreach (var client in clients)
+                {
+                    if (await client.GetTorrentAsync(torrent.Id, HttpContext.RequestAborted) is { } live)
+                    {
+                        ClientStatuses.Update(torrent, live.State);
+                        finished |= live.IsFinished;
+                        break;
+                    }
+                }
+            }
+
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (Exception ex) when (!IsRequestAborted(ex))
+        {
+            logger.LogDebug("Could not ask qBittorrent about MAM torrent {MamId}: {Error}", mamId, ex.Message);
+        }
+
+        if (finished && jobRegistry.Get(JobNames.Link) is not null)
+        {
+            _ = jobRegistry.TriggerAsync(JobNames.Link, CancellationToken.None);
+        }
     }
 
     /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>
@@ -175,7 +225,12 @@ public class IndexModel(
     /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the
     /// library, downloaded but not yet linked, or still queued as a selection.
     /// </summary>
-    private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds)
+    /// <param name="mamIds">The MAM ids to look up.</param>
+    /// <param name="liveStates">
+    /// qBittorrent's current state by info hash, when the caller has it: a torrent stored as downloading that qBittorrent
+    /// has finished then shows as downloaded, without waiting for the Link job to store the state.
+    /// </param>
+    private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds, IReadOnlyDictionary<string, string>? liveStates = null)
     {
         var statuses = new Dictionary<long, MamResultStatus>();
         if (mamIds.Count == 0)
@@ -201,9 +256,10 @@ public class IndexModel(
             // The Download job records a torrent as it hands it to qBittorrent, with no client status yet; the Link job
             // stores the status once it sees the torrent finished. Until then it is still downloading. A metadata-only
             // record was never downloaded through Fetchshelf, so it counts as owned.
+            var clientStatus = liveStates?.GetValueOrDefault(torrent.Id) ?? torrent.ClientStatus;
             var status = torrent.LibraryPath is not null ? MamResultStatus.Linked
                 : !MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id)
-                    && (torrent.ClientStatus is null || QBittorrentStateLabel.IsDownloadStage(torrent.ClientStatus)) ? MamResultStatus.Downloading
+                    && (clientStatus is null || QBittorrentStateLabel.IsDownloadStage(clientStatus)) ? MamResultStatus.Downloading
                 : MamResultStatus.Downloaded;
             if (status > statuses.GetValueOrDefault(torrent.MamId))
             {
@@ -234,8 +290,8 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autograbCategory: null, grabberName: "Manual search");
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                var progress = outcome == SelectionOutcome.Selected ? await DownloadAsync(record.MamId) : DownloadProgress.NotSelected;
-                message = DescribeOutcome(outcome, metadata, formatPreferenceLists, progress);
+                var downloadStarted = outcome == SelectionOutcome.Selected && StartDownload();
+                message = DescribeOutcome(outcome, metadata, formatPreferenceLists, downloadStarted);
             }
             else
             {
@@ -361,40 +417,19 @@ public class IndexModel(
     /// Starts the Download job for a new selection, unless `download_after_selection` is off or no jobs run. It runs
     /// in the background, like Run now on the Jobs page, so the page answers at once.
     /// </summary>
-    /// <summary>How long a Download click waits for the Download job, so the answer and the row can show the result.</summary>
-    private static readonly TimeSpan DownloadWait = TimeSpan.FromSeconds(15);
-
-    /// <summary>What became of a selection the Search page just made, as far as the Download job goes.</summary>
-    private enum DownloadProgress
-    {
-        NotSelected,
-        WaitsForScheduledRun,
-        AddedToQBittorrent,
-        NotAddedByTheRun,
-        StillRunning,
-    }
-
     /// <summary>
     /// Starts the Download job for a selection just made, or queues one more run if it is busy, so the selection isn't
-    /// left for the next scheduled run. Waits up to <see cref="DownloadWait"/> for that run, then says what happened.
+    /// left for the next scheduled run. Doesn't wait for it: the row's status follows the torrent from there.
     /// </summary>
-    private async Task<DownloadProgress> DownloadAsync(long mamId)
+    private bool StartDownload()
     {
         if (!settings.DownloadAfterSelection || jobRegistry.Get(JobNames.Download) is null)
         {
-            return DownloadProgress.WaitsForScheduledRun;
+            return false;
         }
 
-        var run = jobRegistry.TriggerOrQueueAsync(JobNames.Download, CancellationToken.None);
-        if (await Task.WhenAny(run, Task.Delay(DownloadWait, HttpContext.RequestAborted)) != run)
-        {
-            return DownloadProgress.StillRunning;
-        }
-
-        var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
-        return status is MamResultStatus.Downloading or MamResultStatus.Downloaded or MamResultStatus.Linked
-            ? DownloadProgress.AddedToQBittorrent
-            : DownloadProgress.NotAddedByTheRun;
+        _ = jobRegistry.TriggerOrQueueAsync(JobNames.Download, CancellationToken.None);
+        return true;
     }
 
     /// <summary>True when the browser gave up on the request: nobody is left to show an error to, so let it propagate.</summary>
@@ -402,20 +437,14 @@ public class IndexModel(
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
     private static string DescribeOutcome(
-        SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists, DownloadProgress progress)
+        SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists, bool downloadStarted)
     {
         var title = $"\"{metadata.Title}\"";
         return outcome switch
         {
-            SelectionOutcome.Selected => progress switch
-            {
-                DownloadProgress.AddedToQBittorrent => $"Added {title} to qBittorrent.",
-                DownloadProgress.StillRunning =>
-                    $"Selected {title}; the Download job is still busy with it. Reload the page to see when it is in qBittorrent.",
-                DownloadProgress.NotAddedByTheRun =>
-                    $"Selected {title}, but the Download job didn't add it to qBittorrent. The Jobs page and the log say why; it stays on the Selected page.",
-                _ => $"Selected {title}; it starts at the next Download run.",
-            },
+            SelectionOutcome.Selected => downloadStarted
+                ? $"Selected {title}; the Download job is starting it now."
+                : $"Selected {title}; it starts at the next Download run.",
             SelectionOutcome.RefreshedSelected => $"{title} is already selected.",
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>

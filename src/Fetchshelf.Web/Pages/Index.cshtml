@@ -71,7 +71,8 @@ else
 }
 
 <div class="results-wrap">
-    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q, Model.Lang })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading">
+    @* hx-disinherit: the "Searching MAM" overlay is for this request only, not the buttons and status checks inside. *@
+    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q, Model.Lang })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading" hx-disinherit="hx-indicator">
         @await Html.PartialAsync("_SearchResultsPartial", Model)
     </div>
     @* Starts visible (htmx-request) so the table is never shown empty before the first request begins; htmx clears it when the request ends. *@

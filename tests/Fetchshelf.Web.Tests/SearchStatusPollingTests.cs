@@ -34,11 +34,109 @@ public class SearchStatusPollingTests
         await SeedTorrentAsync(fixture, libraryPath: null);
         using var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=3");
+        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=10");
 
         Assert.Contains("status-downloaded", html);
-        Assert.Contains("hx-get=\"/?mamId=1&amp;round=4&amp;handler=Status\"", html);
+        Assert.Contains("hx-get=\"/?mamId=1&amp;round=11&amp;handler=Status\"", html);
         Assert.Contains("hx-trigger=\"load delay:60s\"", html);
+    }
+
+    [Fact]
+    public async Task Status_FirstMinute_AsksEveryTenSeconds()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedSelectionAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=2");
+
+        Assert.Contains("hx-trigger=\"load delay:10s\"", html);
+    }
+
+    private const string ConfigWithQBittorrent = """
+        mam_id = ""
+
+        [[qbittorrent]]
+        url = "http://qbittorrent.test"
+        username = "admin"
+        password = "adminadmin"
+        """;
+
+    /// <summary>A qBittorrent that has hash1 in the given state; null makes every request fail.</summary>
+    private static Func<HttpRequestMessage, HttpResponseMessage> QBittorrentWithHash1(string? state, double progress) => request =>
+    {
+        if (state is null)
+        {
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        }
+
+        if (request.RequestUri!.AbsolutePath.Contains("auth/login"))
+        {
+            var login = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+            login.Headers.Add("Set-Cookie", "SID=abc; path=/");
+            return login;
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new[]
+            {
+                new Clients.QBittorrent.QBittorrentTorrent { Hash = "hash1", Name = "T", SavePath = "/d", State = state, Progress = progress },
+            }),
+        };
+    };
+
+    [Fact]
+    public async Task Status_DownloadingThatQBittorrentHasFinished_ShowsDownloaded_StoresIt_AndStartsTheLinkJob()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1("stalledUP", 1.0));
+        var linkStarted = new TaskCompletionSource();
+        fixture.JobRegistry.Register("Link", _ =>
+        {
+            linkStarted.TrySetResult();
+            return Task.CompletedTask;
+        });
+        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=1");
+
+        Assert.Contains("status-downloaded", html);
+        Assert.Same(linkStarted.Task, await Task.WhenAny(linkStarted.Task, Task.Delay(TimeSpan.FromSeconds(10))));
+        using var scope = fixture.CreateScope();
+        Assert.Equal("stalledUP", scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.Single().ClientStatus);
+    }
+
+    [Fact]
+    public async Task Status_StillDownloadingInQBittorrent_StaysDownloading_AndLeavesTheLinkJobAlone()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1("downloading", 0.4));
+        var linkRuns = 0;
+        fixture.JobRegistry.Register("Link", _ =>
+        {
+            linkRuns++;
+            return Task.CompletedTask;
+        });
+        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=1");
+
+        Assert.Contains("status-downloading", html);
+        Assert.Equal(0, linkRuns);
+    }
+
+    [Fact]
+    public async Task Status_QBittorrentUnreachable_KeepsTheStoredStatus()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1(null, 0));
+        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
+        using var client = fixture.CreateClient();
+
+        using var response = await client.GetAsync("/?handler=Status&mamId=1&round=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("status-downloading", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

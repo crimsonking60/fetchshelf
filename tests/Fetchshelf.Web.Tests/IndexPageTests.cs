@@ -731,48 +731,48 @@ public partial class IndexPageTests
     }
 
     [Fact]
-    public async Task Post_Download_WaitsForTheDownloadJob_AndShowsTheTorrentAsDownloading()
+    public async Task Post_Download_AnswersAtOnceWithSelected_AndStartsTheDownloadJob()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
-        // Stands in for the real Download job: records the torrent as added to qBittorrent.
+        var release = new TaskCompletionSource();
+        var started = new TaskCompletionSource();
         fixture.JobRegistry.Register("Download", async _ =>
         {
-            using var scope = fixture.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
-            foreach (var selected in dbContext.SelectedTorrents)
-            {
-                selected.StartedAt = DateTimeOffset.UtcNow;
-            }
-
-            dbContext.Torrents.Add(new TorrentEntity
-            {
-                Id = "hash1",
-                MamId = 1,
-                Title = "The Way of Kings",
-                NormalizedTitleKey = "way of kings",
-                MetadataJson = "{}",
-                CreatedAt = DateTimeOffset.UtcNow,
-            });
-            await dbContext.SaveChangesAsync();
+            started.TrySetResult();
+            await release.Task; // a slow Download job must not hold up the answer
         });
 
         var body = await ClickDownloadAsync(fixture);
+        release.TrySetResult();
 
-        Assert.Contains("Added \"The Way of Kings\" to qBittorrent.", body);
-        Assert.Contains("status-downloading", body);
-        Assert.DoesNotContain("status-selected", body);
+        Assert.Contains("Selected \"The Way of Kings\"; the Download job is starting it now.", body);
+        Assert.Contains("status-selected", body);
+        Assert.Contains("handler=Status", body); // the badge takes it from there
+        Assert.Same(started.Task, await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(10))));
     }
 
     [Fact]
-    public async Task Post_Download_JobRanButDidNotAddIt_SaysSo()
+    public async Task GetResults_StoredAsDownloadingButFinishedInQBittorrent_ShowsDownloaded()
     {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
-        fixture.JobRegistry.Register("Download", _ => Task.CompletedTask);
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hash1", "", "audiobooks")));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null);
 
-        var body = await ClickDownloadAsync(fixture);
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
 
-        Assert.Contains("but the Download job didn't add it to qBittorrent", body);
-        Assert.Contains("status-selected", body);
+        Assert.Contains("status-downloaded", html);
+        Assert.DoesNotContain("status-downloading", html);
+    }
+
+    [Fact]
+    public async Task Page_ResultsPanelDoesNotPassItsOverlayToButtonsAndStatusChecks()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+
+        var html = await fixture.CreateClient().GetStringAsync("/");
+
+        Assert.Contains("hx-indicator=\"#search-loading\" hx-disinherit=\"hx-indicator\"", html);
     }
 
     [Fact]

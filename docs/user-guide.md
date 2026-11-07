@@ -685,9 +685,11 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
   finished yet), **Downloaded** (finished, or owned through a snatchlist, but not in your library) or
   **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
-  **Linked**, its status checks again every minute, so it moves on without a reload. It stops checking
-  after an hour. A finished torrent usually goes straight from **Downloading** to **Linked**: the Link job
-  notices it has finished and links it in the same run. It shows **Downloaded** when no library accepts it.
+  **Linked**, its status checks again by itself, every 10 seconds for the first minute and then every
+  minute, so it moves on without a reload. It stops checking after about an hour. While a torrent is
+  **Downloading**, each check asks qBittorrent about it; once qBittorrent has finished it, the Link job
+  starts straight away rather than at its next interval, so **Linked** follows within seconds. A finished
+  torrent shows **Downloaded** when no library accepts it.
 - **Metadata** rates how complete the torrent's information on MAM is, which decides how well Fetchshelf can
   name, file and describe the book. Point at the pill to see what is missing.
 
@@ -706,12 +708,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   minutes, in the background, so a torrent added a moment ago can take that long to show.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
-  costs no ratio. The page waits a few seconds for the Download job, so the message at the top and the row's
-  status show the result: *Added … to qBittorrent* and **Downloaded**, or why not, for example that a copy is
-  already in your library. If the Download job is busy for longer, the row stays **Selected** and the
-  message says so; reload the page later to see it change. With `download_after_selection = false` the
-  buttons say **Select** and **Wedge select**, since the torrent then waits on the **Selected** page for the
-  next Download run.
+  costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
+  for example, that a copy is already in your library. A selected torrent's status then follows it into the
+  library by itself (see below). With `download_after_selection = false` the buttons say **Select** and
+  **Wedge select**, since the torrent then waits on the **Selected** page for the next Download run.
 - **Can't download** replaces the download buttons on a torrent Fetchshelf would refuse anyway: one whose
   MAM listing has no file types, or whose file types are all missing from your format list for its kind of
   book (`ebook_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
