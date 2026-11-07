@@ -1,3 +1,4 @@
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
@@ -647,6 +648,87 @@ public sealed class LinkRunnerTests : IDisposable
         var afterSecondRun = TorrentMetadataSerializer.Deserialize((await context.Torrents.SingleAsync()).MetadataJson);
         Assert.Equal("Manual Title", afterSecondRun.Title);
         Assert.Equal(MetadataSource.Manual, afterSecondRun.MetadataSource);
+    }
+
+    /// <summary>Tracked torrents that only get their client status written, as most torrents of a run do.</summary>
+    private async Task<List<QBittorrentTorrent>> SeedRetiredTorrentsAsync(FetchshelfDbContext context, int count)
+    {
+        var torrents = new List<QBittorrentTorrent>();
+        for (var i = 0; i < count; i++)
+        {
+            var entity = await OrganizerTestSupport.SeedTorrentAsync(context, $"retired{i:D3}", mamId: 1000 + i);
+            entity.ReplacedWithTorrentId = "keeper";
+            entity.ClientStatus = "uploading";
+            torrents.Add(FinishedTorrent(entity.Id, DownloadsDir) with { State = "stalledUP" });
+        }
+
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return torrents;
+    }
+
+    [Fact]
+    public async Task RunAsync_MoreTorrentsThanOneBatch_SavesEveryStatus()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 250);
+        var runner = CreateRunner(context, new FakeMetadataLookup(), [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.Equal(250, await reader.Torrents.CountAsync(t => t.ClientStatus == "stalledUP"));
+    }
+
+    [Fact]
+    public async Task RunAsync_StoppedByMamRateLimit_KeepsTheStatusesWrittenBeforeIt()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 3);
+        torrents.Add(FinishedTorrent("untracked", DownloadsDir));
+        var runner = CreateRunner(context, new RateLimitedLookup(), [CreateLibrary(LibraryDir)]);
+
+        await Assert.ThrowsAsync<MamRateLimitedException>(() =>
+            runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>())));
+
+        using var reader = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.Equal(3, await reader.Torrents.CountAsync(t => t.ClientStatus == "stalledUP"));
+    }
+
+    [Fact]
+    public async Task RunAsync_DuringAMamLookup_DoesNotHoldTheDatabaseWriteLock()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = await SeedRetiredTorrentsAsync(context, 3);
+        torrents.Add(FinishedTorrent("untracked", DownloadsDir));
+        var lookup = new WritingLookup($"Data Source={DbPath};Default Timeout=1");
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+
+        await runner.RunAsync(new QBittorrentConnection(), OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>()));
+
+        Assert.True(lookup.Wrote);
+    }
+
+    private sealed class RateLimitedLookup : IMetadataLookup
+    {
+        public Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default) =>
+            throw new MamRateLimitedException("Too many requests.");
+    }
+
+    /// <summary>Writes to the database from another connection, as another job could while this lookup waits on MAM.</summary>
+    private sealed class WritingLookup(string connectionString) : IMetadataLookup
+    {
+        public bool Wrote { get; private set; }
+
+        public async Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)
+        {
+            var options = new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite(connectionString).Options;
+            using var other = new FetchshelfDbContext(options);
+            other.Events.Add(new EventEntity { OccurredAt = DateTimeOffset.UtcNow, Kind = EventKind.Updated });
+            await other.SaveChangesAsync(cancellationToken);
+            Wrote = true;
+            return null;
+        }
     }
 
     [Fact]

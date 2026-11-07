@@ -108,6 +108,26 @@ exactly that value.
 
 ## Step 3 — Link run: keep the change tracker small
 
+Done, more simply than planned, plus batched commits the plan didn't foresee:
+
+- **Change tracker:** the run clears it after each torrent. Every path through a torrent already saves what it
+  changed, so nothing is lost. That alone took the 10k Link run from 145 s to 4 s; the up-front loading of
+  torrents and error rows below wasn't needed.
+- **Commits:** most torrents only get a status update, and seeding torrents flip between `uploading` and
+  `stalledUP` all the time. Each update committed on its own costs a disk sync. On a real disk, 3,334 changed
+  statuses took 34 s, and a NAS hard disk would be slower still. The run now processes torrents inside a
+  transaction committed every 100 torrents. It is also committed:
+  - before every MAM lookup, because a lookup can wait on the MAM gate while another job needs to write, and
+    holding the write lock then would block that job;
+  - right after a torrent's files are placed, so a crash can't leave files without a record;
+  - when the run ends, including when it ends with an exception.
+- **New tests:** a run over more than one batch saves every status; a run stopped by MAM rate limiting keeps the
+  statuses written before it; another connection can write to the database while a lookup is in progress. That
+  last test fails within a second if the pre-lookup commit is removed. A new scale test changes a third of the
+  statuses.
+
+Original plan:
+
 - Load the run's existing torrents up front, in one query, into a dictionary keyed by hash, for the hashes the
   client reports as finished. This replaces one `FirstOrDefaultAsync` per torrent.
 - Load the run's linker error rows the same way, so `ErrorLog.ClearAsync` doesn't query once per torrent. Keep
@@ -265,6 +285,25 @@ What the baseline shows:
 
 The Clean job is fixed. The Link run is unchanged within noise: WAL doesn't help it, because its cost is the
 change tracker (Step 3), not the database. The single-torrent lookups (Step 6) aren't covered by these tests.
+
+**Measuring on a real disk:** every timing above ran with the database in `/tmp`, which on the development
+machine is a RAM-backed tmpfs where disk syncs cost nothing. That hid the cost of committing each torrent on its
+own. From Step 3 on, the organizer timings are taken with `TMPDIR` pointing at the home disk (ext4):
+
+```
+TMPDIR=$HOME/.cache/fetchshelf-scale FETCHSHELF_SCALE=10000 dotnet test --filter "Category=Scale" --logger "console;verbosity=detailed"
+```
+
+**After Step 3, at 10k, database on ext4:**
+
+| Test | Before Step 3 | After Step 3 |
+|---|---|---|
+| Link run (all linked, nothing new) | 145 s (tmpfs) | 4.3 s |
+| Link run, a third of statuses changed | 34 s (change tracker cleared, commits not batched) | 4.3 s |
+| Clean run (no new duplicates) | 0.2 s | 0.2 s |
+
+The Link run now grows linearly, at about 0.4 ms per torrent. Its folder checks hit folders that don't exist
+here, so network storage will add to it; Step 4 is about that.
 
 ## Order and size
 

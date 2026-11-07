@@ -8,6 +8,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -44,6 +45,11 @@ public sealed class LinkRunner(
     private int _linked;
     private int _failed;
 
+    /// <summary>The open transaction of the run's current batch of torrents, if any. See <see cref="RunCoreAsync"/>.</summary>
+    private IDbContextTransaction? _batch;
+    private int _batchCount;
+    private const int BatchSize = 100;
+
     /// <summary>Processes every 100%-complete torrent reported by one configured qBittorrent connection; a failure on one torrent is recorded as a linker error and the run continues.</summary>
     public async Task<LinkRunSummary> RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
     {
@@ -58,21 +64,60 @@ public sealed class LinkRunner(
         var finished = torrents.Where(t => t.IsFinished).ToList();
         await RetireFinishedSelectionsAsync(finished, cancellationToken);
 
-        foreach (var torrent in finished)
+        // Most torrents only get a status update, and committing each one on its own would cost a disk sync per
+        // torrent: thousands per run in a large library. They are committed in batches instead. A batch's transaction
+        // holds the database's write lock, so it is committed before anything that can wait, such as a MAM lookup,
+        // and right after a torrent's files are placed, so a crash can't leave files in a library without a record.
+        try
         {
-            try
+            foreach (var torrent in finished)
             {
-                await ProcessFinishedTorrentAsync(connection, client, torrent, cancellationToken);
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested
-                && ex is not (MamRateLimitedException or MamAccountBlockedException))
-            {
-                // One bad torrent (e.g. a lookup or file error) must not stop the rest of the run.
-                // Rate limiting and account blocks still end the run: every later lookup would fail too.
-                dbContext.ChangeTracker.Clear();
-                await RecordLinkerErrorAsync(torrent, ex.Message, cancellationToken);
+                _batch ??= await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    await ProcessFinishedTorrentAsync(connection, client, torrent, cancellationToken);
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested
+                    && ex is not (MamRateLimitedException or MamAccountBlockedException))
+                {
+                    // One bad torrent (e.g. a lookup or file error) must not stop the rest of the run.
+                    // Rate limiting and account blocks still end the run: every later lookup would fail too.
+                    dbContext.ChangeTracker.Clear();
+                    await RecordLinkerErrorAsync(torrent, ex.Message, cancellationToken);
+                }
+                finally
+                {
+                    // Every path above saves what it changed, so nothing is lost here. Without this, every torrent of
+                    // the run would stay tracked, and each later save would scan them all: a large library's run would
+                    // grow with the square of its size.
+                    dbContext.ChangeTracker.Clear();
+                }
+
+                if (++_batchCount >= BatchSize)
+                {
+                    await CommitBatchAsync();
+                }
             }
         }
+        finally
+        {
+            // Also when the run ends early: the torrents already processed keep their changes.
+            await CommitBatchAsync();
+        }
+    }
+
+    /// <summary>Commits the current batch, if one is open; later saves commit on their own until the next batch starts.</summary>
+    private async Task CommitBatchAsync()
+    {
+        if (_batch is null)
+        {
+            return;
+        }
+
+        await _batch.CommitAsync(CancellationToken.None);
+        await _batch.DisposeAsync();
+        _batch = null;
+        _batchCount = 0;
     }
 
     /// <summary>
@@ -131,6 +176,8 @@ public sealed class LinkRunner(
                 return; // no library matches; ignored
             }
 
+            // A lookup can wait on MAM or on another MAM job: the batch must not hold the write lock meanwhile.
+            await CommitBatchAsync();
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
             if (looked is null)
             {
@@ -194,6 +241,7 @@ public sealed class LinkRunner(
         await AppendLinkedEventAsync(existing, library, placement.Folder, cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await CommitBatchAsync(); // the files are in place: their record must not wait for the rest of the batch
         _linked++;
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
     }

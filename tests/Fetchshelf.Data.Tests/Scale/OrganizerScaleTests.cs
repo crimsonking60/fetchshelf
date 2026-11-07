@@ -69,6 +69,25 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
         Assert.Equal(0, await context.Torrents.CountAsync(t => t.LibraryMismatchState != null));
     }
 
+    /// <summary>Seeding torrents flip between uploading and stalled all the time, so a run usually has statuses to write.</summary>
+    [ScaleFact]
+    public async Task LinkRun_ClientStatusChangedForAThird()
+    {
+        var data = await SeedAsync();
+        var clientTorrents = data.ClientTorrents.Select((t, i) => i % 3 == 0 ? t with { State = "stalledUP" } : t).ToList();
+        var changed = clientTorrents.Count(t => t.State == "stalledUP" && data.Torrents.Any(d => d.Id == t.Hash));
+        var client = OrganizerTestSupport.CreateQBittorrentClient(clientTorrents, new Dictionary<string, List<QBittorrentFile>>());
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = new LinkRunner(context, new EventStore(context), new CountingMetadataLookup(), Libraries(), Formats, excludeNarratorInLibraryDir: false);
+
+        var stopwatch = Stopwatch.StartNew();
+        await runner.RunAsync(new QBittorrentConnection(), client);
+        stopwatch.Stop();
+
+        output.WriteLine($"Link run with {changed} changed statuses: {stopwatch.Elapsed.TotalSeconds:F2} s");
+        Assert.Equal(changed, await context.Torrents.CountAsync(t => t.ClientStatus == "stalledUP"));
+    }
+
     [ScaleFact]
     public async Task CleanRun_NoNewDuplicates()
     {
