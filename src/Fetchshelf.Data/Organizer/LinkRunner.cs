@@ -50,6 +50,26 @@ public sealed class LinkRunner(
     private int _batchCount;
     private const int BatchSize = 100;
 
+    /// <summary>The error a torrent gets when MAM has no torrent with its info-hash. Such a torrent is looked up again only after <see cref="NotOnMamRetryAfter"/>.</summary>
+    public const string NotOnMamError = "MAM has no torrent with this info-hash.";
+
+    /// <summary>
+    /// A torrent MAM doesn't know is usually from another tracker, or was removed from MAM; neither changes within
+    /// minutes. Asking again every run would only cost MAM requests.
+    /// </summary>
+    public static readonly TimeSpan NotOnMamRetryAfter = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// The most MAM lookups one Link job makes. Pointing Fetchshelf at a client full of torrents it doesn't know yet
+    /// would otherwise send MAM one lookup per torrent in a single run; this way the backlog is worked through over
+    /// several runs, and known torrents keep being processed meanwhile.
+    /// </summary>
+    public const int MaxLookupsPerRun = 200;
+
+    private int _lookups;
+    private int _lookupsDeferred;
+    private int _waitingForRetry;
+
     /// <summary>Processes every 100%-complete torrent reported by one configured qBittorrent connection; a failure on one torrent is recorded as a linker error and the run continues.</summary>
     public async Task<LinkRunSummary> RunAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken = default)
     {
@@ -104,7 +124,34 @@ public sealed class LinkRunner(
             // Also when the run ends early: the torrents already processed keep their changes.
             await CommitBatchAsync();
         }
+
+        LogSkippedLookups();
     }
+
+    private void LogSkippedLookups()
+    {
+        if (_waitingForRetry > 0)
+        {
+            _logger.LogInformation(
+                "{Count} {Torrents} MAM didn't know when last asked will be looked up again once a day has passed",
+                _waitingForRetry, _waitingForRetry == 1 ? "torrent" : "torrents");
+        }
+
+        if (_lookupsDeferred > 0)
+        {
+            _logger.LogInformation(
+                "Looked up {Max} torrents on MAM, the most for one run; {Count} more will be looked up in the next runs",
+                MaxLookupsPerRun, _lookupsDeferred);
+        }
+
+        (_waitingForRetry, _lookupsDeferred) = (0, 0);
+    }
+
+    /// <summary>Whether MAM had no torrent with this info-hash when asked less than <see cref="NotOnMamRetryAfter"/> ago.</summary>
+    private async Task<bool> NotOnMamRecentlyAsync(string hash, CancellationToken cancellationToken) =>
+        await dbContext.ErroredTorrents.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Stage == ErrorStage.Linker && e.Key == hash, cancellationToken) is { ErrorText: NotOnMamError } error
+        && DateTimeOffset.UtcNow - error.OccurredAt < NotOnMamRetryAfter;
 
     /// <summary>Commits the current batch, if one is open; later saves commit on their own until the next batch starts.</summary>
     private async Task CommitBatchAsync()
@@ -176,12 +223,25 @@ public sealed class LinkRunner(
                 return; // no library matches; ignored
             }
 
+            if (await NotOnMamRecentlyAsync(torrent.Hash, cancellationToken))
+            {
+                _waitingForRetry++;
+                return;
+            }
+
+            if (_lookups >= MaxLookupsPerRun)
+            {
+                _lookupsDeferred++;
+                return;
+            }
+
             // A lookup can wait on MAM or on another MAM job: the batch must not hold the write lock meanwhile.
             await CommitBatchAsync();
+            _lookups++;
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
             if (looked is null)
             {
-                await RecordLinkerErrorAsync(torrent, "MAM has no torrent with this info-hash.", cancellationToken);
+                await RecordLinkerErrorAsync(torrent, NotOnMamError, cancellationToken);
                 return;
             }
 
@@ -449,7 +509,7 @@ public sealed class LinkRunner(
             var looked = await metadataLookup.TryLookupByInfoHashAsync(torrentId, cancellationToken);
             if (looked is null && !HandEdits.AreIn(stored))
             {
-                return Refuse(existing, "MAM has no torrent with this info-hash.");
+                return Refuse(existing, NotOnMamError);
             }
 
             metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);

@@ -186,7 +186,9 @@ public sealed class LinkRunnerTests : IDisposable
             [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
 
         await CreateRunner(context, new FakeMetadataLookup(result: null), libraries).RunAsync(new QBittorrentConnection(), client);
-        Assert.Single(context.ErroredTorrents);
+        var error = await context.ErroredTorrents.SingleAsync();
+        error.OccurredAt -= LinkRunner.NotOnMamRetryAfter; // a day later, it is looked up again
+        await context.SaveChangesAsync();
 
         await CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries).RunAsync(new QBittorrentConnection(), client);
 
@@ -261,6 +263,93 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(0, lookup.Calls);
         Assert.Empty(context.Torrents);
         Assert.Empty(context.ErroredTorrents);
+    }
+
+    private static async Task SeedNotOnMamErrorAsync(FetchshelfDbContext context, string hash, TimeSpan ago)
+    {
+        context.ErroredTorrents.Add(new ErroredTorrentEntity
+        {
+            Stage = ErrorStage.Linker,
+            Key = hash,
+            Title = "Some Torrent",
+            ErrorText = LinkRunner.NotOnMamError,
+            OccurredAt = DateTimeOffset.UtcNow - ago,
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task RunAsync_NotOnMamLessThanADayAgo_IsNotLookedUpAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedNotOnMamErrorAsync(context, "hash1", TimeSpan.FromHours(23));
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        var summary = await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(0, lookup.Calls);
+        Assert.Equal(new LinkRunSummary(Linked: 0, Failed: 0), summary);
+        Assert.Single(context.ErroredTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_NotOnMamMoreThanADayAgo_IsLookedUpAgain()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedNotOnMamErrorAsync(context, "hash1", TimeSpan.FromHours(25));
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        var summary = await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(1, lookup.Calls);
+        Assert.Equal(1, summary.Failed);
+        var error = await context.ErroredTorrents.AsNoTracking().SingleAsync();
+        Assert.True(DateTimeOffset.UtcNow - error.OccurredAt < TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task RunAsync_OtherLinkerErrorLessThanADayAgo_IsStillTriedEveryRun()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        context.ErroredTorrents.Add(new ErroredTorrentEntity
+        {
+            Stage = ErrorStage.Linker,
+            Key = "hash1",
+            ErrorText = "MAM did not answer.",
+            OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+        });
+        await context.SaveChangesAsync();
+        var lookup = new CountingLookup();
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>>());
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(1, lookup.Calls);
+    }
+
+    [Fact]
+    public async Task RunAsync_MoreUnknownTorrentsThanTheLookupLimit_LooksUpTheRestInTheNextRun()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrents = Enumerable.Range(0, LinkRunner.MaxLookupsPerRun + 5)
+            .Select(i => FinishedTorrent($"unknown{i:D3}", DownloadsDir))
+            .ToList();
+        var client = OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>());
+        var lookup = new CountingLookup();
+
+        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(LinkRunner.MaxLookupsPerRun, lookup.Calls);
+
+        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(LinkRunner.MaxLookupsPerRun + 5, lookup.Calls);
     }
 
     private sealed class CountingLookup : IMetadataLookup

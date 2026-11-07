@@ -28,7 +28,7 @@ internal sealed record ScaleData(
 /// <item>audiobooks and ebooks, mostly English, with shared authors, narrators and series;</item>
 /// <item>every 20th book has an older, lesser copy already retired by the Clean job;</item>
 /// <item>a Grabbed and a Linked event for most books, an Updated event for some, a Cleaned event per retired copy;</item>
-/// <item>1% extra finished torrents in a library's category whose MAM lookup failed, recorded as linker errors;</item>
+/// <item>1% extra finished torrents in a library's category whose MAM lookup failed within the last day, recorded as linker errors;</item>
 /// <item>10% extra torrents in a category no library takes.</item>
 /// </list>
 /// The same count always gives the same data.
@@ -176,8 +176,8 @@ internal static class ScaleSeeder
                 Stage = ErrorStage.Linker,
                 Key = hash,
                 Title = $"Unknown upload {i}",
-                ErrorText = "MAM has no torrent with this info-hash.",
-                OccurredAt = Start.AddDays(i),
+                ErrorText = LinkRunner.NotOnMamError,
+                OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-10 * (i % 100)),
             });
         }
 

@@ -938,6 +938,10 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
 - **`metadata.json`.** Written next to the files of every book, whatever its media type. See below.
+- **Looking torrents up on MAM.** A torrent Fetchshelf doesn't know yet is looked up on MAM by its
+  info-hash, to get its title, authors and series. A run makes at most 200 such lookups. Pointed at a
+  qBittorrent that already holds thousands of books, Fetchshelf works through them over several runs,
+  200 every `link_interval` minutes, while books it already knows keep being linked as usual.
 
 ### `metadata.json`
 
@@ -1144,7 +1148,9 @@ between pages.
 
 One entry per torrent and job, showing the job that ran into the problem (Download, Link or Clean), the
 torrent, the error and when it last failed. The Link job tries a failed torrent again on every run: the
-entry is updated while it keeps failing and disappears once it links. A queued download whose MAM link
+entry is updated while it keeps failing and disappears once it links. The exception is *MAM has no torrent
+with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
+looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
 went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
 Tick the entries you have dealt with and use **Remove selected**.
 

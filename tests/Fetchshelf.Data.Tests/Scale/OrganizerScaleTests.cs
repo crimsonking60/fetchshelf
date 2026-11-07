@@ -64,8 +64,8 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
 
         output.WriteLine($"Link run: {stopwatch.Elapsed.TotalSeconds:F2} s, {lookup.Calls} MAM lookups, {summary.Linked} linked, {summary.Failed} failed");
         Assert.Equal(0, summary.Linked);
-        Assert.Equal(data.FailedLookupCount, summary.Failed);
-        Assert.Equal(data.FailedLookupCount, lookup.Calls);
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(0, lookup.Calls); // the seeded failed lookups are all less than a day old
         Assert.Equal(0, await context.Torrents.CountAsync(t => t.LibraryMismatchState != null));
     }
 
