@@ -176,14 +176,18 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<bool> HashExistsAsync(string hash, CancellationToken cancellationToken = default)
+    public async Task<bool> HashExistsAsync(string hash, CancellationToken cancellationToken = default) =>
+        await GetTorrentAsync(hash, cancellationToken) is not null;
+
+    /// <summary>The torrent with this info-hash, or null if this client doesn't have it. Asks for that torrent alone, not the whole list.</summary>
+    public async Task<QBittorrentTorrent?> GetTorrentAsync(string hash, CancellationToken cancellationToken = default)
     {
         using var response = await SendAsync(
             () => new HttpRequestMessage(HttpMethod.Get, BuildUrl($"/api/v2/torrents/info?hashes={Uri.EscapeDataString(hash)}")),
             cancellationToken);
         response.EnsureSuccessStatusCode();
         var torrents = await response.Content.ReadFromJsonAsync<List<QBittorrentTorrent>>(cancellationToken);
-        return torrents is { Count: > 0 };
+        return torrents?.FirstOrDefault(t => string.Equals(t.Hash, hash, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

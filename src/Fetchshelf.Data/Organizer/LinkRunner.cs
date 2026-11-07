@@ -475,9 +475,7 @@ public sealed class LinkRunner(
     {
         foreach (var (connection, client) in connections)
         {
-            var torrent = (await client.ListTorrentsAsync(cancellationToken))
-                .FirstOrDefault(t => string.Equals(t.Hash, hash, StringComparison.OrdinalIgnoreCase));
-            if (torrent is not null)
+            if (await client.GetTorrentAsync(hash, cancellationToken) is { } torrent)
             {
                 return (connection, client, torrent);
             }
