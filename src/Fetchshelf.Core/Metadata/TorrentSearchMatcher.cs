@@ -10,14 +10,12 @@ public static class TorrentSearchMatcher
 {
     private const CompareOptions Loose = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
 
-    public static bool Matches(TorrentMetadata metadata, string query)
-    {
-        var fields = new List<string> { metadata.Title };
-        fields.AddRange(metadata.Authors);
-        fields.AddRange(metadata.Series.Select(series => series.Name));
+    public static bool Matches(TorrentMetadata metadata, string query) =>
+        MatchesAny([metadata.Title, .. metadata.Authors, .. metadata.Series.Select(series => series.Name)], query);
 
-        return query
+    /// <summary>Whether every word of <paramref name="query"/> appears in one of <paramref name="fields"/>, ignoring case and accents.</summary>
+    public static bool MatchesAny(IReadOnlyList<string> fields, string query) =>
+        query
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .All(word => fields.Any(field => CultureInfo.InvariantCulture.CompareInfo.IndexOf(field, word, Loose) >= 0));
-    }
 }

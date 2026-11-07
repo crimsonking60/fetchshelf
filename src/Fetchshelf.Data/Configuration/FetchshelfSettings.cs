@@ -107,6 +107,9 @@ public sealed class FetchshelfSettings
     /// <summary>Optional `[hardcover]` section. Null when not configured.</summary>
     public HardcoverSettings? Hardcover { get; set; }
 
+    /// <summary>Optional `[opds]` section. Null when not configured, and then no OPDS catalog is served.</summary>
+    public OpdsSettings? Opds { get; set; }
+
     /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
     public List<HardcoverListEntry> HardcoverList { get; set; } = [];
 

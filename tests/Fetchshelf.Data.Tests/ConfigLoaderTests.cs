@@ -166,6 +166,21 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Load_OpdsLibrariesFromEnvironmentVariable_TurnOpdsOn()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n\n[[library]]\nname = \"Ebooks\"\ncategory = \"ebooks\"\nlibrary_dir = \"/books\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_opds_libraries", "Ebooks");
+        try
+        {
+            Assert.Equal(["Ebooks"], ConfigLoader.Load(ConfigPath).Opds!.Libraries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_opds_libraries", null);
+        }
+    }
+
+    [Fact]
     public void Load_DatabaseWalOn_InFileOrFromEnvironmentVariable()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\ndatabase_wal = true\n");
