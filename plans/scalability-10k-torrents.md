@@ -174,6 +174,21 @@ category, save path, tags, its stored metadata, the library config and `exclude_
 
 ## Step 5 — MAM: back off on failed lookups
 
+Done, with one change from the plan below: no new `ErrorStage`. "Not on MAM" errors stay in the Linker stage
+and are recognized by their text, which is written only from `LinkRunner.NotOnMamError`. With a new stage,
+existing databases would have needed their rows moved to it; this way they get the backoff immediately.
+
+- A torrent MAM had no torrent for is looked up again only once its error is a day old (`NotOnMamRetryAfter`).
+  Each retry that fails again updates the error's time, so it is retried once a day. Other linker errors are
+  still retried every run. Removing the entry on the Errors page makes the next run look it up straight away.
+- A Link job run makes at most 200 lookups (`MaxLookupsPerRun`), across all qBittorrent connections, and logs
+  how many were left for the next runs.
+- Torrents waiting out the backoff don't count as failed in the job's result, since nothing was tried. They
+  stay on the Errors page.
+- The user guide covers both, under "How finished downloads are organized" and the Errors page.
+
+Original plan:
+
 - A failed info-hash lookup already writes a linker `ErroredTorrents` row keyed by hash, and a repeat failure
   updates its `OccurredAt`. Use that as the backoff record: before looking up an untracked torrent, skip it if it
   has a linker error with the lookup-failed text newer than the backoff period.
@@ -319,6 +334,10 @@ TMPDIR=$HOME/.cache/fetchshelf-scale FETCHSHELF_SCALE=10000 dotnet test --filter
 After status writes became stage-only, on the same hard disk: a run where seeding torrents only flipped between
 `uploading` and `stalledUP` writes nothing, like the nothing-changed run (6.5 s). A run where a third of the
 torrents stopped writes 3,334 stage changes in 9.7 s.
+
+**After Step 5, at 10k, same hard disk:** the seeded failed lookups are less than a day old, so a steady-state
+run makes no MAM lookups. The nothing-changed run went from 6.5 s to 3.4 s, and the run where a third of the
+torrents stopped from 9.7 s to 6.9 s.
 | Clean run (no new duplicates) | | 0.2 s |
 
 A commit costs about 36 ms on the hard disk, against about 1 ms on NVMe, so batching matters most there. The
