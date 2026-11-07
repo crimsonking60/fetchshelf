@@ -19,6 +19,13 @@
         }
     </td>
     <td>@result.MediaTypeLabel</td>
+    <td class="nowrap">
+        @if (result.MetadataQuality is { } quality)
+        {
+            @* Focusable so what is missing is also reachable by keyboard and touch, like the authors' balloon. *@
+            <span class="has-tip" tabindex="0"><span class="quality-pill quality-@quality.Grade.ToString().ToLowerInvariant()">@result.MetadataQualityLabel</span><span class="tip" role="tooltip">@result.MetadataQualityDetail</span></span>
+        }
+    </td>
     <td>
         @switch (result.Status)
         {

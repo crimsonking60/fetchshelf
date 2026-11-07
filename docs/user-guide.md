@@ -681,9 +681,20 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
   its own.
-- Each result shows its title, authors, media type, size and status. The status says where the torrent is
+- Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
   library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.
+- **Metadata** rates how complete the torrent's information on MAM is, which decides how well Fetchshelf can
+  name, file and describe the book. Point at the pill to see what is missing.
+
+  | Pill | Means |
+  |---|---|
+  | **Good** (green) | Author, file types, description, cover, genres, a narrator for audiobooks, and an ISBN or ASIN, or all but one small item. |
+  | **Lacking** (yellow) | No real description, or two small items missing. |
+  | **Poor** (red) | No author (such a torrent can't be linked into a library), no file types (Fetchshelf can't tell its format, so it never downloads it), or more missing than for *Lacking*. |
+
+  A description with fewer than 80 characters of text counts as missing. When several uploads of the same
+  book are on offer, the pill helps pick the one whose library folder and `metadata.json` will come out best.
 - Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
   you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
   `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded

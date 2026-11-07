@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Web.Pages;
 
@@ -13,12 +14,43 @@ public sealed record SearchResultViewModel(
     /// <summary>The torrent's category in qBittorrent, "" for none; only set when <see cref="InQBittorrent"/> is true.</summary>
     public string? QBittorrentCategory { get; init; }
 
+    /// <summary>How complete the torrent's metadata on MAM is; null for rows built without the MAM record.</summary>
+    public MetadataQualityRating? MetadataQuality { get; init; }
+
+    /// <summary>The pill's word for <see cref="MetadataQuality"/>.</summary>
+    public string? MetadataQualityLabel => MetadataQuality?.Grade switch
+    {
+        MetadataQualityGrade.Good => "Good",
+        MetadataQualityGrade.Lacking => "Lacking",
+        MetadataQualityGrade.Poor => "Poor",
+        _ => null,
+    };
+
+    /// <summary>What the pill's tooltip says: what is missing, or that nothing is.</summary>
+    public string? MetadataQualityDetail => MetadataQuality is not { } rating ? null
+        : rating.Missing.Count == 0 ? "Author, file types, description, cover, genres and ISBN or ASIN are all there."
+        : $"Missing: {string.Join(", ", rating.Missing)}.";
+
     public static SearchResultViewModel From(MamTorrentRecord record, long sizeBytes, long? wedgeOverBytes, MamResultStatus status) => new(
         record.MamId, record.Title, AuthorsDisplayOf(record), sizeBytes, record.SizeRaw, record.IsFree, record.IsPersonalFreeleech, record.IsVip,
         WedgePreHighlighted: wedgeOverBytes is { } threshold && sizeBytes > threshold,
         Status: status,
         MediaTypeSlug: MediaTypeSlugOf(record),
-        MediaTypeLabel: MediaTypeLabelOf(record));
+        MediaTypeLabel: MediaTypeLabelOf(record))
+    {
+        MetadataQuality = RateMetadata(record),
+    };
+
+    /// <summary>Rates the metadata MAM returned for the torrent; see <see cref="Core.Metadata.MetadataQuality"/>.</summary>
+    public static MetadataQualityRating RateMetadata(MamTorrentRecord record) => Core.Metadata.MetadataQuality.Rate(new MetadataQualityFacts(
+        HasAuthor: record.Authors.Values.Any(author => !string.IsNullOrWhiteSpace(author)),
+        Description: record.Description,
+        HasCover: !string.IsNullOrWhiteSpace(record.PosterType),
+        HasGenres: record.GenreCategoryIds.Count > 0,
+        IsAudio: MamTorrentMapper.EffectiveMediaTypeId(record) is 1 or 8,
+        HasNarrator: record.Narrators.Values.Any(narrator => !string.IsNullOrWhiteSpace(narrator)),
+        HasIdentifier: !string.IsNullOrWhiteSpace(record.Isbn),
+        HasFileTypes: !string.IsNullOrWhiteSpace(record.FileTypesRaw)));
 
     /// <summary>Authors longer than this are cut for the Search table (anthologies can list dozens); the full list stays in <see cref="AuthorsDisplay"/>.</summary>
     public const int MaxAuthorsLength = 40;

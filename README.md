@@ -42,6 +42,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - `database_wal`, SQLite's write-ahead log.
+- The Search page's Metadata column.
 
 ## Latest release
 

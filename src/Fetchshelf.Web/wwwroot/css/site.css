@@ -286,6 +286,21 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .badge-personal-freeleech { --badge: var(--c-info); }
 .badge-vip { --badge: var(--c-vip); }
 
+/* Metadata quality on the Search page: a rounded pill, unlike the square status badges. */
+.quality-pill {
+    --badge: var(--text-muted);
+    display: inline-block;
+    padding: 0 0.6rem;
+    font-size: 0.75rem; font-weight: 600; line-height: 1.5; white-space: nowrap;
+    color: var(--badge);
+    background: color-mix(in srgb, var(--badge) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--badge) 55%, transparent);
+    border-radius: 999px;
+}
+.quality-good { --badge: var(--c-ok); }
+.quality-lacking { --badge: var(--c-warn); }
+.quality-poor { --badge: var(--c-danger); }
+
 /* ---- pages --------------------------------------------------------------- */
 
 /* Search: filters */
