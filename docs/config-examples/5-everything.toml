@@ -272,6 +272,8 @@ library_dir = "/data/library/ebooks"
 method = "hardlink_or_copy"
 allow_tags = ["fetchshelf"]              # if not empty, torrents need at least one of these
 ebook_types = ["epub", "pdf"]
+metadata_opf = true                      # also write a metadata.opf (Calibre's format); default false
+metadata_json = false                    # leave out metadata.json (Audiobookshelf's format); default true
 
 [[library]]
 name = "Everything else"

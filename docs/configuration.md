@@ -105,9 +105,9 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
 - Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
-  book's files, readable by any app or script.
+  book's files, readable by any app or script. A library can also get a `metadata.opf`, Calibre's format.
 - `[audiobookshelf]` is optional; without it Audiobookshelf can still pick the books up from the
-  `metadata.json` files.
+  metadata files.
 - When a better format of a book is linked, the old copy is retired, and `on_cleaned` on the
   `[[qbittorrent]]` entry says what to do to it in the client.
 
@@ -516,6 +516,8 @@ library, in file order, that accepts it is used.
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
+| `metadata_json` | `true` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
+| `metadata_opf` | `false` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
@@ -537,9 +539,13 @@ library, in file order, that accepts it is used.
   every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened.
-- A `metadata.json` is written next to the files, for every media type. It is plain JSON in the format
-  Audiobookshelf reads; see [`metadata.json`](user-guide.md#metadatajson) in the user guide for its
-  fields.
+- A `metadata.json` is written next to the files, for every media type, unless the library sets
+  `metadata_json = false`. It is plain JSON in the format Audiobookshelf reads; see
+  [`metadata.json`](user-guide.md#metadatajson) in the user guide for its fields.
+- With `metadata_opf = true`, a `metadata.opf` is written as well: the OPF file Calibre keeps next to its
+  books and imports from. See [`metadata.opf`](user-guide.md#metadataopf) in the user guide.
+- Changing either setting affects books linked from then on. To apply it to books already in the library,
+  relink them: tick them on the **Torrents** page and use **Relink selected**.
 - A torrent without any author cannot be linked and is reported on the Errors page.
 
 ### Folder naming

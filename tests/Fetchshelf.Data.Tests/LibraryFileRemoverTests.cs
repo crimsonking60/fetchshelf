@@ -22,6 +22,7 @@ public sealed class LibraryFileRemoverTests : IDisposable
         Write("Disc 1/01.mp3");
         Write("Disc 2/01.mp3");
         Write("metadata.json");
+        Write("metadata.opf");
         Write("cover.jpg");
 
         var removed = LibraryFileRemover.Remove(

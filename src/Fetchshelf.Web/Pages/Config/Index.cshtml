@@ -11,6 +11,11 @@
         { Count: 0 } => "none",
         var names => string.Join(", ", names),
     };
+
+    string MetadataFiles(Library library) =>
+        string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
+            ? files
+            : "none";
 }
 
 <h2>Config</h2>
@@ -85,7 +90,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th></tr></thead>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th></tr></thead>
             <tbody>
                 @foreach (var library in settings.Library)
                 {
@@ -95,6 +100,7 @@
                         <td>@library.Category</td>
                         <td>@library.DownloadDir</td>
                         <td>@library.Method</td>
+                        <td>@MetadataFiles(library)</td>
                     </tr>
                 }
             </tbody>
