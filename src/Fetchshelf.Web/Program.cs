@@ -8,11 +8,14 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web;
 using Fetchshelf.Web.Jobs;
+using Fetchshelf.Web.Opds;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
 
 if (args.Contains(HealthProbe.Argument))
@@ -65,6 +68,15 @@ builder.Services.AddSingleton<IJobRegistry, JobRegistry>();
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
 builder.Services.AddSingleton<QBittorrentPresenceCache>();
+builder.Services.TryAddSingleton(TimeProvider.System);
+if (settings.Opds is not null)
+{
+    builder.Services.AddSingleton<OpdsCatalogCache>();
+    // Covers read out of the books live next to the database, like the form keys, so they survive a new container.
+    builder.Services.AddSingleton(sp => new OpdsCoverCache(
+        Path.Combine(dataFileDirectory ?? ".", "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
+}
+
 builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId });
 builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 {
@@ -269,6 +281,10 @@ app.MapRazorPages()
    .WithStaticAssets();
 app.MapThemeEndpoint();
 app.MapHealthChecks("/health");
+if (settings.Opds is not null)
+{
+    app.MapOpdsEndpoints();
+}
 
 app.Run();
 

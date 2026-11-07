@@ -16,6 +16,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Connecting to qBittorrent](#connecting-to-qbittorrent)
 - [Setting up your library](#setting-up-your-library)
 - [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)
+- [Reading on an e-reader (OPDS)](#reading-on-an-e-reader-opds)
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
 - [Snatchlists](#snatchlists)
@@ -609,6 +610,45 @@ every book. With it, Fetchshelf also:
 
 `interval` is how many minutes pass between matching runs. Remove the whole section to switch the
 integration off.
+
+## Reading on an e-reader (OPDS)
+
+Fetchshelf can serve your ebook libraries as an OPDS catalog, the format e-readers and reading apps use to
+browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, KyBook and many others.
+
+1. **Turn it on** by adding an `[opds]` section to `config.toml`, empty to serve every library, or with the
+   libraries to serve (see [`[opds]`](configuration.md#opds)):
+
+   ```toml
+   [opds]
+   libraries = ["Ebooks"]
+   ```
+
+2. **Restart Fetchshelf.** The **Config** page shows the catalog address, for example
+   `http://192.168.1.20:3157/opds`.
+3. **Add it to your reader.** In KOReader: **Search → OPDS catalog → +**, with the catalog address as the
+   URL. In other apps, look for "Add catalog", "OPDS" or "Library server". Leave the username and password
+   empty, unless you put a reverse proxy with a login in front (see below).
+
+The catalog offers:
+
+- **Recently added,** **Authors** (each author's books by series and number) and **Series** (in series
+  order), and **Libraries** when more than one is served. Long lists come 50 to a page.
+- **Search** by title, author or series, the same way as on the **Torrents** page.
+- **Each book** with its title, authors, language and genres from MAM. Its series and number are shown at
+  the start of its description, since OPDS has no series field.
+- **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
+  split into several files offers each part.
+- **Covers** read from EPUB and CBZ files. PDFs and other formats have no cover in the catalog. Covers are
+  kept in a `covers` folder next to the database, so each book is only opened once.
+
+What it serves: every linked book in a served library whose MAM media type is Ebook, Manga, Comic Book or
+Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked
+book appears within a minute.
+
+The catalog has no login, like the rest of Fetchshelf: anyone who can reach it can browse and download your
+books. Use it on your home network, or, to read away from home, put it behind a reverse proxy that asks for
+a username and password. OPDS readers can send those. See [Security and privacy](#security-and-privacy).
 
 ## Finding and downloading books
 
@@ -1413,7 +1453,8 @@ fix the ownership of the copied files.
 
 - **There is no login.** Anyone who can open the web interface can start downloads, remove records and, with
   the torrent page actions, delete data from qBittorrent. Only expose Fetchshelf on a trusted network, or
-  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet.
+  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet. The same
+  goes for the OPDS catalog, which lets anyone who can reach it download your books.
 - **Secrets in `config.toml`:** `mam_id` and the qBittorrent and Audiobookshelf credentials.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives

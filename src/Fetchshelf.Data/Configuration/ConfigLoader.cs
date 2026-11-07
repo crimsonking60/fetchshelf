@@ -50,6 +50,7 @@ public static class ConfigLoader
         ["radio_types"] = (s, v) => s.RadioTypes = SplitList(v),
         ["hardcover_token"] = (s, v) => (s.Hardcover ??= new()).Token = v,
         ["hardcover_token_file"] = (s, v) => (s.Hardcover ??= new()).TokenFile = v,
+        ["opds_libraries"] = (s, v) => (s.Opds ??= new()).Libraries = SplitList(v),
     };
 
     /// <summary>
@@ -81,6 +82,7 @@ public static class ConfigLoader
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
         ValidateHardcover(settings);
+        ValidateOpds(settings);
         return settings;
     }
 
@@ -459,6 +461,22 @@ public static class ConfigLoader
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
             }
+        }
+    }
+
+    private static void ValidateOpds(FetchshelfSettings settings)
+    {
+        if (settings.Opds is not { } opds)
+        {
+            return;
+        }
+
+        var names = settings.Library.Select(library => library.Name).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var unknown = opds.Libraries.FirstOrDefault(name => !names.Contains(name));
+        if (unknown is not null)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: [opds] 'libraries' names '{unknown}', but no [[library]] has that name.");
         }
     }
 
