@@ -17,14 +17,19 @@ public sealed record QBittorrentPresence(
     /// <summary>The info hash of the torrent qBittorrent has for this MAM id, from MAM's comment.</summary>
     public IReadOnlyDictionary<long, string> HashByMamId { get; init; } = new Dictionary<long, string>();
 
+    /// <summary>Each torrent's state in qBittorrent, by info hash, such as <c>downloading</c> or <c>stalledUP</c>.</summary>
+    public IReadOnlyDictionary<string, string> StateByHash { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     public static QBittorrentPresence From(IEnumerable<QBittorrentTorrent> torrents)
     {
         var byMamId = new Dictionary<long, string>();
         var hashByMamId = new Dictionary<long, string>();
         var byHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var stateByHash = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var torrent in torrents)
         {
             byHash.TryAdd(torrent.Hash, torrent.Category);
+            stateByHash.TryAdd(torrent.Hash, torrent.State);
             if (torrent.MamId is { } mamId)
             {
                 byMamId.TryAdd(mamId, torrent.Category);
@@ -32,7 +37,7 @@ public sealed record QBittorrentPresence(
             }
         }
 
-        return new QBittorrentPresence(byMamId, byHash, Loaded: true) { HashByMamId = hashByMamId };
+        return new QBittorrentPresence(byMamId, byHash, Loaded: true) { HashByMamId = hashByMamId, StateByHash = stateByHash };
     }
 
     /// <summary>The torrent's category if qBittorrent has it ("" for none), found by MAM id or else by info hash.</summary>

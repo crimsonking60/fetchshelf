@@ -336,7 +336,7 @@ public sealed class DownloadRunner(
 
             if (!known)
             {
-                CreateTorrentRecord(hash, metadata);
+                CreateTorrentRecord(hash, metadata, match.State);
             }
 
             if (match.IsFinished)
@@ -364,7 +364,12 @@ public sealed class DownloadRunner(
     private Task ClearGrabberErrorAsync(long mamId, CancellationToken cancellationToken) =>
         ErrorLog.ClearAsync(dbContext, ErrorStage.Grabber, mamId.ToString(), cancellationToken);
 
-    private void CreateTorrentRecord(string hash, Fetchshelf.Core.Metadata.TorrentMetadata metadata) =>
+    /// <param name="hash">The torrent's info hash.</param>
+    /// <param name="metadata">The torrent's metadata from MAM.</param>
+    /// <param name="clientStatus">
+    /// The torrent's state in qBittorrent when it already has it; null for a torrent just added, which hasn't finished.
+    /// </param>
+    private void CreateTorrentRecord(string hash, Fetchshelf.Core.Metadata.TorrentMetadata metadata, string? clientStatus = null) =>
         dbContext.Torrents.Add(new TorrentEntity
         {
             Id = hash,
@@ -373,6 +378,7 @@ public sealed class DownloadRunner(
             Title = metadata.Title,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
             CreatedAt = DateTimeOffset.UtcNow,
+            ClientStatus = clientStatus,
         });
 
     private async Task AddToQBittorrentAsync(

@@ -144,6 +144,16 @@ public class IndexModel(
         return Partial("_SearchResultsPartial", this);
     }
 
+    /// <summary>
+    /// A result's status badge, asked for again by the badge itself while the torrent is on its way into the library.
+    /// Reads Fetchshelf's database only: no MAM request, and no qBittorrent request either.
+    /// </summary>
+    public async Task<PartialViewResult> OnGetStatusAsync(long mamId, int round)
+    {
+        var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
+        return Partial("_SearchResultStatusPartial", new SearchResultStatusViewModel(mamId, status, round));
+    }
+
     /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>
     private static SearchResultViewModel WithQBittorrent(SearchResultViewModel row, QBittorrentPresence presence, IEnumerable<string> knownHashes)
     {
@@ -184,11 +194,21 @@ public class IndexModel(
 
         var torrents = await dbContext.Torrents
             .Where(t => mamIds.Contains(t.MamId))
-            .Select(t => new { t.MamId, t.LibraryPath })
+            .Select(t => new { t.Id, t.MamId, t.LibraryPath, t.ClientStatus })
             .ToListAsync();
         foreach (var torrent in torrents)
         {
-            statuses[torrent.MamId] = torrent.LibraryPath is null ? MamResultStatus.Downloaded : MamResultStatus.Linked;
+            // The Download job records a torrent as it hands it to qBittorrent, with no client status yet; the Link job
+            // stores the status once it sees the torrent finished. Until then it is still downloading. A metadata-only
+            // record was never downloaded through Fetchshelf, so it counts as owned.
+            var status = torrent.LibraryPath is not null ? MamResultStatus.Linked
+                : !MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id)
+                    && (torrent.ClientStatus is null || QBittorrentStateLabel.IsDownloadStage(torrent.ClientStatus)) ? MamResultStatus.Downloading
+                : MamResultStatus.Downloaded;
+            if (status > statuses.GetValueOrDefault(torrent.MamId))
+            {
+                statuses[torrent.MamId] = status;
+            }
         }
 
         return statuses;
@@ -267,7 +287,8 @@ public class IndexModel(
             }
             else
             {
-                message = await ImportAsync(record, hash, presence.CategoryByMamId.GetValueOrDefault(mamId) ?? string.Empty);
+                message = await ImportAsync(
+                    record, hash, presence.CategoryByMamId.GetValueOrDefault(mamId) ?? string.Empty, presence.StateByHash.GetValueOrDefault(hash));
             }
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
@@ -288,7 +309,7 @@ public class IndexModel(
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
     }
 
-    private async Task<string> ImportAsync(MamTorrentRecord record, string hash, string category)
+    private async Task<string> ImportAsync(MamTorrentRecord record, string hash, string category, string? clientStatus)
     {
         var metadata = MamTorrentMapper.Map(record);
         var title = $"\"{metadata.Title}\"";
@@ -305,6 +326,7 @@ public class IndexModel(
             Title = metadata.Title,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
             QBittorrentCategory = category,
+            ClientStatus = clientStatus,
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
@@ -370,7 +392,7 @@ public class IndexModel(
         }
 
         var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
-        return status is MamResultStatus.Downloaded or MamResultStatus.Linked
+        return status is MamResultStatus.Downloading or MamResultStatus.Downloaded or MamResultStatus.Linked
             ? DownloadProgress.AddedToQBittorrent
             : DownloadProgress.NotAddedByTheRun;
     }

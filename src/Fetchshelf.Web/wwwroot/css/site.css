@@ -241,6 +241,7 @@ td form:not(.inline) { display: inline-block; }
 /* Search result rows get a status "spine" on the leading edge, like a book on a shelf */
 tr[data-status] > td:first-child { box-shadow: inset 3px 0 0 transparent; }
 tr[data-status="selected"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-info); }
+tr[data-status="downloading"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-info); }
 tr[data-status="downloaded"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-warn); }
 tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok); }
 
@@ -279,6 +280,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     border-radius: 3px;
 }
 .status-selected { --badge: var(--c-info); }
+.status-downloading { --badge: var(--c-info); }
 .status-downloaded { --badge: var(--c-warn); }
 .status-linked { --badge: var(--c-ok); }
 .status-not-in-qbittorrent { --badge: var(--c-warn); }

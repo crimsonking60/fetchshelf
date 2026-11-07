@@ -27,24 +27,13 @@
         }
     </td>
     <td>
-        @switch (result.Status)
-        {
-            case MamResultStatus.Selected:
-                <span class="status-badge status-selected">Selected</span>
-                break;
-            case MamResultStatus.Downloaded:
-                <span class="status-badge status-downloaded">Downloaded</span>
-                break;
-            case MamResultStatus.Linked:
-                <span class="status-badge status-linked">Linked</span>
-                break;
-        }
+        @await Html.PartialAsync("_SearchResultStatusPartial", new SearchResultStatusViewModel(result.MamId, result.Status))
         @if (result.InQBittorrent == true)
         {
             var category = string.IsNullOrEmpty(result.QBittorrentCategory) ? "no category" : result.QBittorrentCategory;
             <span class="status-badge status-qbittorrent" title="In qBittorrent, category: @category">qBittorrent: @category</span>
         }
-        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloaded or MamResultStatus.Linked)
+        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloading or MamResultStatus.Downloaded or MamResultStatus.Linked)
         {
             <span class="status-badge status-not-in-qbittorrent" title="Fetchshelf has this torrent, but qBittorrent no longer does">Not in qBittorrent</span>
         }

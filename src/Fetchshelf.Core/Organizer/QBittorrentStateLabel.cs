@@ -26,6 +26,11 @@ public static class QBittorrentStateLabel
         _ => state,
     };
 
+    /// <summary>Whether <paramref name="state"/> is a stage of a torrent that hasn't finished downloading.</summary>
+    public static bool IsDownloadStage(string? state) => state is
+        "downloading" or "stalledDL" or "queuedDL" or "forcedDL" or "metaDL" or "forcedMetaDL"
+        or "pausedDL" or "stoppedDL" or "checkingDL" or "allocating";
+
     /// <summary>Whether two states are the same stage, i.e. show the same label.</summary>
     public static bool SameStage(string? a, string? b) => For(a) == For(b);
 }

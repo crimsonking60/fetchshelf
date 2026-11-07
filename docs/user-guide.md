@@ -682,8 +682,12 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
   its own.
 - Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
-  in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
-  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.
+  in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
+  finished yet), **Downloaded** (finished, or owned through a snatchlist, but not in your library) or
+  **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
+  **Linked**, its status checks again every minute, so it moves on without a reload. It stops checking
+  after an hour. A finished torrent usually goes straight from **Downloading** to **Linked**: the Link job
+  notices it has finished and links it in the same run. It shows **Downloaded** when no library accepts it.
 - **Metadata** rates how complete the torrent's information on MAM is, which decides how well Fetchshelf can
   name, file and describe the book. Point at the pill to see what is missing.
 

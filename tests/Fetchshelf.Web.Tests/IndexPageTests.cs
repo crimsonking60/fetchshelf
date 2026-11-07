@@ -560,10 +560,10 @@ public partial class IndexPageTests
     }
 
     [Fact]
-    public async Task Get_ResultAlreadyDownloadedNotLinked_ShowsDownloadedBadge()
+    public async Task Get_ResultFinishedNotLinked_ShowsDownloadedBadge()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
-        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null, clientStatus: "stalledUP");
         var client = fixture.CreateClient();
 
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
@@ -699,8 +699,39 @@ public partial class IndexPageTests
         return System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
     }
 
+    [Theory]
+    [InlineData(null, "status-downloading", ">Downloading<")]
+    [InlineData("downloading", "status-downloading", ">Downloading<")]
+    [InlineData("stalledDL", "status-downloading", ">Downloading<")]
+    [InlineData("uploading", "status-downloaded", ">Downloaded<")]
+    [InlineData("stoppedUP", "status-downloaded", ">Downloaded<")]
+    public async Task Get_ResultNotLinked_IsDownloadingUntilQBittorrentHasFinishedIt(string? clientStatus, string badgeClass, string label)
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null, clientStatus: clientStatus);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
+
+        Assert.Contains(badgeClass, html);
+        Assert.Contains(label, html);
+    }
+
     [Fact]
-    public async Task Post_Download_WaitsForTheDownloadJob_AndShowsTheTorrentAsDownloaded()
+    public async Task Get_MetadataOnlyRecord_IsDownloadedNotDownloading()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "mam:1", libraryPath: null);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
+
+        Assert.Contains("status-downloaded", html);
+        Assert.DoesNotContain("status-downloading", html);
+    }
+
+    [Fact]
+    public async Task Post_Download_WaitsForTheDownloadJob_AndShowsTheTorrentAsDownloading()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         // Stands in for the real Download job: records the torrent as added to qBittorrent.
@@ -728,7 +759,7 @@ public partial class IndexPageTests
         var body = await ClickDownloadAsync(fixture);
 
         Assert.Contains("Added \"The Way of Kings\" to qBittorrent.", body);
-        Assert.Contains("status-downloaded", body);
+        Assert.Contains("status-downloading", body);
         Assert.DoesNotContain("status-selected", body);
     }
 
