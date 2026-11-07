@@ -35,9 +35,15 @@ to `5-everything.toml`, which uses every option.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section.
-- **Validation.** Required keys, mutually exclusive keys and unrecognized names (languages, categories,
-  flags, media types, costs, `sort_by` values, `search_in` fields) are checked at startup. A config that
-  fails validation is rejected as a whole.
+- **Validation.** Required keys, mutually exclusive keys, costs, autograb `type`s, `sort_by` values,
+  `search_in` fields and the top-level `languages` are checked at startup. A config that fails validation is
+  rejected as a whole, and Fetchshelf doesn't start.
+- **Filter values are checked when they are first used.** The names and values in a
+  [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
+  dates) are checked at startup for `[[tag]]` rules, but only when the job runs for an `[[autograb]]`,
+  `[[snatchlist]]` or `[[hardcover_list.grab]]` block. A misspelled language in an autograb therefore doesn't
+  stop Fetchshelf from starting: that autograb's job fails on each run instead, and the **Jobs** page and the
+  log name the problem. After editing a filter, press **Run now** on the job to check it straight away.
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.

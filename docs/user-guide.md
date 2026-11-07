@@ -321,9 +321,12 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 5
   shows every option.
 - **Reference.** Every setting is described in the [configuration reference](configuration.md).
-- **Mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
-  required value, or an unrecognized name (for example a misspelled language). The error message names the
-  problem. Check `docker logs fetchshelf`.
+- **Most mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
+  required value, or an unrecognized name in a `[[tag]]` rule or the top-level `languages`. The error
+  message names the problem. Check `docker logs fetchshelf`. A misspelled value in the filter of an
+  autograb, snatchlist or Hardcover list (for example a language, category or size) is only noticed when
+  that job runs: the job fails, and the **Jobs** page says why. Press **Run now** on a job after editing it
+  to check it straight away.
 - **Changes need a restart.** Fetchshelf reads the file when it starts. After editing it, restart the
   container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
   in the database and picked up again after the restart. A job that the restart cuts off does its work on
