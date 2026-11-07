@@ -5,6 +5,49 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.4 - 2026-11-07
+
+Fetchshelf now handles a library of 10,000 torrents comfortably: the Link and Clean jobs no longer slow down
+with the square of the library's size, and the Link job asks MAM far less. Libraries can get a Calibre-style
+`metadata.opf` next to each book, and a Hardcover list can send its downloads to a qBittorrent category of its
+own.
+
+### Added
+
+- `metadata.opf`: with `metadata_opf = true`, a library gets a `metadata.opf` next to each book, the OPF file
+  Calibre keeps next to its books and imports from. Audiobookshelf reads it too. `metadata_json = false` leaves
+  out `metadata.json`. Both can be set on a `[[library]]`, or at the top of the file for every library that
+  doesn't set its own. Changing them affects books linked from then on; **Relink selected** applies them to
+  books already in the library (#16).
+- `category` on a `[[hardcover_list]]`: the qBittorrent category for everything the list downloads, as an
+  autograb's `category`. It overrides `[[tag]]` rules, so different lists can go to different libraries.
+- `database_wal`: keeps the web interface responsive while a long job writes to the database, using SQLite's
+  write-ahead log. Off by default; turn it on only when the database is on a local disk, not a network share
+  (#13).
+
+### Changed
+
+- **Large libraries.** At 10,000 torrents, a Link run with nothing to do took about two and a half minutes
+  and now takes a few seconds; a Clean run went from over a minute to under a second. Pages and actions that
+  need one torrent from qBittorrent, such as a torrent's page, no longer fetch every torrent qBittorrent has
+  (#13, #14).
+- The Link job only stores a torrent's qBittorrent status when it moves to another stage, such as from
+  seeding to stopped, not each time qBittorrent flips between *uploading* and *stalled*. The **Torrents** list
+  no longer shows qBittorrent's raw state when you point at the status; a torrent's page still shows it (#14).
+- A torrent MAM had no torrent for (*MAM has no torrent with this info-hash* on the **Errors** page) is looked
+  up again once a day instead of on every Link run. Remove its entry on the **Errors** page to have the next
+  run look it up straight away (#15).
+- A Link run looks up at most 200 unknown torrents on MAM. Pointed at a qBittorrent that already holds
+  thousands of books, Fetchshelf works through them over several runs while books it knows keep being linked
+  (#15).
+- With `download_after_selection = false`, the Search page's buttons say **Select** and **Wedge select**,
+  since they only queue the torrent on the **Selected** page.
+
+### Fixed
+
+- A search result's details showed no cover. They now show MAM's cover image.
+- A crafted request for a search result's cover could add made-up lines to the log.
+
 ## 2026.11.3 - 2026-11-05
 
 Hardcover lists replace the Goodreads shelf import, the Torrents page gets filters and can set the qBittorrent
