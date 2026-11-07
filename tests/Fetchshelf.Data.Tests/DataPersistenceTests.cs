@@ -56,11 +56,11 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
-    public void Migrate_SwitchesTheDatabaseToWriteAheadLogging()
+    public void Migrate_WithWriteAheadLog_SwitchesTheDatabaseToIt()
     {
         using (var context = CreateContext())
         {
-            DatabaseMigrator.Migrate(context);
+            DatabaseMigrator.Migrate(context, writeAheadLog: true);
         }
 
         Assert.Equal("wal", JournalMode());
@@ -71,7 +71,7 @@ public sealed class DataPersistenceTests : IDisposable
     {
         using (var context = CreateContext())
         {
-            DatabaseMigrator.Migrate(context);
+            DatabaseMigrator.Migrate(context, writeAheadLog: true);
         }
 
         using (var context = CreateContext())
