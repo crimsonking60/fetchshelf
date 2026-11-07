@@ -31,6 +31,13 @@ Decisions made:
 - **No new dependencies.** The Atom XML is built with `System.Xml.Linq`, and EPUB and CBZ covers are read with
   `System.IO.Compression`.
 
+## Status
+
+Implemented on `feature/opds`, following this plan, with one change: author and series names are passed in
+the query string rather than the path (see Step 2). Scale check at 10,000 seeded torrents: the first request
+reads the catalog in about 0.5 s, and after that every feed answers in 1–5 ms. Step 7, trying real readers,
+is left to a real setup.
+
 ## Settled questions
 
 Settled on 2026-11-07, each with the proposed answer:
@@ -91,9 +98,9 @@ Pure functions from catalog data to `XDocument`s, testable without a web host.
 | `/opds` | navigation | Root: *Recently added*, *Authors*, *Series*, *Libraries* (only when more than one), search |
 | `/opds/recent?page=N` | acquisition | All served books, newest first |
 | `/opds/authors?page=N` | navigation | Authors A–Z, each with a book count |
-| `/opds/authors/{name}?page=N` | acquisition | One author's books, by series and number, then title |
+| `/opds/author?name=...&page=N` | acquisition | One author's books, by series and number, then title |
 | `/opds/series?page=N` | navigation | Series A–Z, each with a book count |
-| `/opds/series/{name}` | acquisition | One series' books, in series order |
+| `/opds/series/books?name=...&page=N` | acquisition | One series' books, in series order |
 | `/opds/libraries` | navigation | The served libraries |
 | `/opds/libraries/{index}?page=N` | acquisition | One library's books, newest first |
 | `/opds/search.xml` | OpenSearch description | Points at the search feed |
@@ -113,8 +120,9 @@ Pure functions from catalog data to `XDocument`s, testable without a web host.
     content, since OPDS 1.2 has no standard series field;
   - per file, `link rel="http://opds-spec.org/acquisition"` with the format's MIME type and `length`;
   - `link rel="http://opds-spec.org/image"` and `".../image/thumbnail"` when a cover exists (Step 4).
-- **Names in paths** (author, series) are URL-encoded and matched exactly. A library is addressed by its index
-  in the configuration, since names are optional.
+- **Names go in the query string** (author, series), URL-encoded and matched exactly, not in the path: ASP.NET
+  Core doesn't decode `%2F` in a path segment, so a name with a `/` would break there. A library is addressed by
+  its index in the configuration, since names are optional.
 
 ### 3. Downloads: `/opds/books/{hash}/files/{n}`
 

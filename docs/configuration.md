@@ -13,6 +13,7 @@ to `5-everything.toml`, which uses every option.
 - [`[search]`](#search)
 - [`[audiobookshelf]`](#audiobookshelf)
 - [`[hardcover]`](#hardcover)
+- [`[opds]`](#opds)
 - [`[[qbittorrent]]`](#qbittorrent)
 - [The shared torrent filter](#the-shared-torrent-filter)
 - [`[[autograb]]`](#autograb)
@@ -229,6 +230,32 @@ token_file = "/run/secrets/hardcover_token"
 - **Environment.** `FETCHSHELF_CONF_hardcover_token` and `FETCHSHELF_CONF_hardcover_token_file` set the two
   settings, and create the section if the file has none.
 - **Beta.** Hardcover's API is still in beta, and Hardcover may change it or reset tokens without notice.
+
+## `[opds]`
+
+Optional. Serves your ebook libraries as an [OPDS](https://opds.io) catalog at `http://<fetchshelf>/opds`,
+for e-readers and reading apps such as KOReader, Moon+ Reader or Thorium. Leave the section out to serve
+nothing; an empty `[opds]` turns it on for every library. See
+[Reading on an e-reader](user-guide.md#reading-on-an-e-reader-opds) in the user guide.
+
+| Setting | Default | Description |
+|---|---|---|
+| `libraries` | `[]` | The `name`s of the `[[library]]` entries to serve. Empty serves every library. |
+
+```toml
+[opds]
+libraries = ["Ebooks", "Comics"]
+```
+
+- **What is served.** Every linked book whose MAM media type is Ebook, Manga, Comic Book or Periodical Ebook,
+  in a served library, with the ebook format Fetchshelf linked for it. Audiobooks, including an audiobook's
+  companion PDF, are not served.
+- **Validation.** Every name in `libraries` must be the `name` of a `[[library]]`; an unknown name stops
+  Fetchshelf from starting. Libraries without a `name` can only be served by leaving `libraries` empty.
+- **Environment.** `FETCHSHELF_CONF_opds_libraries` (comma-separated) sets `libraries`, and creates the
+  section if the file has none.
+- **No login,** like the rest of Fetchshelf. See
+  [Security and privacy](user-guide.md#security-and-privacy).
 
 ## `[[qbittorrent]]`
 

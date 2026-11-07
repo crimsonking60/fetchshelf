@@ -58,6 +58,41 @@ public sealed class PageScaleTests(ITestOutputHelper output)
     }
 
     [ScaleFact]
+    public async Task OpdsFeeds()
+    {
+        const string config = """
+            mam_id = ""
+
+            [[library]]
+            name = "Ebooks"
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+
+            [opds]
+            """;
+        using var fixture = new FetchshelfWebAppFixture(configToml: config);
+        var data = ScaleSeeder.Build(ScaleFactAttribute.TorrentCount!.Value, "/downloads", "/library/audiobooks", "/library/ebooks");
+        using (var scope = fixture.CreateScope())
+        {
+            await ScaleSeeder.SaveAsync(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), data);
+        }
+
+        using var client = fixture.CreateClient();
+        var cold = Stopwatch.StartNew();
+        await client.GetStringAsync("/opds/recent");
+        cold.Stop();
+        output.WriteLine($"Seeded {data.Torrents.Count} torrents; OPDS first request (reads the catalog): {cold.Elapsed.TotalMilliseconds:F0} ms");
+
+        var recent = await TimeAsync(client, "OPDS recent, page 1", "/opds/recent");
+        await TimeAsync(client, "OPDS recent, page 50", "/opds/recent?page=50");
+        await TimeAsync(client, "OPDS authors, page 1", "/opds/authors");
+        await TimeAsync(client, "OPDS one author", "/opds/author?name=Author%2000042");
+        await TimeAsync(client, "OPDS search", "/opds/search?q=kings");
+
+        Assert.Contains("http://opds-spec.org/acquisition", recent);
+    }
+
+    [ScaleFact]
     public async Task EventsPage()
     {
         var (fixture, data) = await SeedAsync();
