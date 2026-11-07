@@ -1,6 +1,6 @@
-using Fetchshelf.Web.Pages.Torrents;
+using Fetchshelf.Core.Organizer;
 
-namespace Fetchshelf.Web.Tests;
+namespace Fetchshelf.Core.Tests;
 
 public class QBittorrentStateLabelTests
 {
@@ -23,4 +23,19 @@ public class QBittorrentStateLabelTests
 
     [Fact]
     public void For_Null_ReturnsNull() => Assert.Null(QBittorrentStateLabel.For(null));
+
+    [Theory]
+    [InlineData("uploading", "stalledUP")]
+    [InlineData("stalledUP", "forcedUP")]
+    [InlineData("pausedUP", "stoppedUP")]
+    public void SameStage_StatesWithTheSameLabel_ReturnsTrue(string a, string b) =>
+        Assert.True(QBittorrentStateLabel.SameStage(a, b));
+
+    [Theory]
+    [InlineData("uploading", "stoppedUP")]
+    [InlineData("downloading", "stalledDL")]
+    [InlineData("not in client", "uploading")]
+    [InlineData(null, "uploading")]
+    public void SameStage_StatesWithDifferentLabels_ReturnsFalse(string? a, string b) =>
+        Assert.False(QBittorrentStateLabel.SameStage(a, b));
 }

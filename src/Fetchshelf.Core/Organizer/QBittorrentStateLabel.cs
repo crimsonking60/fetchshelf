@@ -1,8 +1,9 @@
-namespace Fetchshelf.Web.Pages.Torrents;
+namespace Fetchshelf.Core.Organizer;
 
 /// <summary>
 /// Readable labels for qBittorrent's raw torrent state strings. Values it does not know (including
-/// Fetchshelf's own "not in client" / "removed from MAM" statuses) are shown unchanged.
+/// Fetchshelf's own "not in client" / "removed from MAM" statuses) are shown unchanged. A label is a stage of the
+/// torrent's life: states that share one, such as a seeding torrent's uploading and stalledUP, are the same stage.
 /// </summary>
 public static class QBittorrentStateLabel
 {
@@ -24,4 +25,7 @@ public static class QBittorrentStateLabel
         "unknown" => "Unknown",
         _ => state,
     };
+
+    /// <summary>Whether two states are the same stage, i.e. show the same label.</summary>
+    public static bool SameStage(string? a, string? b) => For(a) == For(b);
 }

@@ -1,5 +1,6 @@
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,19 @@ public static class ClientStatuses
 {
     public const string NotInClient = "not in client";
     public const string RemovedFromMam = "removed from MAM";
+
+    /// <summary>
+    /// Stores <paramref name="state"/> as the torrent's client status, unless it is the stage already stored. A seeding
+    /// torrent flips between uploading and stalledUP all the time; writing each flip would cost a database write and
+    /// change nothing anyone sees.
+    /// </summary>
+    public static void Update(TorrentEntity torrent, string state)
+    {
+        if (!QBittorrentStateLabel.SameStage(torrent.ClientStatus, state))
+        {
+            torrent.ClientStatus = state;
+        }
+    }
 }
 
 /// <param name="Checked">Tracked torrents looked at; metadata-only records are not among them.</param>
@@ -72,7 +86,7 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
         {
             if (inClient.TryGetValue(torrent.Id, out var live))
             {
-                torrent.ClientStatus = live.State;
+                ClientStatuses.Update(torrent, live.State);
                 torrent.QBittorrentCategory = live.Category;
                 found++;
                 if (live.IsFinished)
