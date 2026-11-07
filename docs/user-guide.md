@@ -1308,7 +1308,7 @@ Before you update:
 
 1. Read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you must do when
    upgrading.
-2. Back up your config and data folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
+2. Back up your config and database folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
    backup until you are happy with the new version: it is the only way back.
 
 With Docker:
@@ -1375,7 +1375,7 @@ crash, copy them as well and keep them next to `data.db`. See [Database setup](d
 the database can safely live.
 
 To move to another machine, install Fetchshelf there, stop it on both machines, copy `config.toml` and
-everything in the data folder into the new config and data folders, and start it. Mount your media at the
+everything in the database folder into the new config and database folders, and start it. Mount your media at the
 **same paths** as before (or adjust `library_dir` and `path_mapping`), and use the same `PUID` / `PGID`, or
 fix the ownership of the copied files.
 
