@@ -44,6 +44,21 @@ Rules that keep this working:
 - Because `develop` is the default branch, pull requests target it automatically, and `Fixes #123` in a pull
   request closes the issue when it is merged into `develop`.
 
+Repository rulesets enforce this:
+
+| Ruleset | Branch | Rules | Bypass |
+| --- | --- | --- | --- |
+| Protect develop | `develop` | No deletion or force-push; changes through a pull request with passing checks. | Repository admins |
+| Protect main | `main` | The same. | Repository admins |
+| Never delete or rewrite main | `main` | No deletion or force-push. | Nobody |
+
+The third ruleset exists because the repository deletes a pull request's head branch once it is merged, and
+GitHub does that as the person who merged. That person is usually an admin, who may bypass the first two
+rulesets, so after the 2026.11.3 release merging the back-merge pull request (whose head is `main`) deleted
+`main`. With no bypass, the third ruleset refuses that deletion, and anyone else's. To delete or rewrite
+`main` on purpose, which should never be needed, disable that ruleset first and enable it again straight
+after.
+
 ## Working with pull requests
 
 ### Triage
@@ -354,9 +369,17 @@ Release when `develop` has something worth shipping and:
    A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
    bypassing the branch rules, after making sure `develop` builds.
 
-   The repository deletes a pull request's head branch after merging, except for protected branches and the
-   default branch. If `main` is not protected yet, merging this pull request deletes it: press **Restore
-   branch** on the merged pull request straight away.
+   With the current rulesets the direct push is always refused, since `develop` only takes pull requests, so
+   expect this pull request after every release.
+
+   Merging it also makes the repository try to delete its head branch, `main`. The *Never delete or rewrite
+   main* ruleset refuses that (see [Branches](#branches)); check afterwards that `main` is still there:
+   `gh api repos/crimsonking60/fetchshelf/branches/main --jq .name`. If it is gone, because the ruleset was
+   disabled or removed, press **Restore branch** on the merged pull request straight away and restore the
+   ruleset.
+
+   A local `origin/main` doesn't show that `main` was deleted on GitHub, since fetching keeps branches that are
+   gone. Fetch with `git fetch --prune` to see the real state.
 
    Pull `develop` before you continue working on it: `git switch develop && git pull`.
 
