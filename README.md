@@ -40,10 +40,11 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
+- `database_wal`, SQLite's write-ahead log.
 
 ## Latest release
 
-**2026.11.3** (2026-11-05). See [RELEASES.md](RELEASES.md#2026113---2026-11-05) for what changed, and for
+**2026.11.4** (2026-11-07). See [RELEASES.md](RELEASES.md#2026114---2026-11-07) for what changed, and for
 every earlier release.
 
 ## Contributing
