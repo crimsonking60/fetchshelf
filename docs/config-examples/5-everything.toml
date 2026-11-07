@@ -209,6 +209,7 @@ max_size = "10 GiB"
 name = "Want to Read"
 status = "want_to_read"  # want_to_read, currently_reading, read, paused, did_not_finish
 prefer_format = "audio"  # when both formats are found, download only this one; unset = both
+category = "audiobooks"  # qBittorrent category for everything this list downloads; overrides [[tag]] rules
 search_interval = 360    # overrides the global search_interval
 dry_run = false
 

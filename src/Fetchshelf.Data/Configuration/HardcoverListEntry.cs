@@ -29,6 +29,9 @@ public sealed class HardcoverListEntry
     /// <summary>Restricted to <see cref="FilterMainType.Audio"/>/<see cref="FilterMainType.Ebook"/> (enforced by `ConfigLoader`).</summary>
     public FilterMainType? PreferFormat { get; set; }
 
+    /// <summary>qBittorrent category for everything this list downloads, as an autograb's `category`. Overrides `[[tag]]` rules.</summary>
+    public string? Category { get; set; }
+
     public List<GrabEntry> Grab { get; set; } = [];
 
     public int? SearchInterval { get; set; }

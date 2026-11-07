@@ -35,6 +35,7 @@ public sealed class HardcoverConfigTests : IDisposable
             name = "Want to Read"
             status = "want_to_read"
             prefer_format = "audio"
+            category = "MAM_fiction"
             search_interval = 360
             dry_run = true
 
@@ -60,6 +61,7 @@ public sealed class HardcoverConfigTests : IDisposable
         Assert.Equal(HardcoverListStatus.WantToRead, first.Status);
         Assert.Null(first.List);
         Assert.Equal(FilterMainType.Audio, first.PreferFormat);
+        Assert.Equal("MAM_fiction", first.Category);
         Assert.Equal(360, first.SearchInterval);
         Assert.True(first.DryRun);
         Assert.Equal([ConfiguredCost.Free, ConfiguredCost.Wedge], first.Grab.Select(g => g.Cost));
@@ -67,6 +69,7 @@ public sealed class HardcoverConfigTests : IDisposable
         var second = settings.HardcoverList[1];
         Assert.Null(second.Status);
         Assert.Equal("books-to-fetch", second.List);
+        Assert.Null(second.Category);
         Assert.Equal(ConfiguredCost.Free, Assert.Single(second.Grab).Cost);
     }
 

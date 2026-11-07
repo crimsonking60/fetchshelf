@@ -85,8 +85,8 @@ Fetchshelf has two halves that can be used independently.
   and **how** to pay for them using [`cost`](#cost).
 - `ebook_types` / `audio_types` / ... decide which torrents have a usable file format at all, and which
   of two copies of the same book is better.
-- `[[tag]]` rules (or an autograb's own `category`) decide which qBittorrent category and tags a new
-  download gets.
+- `[[tag]]` rules (or an autograb's or Hardcover list's own `category`) decide which qBittorrent category
+  and tags a new download gets.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
   `unsat_buffer` / `wedge_buffer` override the global ones. The downloader reads them when it starts each
   torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
@@ -100,8 +100,8 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
           └─ category/tags set by [[tag]] rules ─────────────┘ client's paths to Fetchshelf's
 ```
 
-- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule or an
-  autograb `category` sets) or by their **save path** (`download_dir`).
+- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule, or an
+  autograb's or Hardcover list's `category`, sets) or by their **save path** (`download_dir`).
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
 - Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
@@ -262,8 +262,8 @@ category = "unlinked"
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]` and `[[autograb]]` are created in qBittorrent
-  automatically if they do not exist.
+- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]`, `[[autograb]]` and `[[hardcover_list]]` are
+  created in qBittorrent automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
   on one disk. See [`method`](#library).
@@ -431,6 +431,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
+| `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
 | `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). The first block that finds a format decides what that format costs. `metadata_only` costs are not allowed. |
@@ -484,7 +485,7 @@ For each new download:
 
 - The **category** comes from the **first** matching rule that sets one.
 - The **tags** are the **union** of the tags from **all** matching rules.
-- An autograb's own `category` overrides the rules' category.
+- An autograb's or Hardcover list's own `category` overrides the rules' category.
 
 The result is applied when the torrent is added to qBittorrent. Each rule can also be applied to torrents
 you already have, from the Config page.

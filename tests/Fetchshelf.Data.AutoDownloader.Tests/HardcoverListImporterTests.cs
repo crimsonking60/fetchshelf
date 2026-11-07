@@ -177,6 +177,19 @@ public sealed class HardcoverListImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ListWithACategory_SelectsWithThatCategory()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune")];
+        var entry = Entry(grab: AudioOnly());
+        entry.Category = "MAM_fiction";
+
+        await harness.RunAsync(entry);
+
+        Assert.Equal("MAM_fiction", Assert.Single(harness.Context.SelectedTorrents).Category);
+    }
+
+    [Fact]
     public async Task RunAsync_DifferentBookOnMam_IsNotTaken()
     {
         var harness = CreateHarness(_ => Results(Record(11, "The Dune Encyclopedia Companion Guide", "Someone Else")));

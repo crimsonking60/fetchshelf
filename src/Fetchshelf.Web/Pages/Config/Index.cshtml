@@ -168,7 +168,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Dry run</th></tr></thead>
+            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th><th>Dry run</th></tr></thead>
             <tbody>
                 @foreach (var entry in settings.HardcoverList)
                 {
@@ -177,6 +177,7 @@
                         <td>@(entry.List is { } slug ? $"list {slug}" : $"status {entry.Status}")</td>
                         <td>@(entry.PreferFormat?.ToString() ?? "-")</td>
                         <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
+                        <td>@entry.Category</td>
                         <td>@(entry.DryRun ? "yes" : "no")</td>
                     </tr>
                 }

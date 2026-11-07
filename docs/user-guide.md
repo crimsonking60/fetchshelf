@@ -517,7 +517,8 @@ category = "audiobooks"
 ```
 
 The first matching rule that sets a category decides the category. Tags from every matching rule are
-added. An `[[autograb]]` can also force a category with its own `category` setting.
+added. An `[[autograb]]` or a `[[hardcover_list]]` can also force a category with its own `category`
+setting.
 
 Libraries are not limited to audiobooks and ebooks: add one for anything you want kept apart. For
 example, to give comics and manga their own folder, put this rule **before** the ebooks rule, so it
@@ -859,6 +860,29 @@ Hardcover; it never changes anything there.
 
    For one of your lists, write `list = "books-to-fetch"` instead of `status`, with the last part of the
    list's address.
+
+   To send a list's downloads to a library of their own, give it a `category`. For example, with fiction
+   and nonfiction kept in separate libraries:
+
+   ```toml
+   [[hardcover_list]]
+   name = "Fiction"
+   list = "fiction"
+   prefer_format = "ebook"
+   category = "MAM_fiction"     # a [[library]] with category = "MAM_fiction" picks these up
+
+   [[hardcover_list.grab]]
+   cost = "free"
+
+   [[hardcover_list]]
+   name = "Nonfiction"
+   list = "nonfiction"
+   prefer_format = "ebook"
+   category = "MAM_nonfiction"
+
+   [[hardcover_list.grab]]
+   cost = "free"
+   ```
 
 4. **Restart Fetchshelf.** The list gets a job on the **Jobs** page, and **Lists** appears in the menu.
    Press **Run now** to try it straight away.
