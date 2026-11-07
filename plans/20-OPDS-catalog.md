@@ -31,16 +31,16 @@ Decisions made:
 - **No new dependencies.** The Atom XML is built with `System.Xml.Linq`, and EPUB and CBZ covers are read with
   `System.IO.Compression`.
 
-## Open questions (to settle before Step 1)
+## Settled questions
 
-1. **Which libraries by default?** Option a: every library that has ebooks. Option b: only the libraries
-   listed in `[opds] libraries`. *Proposed:* a, with `libraries` to narrow it.
-2. **An audiobook's companion PDF**, linked as its ebook side (`ChosenEbookExtension` on an audiobook):
-   include it or not? *Proposed:* no. Only books whose media type is an ebook type are served: Ebook, Manga,
-   Comic Book and Periodical Ebook.
-3. **Covers for books without one in the file**, such as PDFs and EPUBs without a cover. Options: no cover;
-   or MAM's cover image, which needs a MAM lookup per book (the stored metadata lacks MAM's `poster_type`).
-   *Proposed:* no cover in this issue; MAM covers can follow later.
+Settled on 2026-11-07, each with the proposed answer:
+
+1. **Which libraries by default?** Every library that has ebooks. `[opds] libraries` narrows it.
+2. **An audiobook's companion PDF**, linked as its ebook side, is not served. Only books whose media type
+   is an ebook type are served: Ebook, Manga, Comic Book and Periodical Ebook.
+3. **Covers for books without one in the file** (PDFs, EPUBs without a cover): none in this issue. MAM's cover
+   image, which needs a MAM lookup per book because the stored metadata lacks MAM's `poster_type`, can follow
+   later.
 
 ## Configuration
 
@@ -64,7 +64,7 @@ libraries = ["Ebooks"]   # optional: the [[library]] names to serve; default eve
 This builds an in-memory catalog snapshot from the database:
 
 - **Which torrents:** those with `LibraryPath` set (linked, not replaced or unlinked), a non-null
-  `ChosenEbookExtension`, an ebook media type (open question 2), and a `LibraryPath` under one of the served
+  `ChosenEbookExtension`, an ebook media type (settled question 2), and a `LibraryPath` under one of the served
   libraries' `library_dir`.
   - Torrents are matched to libraries by folder, as `LinkRunner.LibraryContaining` does, not by
     `LinkerName`. Unnamed libraries have no `LinkerName` to match on.
@@ -136,7 +136,7 @@ Pure functions from catalog data to `XDocument`s, testable without a web host.
   (EPUB 3), else the item named by `<meta name="cover" content="...">` (EPUB 2), else a manifest image whose id or
   href contains "cover". Read that entry from the zip.
 - **CBZ:** the first image entry in name order.
-- **PDF, MOBI, AZW3, CBR:** no cover in this issue (open question 3).
+- **PDF, MOBI, AZW3, CBR:** no cover in this issue (settled question 3).
 - **Cache:** the extracted bytes go into a `covers` folder next to the database (beside `keys`), named by info
   hash and keyed on the book file's size and modification time. A re-placed file therefore gets a new cover, and
   the book is only opened once. Covers over 5 MiB are skipped, like MAM covers.
