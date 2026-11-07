@@ -849,13 +849,15 @@ its category and reaches its library.
 | `cost` | Meaning |
 |---|---|
 | `free` (default) | Only freeleech or VIP torrents. |
-| `ratio` or `all` | Pay with ratio. |
+| `ratio` or `all` | Pay with ratio. Free torrents still cost nothing. |
 | `wedge` | Always use a wedge on torrents that are not already free. With no wedge to spare above `wedge_buffer`, the torrent waits on the **Selected** page. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
 | `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
 | `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
 
-Torrents that are already free are always treated as free, so wedges are never wasted.
+VIP, freeleech and personal-freeleech torrents are always downloaded for free, whatever `cost` says:
+`ratio` spends no ratio on them and `wedge` no wedge. So a `free` block is only needed when you want nothing
+*but* free torrents.
 
 ### Using several blocks together
 
