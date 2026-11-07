@@ -239,7 +239,8 @@ Each release gets a section in this form:
 ### Upgrading
 
 - Anything users must do: configuration changes, new requirements, migrations that make going back to an
-  older version impossible. Leave this subsection out if there is nothing to do.
+  older version impossible. Always include this subsection: when there is nothing to do, say so, and say
+  whether going back to the previous version is possible.
 
 ### Added
 
@@ -258,7 +259,7 @@ Each release gets a section in this form:
 - Features or settings that are gone.
 ```
 
-Leave out any subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
+Leave out any other subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
 what is different for them, not which classes changed.
 
 The release workflow reads the version from the first `## ` heading of `RELEASES.md`, and uses that section as

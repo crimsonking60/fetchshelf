@@ -12,6 +12,11 @@ with the square of the library's size, and the Link job asks MAM far less. Libra
 `metadata.opf` next to each book, and a Hardcover list can send its downloads to a qBittorrent category of its
 own.
 
+### Upgrading
+
+- Nothing to do. There is no database migration, and every new setting defaults to the earlier behaviour, so
+  existing configurations work unchanged. Going back to 2026.11.3 is possible.
+
 ### Added
 
 - `metadata.opf`: with `metadata_opf = true`, a library gets a `metadata.opf` next to each book, the OPF file
