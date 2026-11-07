@@ -358,7 +358,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
             if (selectedCount > 0 && settings.DownloadAfterSelection)
             {
-                await jobRegistry.TriggerAsync(JobNames.Download, ct);
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, ct);
             }
         }, "Searches MAM for new matches and queues them for download.");
     }
@@ -391,7 +391,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             var summary = await importer.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
             if (summary.Selected > 0 && settings.DownloadAfterSelection)
             {
-                await jobRegistry.TriggerAsync(JobNames.Download, ct);
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, ct);
             }
 
             if (summary.Failed > 0)

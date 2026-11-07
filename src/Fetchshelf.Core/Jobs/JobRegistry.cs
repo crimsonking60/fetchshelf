@@ -26,20 +26,75 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         }
     }
 
-    public async Task TriggerAsync(string name, CancellationToken cancellationToken = default)
+    public Task TriggerAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (!_jobs.TryGetValue(name, out var job))
+        var job = Find(name);
+        lock (job.Gate)
         {
-            throw new InvalidOperationException($"No job named '{name}' is registered.");
+            if (job.IsRunning)
+            {
+                return Task.CompletedTask;
+            }
+
+            job.IsRunning = true;
         }
 
-        if (job.IsRunning)
+        return RunUntilNothingQueuedAsync(job, cancellationToken);
+    }
+
+    public Task TriggerOrQueueAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var job = Find(name);
+        lock (job.Gate)
         {
-            return;
+            if (job.IsRunning)
+            {
+                job.QueuedRun ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _logger.LogInformation("Job {JobName} is running; it runs once more when this run ends", name);
+                return job.QueuedRun.Task;
+            }
+
+            job.IsRunning = true;
         }
 
+        return RunUntilNothingQueuedAsync(job, cancellationToken);
+    }
+
+    private RegisteredJob Find(string name) =>
+        _jobs.TryGetValue(name, out var job) ? job : throw new InvalidOperationException($"No job named '{name}' is registered.");
+
+    /// <summary>Runs the job, then again for as long as runs were queued meanwhile; clears <see cref="RegisteredJob.IsRunning"/> at the end.</summary>
+    private async Task RunUntilNothingQueuedAsync(RegisteredJob job, CancellationToken cancellationToken)
+    {
+        TaskCompletionSource? finishing = null;
+        while (true)
+        {
+            try
+            {
+                await RunOnceAsync(job, cancellationToken);
+            }
+            finally
+            {
+                finishing?.TrySetResult();
+            }
+
+            lock (job.Gate)
+            {
+                finishing = job.QueuedRun;
+                job.QueuedRun = null;
+                if (finishing is null)
+                {
+                    job.IsRunning = false;
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task RunOnceAsync(RegisteredJob job, CancellationToken cancellationToken)
+    {
+        var name = job.Name;
         var startedAt = _timeProvider.GetUtcNow();
-        job.IsRunning = true;
         _logger.LogInformation("Job {JobName} started", name);
         try
         {
@@ -57,10 +112,6 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         {
             job.LastRun = new JobRunRecord(startedAt, JobRunResult.Failure, ex.Message);
             _logger.LogWarning(ex, "Job {JobName} failed: {Error}", name, ex.Message);
-        }
-        finally
-        {
-            job.IsRunning = false;
         }
     }
 }

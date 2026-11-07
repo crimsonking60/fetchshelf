@@ -66,6 +66,11 @@
                 <button type="submit" title="Record this torrent in Fetchshelf without downloading it again">Import</button>
             </form>
         }
+        else if (result.InQBittorrent != true && result.CannotDownloadReason is { } reason)
+        {
+            @* Selecting it would fail on its formats, so there is nothing to click: say why instead. *@
+            <span class="has-tip muted" tabindex="0">Can't download<span class="tip" role="tooltip">@reason</span></span>
+        }
         else if (result.InQBittorrent != true)
         {
             <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"

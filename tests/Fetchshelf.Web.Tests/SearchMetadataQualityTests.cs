@@ -22,9 +22,9 @@ public class SearchMetadataQualityTests
         }
         """;
 
-    private static async Task<string> ResultsHtmlAsync(string json)
+    private static async Task<string> ResultsHtmlAsync(string json, string configToml = "mam_id = \"\"\n")
     {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: request => request.RequestUri!.AbsolutePath.Contains("loadSearchJSONbasic.php")
+        using var fixture = new FetchshelfWebAppFixture(configToml: configToml, mamHandler: request => request.RequestUri!.AbsolutePath.Contains("loadSearchJSONbasic.php")
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) }
             : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
         using var client = fixture.CreateClient();
@@ -76,5 +76,40 @@ public class SearchMetadataQualityTests
             """));
 
         Assert.Contains("<th>Metadata</th>", html);
+    }
+
+    private const string Sparse = """
+        "narrator_info": "{}", "isbn": null, "description": null
+        """;
+
+    [Fact]
+    public async Task WantedFileType_OffersTheDownloadButtons()
+    {
+        var html = await ResultsHtmlAsync(SearchJson(Sparse));
+
+        Assert.Contains(">Download</button>", html);
+        Assert.DoesNotContain("Can't download", html);
+    }
+
+    [Fact]
+    public async Task NoFileTypes_ShowsWhyInsteadOfDownloadButtons()
+    {
+        var html = await ResultsHtmlAsync(SearchJson(Sparse).Replace("\"filetype\": \"m4b\"", "\"filetype\": \"\""));
+
+        Assert.Contains("Can't download", html);
+        Assert.Contains("MAM lists no file types for this torrent", html);
+        Assert.DoesNotContain(">Download</button>", html);
+        Assert.DoesNotContain("Wedge\u00a0download", html);
+    }
+
+    [Fact]
+    public async Task NoWantedFileType_ShowsWhyInsteadOfDownloadButtons()
+    {
+        var html = await ResultsHtmlAsync(
+            SearchJson(Sparse).Replace("\"filetype\": \"m4b\"", "\"filetype\": \"mp3\""),
+            "mam_id = \"\"\naudio_types = [\"m4b\"]\n");
+
+        Assert.Contains("None of its file types (mp3) is in your audio_types setting (m4b)", html);
+        Assert.DoesNotContain(">Download</button>", html);
     }
 }

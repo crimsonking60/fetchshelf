@@ -702,10 +702,16 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   minutes, in the background, so a torrent added a moment ago can take that long to show.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
-  costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
-  for example, that a copy is already in your library, or that none of its file types is in your
-  preferred types. With `download_after_selection = false` the buttons say **Select** and **Wedge
-  select**, since the torrent then waits on the **Selected** page for the next Download run.
+  costs no ratio. The page waits a few seconds for the Download job, so the message at the top and the row's
+  status show the result: *Added … to qBittorrent* and **Downloaded**, or why not, for example that a copy is
+  already in your library. If the Download job is busy for longer, the row stays **Selected** and the
+  message says so; reload the page later to see it change. With `download_after_selection = false` the
+  buttons say **Select** and **Wedge select**, since the torrent then waits on the **Selected** page for the
+  next Download run.
+- **Can't download** replaces the download buttons on a torrent Fetchshelf would refuse anyway: one whose
+  MAM listing has no file types, or whose file types are all missing from your format list for its kind of
+  book (`ebook_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
+  second case, adding one of its file types to that list makes it downloadable.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
   know, such as one you added by hand. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
@@ -1348,7 +1354,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |

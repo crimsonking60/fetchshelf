@@ -129,7 +129,7 @@ public class IndexModel(
                 .Select(record => WithQBittorrent(
                     SearchResultViewModel.From(
                         record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-                        statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)),
+                        statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists),
                     presence, hashesByMamId.GetValueOrDefault(record.MamId) ?? []))
                 .ToList();
         }
@@ -214,8 +214,8 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autograbCategory: null, grabberName: "Manual search");
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                var downloadStarted = outcome == SelectionOutcome.Selected && StartDownload();
-                message = DescribeOutcome(outcome, metadata, formatPreferenceLists, downloadStarted);
+                var progress = outcome == SelectionOutcome.Selected ? await DownloadAsync(record.MamId) : DownloadProgress.NotSelected;
+                message = DescribeOutcome(outcome, metadata, formatPreferenceLists, progress);
             }
             else
             {
@@ -329,7 +329,7 @@ public class IndexModel(
         var statuses = await LoadStatusesAsync([record.MamId]);
         var row = SearchResultViewModel.From(
             record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-            statuses.GetValueOrDefault(record.MamId, MamResultStatus.None));
+            statuses.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists);
         return withQBittorrent
             ? WithQBittorrent(row, await qbittorrentPresence.GetAsync(), (await KnownHashesAsync([record.MamId])).GetValueOrDefault(record.MamId) ?? [])
             : row;
@@ -339,15 +339,40 @@ public class IndexModel(
     /// Starts the Download job for a new selection, unless `download_after_selection` is off or no jobs run. It runs
     /// in the background, like Run now on the Jobs page, so the page answers at once.
     /// </summary>
-    private bool StartDownload()
+    /// <summary>How long a Download click waits for the Download job, so the answer and the row can show the result.</summary>
+    private static readonly TimeSpan DownloadWait = TimeSpan.FromSeconds(15);
+
+    /// <summary>What became of a selection the Search page just made, as far as the Download job goes.</summary>
+    private enum DownloadProgress
+    {
+        NotSelected,
+        WaitsForScheduledRun,
+        AddedToQBittorrent,
+        NotAddedByTheRun,
+        StillRunning,
+    }
+
+    /// <summary>
+    /// Starts the Download job for a selection just made, or queues one more run if it is busy, so the selection isn't
+    /// left for the next scheduled run. Waits up to <see cref="DownloadWait"/> for that run, then says what happened.
+    /// </summary>
+    private async Task<DownloadProgress> DownloadAsync(long mamId)
     {
         if (!settings.DownloadAfterSelection || jobRegistry.Get(JobNames.Download) is null)
         {
-            return false;
+            return DownloadProgress.WaitsForScheduledRun;
         }
 
-        _ = jobRegistry.TriggerAsync(JobNames.Download, CancellationToken.None);
-        return true;
+        var run = jobRegistry.TriggerOrQueueAsync(JobNames.Download, CancellationToken.None);
+        if (await Task.WhenAny(run, Task.Delay(DownloadWait, HttpContext.RequestAborted)) != run)
+        {
+            return DownloadProgress.StillRunning;
+        }
+
+        var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
+        return status is MamResultStatus.Downloaded or MamResultStatus.Linked
+            ? DownloadProgress.AddedToQBittorrent
+            : DownloadProgress.NotAddedByTheRun;
     }
 
     /// <summary>True when the browser gave up on the request: nobody is left to show an error to, so let it propagate.</summary>
@@ -355,14 +380,20 @@ public class IndexModel(
         exception is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested;
 
     private static string DescribeOutcome(
-        SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists, bool downloadStarted)
+        SelectionOutcome outcome, TorrentMetadata metadata, FormatPreferenceLists preferenceLists, DownloadProgress progress)
     {
         var title = $"\"{metadata.Title}\"";
         return outcome switch
         {
-            SelectionOutcome.Selected => downloadStarted
-                ? $"Selected {title}; the Download job is starting it now."
-                : $"Selected {title}; it starts at the next Download run.",
+            SelectionOutcome.Selected => progress switch
+            {
+                DownloadProgress.AddedToQBittorrent => $"Added {title} to qBittorrent.",
+                DownloadProgress.StillRunning =>
+                    $"Selected {title}; the Download job is still busy with it. Reload the page to see when it is in qBittorrent.",
+                DownloadProgress.NotAddedByTheRun =>
+                    $"Selected {title}, but the Download job didn't add it to qBittorrent. The Jobs page and the log say why; it stays on the Selected page.",
+                _ => $"Selected {title}; it starts at the next Download run.",
+            },
             SelectionOutcome.RefreshedSelected => $"{title} is already selected.",
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>
