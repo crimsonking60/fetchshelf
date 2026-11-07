@@ -1,5 +1,6 @@
 using System.Reflection;
 using Fetchshelf.Data.Entities;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -14,9 +15,13 @@ public sealed class DataPersistenceTests : IDisposable
 
     public void Dispose()
     {
-        if (File.Exists(_dbPath))
+        SqliteConnection.ClearAllPools();
+        foreach (var path in new[] { _dbPath, $"{_dbPath}-wal", $"{_dbPath}-shm" })
         {
-            File.Delete(_dbPath);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
     }
 
@@ -48,6 +53,42 @@ public sealed class DataPersistenceTests : IDisposable
         {
             Assert.Contains(expected, tableNames);
         }
+    }
+
+    [Fact]
+    public void Migrate_WithWriteAheadLog_SwitchesTheDatabaseToIt()
+    {
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context, writeAheadLog: true);
+        }
+
+        Assert.Equal("wal", JournalMode());
+    }
+
+    [Fact]
+    public void Migrate_WithoutWriteAheadLog_SwitchesAnEarlierWalDatabaseBack()
+    {
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context, writeAheadLog: true);
+        }
+
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context, writeAheadLog: false);
+        }
+
+        Assert.Equal("delete", JournalMode());
+        Assert.False(File.Exists($"{_dbPath}-wal"));
+    }
+
+    /// <summary>The journal mode a freshly opened connection reports, i.e. the one stored in the database file.</summary>
+    private string JournalMode()
+    {
+        SqliteConnection.ClearAllPools();
+        using var context = CreateContext();
+        return context.Database.SqlQueryRaw<string>("SELECT journal_mode AS Value FROM pragma_journal_mode").Single();
     }
 
     [Fact]

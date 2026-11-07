@@ -328,8 +328,7 @@ public sealed class DownloadRunner(
         var known = await dbContext.Torrents.AnyAsync(t => t.Id == hash, cancellationToken);
         foreach (var client in qbClients)
         {
-            var torrents = await client.ListTorrentsAsync(cancellationToken);
-            var match = torrents.FirstOrDefault(t => string.Equals(t.Hash, hash, StringComparison.OrdinalIgnoreCase));
+            var match = await client.GetTorrentAsync(hash, cancellationToken);
             if (match is null)
             {
                 continue;

@@ -44,6 +44,12 @@ public sealed class FetchshelfSettings
 
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
+    /// <summary>
+    /// When true, the database uses SQLite's write-ahead log, so pages can read while a job writes. Off by default:
+    /// the log's shared-memory file can't work when the database is on a network share, so it's for local disks only.
+    /// </summary>
+    public bool DatabaseWal { get; set; }
+
     /// <summary>The `method` of every `[[library]]` that does not set its own.</summary>
     public LibraryLinkMethod LinkMethod { get; set; } = LibraryLinkMethod.HardlinkOrCopy;
 

@@ -30,6 +30,9 @@ download_after_selection = true # start downloading as soon as something is sele
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 
+database_wal = true # SQLite write-ahead log, for a responsive UI during long jobs. Default false;
+                    # only turn it on if the database is on a local disk, not a network share (NFS/SMB)
+
 # Intervals are in minutes. 0 means "only when started from the UI".
 search_interval = 30     # default for every autograb and snatchlist block
 link_interval = 10       # how often finished torrents are scanned and linked

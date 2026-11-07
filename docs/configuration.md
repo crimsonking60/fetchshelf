@@ -30,6 +30,12 @@ to `5-everything.toml`, which uses every option.
   Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
   directory. The file must have a `.toml` extension. The database location is set separately with
   `FETCHSHELF_DATA_FILE` (default `data.db`). In Docker, `/config` and `/database` are mounted volumes.
+  The database is safest on a disk local to the machine Fetchshelf runs on, which includes a NAS running
+  Fetchshelf in its own Docker: SQLite can't lock files reliably across a network share (NFS or SMB).
+  On a local disk, setting [`database_wal = true`](#top-level-settings) keeps the web UI responsive while
+  a long job writes. SQLite then keeps two working files next to `data.db`: `data.db-wal` and
+  `data.db-shm`. Leave them in place, and stop Fetchshelf before copying the database as a backup. Leave
+  `database_wal` off if the database is on a network share: the write-ahead log can't work over one.
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
 - **No `mam_id`.** With an empty `mam_id`, and no `mam_id_file`, the web UI runs but no background job runs.
@@ -121,6 +127,7 @@ These go at the top of the file, before any section.
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `download_after_selection` | `true` | Start the Download job as soon as an autograb, a Hardcover list or the Search page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
+| `database_wal` | `false` | Use SQLite's write-ahead log, so pages stay responsive while a job writes. Only for a database on a local disk, not a network share. Read at startup; turning it off again switches the database back. See [How the file is loaded](#how-the-file-is-loaded). |
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |

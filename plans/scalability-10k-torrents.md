@@ -68,6 +68,11 @@ Done. What was built:
 
 ## Step 1 — SQLite WAL mode
 
+Done, as an opt-in. A top-level `database_wal` setting, default `false`, makes `DatabaseMigrator.Migrate`
+switch the database to WAL after migrating; off by default so a database on a network share keeps working after
+an upgrade. Turning it off again switches a database back to SQLite's default journal mode.
+`docs/configuration.md` explains when to turn it on and to leave the `-wal` and `-shm` files in place.
+
 - At startup, after migrations, run `PRAGMA journal_mode=WAL;` (it persists in the database file once set).
 - Keep `synchronous` at its default (`FULL`). `NORMAL` is safe with WAL too, but needs no decision at this
   volume.
@@ -77,6 +82,14 @@ Done. What was built:
 - Test: the startup migrator test asserts the journal mode is `wal`.
 
 ## Step 2 — Clean job: bucket by title key first
+
+Done, a little differently from the original plan below. `GroupBySameBook` normalizes each copy's title once
+and compares a copy only with the groups of the same normalized title. Bucketing on the stored
+`NormalizedTitleKey` was dropped: it would have needed every row's key to be current, and normalizing in
+memory is just as fast. Groups and their order are unchanged, and two new tests cover interleaved titles and
+titles that differ only in case and article. The Clean run at 10k went from 84 s to 0.6 s.
+
+Original plan:
 
 `AreCopiesOfSameBook` already requires equal normalized titles, and `TorrentEntity.NormalizedTitleKey` stores
 exactly that value.
@@ -152,6 +165,13 @@ category, save path, tags, its stored metadata, the library config and `exclude_
 - Document both in `docs/user-guide.md` under the Link job.
 
 ## Step 6 — qBittorrent: look up single torrents by hash
+
+Done, and wider than planned. Besides relinking, the torrent detail page (three lookups per view) and the
+Download job's "does qBittorrent already have it" check (one per added torrent) also fetched the whole list to
+find one torrent. All of them now use `QBittorrentClient.GetTorrentAsync`. The full list is fetched only where
+everything is needed: the Link run, the Check client action and the Search page's presence cache.
+
+Original plan:
 
 - `LinkRunner.FindInQBittorrentAsync` uses `torrents/info?hashes=<hash>` per connection instead of listing
   everything. Add `QBittorrentClient.GetTorrentAsync(hash)` next to `HashExistsAsync`, and let `HashExistsAsync`
@@ -233,6 +253,18 @@ What the baseline shows:
   estimate that they would struggle first was wrong. Step 7 drops in priority: worth doing for 50k and beyond,
   not needed for 10k.
 - **MAM lookups:** one per failed lookup on every run (100 at 10k), as expected. Step 5 stays.
+
+**After steps 1, 2 and 6, at 10k:**
+
+| Test | Baseline | Now |
+|---|---|---|
+| Link run (all linked, nothing new) | 145 s | 152 s |
+| Clean run (no new duplicates) | 84 s | 0.2 s |
+| Torrents page, no filter | 286 ms | 280 ms |
+| Events page, no filter | 97 ms | 95 ms |
+
+The Clean job is fixed. The Link run is unchanged within noise: WAL doesn't help it, because its cost is the
+change tracker (Step 3), not the database. The single-torrent lookups (Step 6) aren't covered by these tests.
 
 ## Order and size
 
