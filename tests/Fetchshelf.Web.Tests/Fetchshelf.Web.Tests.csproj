@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\src\Fetchshelf.Web\Fetchshelf.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\Scale\*.cs" Link="Scale\Shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
