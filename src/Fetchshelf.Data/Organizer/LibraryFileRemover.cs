@@ -5,16 +5,16 @@ namespace Fetchshelf.Data.Organizer;
 /// <summary>Removes what Fetchshelf placed in a book's library folder, and nothing else.</summary>
 public static class LibraryFileRemover
 {
-    private static readonly string[] Extras = ["cover.jpg", "metadata.json"];
+    private static readonly string[] Extras = ["cover.jpg", "metadata.json", "metadata.opf"];
 
     /// <summary>
     /// Removes <paramref name="linkedFiles"/> from <paramref name="libraryPath"/>, then `cover.jpg`, `metadata.json`,
-    /// sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
+    /// `metadata.opf`, sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
     /// Returns the relative paths of the linked files that were removed.
     /// </summary>
     /// <param name="folderSharedWithAnotherTorrent">
     /// True when another linked torrent still uses the folder, such as a better format of the same book; its
-    /// `cover.jpg` and `metadata.json` are then left in place.
+    /// `cover.jpg`, `metadata.json` and `metadata.opf` are then left in place.
     /// </param>
     public static List<string> Remove(string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles, bool folderSharedWithAnotherTorrent)
     {

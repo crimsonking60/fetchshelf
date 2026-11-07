@@ -32,6 +32,56 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Empty(library.DenyTags);
         Assert.Null(library.AudioTypes);
         Assert.Null(library.EbookTypes);
+        Assert.True(library.MetadataJson);
+        Assert.False(library.MetadataOpf);
+    }
+
+    [Fact]
+    public void Load_GlobalMetadataSettings_ApplyToLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            metadata_json = false
+            metadata_opf = true
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            metadata_json = true
+            metadata_opf = false
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.False(settings.MetadataJson);
+        Assert.True(settings.MetadataOpf);
+        Assert.False(settings.Library[0].MetadataJson);
+        Assert.True(settings.Library[0].MetadataOpf);
+        Assert.True(settings.Library[1].MetadataJson);
+        Assert.False(settings.Library[1].MetadataOpf);
+    }
+
+    [Fact]
+    public void Load_LibraryMetadataFiles_AreReadPerLibrary()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+            metadata_json = false
+            metadata_opf = true
+            """);
+
+        var library = Assert.Single(ConfigLoader.Load(ConfigPath).Library);
+
+        Assert.False(library.MetadataJson);
+        Assert.True(library.MetadataOpf);
     }
 
     [Fact]

@@ -329,7 +329,7 @@ public sealed class LinkRunner(
             libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList));
     }
 
-    /// <summary>Links the chosen files into the book's folder with the library's method and writes its `metadata.json`.</summary>
+    /// <summary>Links the chosen files into the book's folder with the library's method and writes the metadata files the library asks for.</summary>
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
     {
@@ -346,7 +346,15 @@ public sealed class LinkRunner(
                 linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
             }
 
-            File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+            if (library.MetadataJson)
+            {
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+            }
+
+            if (library.MetadataOpf)
+            {
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.opf"), LibraryMetadataOpfBuilder.Build(metadata));
+            }
         }
 
         return new Placement(destinationFolder, linkedFiles, outcomes);

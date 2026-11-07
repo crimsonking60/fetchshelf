@@ -48,6 +48,8 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.False(settings.AddTorrentsStopped);
         Assert.False(settings.ExcludeNarratorInLibraryDir);
         Assert.False(settings.DatabaseWal);
+        Assert.True(settings.MetadataJson);
+        Assert.False(settings.MetadataOpf);
         Assert.True(settings.PageExplanations);
         Assert.True(settings.JobExplanations);
         Assert.Equal(30, settings.SearchInterval);
@@ -163,6 +165,27 @@ public sealed class ConfigLoaderTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_database_wal", null);
+        }
+    }
+
+    [Fact]
+    public void Load_GlobalMetadataSettingsFromEnvironmentVariables_ReachLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+            """);
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_metadata_opf", "true");
+        try
+        {
+            Assert.True(Assert.Single(ConfigLoader.Load(ConfigPath).Library).MetadataOpf);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_metadata_opf", null);
         }
     }
 

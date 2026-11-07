@@ -87,6 +87,30 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(EventKind.Linked, events[0].Kind);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task RunAsync_WritesTheMetadataFilesTheLibraryAsksFor(bool json, bool opf)
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var library = CreateLibrary(LibraryDir);
+        library.MetadataJson = json;
+        library.MetadataOpf = opf;
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [library]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var folder = (await context.Torrents.SingleAsync()).LibraryPath!;
+        Assert.True(File.Exists(Path.Combine(folder, "book.m4b")));
+        Assert.Equal(json, File.Exists(Path.Combine(folder, "metadata.json")));
+        Assert.Equal(opf, File.Exists(Path.Combine(folder, "metadata.opf")));
+    }
+
     [Fact]
     public async Task RunAsync_AuthorlessMetadata_RecordsLinkerErrorAndDoesNotLink()
     {

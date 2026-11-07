@@ -19,7 +19,7 @@ Fetchshelf has two independent, optional halves:
    protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge supply.
 2. **Library organizer** — watches qBittorrent for finished torrents and links the wanted files into
    a clean `Author/Series/Title` folder tree, with a `metadata.json` file next to every title holding
-   its authors, series, description, ISBN, genres and more. The tree and the metadata files work
+   its authors, series, description, ISBN, genres and more, and optionally a Calibre-style `metadata.opf`. The tree and the metadata files work
    with any reader, player, file manager or script; Audiobookshelf reads them directly.
 
 ## Getting started
@@ -40,6 +40,8 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
+- A `[[hardcover_list]]`'s own `category`.
+- `metadata.opf` files and turning off `metadata.json` (`metadata_opf`, `metadata_json`, globally and per library).
 
 ## Latest release
 
