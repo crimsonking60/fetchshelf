@@ -982,7 +982,10 @@ Hardcover; it never changes anything there.
 
 On each run Fetchshelf reads the list from Hardcover and, for every book still missing a format, first
 checks your library (including books a snatchlist recorded), then searches MAM by title and author with
-each `grab` block in turn. A result must match the title and an author closely; Hardcover and MAM sometimes
+each `grab` block in turn. Each block only takes a torrent its `cost` accepts, so blocks like `free`, then
+`wedge`, then `ratio` try the cheapest way first. One block with the most you are willing to pay works as
+well: VIP and freeleech torrents are always downloaded for free, whatever the cost says. A result must match
+the title and an author closely; Hardcover and MAM sometimes
 name a book differently, so the **Lists** page has a **Search MAM** link on every book for the ones it
 misses. A book that is still missing a format is searched for again once a day, not on every run, and
 books you take off the list on Hardcover are no longer searched for.

@@ -212,6 +212,37 @@ public sealed class HardcoverListImporterTests : IDisposable
 
         Assert.Empty(harness.Context.SelectedTorrents);
         Assert.Equal(ListItemSideStatus.Wanted, Item(harness, 1).AudioStatus);
+        Assert.Equal(11, Item(harness, 1).AudioMamId);
+    }
+
+    [Theory]
+    [InlineData(ConfiguredCost.Ratio, "Ratio")]
+    [InlineData(ConfiguredCost.Wedge, "UseWedge")]
+    public async Task RunAsync_FreeBlockFirst_LeavesANonFreeTorrentToTheNextBlock(ConfiguredCost next, string costDecision)
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert", free: false)));
+        harness.Books.Books = [Book(1, "Dune")];
+
+        var summary = await harness.RunAsync(Entry(grab: [AudioOnly(ConfiguredCost.Free), AudioOnly(next)]));
+
+        Assert.Equal(1, summary.Selected);
+        var selected = Assert.Single(harness.Context.SelectedTorrents);
+        Assert.Equal(11, selected.MamId);
+        Assert.Equal(costDecision, selected.CostDecision);
+        Assert.Equal(ListItemSideStatus.Selected, Item(harness, 1).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_FreeBlockFirst_TakesAFreeUploadOverOneThatIsNot()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert", free: false), Record(12, "Dune", "Frank Herbert", free: true)));
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: [AudioOnly(ConfiguredCost.Free), AudioOnly(ConfiguredCost.Ratio)]));
+
+        var selected = Assert.Single(harness.Context.SelectedTorrents);
+        Assert.Equal(12, selected.MamId);
+        Assert.Equal("GlobalFreeleech", selected.CostDecision);
     }
 
     [Fact]

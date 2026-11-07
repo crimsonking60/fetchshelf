@@ -464,7 +464,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
-| `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). The first block that finds a format decides what that format costs. `metadata_only` costs are not allowed. |
+| `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Each format goes to the first block that finds a torrent its `cost` accepts: a `free` block only takes free torrents and leaves the rest to the next blocks. `metadata_only` costs are not allowed. |
 
 ```toml
 [[hardcover_list]]
@@ -489,9 +489,11 @@ What each run does:
 2. **Checks the library.** A book Fetchshelf already has, as an audiobook or an ebook, counts as found in that
    format, including books recorded by a snatch list.
 3. **Searches MAM** by title and author for each format still missing, with each `grab` block in turn. The
-   closest result must match the title and an author well enough; it then goes through the same selection
-   rules as an autograb's: duplicates, preferred file types, `cost`, the unsatisfied-snatch budget and the
-   [buffers](#top-level-settings).
+   closest result must match the title and an author well enough, and the block's `cost` must accept it: a
+   `free` block takes only a VIP, freeleech or personal-freeleech torrent and leaves any other to the next
+   block. The torrent then goes through the same selection rules as an autograb's: duplicates, preferred file
+   types, the unsatisfied-snatch budget and the [buffers](#top-level-settings). A book that only blocks with too
+   low a cost found shows as *costs more than the list's grab blocks allow* on the **Lists** page.
 4. **Waits a day** before searching again for a book that is still missing a format, so a long list doesn't
    mean a MAM search for every book on every run. New books are searched for on the next run.
 
