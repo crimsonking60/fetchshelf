@@ -302,6 +302,19 @@ TMPDIR=$HOME/.cache/fetchshelf-scale FETCHSHELF_SCALE=10000 dotnet test --filter
 | Link run, a third of statuses changed | 34 s (change tracker cleared, commits not batched) | 4.3 s |
 | Clean run (no new duplicates) | 0.2 s | 0.2 s |
 
+**Same tests with the database on a spinning hard disk** (ext4 on a 14.6 TB HDD), the kind of disk a NAS uses.
+"Unbatched" is the same code with a batch size of 1, i.e. one commit per changed torrent:
+
+| Test | Unbatched | Batched (100) |
+|---|---|---|
+| Link run (all linked, nothing new) | 7.7 s | 7.2 s |
+| Link run, a third of statuses changed | 124 s | 10.7 s |
+| Clean run (no new duplicates) | | 0.2 s |
+
+A commit costs about 36 ms on the hard disk, against about 1 ms on NVMe, so batching matters most there. The
+nothing-changed run is slower on the hard disk than on NVMe because of the 100 failed MAM lookups. Each one
+writes its error row in a commit of its own, about 3 s in all, and Step 5's backoff removes most of them.
+
 The Link run now grows linearly, at about 0.4 ms per torrent. Its folder checks hit folders that don't exist
 here, so network storage will add to it; Step 4 is about that.
 
