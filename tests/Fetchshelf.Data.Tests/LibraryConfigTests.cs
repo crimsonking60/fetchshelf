@@ -37,6 +37,35 @@ public sealed class LibraryConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_GlobalMetadataSettings_ApplyToLibrariesWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            metadata_json = false
+            metadata_opf = true
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            metadata_json = true
+            metadata_opf = false
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.False(settings.MetadataJson);
+        Assert.True(settings.MetadataOpf);
+        Assert.False(settings.Library[0].MetadataJson);
+        Assert.True(settings.Library[0].MetadataOpf);
+        Assert.True(settings.Library[1].MetadataJson);
+        Assert.False(settings.Library[1].MetadataOpf);
+    }
+
+    [Fact]
     public void Load_LibraryMetadataFiles_AreReadPerLibrary()
     {
         File.WriteAllText(ConfigPath, """

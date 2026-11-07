@@ -1015,7 +1015,8 @@ example:
 
 Calibre keeps a `metadata.opf` next to each of its books, and imports one it finds next to a book. To get
 one in every book folder of a library, set `metadata_opf = true` on that `[[library]]`. Leave out
-`metadata.json` with `metadata_json = false` if no app of yours reads it:
+`metadata.json` with `metadata_json = false` if no app of yours reads it. Set either at the top of the file
+instead to change it for every library that doesn't set its own:
 
 ```toml
 [[library]]

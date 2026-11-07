@@ -44,6 +44,12 @@ public sealed class FetchshelfSettings
 
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
+    /// <summary>The `metadata_json` of every `[[library]]` that does not set its own.</summary>
+    public bool MetadataJson { get; set; } = true;
+
+    /// <summary>The `metadata_opf` of every `[[library]]` that does not set its own.</summary>
+    public bool MetadataOpf { get; set; }
+
     /// <summary>
     /// When true, the database uses SQLite's write-ahead log, so pages can read while a job writes. Off by default:
     /// the log's shared-memory file can't work when the database is on a network share, so it's for local disks only.

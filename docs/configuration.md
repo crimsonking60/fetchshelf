@@ -129,6 +129,8 @@ These go at the top of the file, before any section.
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `database_wal` | `false` | Use SQLite's write-ahead log, so pages stay responsive while a job writes. Only for a database on a local disk, not a network share. Read at startup; turning it off again switches the database back. See [How the file is loaded](#how-the-file-is-loaded). |
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
+| `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
+| `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
@@ -516,8 +518,8 @@ library, in file order, that accepts it is used.
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
-| `metadata_json` | `true` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
-| `metadata_opf` | `false` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
+| `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
+| `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent

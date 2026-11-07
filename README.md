@@ -41,7 +41,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - A `[[hardcover_list]]`'s own `category`.
-- `metadata.opf` files and turning off `metadata.json`, per library (`metadata_opf`, `metadata_json`).
+- `metadata.opf` files and turning off `metadata.json` (`metadata_opf`, `metadata_json`, globally and per library).
 
 ## Latest release
 
