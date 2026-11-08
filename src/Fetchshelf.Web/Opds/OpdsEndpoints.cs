@@ -17,65 +17,16 @@ public static class OpdsEndpoints
     {
         var opds = endpoints.MapGroup("/opds");
 
-        opds.MapGet("/", async (OpdsCatalogCache cache, TimeProvider time, CancellationToken ct) =>
-        {
-            var catalog = await cache.GetAsync(ct);
-            var entries = new List<OpdsNavigationEntry>
-            {
-                new("urn:fetchshelf:opds:recent", "Recently added", Count(catalog.Books.Count, "book"), "/opds/recent", LeadsToBooks: true),
-                new("urn:fetchshelf:opds:authors", "Authors", Count(catalog.Authors().Count, "author"), "/opds/authors", LeadsToBooks: false),
-                new("urn:fetchshelf:opds:series", "Series", Count(catalog.Series().Count, "series"), "/opds/series", LeadsToBooks: false),
-            };
-            if (catalog.Libraries.Count > 1)
-            {
-                entries.Add(new("urn:fetchshelf:opds:libraries", "Libraries", Count(catalog.Libraries.Count, "library"), "/opds/libraries", LeadsToBooks: false));
-            }
-
-            return Navigation(OpdsFeedBuilder.Navigation("urn:fetchshelf:opds:root", "Fetchshelf", OpdsFeedBuilder.RootHref, time.GetUtcNow(), entries));
-        });
-
-        opds.MapGet("/recent", async (OpdsCatalogCache cache, TimeProvider time, int? page, CancellationToken ct) =>
-            BookFeed("urn:fetchshelf:opds:recent", "Recently added", "/opds/recent", (await cache.GetAsync(ct)).Recent(), page, time));
-
-        opds.MapGet("/authors", async (OpdsCatalogCache cache, TimeProvider time, int? page, CancellationToken ct) =>
-            GroupFeed("urn:fetchshelf:opds:authors", "Authors", "/opds/authors", (await cache.GetAsync(ct)).Authors(), page, time,
-                author => ($"urn:fetchshelf:opds:author:{author}", $"/opds/author?name={Uri.EscapeDataString(author)}")));
-
-        opds.MapGet("/author", async (OpdsCatalogCache cache, TimeProvider time, string? name, int? page, CancellationToken ct) =>
-        {
-            var books = string.IsNullOrEmpty(name) ? [] : (await cache.GetAsync(ct)).ByAuthor(name);
-            return books.Count == 0
-                ? Results.NotFound()
-                : BookFeed($"urn:fetchshelf:opds:author:{name}", name!, $"/opds/author?name={Uri.EscapeDataString(name!)}", books, page, time);
-        });
-
-        opds.MapGet("/series", async (OpdsCatalogCache cache, TimeProvider time, int? page, CancellationToken ct) =>
-            GroupFeed("urn:fetchshelf:opds:series", "Series", "/opds/series", (await cache.GetAsync(ct)).Series(), page, time,
-                series => ($"urn:fetchshelf:opds:series:{series}", $"/opds/series/books?name={Uri.EscapeDataString(series)}")));
-
-        opds.MapGet("/series/books", async (OpdsCatalogCache cache, TimeProvider time, string? name, int? page, CancellationToken ct) =>
-        {
-            var books = string.IsNullOrEmpty(name) ? [] : (await cache.GetAsync(ct)).BySeries(name);
-            return books.Count == 0
-                ? Results.NotFound()
-                : BookFeed($"urn:fetchshelf:opds:series:{name}", name!, $"/opds/series/books?name={Uri.EscapeDataString(name!)}", books, page, time);
-        });
+        MapViews(opds);
+        MapViews(opds.MapGroup("/libraries/{index:int}"));
 
         opds.MapGet("/libraries", async (OpdsCatalogCache cache, TimeProvider time, CancellationToken ct) =>
         {
             var catalog = await cache.GetAsync(ct);
             var entries = catalog.Libraries.Select(library => new OpdsNavigationEntry(
                 $"urn:fetchshelf:opds:library:{library.Index}", library.Name,
-                Count(catalog.ByLibrary(library.Index).Count, "book"), $"/opds/libraries/{library.Index}", LeadsToBooks: true));
+                Count(catalog.ByLibrary(library.Index).Count, "book"), $"/opds/libraries/{library.Index}", LeadsToBooks: false));
             return Navigation(OpdsFeedBuilder.Navigation("urn:fetchshelf:opds:libraries", "Libraries", "/opds/libraries", time.GetUtcNow(), entries));
-        });
-
-        opds.MapGet("/libraries/{index:int}", async (OpdsCatalogCache cache, TimeProvider time, int index, int? page, CancellationToken ct) =>
-        {
-            var catalog = await cache.GetAsync(ct);
-            return catalog.Libraries.FirstOrDefault(library => library.Index == index) is { } library
-                ? BookFeed($"urn:fetchshelf:opds:library:{index}", library.Name, $"/opds/libraries/{index}", catalog.ByLibrary(index), page, time)
-                : Results.NotFound();
         });
 
         // Readers fill in the template themselves, so it must be a full address; the request's own host is the one
@@ -125,6 +76,101 @@ public static class OpdsEndpoints
             response.Headers.CacheControl = "public, max-age=86400";
             return Results.Bytes(cover.Bytes, cover.ContentType);
         });
+    }
+
+    /// <summary>
+    /// The views of a catalog: its start feed, recently added, authors and series. Mapped once for the whole catalog
+    /// under `/opds`, and once for each library under `/opds/libraries/{index}`.
+    /// </summary>
+    private static void MapViews(RouteGroupBuilder views)
+    {
+        views.MapGet("/", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, CancellationToken ct) =>
+        {
+            if (await ScopeAsync(cache, context, ct) is not var (catalog, scope))
+            {
+                return Results.NotFound();
+            }
+
+            var entries = new List<OpdsNavigationEntry>
+            {
+                new($"{scope.Id}:recent", "Recently added", Count(catalog.Books.Count, "book"), $"{scope.Href}/recent", LeadsToBooks: true),
+                new($"{scope.Id}:authors", "Authors", Count(catalog.Authors().Count, "author"), $"{scope.Href}/authors", LeadsToBooks: false),
+                new($"{scope.Id}:series", "Series", Count(catalog.Series().Count, "series"), $"{scope.Href}/series", LeadsToBooks: false),
+            };
+            if (scope.Library is null && catalog.Libraries.Count > 1)
+            {
+                entries.Add(new("urn:fetchshelf:opds:libraries", "Libraries", Count(catalog.Libraries.Count, "library"), "/opds/libraries", LeadsToBooks: false));
+            }
+
+            var (id, title) = scope.Library is { } library ? (scope.Id, library) : ("urn:fetchshelf:opds:root", "Fetchshelf");
+            return Navigation(OpdsFeedBuilder.Navigation(id, title, scope.Library is null ? OpdsFeedBuilder.RootHref : scope.Href, time.GetUtcNow(), entries));
+        });
+
+        views.MapGet("/recent", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+            await ScopeAsync(cache, context, ct) is var (catalog, scope)
+                ? BookFeed($"{scope.Id}:recent", scope.Title("Recently added"), $"{scope.Href}/recent", catalog.Recent(), page, time)
+                : Results.NotFound());
+
+        views.MapGet("/authors", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+            await ScopeAsync(cache, context, ct) is var (catalog, scope)
+                ? GroupFeed($"{scope.Id}:authors", scope.Title("Authors"), $"{scope.Href}/authors", catalog.Authors(), page, time,
+                    author => ($"{scope.Id}:author:{author}", $"{scope.Href}/author?name={Uri.EscapeDataString(author)}"))
+                : Results.NotFound());
+
+        views.MapGet("/author", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
+        {
+            if (string.IsNullOrEmpty(name) || await ScopeAsync(cache, context, ct) is not var (catalog, scope)
+                || catalog.ByAuthor(name) is not { Count: > 0 } books)
+            {
+                return Results.NotFound();
+            }
+
+            return BookFeed($"{scope.Id}:author:{name}", name, $"{scope.Href}/author?name={Uri.EscapeDataString(name)}", books, page, time);
+        });
+
+        views.MapGet("/series", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+            await ScopeAsync(cache, context, ct) is var (catalog, scope)
+                ? GroupFeed($"{scope.Id}:series", scope.Title("Series"), $"{scope.Href}/series", catalog.Series(), page, time,
+                    series => ($"{scope.Id}:series:{series}", $"{scope.Href}/series/books?name={Uri.EscapeDataString(series)}"))
+                : Results.NotFound());
+
+        views.MapGet("/series/books", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
+        {
+            if (string.IsNullOrEmpty(name) || await ScopeAsync(cache, context, ct) is not var (catalog, scope)
+                || catalog.BySeries(name) is not { Count: > 0 } books)
+            {
+                return Results.NotFound();
+            }
+
+            return BookFeed($"{scope.Id}:series:{name}", name, $"{scope.Href}/series/books?name={Uri.EscapeDataString(name)}", books, page, time);
+        });
+    }
+
+    /// <summary>Where a view's feeds live and what they are called: the whole catalog, or one library.</summary>
+    private sealed record CatalogScope(string Href, string Id, string? Library)
+    {
+        public string Title(string view) => Library is null ? view : $"{view} in {Library}";
+    }
+
+    /// <summary>
+    /// The catalog a request is for: the whole catalog, or the library its `{index}` names. Null for an index that
+    /// isn't a served library with books.
+    /// </summary>
+    private static async Task<(OpdsCatalog Catalog, CatalogScope Scope)?> ScopeAsync(OpdsCatalogCache cache, HttpContext context, CancellationToken ct)
+    {
+        var catalog = await cache.GetAsync(ct);
+        if (context.Request.RouteValues["index"] is not string raw)
+        {
+            return (catalog, new CatalogScope(OpdsFeedBuilder.RootHref, "urn:fetchshelf:opds", Library: null));
+        }
+
+        if (!int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var index)
+            || catalog.ForLibrary(index) is not { } library)
+        {
+            return null;
+        }
+
+        return (library, new CatalogScope($"/opds/libraries/{index}", $"urn:fetchshelf:opds:library:{index}", library.Libraries[0].Name));
     }
 
     /// <summary>The name a downloaded file gets: "Title - Author.epub", with a part number when a book has several files.</summary>

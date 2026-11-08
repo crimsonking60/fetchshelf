@@ -139,6 +139,22 @@ public class OpdsCatalogTests
     }
 
     [Fact]
+    public void ForLibrary_HasOnlyThatLibrarysBooks_AndIsNullForOneWithoutBooks()
+    {
+        var catalog = new OpdsCatalog(
+            [Book("a", "Comic", library: 2), Book("b", "Novel", library: 0)],
+            [new OpdsLibrary(0, "Ebooks"), new OpdsLibrary(1, "Empty"), new OpdsLibrary(2, "Comics")]);
+
+        var comics = catalog.ForLibrary(2)!;
+
+        Assert.Equal(["Comic"], comics.Recent().Select(book => book.Title));
+        Assert.Equal("Comics", Assert.Single(comics.Libraries).Name);
+        Assert.Same(comics, catalog.ForLibrary(2));
+        Assert.Null(catalog.ForLibrary(1));
+        Assert.Null(catalog.ForLibrary(5));
+    }
+
+    [Fact]
     public void Find_IgnoresTheCaseOfTheHash()
     {
         var catalog = new OpdsCatalog([Book("abcdef", "Dune")], []);

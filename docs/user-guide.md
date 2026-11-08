@@ -646,8 +646,10 @@ browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, Ky
 The catalog offers:
 
 - **Recently added,** **Authors** (each author's books by series and number) and **Series** (in series
-  order), and **Libraries** when more than one is served. Long lists come 50 to a page.
-- **Search** by title, author or series, the same way as on the **Torrents** page.
+  order), and **Libraries** when more than one is served. Each library has its own **Recently added**,
+  **Authors** and **Series**, for browsing just your comics, say. Long lists come 50 to a page.
+- **Search** by title, author or series, the same way as on the **Torrents** page. It always searches every
+  served library.
 - **Each book** with its title, authors, language and genres from MAM. Its series and number are shown at
   the start of its description, since OPDS has no series field.
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
