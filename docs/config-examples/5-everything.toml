@@ -73,6 +73,10 @@ url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a 
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
 
+# Only when Audiobookshelf sees the library at another path than Fetchshelf does: Fetchshelf's path = Audiobookshelf's.
+# [audiobookshelf.path_mapping]
+# "/data/library/audiobooks" = "/audiobooks"
+
 # =====================================================================================================
 # [hardcover]: optional. The API token the [[hardcover_list]] blocks below need. Create it in Hardcover
 # under Settings -> Hardcover API, with the permissions read:me, read:library and read:lists.

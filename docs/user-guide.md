@@ -605,12 +605,20 @@ every book. With it, Fetchshelf also:
    browser. A Compose service name such as `http://audiobookshelf:80` works for matching, but the link
    then only works in a browser that can resolve that name, which is usually not the case outside Docker.
 
-3. Make Audiobookshelf see your library at the **same path** as Fetchshelf. Fetchshelf finds a book in
-   Audiobookshelf only if one of the Audiobookshelf library's folders contains the exact path where
-   Fetchshelf linked the book. If Fetchshelf's `library_dir` is `/media/library/audiobooks`, mount the same
-   folder at `/media/library/audiobooks` in the Audiobookshelf container and add that folder to the
-   Audiobookshelf library. If the paths differ, for example `/audiobooks` in Audiobookshelf, no book is
-   ever matched.
+3. Make Audiobookshelf see your library at the **same path** as Fetchshelf, or tell Fetchshelf how the paths
+   differ. Fetchshelf finds a book in Audiobookshelf only if one of the Audiobookshelf library's folders
+   contains the path where Fetchshelf linked the book. If Fetchshelf's `library_dir` is
+   `/media/library/audiobooks`, the simplest is to mount the same folder at `/media/library/audiobooks` in
+   the Audiobookshelf container and add that folder to the Audiobookshelf library. To give Audiobookshelf
+   only the library, at a path of its own such as `/audiobooks`, add a `path_mapping` from Fetchshelf's
+   path to Audiobookshelf's (see [`[audiobookshelf]`](configuration.md#audiobookshelf)):
+
+   ```toml
+   [audiobookshelf.path_mapping]
+   "/media/library/audiobooks" = "/audiobooks"
+   ```
+
+   If the paths differ and no mapping translates them, no book is ever matched.
 
 `interval` is how many minutes pass between matching runs. Remove the whole section to switch the
 integration off.
@@ -1574,7 +1582,7 @@ author used is the **first** author.
 ### Audiobookshelf does not find a book
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
-Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
+Fetchshelf or at the path `[audiobookshelf]` `path_mapping` translates it to, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
 **Run now** on the **Audiobookshelf** job.
 
 The log says what happened to each book:
@@ -1583,7 +1591,8 @@ The log says what happened to each book:
 - *… is not in Audiobookshelf yet* (a warning): the path fits an Audiobookshelf library, but the book is not
   there. Usually Audiobookshelf has not scanned it yet; the matcher tries again on its next run.
 - *no Audiobookshelf library has a folder containing …* (an error): Audiobookshelf sees your library at a
-  different path, or the library is missing from Audiobookshelf. The job then shows *Finished with errors*.
+  different path that no `path_mapping` translates, or the library is missing from Audiobookshelf. The path
+  in the message is the one after `path_mapping`. The job then shows *Finished with errors*.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
 

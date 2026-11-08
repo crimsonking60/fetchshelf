@@ -9,4 +9,7 @@ public sealed class AudiobookshelfSettings
     public string Token { get; set; } = string.Empty;
 
     public int Interval { get; set; } = 10;
+
+    /// <summary>Maps a path prefix as seen by Fetchshelf to a path prefix as seen by Audiobookshelf.</summary>
+    public Dictionary<string, string> PathMapping { get; set; } = [];
 }

@@ -48,6 +48,7 @@ setup. If you use one, please report how it went, good or bad (see
 [Getting help](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
+- `path_mapping` in `[audiobookshelf]`.
 
 ## Latest release
 
