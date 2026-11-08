@@ -52,7 +52,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.4** (2026-11-07). See [RELEASES.md](RELEASES.md#2026114---2026-11-07) for what changed, and for
+**2026.11.5** (2026-11-08). See [RELEASES.md](RELEASES.md#2026115---2026-11-08) for what changed, and for
 every earlier release.
 
 ## Contributing
