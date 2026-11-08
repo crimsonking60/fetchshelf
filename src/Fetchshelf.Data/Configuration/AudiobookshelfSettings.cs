@@ -10,6 +10,13 @@ public sealed class AudiobookshelfSettings
 
     public int Interval { get; set; } = 10;
 
-    /// <summary>Maps a path prefix as seen by Fetchshelf to a path prefix as seen by Audiobookshelf.</summary>
+    /// <summary>
+    /// Maps a path prefix as seen by Audiobookshelf to a path prefix as seen by Fetchshelf: the same order as
+    /// qBittorrent's `path_mapping`.
+    /// </summary>
     public Dictionary<string, string> PathMapping { get; set; } = [];
+
+    /// <summary><see cref="PathMapping"/> turned around, for translating Fetchshelf's paths into Audiobookshelf's.</summary>
+    public Dictionary<string, string> FetchshelfToAbsMapping() =>
+        PathMapping.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
 }

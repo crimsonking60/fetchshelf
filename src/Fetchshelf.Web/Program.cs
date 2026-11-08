@@ -107,7 +107,7 @@ if (settings.Audiobookshelf is { } absSettings)
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));
     builder.Services.AddScoped(sp => new AbsMatcher(
         sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>(), sp.GetRequiredService<ILogger<AbsMatcher>>(),
-        absSettings.PathMapping));
+        absSettings.FetchshelfToAbsMapping()));
 }
 
 if (settings.Hardcover is { } hardcoverSettings)

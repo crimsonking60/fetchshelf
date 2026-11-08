@@ -21,9 +21,9 @@ public sealed class AbsMatcher(
     FetchshelfDbContext dbContext,
     AbsClient absClient,
     ILogger<AbsMatcher>? logger = null,
-    IReadOnlyDictionary<string, string>? pathMapping = null)
+    IReadOnlyDictionary<string, string>? fetchshelfToAbsPaths = null)
 {
-    private readonly IReadOnlyDictionary<string, string> _pathMapping = pathMapping ?? new Dictionary<string, string>();
+    private readonly IReadOnlyDictionary<string, string> _fetchshelfToAbsPaths = fetchshelfToAbsPaths ?? new Dictionary<string, string>();
     private readonly ILogger<AbsMatcher> _logger = logger ?? NullLogger<AbsMatcher>.Instance;
 
     public async Task<AbsMatchSummary> RunAsync(CancellationToken cancellationToken = default)
@@ -55,13 +55,14 @@ public sealed class AbsMatcher(
             // Fetched once, and only when some book needs it; failing to reach Audiobookshelf ends the run.
             libraries ??= await ListLibrariesAsync(cancellationToken);
 
-            var absPath = PathMapper.Translate(_pathMapping, torrent.LibraryPath!);
+            var absPath = PathMapper.Translate(_fetchshelfToAbsPaths, torrent.LibraryPath!);
             var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => IsPathPrefix(folder.FullPath, absPath))).ToList();
             if (candidateLibraries.Count == 0)
             {
                 _logger.LogError(
                     "Cannot match {Title} in Audiobookshelf: no Audiobookshelf library has a folder containing {AbsPath}. "
-                    + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf] path_mapping must translate it",
+                    + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf.path_mapping] must map "
+                    + "Audiobookshelf's path to Fetchshelf's",
                     torrent.Title, absPath);
                 failed++;
                 continue;

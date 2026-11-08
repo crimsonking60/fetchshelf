@@ -47,23 +47,60 @@ public sealed class ConfigLoaderTomlTests : IDisposable
         Assert.Equal("pass2", settings.QBittorrent[1].Password);
     }
 
+    private static string AbsConfig(string pathMapping) => $"""
+        mam_id = "abc123"
+
+        [[library]]
+        category = "audiobooks"
+        library_dir = "/mnt/Data/media/abs/audiobooks"
+
+        [audiobookshelf]
+        url = "http://abs:13378"
+        token = "secret"
+
+        [audiobookshelf.path_mapping]
+        {pathMapping}
+        """;
+
     [Fact]
-    public void Load_AudiobookshelfPathMapping_IsRead()
+    public void Load_AudiobookshelfPathMapping_ReadsAudiobookshelfPathToFetchshelfPath_LikeQBittorrent()
     {
-        File.WriteAllText(TomlConfigPath, """
-            mam_id = "abc123"
+        File.WriteAllText(TomlConfigPath, AbsConfig("\"/media\" = \"/mnt/Data/media/abs\""));
 
-            [audiobookshelf]
-            url = "http://abs:13378"
-            token = "secret"
+        var abs = ConfigLoader.Load(TomlConfigPath).Audiobookshelf!;
 
-            [audiobookshelf.path_mapping]
-            "/mnt/Data/media/abs" = "/media"
-            """);
+        Assert.Equal("/mnt/Data/media/abs", abs.PathMapping["/media"]);
+        Assert.Equal("/media", abs.FetchshelfToAbsMapping()["/mnt/Data/media/abs"]);
+    }
 
-        var settings = ConfigLoader.Load(TomlConfigPath);
+    [Fact]
+    public void Load_AudiobookshelfPathMappingInTheOldOrder_IsRejectedWithTheFix()
+    {
+        File.WriteAllText(TomlConfigPath, AbsConfig("\"/mnt/Data/media/abs\" = \"/media\""));
 
-        Assert.Equal("/media", settings.Audiobookshelf!.PathMapping["/mnt/Data/media/abs"]);
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(TomlConfigPath));
+
+        Assert.Contains("Swap the two sides", exception.Message);
+    }
+
+    [Fact]
+    public void Load_AudiobookshelfPathMappingInsideALibraryDir_IsAccepted()
+    {
+        File.WriteAllText(TomlConfigPath, AbsConfig("\"/audiobooks\" = \"/mnt/Data/media/abs/audiobooks/Fiction\""));
+
+        var abs = ConfigLoader.Load(TomlConfigPath).Audiobookshelf!;
+
+        Assert.Equal("/audiobooks", abs.FetchshelfToAbsMapping()["/mnt/Data/media/abs/audiobooks/Fiction"]);
+    }
+
+    [Fact]
+    public void Load_AudiobookshelfPathMappingWithTwoPathsForOneFetchshelfPath_IsRejected()
+    {
+        File.WriteAllText(TomlConfigPath, AbsConfig("\"/media\" = \"/mnt/Data/media/abs\"\n\"/other\" = \"/mnt/Data/media/abs\""));
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(TomlConfigPath));
+
+        Assert.Contains("more than one Audiobookshelf path to '/mnt/Data/media/abs'", exception.Message);
     }
 
     [Fact]

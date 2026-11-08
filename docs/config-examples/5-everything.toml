@@ -73,9 +73,10 @@ url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a 
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
 
-# Only when Audiobookshelf sees the library at another path than Fetchshelf does: Fetchshelf's path = Audiobookshelf's.
+# Only when Audiobookshelf sees the library at another path than Fetchshelf does. Like [qbittorrent.path_mapping]:
+# Audiobookshelf's path = Fetchshelf's path.
 # [audiobookshelf.path_mapping]
-# "/data/library/audiobooks" = "/audiobooks"
+# "/audiobooks" = "/data/library/audiobooks"
 
 # =====================================================================================================
 # [hardcover]: optional. The API token the [[hardcover_list]] blocks below need. Create it in Hardcover
