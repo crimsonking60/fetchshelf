@@ -12,6 +12,12 @@ musicology and radio — and can optionally keep [Audiobookshelf](https://www.au
 date as well. It is a C# reimplementation of MLM ("MyAnonamouse Library Manager"), an abandoned Rust
 application.
 
+> [!NOTE]
+> The documentation follows the branch you are viewing: **`main`** matches the latest release, **`develop`**
+> has changes that are not released yet. If you run a released version, use the
+> [user guide](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md) and the
+> [configuration reference](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md) from `main`.
+
 Fetchshelf has two independent, optional halves:
 
 1. **Auto-downloader** — finds torrents on MAM matching user-defined rules, or the books on your
@@ -19,15 +25,17 @@ Fetchshelf has two independent, optional halves:
    protecting the account's ratio, unsatisfied-snatch slots, and freeleech-wedge supply.
 2. **Library organizer** — watches qBittorrent for finished torrents and links the wanted files into
    a clean `Author/Series/Title` folder tree, with a `metadata.json` file next to every title holding
-   its authors, series, description, ISBN, genres and more, and optionally a Calibre-style `metadata.opf`. The tree and the metadata files work
-   with any reader, player, file manager or script; Audiobookshelf reads them directly.
+   its authors, series, description, ISBN, genres and more, and optionally a Calibre-style `metadata.opf`.
+   With `[opds]`, it also serves the ebook libraries as an OPDS catalog for e-readers and reading apps.
+   The tree and the metadata files work with any reader, player, file manager or script; Audiobookshelf
+   reads them directly.
 
 ## Getting started
 
-Fetchshelf runs in Docker. The [user guide](docs/user-guide.md) walks you through installing it with
+Fetchshelf runs in Docker. The [user guide](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md) walks you through installing it with
 Docker or Docker Compose, connecting it to MAM and qBittorrent (and, if you use it, Audiobookshelf),
 and setting up your library and automatic downloads. For every setting, see the
-[configuration reference](docs/configuration.md).
+[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md).
 
 ## Status
 
@@ -37,14 +45,14 @@ This project is under active, incremental development.
 
 These features are built and covered by automated tests, but have not yet been confirmed working on a real
 setup. If you use one, please report how it went, good or bad (see
-[Getting help](docs/user-guide.md#getting-help)).
+[Getting help](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
-- `database_wal`, SQLite's write-ahead log.
+- `path_mapping` in `[audiobookshelf]`.
 
 ## Latest release
 
-**2026.11.4** (2026-11-07). See [RELEASES.md](RELEASES.md#2026114---2026-11-07) for what changed, and for
+**2026.11.5** (2026-11-08). See [RELEASES.md](RELEASES.md#2026115---2026-11-08) for what changed, and for
 every earlier release.
 
 ## Contributing
@@ -56,5 +64,6 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and se
 
 MIT — see [LICENSE](LICENSE).
 
+## Oh, and, by the way:
 
-Oh, and, by the way: Trans rights are still human rights.
+Trans rights are still human rights.

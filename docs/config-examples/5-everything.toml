@@ -30,6 +30,10 @@ download_after_selection = true # start downloading as soon as something is sele
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 
+languages = ["English"] # the default 'languages' of every [[autograb]] and [[hardcover_list.grab]] block
+                        # that doesn't set its own, and the Search page's starting language. Empty = any.
+                        # Not used by [[tag]] rules.
+
 metadata_json = true  # write metadata.json (Audiobookshelf's format) in every library without its own setting
 metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
 
@@ -68,6 +72,10 @@ wedge_over = "100 MiB"
 url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a browser
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
+
+# Only when Audiobookshelf sees the library at another path than Fetchshelf does: Fetchshelf's path = Audiobookshelf's.
+# [audiobookshelf.path_mapping]
+# "/data/library/audiobooks" = "/audiobooks"
 
 # =====================================================================================================
 # [hardcover]: optional. The API token the [[hardcover_list]] blocks below need. Create it in Hardcover
@@ -142,7 +150,7 @@ media_type = ["Ebook", "ComicBook"] # Audiobook, Ebook, Musicology, Radio, Manga
 # Per main type: true = all categories, false = none, or a list of names. Defaults: audio and ebook
 # true, musicology and radio false.
 categories = { audio = false, ebook = ["Fantasy", "Science Fiction", "Humor"], musicology = false, radio = false }
-languages = ["English", "German"]
+languages = ["English", "German"]  # overrides the top-level languages; languages = [] means any language
 # true = the flag must be present, false = it must be absent, unlisted flags are ignored. Names:
 # crude_language, violence, some_explicit, explicit, abridged, lgbt.
 flags = { crude_language = false, violence = false, some_explicit = false, explicit = false, abridged = false, lgbt = false }
@@ -204,6 +212,15 @@ media_type = ["Audiobook", "Ebook"]
 max_size = "10 GiB"
 
 # =====================================================================================================
+# [opds]: optional. Serves the ebook libraries as an OPDS catalog at http://<fetchshelf>/opds, for
+# e-readers and reading apps. Leave it out to serve nothing; an empty [opds] serves the ebooks in every
+# library. Audiobooks are never served.
+# No login: only on a trusted network, or behind a reverse proxy that asks for credentials.
+# =====================================================================================================
+[opds]
+libraries = ["Ebooks"]   # [[library]] names whose ebooks to serve; empty or left out = every library
+
+# =====================================================================================================
 # [[hardcover_list]]: repeatable. Searches MAM for the books with a reading status on Hardcover, or on
 # one of your Hardcover lists. Needs [hardcover]. A book still missing a format is searched for again
 # once a day; the Lists page shows what was found.
@@ -237,6 +254,8 @@ cost = "free"
 # =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
 # Category: first matching rule that sets one. Tags: union over all matching rules.
+# Tag rules do NOT use the top-level 'languages': a rule without its own 'languages' matches every
+# language, so a book an autograb selected in another language still gets its category.
 # =====================================================================================================
 [[tag]]
 name = "Ebooks"

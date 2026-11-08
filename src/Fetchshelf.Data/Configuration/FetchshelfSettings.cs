@@ -42,6 +42,12 @@ public sealed class FetchshelfSettings
     /// <summary>When true, the Jobs page shows a brief description of what each job does.</summary>
     public bool JobExplanations { get; set; } = true;
 
+    /// <summary>
+    /// Undocumented, for maintainers: when true, every page starts with a thin red bar, to tell a development install
+    /// from a production one at a glance.
+    /// </summary>
+    public bool DevelopmentBanner { get; set; }
+
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
     /// <summary>The `metadata_json` of every `[[library]]` that does not set its own.</summary>
@@ -64,6 +70,12 @@ public sealed class FetchshelfSettings
     public int LinkInterval { get; set; } = 10;
 
     public List<string> IgnoreTorrents { get; set; } = [];
+
+    /// <summary>
+    /// The `languages` of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the
+    /// Search page's default. Empty means any language. `[[tag]]` rules don't use it.
+    /// </summary>
+    public List<string> Languages { get; set; } = [];
 
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
 
@@ -100,6 +112,9 @@ public sealed class FetchshelfSettings
 
     /// <summary>Optional `[hardcover]` section. Null when not configured.</summary>
     public HardcoverSettings? Hardcover { get; set; }
+
+    /// <summary>Optional `[opds]` section. Null when not configured, and then no OPDS catalog is served.</summary>
+    public OpdsSettings? Opds { get; set; }
 
     /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
     public List<HardcoverListEntry> HardcoverList { get; set; } = [];

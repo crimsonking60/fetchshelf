@@ -25,4 +25,11 @@ public class LanguageCodesTests
     [InlineData(Language.Farsi, "fas")]
     public void For_KnownLanguage_ReturnsItsCode(Language language, string code) =>
         Assert.Equal(code, LanguageCodes.For(language));
+
+    [Theory]
+    [InlineData(Language.English, "English")]
+    [InlineData(Language.BrazilianPortuguese, "Brazilian Portuguese")]
+    [InlineData(Language.AncientGreek, "Ancient Greek")]
+    public void DisplayName_SplitsTheEnumNameIntoWords(Language language, string expected) =>
+        Assert.Equal(expected, LanguageNameResolver.DisplayName(language));
 }

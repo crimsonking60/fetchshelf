@@ -48,6 +48,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.False(settings.AddTorrentsStopped);
         Assert.False(settings.ExcludeNarratorInLibraryDir);
         Assert.False(settings.DatabaseWal);
+        Assert.False(settings.DevelopmentBanner);
         Assert.True(settings.MetadataJson);
         Assert.False(settings.MetadataOpf);
         Assert.True(settings.PageExplanations);
@@ -147,6 +148,54 @@ public sealed class ConfigLoaderTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_mam_id", null);
+        }
+    }
+
+    [Fact]
+    public void Load_TopLevelLanguagesFromEnvironmentVariable_ReachAutograbsWithoutTheirOwn()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n\n[[autograb]]\ntype = \"new\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_languages", "English,German");
+        try
+        {
+            Assert.Equal(["English", "German"], Assert.Single(ConfigLoader.Load(ConfigPath).Autograb).Languages);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_languages", null);
+        }
+    }
+
+    [Fact]
+    public void Load_OpdsLibrariesFromEnvironmentVariable_TurnOpdsOn()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n\n[[library]]\nname = \"Ebooks\"\ncategory = \"ebooks\"\nlibrary_dir = \"/books\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_opds_libraries", "Ebooks");
+        try
+        {
+            Assert.Equal(["Ebooks"], ConfigLoader.Load(ConfigPath).Opds!.Libraries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_opds_libraries", null);
+        }
+    }
+
+    [Fact]
+    public void Load_DevelopmentBannerOn_InFileOrFromEnvironmentVariable()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ndevelopment_banner = true\n");
+        Assert.True(ConfigLoader.Load(ConfigPath).DevelopmentBanner);
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_development_banner", "true");
+        try
+        {
+            Assert.True(ConfigLoader.Load(ConfigPath).DevelopmentBanner);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_development_banner", null);
         }
     }
 

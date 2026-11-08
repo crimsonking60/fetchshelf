@@ -5,6 +5,11 @@ public enum MamResultStatus
 {
     None,
     Selected,
+
+    /// <summary>Added to qBittorrent, and not known to have finished: its stored client status is empty or a download stage.</summary>
+    Downloading,
+
+    /// <summary>Finished in qBittorrent, or owned without a download (metadata only), but not in a library.</summary>
     Downloaded,
     Linked,
 }

@@ -35,6 +35,7 @@ public static class ConfigLoader
         ["download_after_selection"] = (s, v) => s.DownloadAfterSelection = bool.Parse(v),
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
+        ["development_banner"] = (s, v) => s.DevelopmentBanner = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
         ["database_wal"] = (s, v) => s.DatabaseWal = bool.Parse(v),
         ["metadata_json"] = (s, v) => s.MetadataJson = bool.Parse(v),
@@ -43,12 +44,14 @@ public static class ConfigLoader
         ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
         ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
+        ["languages"] = (s, v) => s.Languages = SplitList(v),
         ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
         ["music_types"] = (s, v) => s.MusicTypes = SplitList(v),
         ["radio_types"] = (s, v) => s.RadioTypes = SplitList(v),
         ["hardcover_token"] = (s, v) => (s.Hardcover ??= new()).Token = v,
         ["hardcover_token_file"] = (s, v) => (s.Hardcover ??= new()).TokenFile = v,
+        ["opds_libraries"] = (s, v) => (s.Opds ??= new()).Libraries = SplitList(v),
     };
 
     /// <summary>
@@ -74,11 +77,13 @@ public static class ConfigLoader
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
         ApplyGlobalLibraryDefaults(settings);
+        ApplyGlobalLanguages(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
         ValidateHardcover(settings);
+        ValidateOpds(settings);
         return settings;
     }
 
@@ -414,6 +419,28 @@ public static class ConfigLoader
         }
     }
 
+    /// <summary>
+    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c> and <c>[[hardcover_list.grab]]</c>
+    /// block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
+    /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
+    /// <c>[[snatchlist]]</c> blocks don't take <c>languages</c> at all. Runs after environment overrides, so
+    /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
+    /// </summary>
+    private static void ApplyGlobalLanguages(FetchshelfSettings settings)
+    {
+        var unknown = settings.Languages.FirstOrDefault(name => !Core.Metadata.LanguageNameResolver.TryResolve(name, out _));
+        if (unknown is not null)
+        {
+            throw new ConfigurationException($"Invalid configuration: unrecognized language '{unknown}' in the top-level 'languages'.");
+        }
+
+        var blocks = settings.Autograb.Cast<SharedFilterConfig>().Concat(settings.HardcoverList.SelectMany(list => list.Grab));
+        foreach (var block in blocks.Where(block => block.Languages is null))
+        {
+            block.Languages = [.. settings.Languages];
+        }
+    }
+
     private static void ValidateSnatchlists(FetchshelfSettings settings)
     {
         foreach (var snatchlist in settings.Snatchlist)
@@ -424,7 +451,7 @@ public static class ConfigLoader
                     "Invalid configuration: a [[snatchlist]] section's 'cost' must be 'metadata_only' or 'metadata_only_add'.");
             }
 
-            if (snatchlist.Languages.Count > 0)
+            if (snatchlist.Languages is { Count: > 0 })
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'languages'.");
@@ -435,6 +462,22 @@ public static class ConfigLoader
                 throw new ConfigurationException(
                     "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
             }
+        }
+    }
+
+    private static void ValidateOpds(FetchshelfSettings settings)
+    {
+        if (settings.Opds is not { } opds)
+        {
+            return;
+        }
+
+        var names = settings.Library.Select(library => library.Name).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var unknown = opds.Libraries.FirstOrDefault(name => !names.Contains(name));
+        if (unknown is not null)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: [opds] 'libraries' names '{unknown}', but no [[library]] has that name.");
         }
     }
 

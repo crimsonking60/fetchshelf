@@ -237,6 +237,11 @@ public sealed class HardcoverListImporter(
         GrabEntry? audioGrab = null;
         ListCandidate<MamTorrentRecord>? ebookWinner = null;
         GrabEntry? ebookGrab = null;
+
+        // A match no block's cost accepts so far, such as a ratio torrent seen by a free block: reported as wanted if no
+        // later block takes the book either.
+        ListCandidate<MamTorrentRecord>? audioTooExpensive = null;
+        ListCandidate<MamTorrentRecord>? ebookTooExpensive = null;
         for (var i = 0; i < entry.Grab.Count && ((needAudio && audioWinner is null) || (needEbook && ebookWinner is null)); i++)
         {
             var filter = ListGrabSearchTranslator.NarrowToNeededSides(grabFilters[i], needAudio && audioWinner is null, needEbook && ebookWinner is null);
@@ -249,14 +254,32 @@ public sealed class HardcoverListImporter(
                 .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
                 .ToList();
 
-            if (needAudio && audioWinner is null && Best(candidates, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes) is { } audio)
+            // A block only takes a torrent its own cost accepts. The search isn't limited by cost, so a free block also
+            // sees uploads that aren't free; those are left for the later blocks, which may pay for them.
+            var grab = entry.Grab[i];
+            var affordable = candidates.Where(c => Accepts(grab.Cost, c.Payload)).ToList();
+            if (needAudio && audioWinner is null)
             {
-                (audioWinner, audioGrab) = (audio, entry.Grab[i]);
+                if (Best(affordable, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes) is { } audio)
+                {
+                    (audioWinner, audioGrab) = (audio, grab);
+                }
+                else
+                {
+                    audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes);
+                }
             }
 
-            if (needEbook && ebookWinner is null && Best(candidates, FilterMainType.Ebook, item, authors, series, preferenceLists.EbookTypes) is { } ebook)
+            if (needEbook && ebookWinner is null)
             {
-                (ebookWinner, ebookGrab) = (ebook, entry.Grab[i]);
+                if (Best(affordable, FilterMainType.Ebook, item, authors, series, preferenceLists.EbookTypes) is { } ebook)
+                {
+                    (ebookWinner, ebookGrab) = (ebook, grab);
+                }
+                else
+                {
+                    ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, preferenceLists.EbookTypes);
+                }
             }
         }
 
@@ -277,12 +300,12 @@ public sealed class HardcoverListImporter(
         var selected = 0;
         if (needAudio)
         {
-            selected += await RecordSideAsync(entry, name, item, FilterMainType.Audio, audioWinner, audioGrab, ignoreTorrents, cancellationToken);
+            selected += await RecordSideAsync(entry, name, item, FilterMainType.Audio, audioWinner, audioGrab, audioTooExpensive, ignoreTorrents, cancellationToken);
         }
 
         if (needEbook)
         {
-            selected += await RecordSideAsync(entry, name, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ignoreTorrents, cancellationToken);
+            selected += await RecordSideAsync(entry, name, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ebookTooExpensive, ignoreTorrents, cancellationToken);
         }
 
         item.LastSearchedAt = now;
@@ -291,9 +314,19 @@ public sealed class HardcoverListImporter(
 
     private async Task<int> RecordSideAsync(
         HardcoverListEntry entry, string name, ListItemEntity item, FilterMainType side,
-        ListCandidate<MamTorrentRecord>? winner, GrabEntry? grab, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
+        ListCandidate<MamTorrentRecord>? winner, GrabEntry? grab, ListCandidate<MamTorrentRecord>? tooExpensive,
+        IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
     {
         var format = side == FilterMainType.Audio ? "audiobook" : "ebook";
+        if (winner is null && tooExpensive is not null)
+        {
+            SetSide(item, side, ListItemSideStatus.Wanted, tooExpensive.Payload.MamId);
+            _logger.Log(
+                Detail(entry), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId} matches, but no grab block's cost accepts it",
+                name, item.BookTitle, format, tooExpensive.Payload.MamId);
+            return 0;
+        }
+
         if (winner is null)
         {
             SetSide(item, side, ListItemSideStatus.NotFound, mamId: null);
@@ -319,6 +352,10 @@ public sealed class HardcoverListImporter(
     }
 
     private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
+
+    /// <summary>Whether a grab block with <paramref name="cost"/> may take <paramref name="record"/>: the rule selection applies.</summary>
+    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) =>
+        CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, cost) is not null;
 
     private static LogLevel Detail(HardcoverListEntry entry) => entry.DryRun ? LogLevel.Information : LogLevel.Debug;
 

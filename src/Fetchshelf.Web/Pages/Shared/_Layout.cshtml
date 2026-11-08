@@ -42,6 +42,10 @@
     <script src="~/js/local-time.js" defer></script>
 </head>
 <body>
+    @if (Settings.DevelopmentBanner)
+    {
+        <div class="development-banner" aria-hidden="true"></div>
+    }
     <header class="site-header">
         <h1 class="brand">
             <a asp-area="" asp-page="/Index">

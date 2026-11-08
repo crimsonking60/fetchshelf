@@ -281,7 +281,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
-        Assert.Single(context.Torrents);
+        Assert.Equal("uploading", Assert.Single(context.Torrents).ClientStatus);
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         Assert.Empty(context.Events);
     }
@@ -302,7 +302,9 @@ public sealed class DownloadRunnerTests : IDisposable
         var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
-        Assert.Equal(TorrentHash1, Assert.Single(context.Torrents).Id);
+        var torrent = Assert.Single(context.Torrents);
+        Assert.Equal(TorrentHash1, torrent.Id);
+        Assert.Equal("downloading", torrent.ClientStatus);
         Assert.NotNull(context.SelectedTorrents.Single().StartedAt);
         Assert.Null(context.SelectedTorrents.Single().RemovedAt);
     }

@@ -9,6 +9,10 @@ public static class LanguageNameResolver
     public static bool TryResolve(string name, out Language language) =>
         Aliases.TryGetValue(name.Trim().ToLowerInvariant(), out language);
 
+    /// <summary>The language's name for display, with spaces: "Brazilian Portuguese", "Ancient Greek".</summary>
+    public static string DisplayName(Language language) =>
+        string.Concat(language.ToString().Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
     private static readonly Dictionary<string, Language> Aliases = new()
     {
         ["english"] = Language.English,

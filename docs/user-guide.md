@@ -4,6 +4,10 @@ This guide is for people who run Fetchshelf. It assumes you use Docker, optional
 are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
 
+> [!NOTE]
+> This page follows the branch you are viewing: on `develop` it describes changes that are not released yet.
+> For the version you run, see [this page on `main`](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md), which matches the latest release.
+
 ## Contents
 
 - [What is Fetchshelf?](#what-is-fetchshelf)
@@ -16,6 +20,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Connecting to qBittorrent](#connecting-to-qbittorrent)
 - [Setting up your library](#setting-up-your-library)
 - [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)
+- [Reading on an e-reader (OPDS)](#reading-on-an-e-reader-opds)
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
 - [Snatchlists](#snatchlists)
@@ -321,9 +326,12 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 5
   shows every option.
 - **Reference.** Every setting is described in the [configuration reference](configuration.md).
-- **Mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
-  required value, or an unrecognized name (for example a misspelled language). The error message names the
-  problem. Check `docker logs fetchshelf`.
+- **Most mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
+  required value, or an unrecognized name in a `[[tag]]` rule or the top-level `languages`. The error
+  message names the problem. Check `docker logs fetchshelf`. A misspelled value in the filter of an
+  autograb, snatchlist or Hardcover list (for example a language, category or size) is only noticed when
+  that job runs: the job fails, and the **Jobs** page says why. Press **Run now** on a job after editing it
+  to check it straight away.
 - **Changes need a restart.** Fetchshelf reads the file when it starts. After editing it, restart the
   container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
   in the database and picked up again after the restart. A job that the restart cuts off does its work on
@@ -597,15 +605,62 @@ every book. With it, Fetchshelf also:
    browser. A Compose service name such as `http://audiobookshelf:80` works for matching, but the link
    then only works in a browser that can resolve that name, which is usually not the case outside Docker.
 
-3. Make Audiobookshelf see your library at the **same path** as Fetchshelf. Fetchshelf finds a book in
-   Audiobookshelf only if one of the Audiobookshelf library's folders contains the exact path where
-   Fetchshelf linked the book. If Fetchshelf's `library_dir` is `/media/library/audiobooks`, mount the same
-   folder at `/media/library/audiobooks` in the Audiobookshelf container and add that folder to the
-   Audiobookshelf library. If the paths differ, for example `/audiobooks` in Audiobookshelf, no book is
-   ever matched.
+3. Make Audiobookshelf see your library at the **same path** as Fetchshelf, or tell Fetchshelf how the paths
+   differ. Fetchshelf finds a book in Audiobookshelf only if one of the Audiobookshelf library's folders
+   contains the path where Fetchshelf linked the book. If Fetchshelf's `library_dir` is
+   `/media/library/audiobooks`, the simplest is to mount the same folder at `/media/library/audiobooks` in
+   the Audiobookshelf container and add that folder to the Audiobookshelf library. To give Audiobookshelf
+   only the library, at a path of its own such as `/audiobooks`, add a `path_mapping` from Fetchshelf's
+   path to Audiobookshelf's (see [`[audiobookshelf]`](configuration.md#audiobookshelf)):
+
+   ```toml
+   [audiobookshelf.path_mapping]
+   "/media/library/audiobooks" = "/audiobooks"
+   ```
+
+   If the paths differ and no mapping translates them, no book is ever matched.
 
 `interval` is how many minutes pass between matching runs. Remove the whole section to switch the
 integration off.
+
+## Reading on an e-reader (OPDS)
+
+Fetchshelf can serve your ebook libraries as an OPDS catalog, the format e-readers and reading apps use to
+browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, KyBook and many others.
+
+1. **Turn it on** by adding an `[opds]` section to `config.toml`, empty to serve the ebooks in every
+   library, or with the libraries to serve (see [`[opds]`](configuration.md#opds)):
+
+   ```toml
+   [opds]
+   libraries = ["Ebooks"]
+   ```
+
+2. **Restart Fetchshelf.** The **Config** page shows the catalog address, for example
+   `http://192.168.1.20:3157/opds`.
+3. **Add it to your reader.** In KOReader: **Search → OPDS catalog → +**, with the catalog address as the
+   URL. In other apps, look for "Add catalog", "OPDS" or "Library server". Leave the username and password
+   empty, unless you put a reverse proxy with a login in front (see below).
+
+The catalog offers:
+
+- **Recently added,** **Authors** (each author's books by series and number) and **Series** (in series
+  order), and **Libraries** when more than one is served. Long lists come 50 to a page.
+- **Search** by title, author or series, the same way as on the **Torrents** page.
+- **Each book** with its title, authors, language and genres from MAM. Its series and number are shown at
+  the start of its description, since OPDS has no series field.
+- **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
+  split into several files offers each part.
+- **Covers** read from EPUB and CBZ files. PDFs and other formats have no cover in the catalog. Covers are
+  kept in a `covers` folder next to the database, so each book is only opened once.
+
+What it serves: every linked book in a served library whose MAM media type is Ebook, Manga, Comic Book or
+Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked
+book appears within a minute.
+
+The catalog has no login, like the rest of Fetchshelf: anyone who can reach it can browse and download your
+books. Use it on your home network, or, to read away from home, put it behind a reverse proxy that asks for
+a username and password. OPDS readers can send those. See [Security and privacy](#security-and-privacy).
 
 ## Finding and downloading books
 
@@ -614,6 +669,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead. Either way you get at most the 100 newest matches; there
   are no further pages, so make the search more specific if what you want is not there.
+- **The language list** next to the box limits the search to a language. It starts at *Your languages*, the
+  top-level `languages` in your configuration (see [Filtering](#filtering)); choose *Any language* or one
+  language for a search of its own. Without a top-level `languages`, it starts at *Any language*. Unlike the
+  filters below, the language is part of what is asked of MAM, so it does change which results come back.
 - **Hide downloaded torrents** hides every result that has a status or is in qBittorrent (see below), so
   only torrents you don't have yet remain.
 - **Show** limits the list to one kind of torrent:
@@ -634,9 +693,26 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
   its own.
-- Each result shows its title, authors, media type, size and status. The status says where the torrent is
-  in Fetchshelf: **Selected** (waiting to be downloaded), **Downloaded** (in qBittorrent, not yet in your
-  library) or **Linked** (in your library). It is empty for torrents Fetchshelf has not handled.
+- Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
+  in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
+  finished yet), **Downloaded** (finished, or owned through a snatchlist, but not in your library) or
+  **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
+  **Linked**, its status checks again by itself, every 10 seconds for the first minute and then every
+  minute, so it moves on without a reload. It stops checking after about an hour. While a torrent is
+  **Downloading**, each check asks qBittorrent about it; once qBittorrent has finished it, the Link job
+  starts straight away rather than at its next interval, so **Linked** follows within seconds. A finished
+  torrent shows **Downloaded** when no library accepts it.
+- **Metadata** rates how complete the torrent's information on MAM is, which decides how well Fetchshelf can
+  name, file and describe the book. Point at the pill to see what is missing.
+
+  | Pill | Means |
+  |---|---|
+  | **Good** (green) | Author, file types, description, cover, genres, a narrator for audiobooks, and an ISBN or ASIN, or all but one small item. |
+  | **Lacking** (yellow) | No real description, or two small items missing. |
+  | **Poor** (red) | No author (such a torrent can't be linked into a library), no file types (Fetchshelf can't tell its format, so it never downloads it), or more missing than for *Lacking*. |
+
+  A description with fewer than 80 characters of text counts as missing. When several uploads of the same
+  book are on offer, the pill helps pick the one whose library folder and `metadata.json` will come out best.
 - Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
   you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
   `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded
@@ -645,9 +721,13 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
-  for example, that a copy is already in your library, or that none of its file types is in your
-  preferred types. With `download_after_selection = false` the buttons say **Select** and **Wedge
-  select**, since the torrent then waits on the **Selected** page for the next Download run.
+  for example, that a copy is already in your library. A selected torrent's status then follows it into the
+  library by itself (see below). With `download_after_selection = false` the buttons say **Select** and
+  **Wedge select**, since the torrent then waits on the **Selected** page for the next Download run.
+- **Can't download** replaces the download buttons on a torrent Fetchshelf would refuse anyway: one whose
+  MAM listing has no file types, or whose file types are all missing from your format list for its kind of
+  book (`ebook_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
+  second case, adding one of its file types to that list makes it downloadable.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
   know, such as one you added by hand. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
@@ -749,18 +829,43 @@ or `abridged`, file size, uploader, upload date, seeders, leechers, times snatch
 skips anthologies, keeping a book like Good Omens with two authors). A torrent must satisfy **every** field
 you set. The details are in the [configuration reference](configuration.md#the-shared-torrent-filter).
 
+If most of what you want is in the same languages, set them once at the top of the file instead of in every
+block:
+
+```toml
+languages = ["English"]          # the default for every autograb and Hardcover list grab block
+
+[[autograb]]
+name = "New ebooks"              # no languages here: English, from the top
+type = "new"
+cost = "free"
+
+[[autograb]]
+name = "Freeleech in any language"
+type = "freeleech"
+cost = "free"
+languages = []                   # any language, whatever the top-level setting says
+```
+
+A block's own `languages` always wins, and `languages = []` means any language. The Search page starts at
+these languages too. **`[[tag]]` rules are the exception: they never use the top-level `languages`.** A tag
+rule without its own `languages` matches every language, so a book selected in another language still gets
+its category and reaches its library.
+
 ### What to pay: `cost`
 
 | `cost` | Meaning |
 |---|---|
 | `free` (default) | Only freeleech or VIP torrents. |
-| `ratio` or `all` | Pay with ratio. |
+| `ratio` or `all` | Pay with ratio. Free torrents still cost nothing. |
 | `wedge` | Always use a wedge on torrents that are not already free. With no wedge to spare above `wedge_buffer`, the torrent waits on the **Selected** page. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
 | `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
 | `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
 
-Torrents that are already free are always treated as free, so wedges are never wasted.
+VIP, freeleech and personal-freeleech torrents are always downloaded for free, whatever `cost` says:
+`ratio` spends no ratio on them and `wedge` no wedge. So a `free` block is only needed when you want nothing
+*but* free torrents.
 
 ### Using several blocks together
 
@@ -891,7 +996,10 @@ Hardcover; it never changes anything there.
 
 On each run Fetchshelf reads the list from Hardcover and, for every book still missing a format, first
 checks your library (including books a snatchlist recorded), then searches MAM by title and author with
-each `grab` block in turn. A result must match the title and an author closely; Hardcover and MAM sometimes
+each `grab` block in turn. Each block only takes a torrent its `cost` accepts, so blocks like `free`, then
+`wedge`, then `ratio` try the cheapest way first. One block with the most you are willing to pay works as
+well: VIP and freeleech torrents are always downloaded for free, whatever the cost says. A result must match
+the title and an author closely; Hardcover and MAM sometimes
 name a book differently, so the **Lists** page has a **Search MAM** link on every book for the ones it
 misses. A book that is still missing a format is searched for again once a day, not on every run, and
 books you take off the list on Hardcover are no longer searched for.
@@ -1267,7 +1375,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
@@ -1308,7 +1416,7 @@ Before you update:
 
 1. Read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you must do when
    upgrading.
-2. Back up your config and data folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
+2. Back up your config and database folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
    backup until you are happy with the new version: it is the only way back.
 
 With Docker:
@@ -1366,14 +1474,16 @@ What matters:
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
 
-To back up, **stop the container**, copy both folders, then start it again. While Fetchshelf runs, its
-latest changes are kept in a `data.db-wal` file next to `data.db`, so a copy taken while it runs can be
-missing them or be unusable. When the container stops, they are written into `data.db` and the extra
+To back up, **stop the container**, copy both folders, then start it again. A copy of `data.db` taken while
+Fetchshelf writes to it can be unusable. With [`database_wal = true`](database-setup.md#database_wal), the
+latest changes are also kept in a `data.db-wal` file next to `data.db` while Fetchshelf runs, so a copy
+taken then can be missing them. When the container stops, they are written into `data.db` and the extra
 files are removed. If `data.db-wal` or `data.db-shm` are still there after a stop, for example after a
-crash, copy them as well and keep them next to `data.db`.
+crash, copy them as well and keep them next to `data.db`. See [Database setup](database-setup.md) for where
+the database can safely live.
 
 To move to another machine, install Fetchshelf there, stop it on both machines, copy `config.toml` and
-everything in the data folder into the new config and data folders, and start it. Mount your media at the
+everything in the database folder into the new config and database folders, and start it. Mount your media at the
 **same paths** as before (or adjust `library_dir` and `path_mapping`), and use the same `PUID` / `PGID`, or
 fix the ownership of the copied files.
 
@@ -1381,7 +1491,8 @@ fix the ownership of the copied files.
 
 - **There is no login.** Anyone who can open the web interface can start downloads, remove records and, with
   the torrent page actions, delete data from qBittorrent. Only expose Fetchshelf on a trusted network, or
-  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet.
+  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet. The same
+  goes for the OPDS catalog, which lets anyone who can reach it download your books.
 - **Secrets in `config.toml`:** `mam_id` and the qBittorrent and Audiobookshelf credentials.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
@@ -1471,7 +1582,7 @@ author used is the **first** author.
 ### Audiobookshelf does not find a book
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
-Fetchshelf, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
+Fetchshelf or at the path `[audiobookshelf]` `path_mapping` translates it to, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
 **Run now** on the **Audiobookshelf** job.
 
 The log says what happened to each book:
@@ -1480,7 +1591,8 @@ The log says what happened to each book:
 - *… is not in Audiobookshelf yet* (a warning): the path fits an Audiobookshelf library, but the book is not
   there. Usually Audiobookshelf has not scanned it yet; the matcher tries again on its next run.
 - *no Audiobookshelf library has a folder containing …* (an error): Audiobookshelf sees your library at a
-  different path, or the library is missing from Audiobookshelf. The job then shows *Finished with errors*.
+  different path that no `path_mapping` translates, or the library is missing from Audiobookshelf. The path
+  in the message is the one after `path_mapping`. The job then shows *Finished with errors*.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
 

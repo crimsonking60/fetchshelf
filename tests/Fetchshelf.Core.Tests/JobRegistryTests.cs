@@ -208,4 +208,133 @@ public class JobRegistryTests
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
             Entries.Add((logLevel, formatter(state, exception)));
     }
+
+    /// <summary>A job whose runs each wait until released, counting how many started.</summary>
+    private sealed class GatedJob
+    {
+        private readonly List<TaskCompletionSource> _releases = [];
+        private readonly object _lock = new();
+
+        public int Runs { get; private set; }
+
+        public Task RunAsync(CancellationToken _)
+        {
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_lock)
+            {
+                Runs++;
+                _releases.Add(release);
+            }
+
+            return release.Task;
+        }
+
+        /// <summary>Lets the run in progress finish.</summary>
+        public void ReleaseCurrent()
+        {
+            lock (_lock)
+            {
+                _releases[^1].TrySetResult();
+            }
+        }
+    }
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var i = 0; i < 200 && !condition(); i++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition());
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerAsync_WhileRunning_DoesNotRunAgain()
+    {
+        var registry = new JobRegistry();
+        var job = new GatedJob();
+        registry.Register("download", job.RunAsync);
+
+        var first = registry.TriggerAsync("download");
+        await registry.TriggerAsync("download");
+        job.ReleaseCurrent();
+        await first;
+
+        Assert.Equal(1, job.Runs);
+        Assert.False(registry.Get("download")!.IsRunning);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerOrQueueAsync_WhileRunning_RunsOnceMoreAfterTheCurrentRun()
+    {
+        var registry = new JobRegistry();
+        var job = new GatedJob();
+        registry.Register("download", job.RunAsync);
+
+        var first = registry.TriggerAsync("download");
+        var queued = registry.TriggerOrQueueAsync("download");
+        Assert.False(queued.IsCompleted);
+
+        job.ReleaseCurrent();
+        await WaitUntil(() => job.Runs == 2);
+        Assert.False(queued.IsCompleted);
+
+        job.ReleaseCurrent();
+        await queued;
+        await first;
+        Assert.Equal(2, job.Runs);
+        Assert.False(registry.Get("download")!.IsRunning);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerOrQueueAsync_SeveralRequestsDuringOneRun_ShareOneExtraRun()
+    {
+        var registry = new JobRegistry();
+        var job = new GatedJob();
+        registry.Register("download", job.RunAsync);
+
+        var first = registry.TriggerAsync("download");
+        var queuedA = registry.TriggerOrQueueAsync("download");
+        var queuedB = registry.TriggerOrQueueAsync("download");
+        job.ReleaseCurrent();
+        await WaitUntil(() => job.Runs == 2);
+        job.ReleaseCurrent();
+        await Task.WhenAll(first, queuedA, queuedB);
+
+        Assert.Equal(2, job.Runs);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerOrQueueAsync_WhenIdle_RunsNow()
+    {
+        var registry = new JobRegistry();
+        var runs = 0;
+        registry.Register("download", _ =>
+        {
+            runs++;
+            return Task.CompletedTask;
+        });
+
+        await registry.TriggerOrQueueAsync("download");
+
+        Assert.Equal(1, runs);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerAsync_ManyAtOnce_StartsOneRun()
+    {
+        var registry = new JobRegistry();
+        var job = new GatedJob();
+        registry.Register("download", job.RunAsync);
+
+        // Every call is made, from many threads at once, before the run is released: a call arriving after the run
+        // ended would rightly start a new one.
+        var triggers = new System.Collections.Concurrent.ConcurrentBag<Task>();
+        Parallel.For(0, 20, _ => triggers.Add(registry.TriggerAsync("download")));
+        job.ReleaseCurrent();
+        await Task.WhenAll(triggers);
+
+        Assert.Equal(1, job.Runs);
+    }
 }

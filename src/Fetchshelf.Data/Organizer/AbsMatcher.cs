@@ -17,8 +17,13 @@ public sealed record AbsMatchSummary(int Matched, int NotFoundYet, int Failed);
 /// metadata-push hooks in <see cref="LinkRunner"/>, which act only once a torrent already has a
 /// stored id.
 /// </summary>
-public sealed class AbsMatcher(FetchshelfDbContext dbContext, AbsClient absClient, ILogger<AbsMatcher>? logger = null)
+public sealed class AbsMatcher(
+    FetchshelfDbContext dbContext,
+    AbsClient absClient,
+    ILogger<AbsMatcher>? logger = null,
+    IReadOnlyDictionary<string, string>? pathMapping = null)
 {
+    private readonly IReadOnlyDictionary<string, string> _pathMapping = pathMapping ?? new Dictionary<string, string>();
     private readonly ILogger<AbsMatcher> _logger = logger ?? NullLogger<AbsMatcher>.Instance;
 
     public async Task<AbsMatchSummary> RunAsync(CancellationToken cancellationToken = default)
@@ -50,13 +55,14 @@ public sealed class AbsMatcher(FetchshelfDbContext dbContext, AbsClient absClien
             // Fetched once, and only when some book needs it; failing to reach Audiobookshelf ends the run.
             libraries ??= await ListLibrariesAsync(cancellationToken);
 
-            var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => IsPathPrefix(folder.FullPath, torrent.LibraryPath!))).ToList();
+            var absPath = PathMapper.Translate(_pathMapping, torrent.LibraryPath!);
+            var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => IsPathPrefix(folder.FullPath, absPath))).ToList();
             if (candidateLibraries.Count == 0)
             {
                 _logger.LogError(
-                    "Cannot match {Title} in Audiobookshelf: no Audiobookshelf library has a folder containing {LibraryPath}. "
-                    + "Audiobookshelf must see the library at the same path as Fetchshelf",
-                    torrent.Title, torrent.LibraryPath);
+                    "Cannot match {Title} in Audiobookshelf: no Audiobookshelf library has a folder containing {AbsPath}. "
+                    + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf] path_mapping must translate it",
+                    torrent.Title, absPath);
                 failed++;
                 continue;
             }
@@ -64,7 +70,7 @@ public sealed class AbsMatcher(FetchshelfDbContext dbContext, AbsClient absClien
             string? matchedId;
             try
             {
-                matchedId = await FindMatchAsync(candidateLibraries, torrent.LibraryPath!, firstAuthor, cancellationToken);
+                matchedId = await FindMatchAsync(candidateLibraries, absPath, firstAuthor, cancellationToken);
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
@@ -76,9 +82,9 @@ public sealed class AbsMatcher(FetchshelfDbContext dbContext, AbsClient absClien
             if (matchedId is null)
             {
                 _logger.LogWarning(
-                    "{Title} is not in Audiobookshelf yet at {LibraryPath}; trying again next run. "
+                    "{Title} is not in Audiobookshelf yet at {AbsPath}; trying again next run. "
                     + "If this persists, check that Audiobookshelf has scanned the library",
-                    torrent.Title, torrent.LibraryPath);
+                    torrent.Title, absPath);
                 notFoundYet++;
                 continue;
             }

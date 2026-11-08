@@ -421,17 +421,7 @@ public sealed class LinkRunner(
 
     /// <summary>The library whose folder holds <paramref name="libraryPath"/>, the deepest one if folders nest.</summary>
     private Library? LibraryContaining(string libraryPath) =>
-        libraries
-            .Where(l => !string.IsNullOrEmpty(l.LibraryDir) && IsSameOrUnder(libraryPath, l.LibraryDir))
-            .OrderByDescending(l => l.LibraryDir.Length)
-            .FirstOrDefault();
-
-    private static bool IsSameOrUnder(string path, string folder)
-    {
-        var trimmed = folder.TrimEnd('/', '\\');
-        return path == trimmed
-            || (path.StartsWith(trimmed, StringComparison.Ordinal) && path.Length > trimmed.Length && path[trimmed.Length] is '/' or '\\');
-    }
+        LibraryFolders.IndexContaining(libraries, libraryPath) is { } index ? libraries[index] : null;
 
     /// <summary>
     /// Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event and pushing them to

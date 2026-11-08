@@ -1,0 +1,20 @@
+@model Fetchshelf.Web.Pages.SearchResultStatusViewModel
+@* Replaces itself with the next check's answer; see SearchResultStatusViewModel. *@
+<span class="result-status"
+      hx-get="@(Model.Polls ? Url.Page("/Index", "Status", new { mamId = Model.MamId, round = Model.Round + 1 }) : null)"
+      hx-trigger="@(Model.Polls ? $"load delay:{Model.DelaySeconds}s" : null)"
+      hx-swap="@(Model.Polls ? "outerHTML" : null)">@switch (Model.Status)
+    {
+        case MamResultStatus.Selected:
+            <span class="status-badge status-selected">Selected</span>
+            break;
+        case MamResultStatus.Downloading:
+            <span class="status-badge status-downloading">Downloading</span>
+            break;
+        case MamResultStatus.Downloaded:
+            <span class="status-badge status-downloaded">Downloaded</span>
+            break;
+        case MamResultStatus.Linked:
+            <span class="status-badge status-linked">Linked</span>
+            break;
+    }</span>

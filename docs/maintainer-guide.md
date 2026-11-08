@@ -43,6 +43,27 @@ Rules that keep this working:
   `develop` (see [After the release](#after-the-release)).
 - Because `develop` is the default branch, pull requests target it automatically, and `Fixes #123` in a pull
   request closes the issue when it is merged into `develop`.
+- **Visitors land on `develop`,** being the default branch, so the documentation they see first is for
+  changes not released yet. The README's notice and the notes at the top of the user guide and the
+  configuration reference say so in words that are true on both branches, so they can be merged into `main`
+  as they are. Keep it that way: no wording that only fits one branch. The README's links for people who run
+  Fetchshelf (the user guide, the configuration reference, getting help) are absolute links to `main`; a
+  link to a page that isn't on `main` yet stays relative until the release that brings it.
+
+Repository rulesets enforce this:
+
+| Ruleset | Branch | Rules | Bypass |
+| --- | --- | --- | --- |
+| Protect develop | `develop` | No deletion or force-push; changes through a pull request with passing checks. | Repository admins |
+| Protect main | `main` | The same. | Repository admins |
+| Never delete or rewrite main | `main` | No deletion or force-push. | Nobody |
+
+The third ruleset exists because the repository deletes a pull request's head branch once it is merged, and
+GitHub does that as the person who merged. That person is usually an admin, who may bypass the first two
+rulesets, so after the 2026.11.3 release merging the back-merge pull request (whose head is `main`) deleted
+`main`. With no bypass, the third ruleset refuses that deletion, and anyone else's. To delete or rewrite
+`main` on purpose, which should never be needed, disable that ruleset first and enable it again straight
+after.
 
 ## Working with pull requests
 
@@ -224,7 +245,8 @@ Each release gets a section in this form:
 ### Upgrading
 
 - Anything users must do: configuration changes, new requirements, migrations that make going back to an
-  older version impossible. Leave this subsection out if there is nothing to do.
+  older version impossible. Always include this subsection: when there is nothing to do, say so, and say
+  whether going back to the previous version is possible.
 
 ### Added
 
@@ -243,7 +265,7 @@ Each release gets a section in this form:
 - Features or settings that are gone.
 ```
 
-Leave out any subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
+Leave out any other subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
 what is different for them, not which classes changed.
 
 The release workflow reads the version from the first `## ` heading of `RELEASES.md`, and uses that section as
@@ -354,9 +376,17 @@ Release when `develop` has something worth shipping and:
    A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
    bypassing the branch rules, after making sure `develop` builds.
 
-   The repository deletes a pull request's head branch after merging, except for protected branches and the
-   default branch. If `main` is not protected yet, merging this pull request deletes it: press **Restore
-   branch** on the merged pull request straight away.
+   With the current rulesets the direct push is always refused, since `develop` only takes pull requests, so
+   expect this pull request after every release.
+
+   Merging it also makes the repository try to delete its head branch, `main`. The *Never delete or rewrite
+   main* ruleset refuses that (see [Branches](#branches)); check afterwards that `main` is still there:
+   `gh api repos/crimsonking60/fetchshelf/branches/main --jq .name`. If it is gone, because the ruleset was
+   disabled or removed, press **Restore branch** on the merged pull request straight away and restore the
+   ruleset.
+
+   A local `origin/main` doesn't show that `main` was deleted on GitHub, since fetching keeps branches that are
+   gone. Fetch with `git fetch --prune` to see the real state.
 
    Pull `develop` before you continue working on it: `git switch develop && git pull`.
 

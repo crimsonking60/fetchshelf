@@ -17,4 +17,10 @@ public sealed class RegisteredJob
 
     /// <summary>Whether this job's <see cref="RunAsync"/> is currently executing.</summary>
     public bool IsRunning { get; internal set; }
+
+    /// <summary>Guards <see cref="IsRunning"/> and <see cref="QueuedRun"/>, so two triggers can't both start a run.</summary>
+    internal object Gate { get; } = new();
+
+    /// <summary>Set while a run is wanted after the current one; completes when that run has finished.</summary>
+    internal TaskCompletionSource? QueuedRun { get; set; }
 }

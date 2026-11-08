@@ -132,6 +132,44 @@ public sealed class AbsMatcherTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_PathMapping_TranslatesLibraryPathToAudiobookshelfPath()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/mnt/Data/media/abs/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var absClient = CreateAbsClient(
+            [],
+            [("f1", "/audiobooks")],
+            new Dictionary<string, (string, string)> { ["Brandon Sanderson"] = ("a1", "Brandon Sanderson") },
+            new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/audiobooks/Sanderson/Book") });
+        var pathMapping = new Dictionary<string, string> { ["/mnt/Data/media/abs/audiobooks"] = "/audiobooks" };
+        var matcher = new AbsMatcher(context, absClient, new ListLogger<AbsMatcher>(), pathMapping);
+
+        var summary = await matcher.RunAsync();
+
+        var torrent = await context.Torrents.SingleAsync();
+        Assert.Equal("item1", torrent.AbsId);
+        Assert.Equal("/mnt/Data/media/abs/audiobooks/Sanderson/Book", torrent.LibraryPath);
+        Assert.Equal(new AbsMatchSummary(Matched: 1, NotFoundYet: 0, Failed: 0), summary);
+    }
+
+    [Fact]
+    public async Task RunAsync_PathMappingDoesNotFit_ErrorNamesTranslatedPath()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/mnt/Data/media/abs/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var absClient = CreateAbsClient(
+            [], [("f1", "/ebooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+        var pathMapping = new Dictionary<string, string> { ["/mnt/Data/media/abs"] = "/media" };
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, absClient, logger, pathMapping);
+
+        var summary = await matcher.RunAsync();
+
+        Assert.Equal(new AbsMatchSummary(Matched: 0, NotFoundYet: 0, Failed: 1), summary);
+        Assert.Contains("/media/audiobooks/Sanderson/Book", Assert.Single(logger.Messages(LogLevel.Error)));
+    }
+
+    [Fact]
     public async Task RunAsync_TorrentWithNoAuthors_NeverAttemptsMatch()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

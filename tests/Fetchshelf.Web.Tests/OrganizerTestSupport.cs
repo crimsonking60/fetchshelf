@@ -56,7 +56,7 @@ internal static class OrganizerTestSupport
 
     public static async Task<TorrentEntity> SeedTorrentAsync(
         FetchshelfWebAppFixture fixture, string id, TorrentMetadata? metadata = null,
-        string? libraryPath = null, DateTimeOffset? createdAt = null)
+        string? libraryPath = null, DateTimeOffset? createdAt = null, string? clientStatus = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -69,6 +69,7 @@ internal static class OrganizerTestSupport
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata ?? BuildMetadata()),
             CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
             LibraryPath = libraryPath,
+            ClientStatus = clientStatus,
         };
         dbContext.Torrents.Add(entity);
         await dbContext.SaveChangesAsync();

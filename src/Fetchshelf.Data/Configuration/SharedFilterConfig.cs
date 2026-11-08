@@ -24,7 +24,11 @@ public class SharedFilterConfig
 
     public CategoriesConfig Categories { get; set; } = new();
 
-    public List<string> Languages { get; set; } = [];
+    /// <summary>
+    /// Null when the block doesn't set `languages`. `ConfigLoader` then gives `[[autograb]]` and `[[hardcover_list.grab]]`
+    /// blocks the top-level `languages`; `[[tag]]` rules never inherit it. An empty list means any language.
+    /// </summary>
+    public List<string>? Languages { get; set; }
 
     public Dictionary<string, bool> Flags { get; set; } = [];
 

@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Metadata;
@@ -7,6 +8,8 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
+using Fetchshelf.Data.Organizer;
+using Fetchshelf.Web.Jobs;
 using Fetchshelf.Web.Pages.Torrents;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -22,7 +25,7 @@ namespace Fetchshelf.Web.Pages;
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
     FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
-    QBittorrentPresenceCache qbittorrentPresence,
+    QBittorrentPresenceCache qbittorrentPresence, QBittorrentClientFactory qbittorrentFactory,
     ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
@@ -31,6 +34,57 @@ public class IndexModel(
 
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
+
+    /// <summary>
+    /// The language to search in: unset for the top-level <c>languages</c>, <see cref="AnyLanguage"/> for every
+    /// language, or one <see cref="Core.Metadata.Language"/> name.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Lang { get; set; }
+
+    public const string AnyLanguage = "any";
+
+    /// <summary>The top-level <c>languages</c>, which a search uses unless <see cref="Lang"/> says otherwise. Validated when the config loads.</summary>
+    public IReadOnlyList<Language> DefaultLanguages => settings.Languages
+        .Select(name => LanguageNameResolver.TryResolve(name, out var language) ? language : (Language?)null)
+        .OfType<Language>()
+        .Distinct()
+        .ToList();
+
+    /// <summary>The languages this search is limited to; empty means any language.</summary>
+    public IReadOnlyList<Language> SearchLanguages =>
+        string.Equals(Lang, AnyLanguage, StringComparison.OrdinalIgnoreCase) ? []
+        : Enum.TryParse<Language>(Lang, ignoreCase: true, out var language) && Enum.IsDefined(language) ? [language]
+        : DefaultLanguages;
+
+    /// <summary>The language dropdown: the default first, then any language when the default restricts it, then every language A-Z.</summary>
+    public IReadOnlyList<(string Value, string Label)> LanguageOptions
+    {
+        get
+        {
+            var options = new List<(string Value, string Label)>();
+            if (DefaultLanguages.Count > 0)
+            {
+                options.Add((string.Empty, $"Your languages ({string.Join(", ", DefaultLanguages.Select(LanguageNameResolver.DisplayName))})"));
+                options.Add((AnyLanguage, "Any language"));
+            }
+            else
+            {
+                options.Add((string.Empty, "Any language"));
+            }
+
+            options.AddRange(Enum.GetValues<Language>()
+                .Select(language => (language.ToString(), LanguageNameResolver.DisplayName(language)))
+                .OrderBy(option => option.Item2, StringComparer.OrdinalIgnoreCase));
+            return options;
+        }
+    }
+
+    /// <summary>The dropdown value matching <see cref="Lang"/>, so the current choice stays selected.</summary>
+    public string SelectedLanguageOption =>
+        string.Equals(Lang, AnyLanguage, StringComparison.OrdinalIgnoreCase) ? (DefaultLanguages.Count > 0 ? AnyLanguage : string.Empty)
+        : Enum.TryParse<Language>(Lang, ignoreCase: true, out var language) && Enum.IsDefined(language) ? language.ToString()
+        : string.Empty;
 
     public IReadOnlyList<SearchResultViewModel> Results { get; private set; } = [];
 
@@ -60,6 +114,7 @@ public class IndexModel(
             SearchFields = string.IsNullOrWhiteSpace(Q) ? [] : [MamSearchField.Title, MamSearchField.Author],
             Target = MamSearchTarget.New,
             ReturnDownloadLink = true,
+            LanguageIds = SearchLanguages.Select(language => (int)language).ToList(),
         };
 
         try
@@ -69,15 +124,15 @@ public class IndexModel(
             var result = await mamClient.SearchAsync(query);
             var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
-            var statusByMamId = await LoadStatusesAsync(mamIds);
             var presence = await presenceTask;
+            var statusByMamId = await LoadStatusesAsync(mamIds, presence.Loaded ? presence.StateByHash : null);
             var hashesByMamId = await KnownHashesAsync(mamIds);
 
             Results = result.Data
                 .Select(record => WithQBittorrent(
                     SearchResultViewModel.From(
                         record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-                        statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None)),
+                        statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists),
                     presence, hashesByMamId.GetValueOrDefault(record.MamId) ?? []))
                 .ToList();
         }
@@ -90,6 +145,63 @@ public class IndexModel(
 
         ResultsLoaded = true;
         return Partial("_SearchResultsPartial", this);
+    }
+
+    /// <summary>
+    /// A result's status badge, asked for again by the badge itself while the torrent is on its way into the library.
+    /// Reads Fetchshelf's database only: no MAM request, and no qBittorrent request either.
+    /// </summary>
+    public async Task<PartialViewResult> OnGetStatusAsync(long mamId, int round)
+    {
+        await RefreshDownloadingAsync(mamId);
+        var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
+        return Partial("_SearchResultStatusPartial", new SearchResultStatusViewModel(mamId, status, round));
+    }
+
+    /// <summary>
+    /// Asks qBittorrent about this MAM id's torrents that Fetchshelf still has as downloading, one torrent at a time (not
+    /// the whole list), and stores their state. When one has finished, the Link job starts straight away instead of at
+    /// its next interval, so the status moves on to Linked within seconds. If qBittorrent can't be asked, the stored
+    /// status stands.
+    /// </summary>
+    private async Task RefreshDownloadingAsync(long mamId)
+    {
+        var downloading = (await dbContext.Torrents.Where(t => t.MamId == mamId && t.LibraryPath == null).ToListAsync())
+            .Where(t => !MetadataOnlyTorrentId.IsMetadataOnly(t.Id) && (t.ClientStatus is null || QBittorrentStateLabel.IsDownloadStage(t.ClientStatus)))
+            .ToList();
+        if (downloading.Count == 0 || settings.QBittorrent.Count == 0)
+        {
+            return;
+        }
+
+        var finished = false;
+        try
+        {
+            var clients = QBittorrentConnections.Build(settings, qbittorrentFactory).Select(c => c.Client).ToList();
+            foreach (var torrent in downloading)
+            {
+                foreach (var client in clients)
+                {
+                    if (await client.GetTorrentAsync(torrent.Id, HttpContext.RequestAborted) is { } live)
+                    {
+                        ClientStatuses.Update(torrent, live.State);
+                        finished |= live.IsFinished;
+                        break;
+                    }
+                }
+            }
+
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (Exception ex) when (!IsRequestAborted(ex))
+        {
+            logger.LogDebug("Could not ask qBittorrent about MAM torrent {MamId}: {Error}", mamId, ex.Message);
+        }
+
+        if (finished && jobRegistry.Get(JobNames.Link) is not null)
+        {
+            _ = jobRegistry.TriggerAsync(JobNames.Link, CancellationToken.None);
+        }
     }
 
     /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>
@@ -113,7 +225,12 @@ public class IndexModel(
     /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the
     /// library, downloaded but not yet linked, or still queued as a selection.
     /// </summary>
-    private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds)
+    /// <param name="mamIds">The MAM ids to look up.</param>
+    /// <param name="liveStates">
+    /// qBittorrent's current state by info hash, when the caller has it: a torrent stored as downloading that qBittorrent
+    /// has finished then shows as downloaded, without waiting for the Link job to store the state.
+    /// </param>
+    private async Task<Dictionary<long, MamResultStatus>> LoadStatusesAsync(List<long> mamIds, IReadOnlyDictionary<string, string>? liveStates = null)
     {
         var statuses = new Dictionary<long, MamResultStatus>();
         if (mamIds.Count == 0)
@@ -132,11 +249,22 @@ public class IndexModel(
 
         var torrents = await dbContext.Torrents
             .Where(t => mamIds.Contains(t.MamId))
-            .Select(t => new { t.MamId, t.LibraryPath })
+            .Select(t => new { t.Id, t.MamId, t.LibraryPath, t.ClientStatus })
             .ToListAsync();
         foreach (var torrent in torrents)
         {
-            statuses[torrent.MamId] = torrent.LibraryPath is null ? MamResultStatus.Downloaded : MamResultStatus.Linked;
+            // The Download job records a torrent as it hands it to qBittorrent, with no client status yet; the Link job
+            // stores the status once it sees the torrent finished. Until then it is still downloading. A metadata-only
+            // record was never downloaded through Fetchshelf, so it counts as owned.
+            var clientStatus = liveStates?.GetValueOrDefault(torrent.Id) ?? torrent.ClientStatus;
+            var status = torrent.LibraryPath is not null ? MamResultStatus.Linked
+                : !MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id)
+                    && (clientStatus is null || QBittorrentStateLabel.IsDownloadStage(clientStatus)) ? MamResultStatus.Downloading
+                : MamResultStatus.Downloaded;
+            if (status > statuses.GetValueOrDefault(torrent.MamId))
+            {
+                statuses[torrent.MamId] = status;
+            }
         }
 
         return statuses;
@@ -215,7 +343,8 @@ public class IndexModel(
             }
             else
             {
-                message = await ImportAsync(record, hash, presence.CategoryByMamId.GetValueOrDefault(mamId) ?? string.Empty);
+                message = await ImportAsync(
+                    record, hash, presence.CategoryByMamId.GetValueOrDefault(mamId) ?? string.Empty, presence.StateByHash.GetValueOrDefault(hash));
             }
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
@@ -236,7 +365,7 @@ public class IndexModel(
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
     }
 
-    private async Task<string> ImportAsync(MamTorrentRecord record, string hash, string category)
+    private async Task<string> ImportAsync(MamTorrentRecord record, string hash, string category, string? clientStatus)
     {
         var metadata = MamTorrentMapper.Map(record);
         var title = $"\"{metadata.Title}\"";
@@ -253,6 +382,7 @@ public class IndexModel(
             Title = metadata.Title,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
             QBittorrentCategory = category,
+            ClientStatus = clientStatus,
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
@@ -277,7 +407,7 @@ public class IndexModel(
         var statuses = await LoadStatusesAsync([record.MamId]);
         var row = SearchResultViewModel.From(
             record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
-            statuses.GetValueOrDefault(record.MamId, MamResultStatus.None));
+            statuses.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists);
         return withQBittorrent
             ? WithQBittorrent(row, await qbittorrentPresence.GetAsync(), (await KnownHashesAsync([record.MamId])).GetValueOrDefault(record.MamId) ?? [])
             : row;
@@ -287,6 +417,10 @@ public class IndexModel(
     /// Starts the Download job for a new selection, unless `download_after_selection` is off or no jobs run. It runs
     /// in the background, like Run now on the Jobs page, so the page answers at once.
     /// </summary>
+    /// <summary>
+    /// Starts the Download job for a selection just made, or queues one more run if it is busy, so the selection isn't
+    /// left for the next scheduled run. Doesn't wait for it: the row's status follows the torrent from there.
+    /// </summary>
     private bool StartDownload()
     {
         if (!settings.DownloadAfterSelection || jobRegistry.Get(JobNames.Download) is null)
@@ -294,7 +428,7 @@ public class IndexModel(
             return false;
         }
 
-        _ = jobRegistry.TriggerAsync(JobNames.Download, CancellationToken.None);
+        _ = jobRegistry.TriggerOrQueueAsync(JobNames.Download, CancellationToken.None);
         return true;
     }
 

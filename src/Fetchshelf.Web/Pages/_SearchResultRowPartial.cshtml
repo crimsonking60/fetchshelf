@@ -19,25 +19,21 @@
         }
     </td>
     <td>@result.MediaTypeLabel</td>
-    <td>
-        @switch (result.Status)
+    <td class="nowrap">
+        @if (result.MetadataQuality is { } quality)
         {
-            case MamResultStatus.Selected:
-                <span class="status-badge status-selected">Selected</span>
-                break;
-            case MamResultStatus.Downloaded:
-                <span class="status-badge status-downloaded">Downloaded</span>
-                break;
-            case MamResultStatus.Linked:
-                <span class="status-badge status-linked">Linked</span>
-                break;
+            @* Focusable so what is missing is also reachable by keyboard and touch, like the authors' balloon. *@
+            <span class="has-tip" tabindex="0"><span class="quality-pill quality-@quality.Grade.ToString().ToLowerInvariant()">@result.MetadataQualityLabel</span><span class="tip" role="tooltip">@result.MetadataQualityDetail</span></span>
         }
+    </td>
+    <td>
+        @await Html.PartialAsync("_SearchResultStatusPartial", new SearchResultStatusViewModel(result.MamId, result.Status))
         @if (result.InQBittorrent == true)
         {
             var category = string.IsNullOrEmpty(result.QBittorrentCategory) ? "no category" : result.QBittorrentCategory;
             <span class="status-badge status-qbittorrent" title="In qBittorrent, category: @category">qBittorrent: @category</span>
         }
-        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloaded or MamResultStatus.Linked)
+        else if (result.InQBittorrent == false && result.Status is MamResultStatus.Downloading or MamResultStatus.Downloaded or MamResultStatus.Linked)
         {
             <span class="status-badge status-not-in-qbittorrent" title="Fetchshelf has this torrent, but qBittorrent no longer does">Not in qBittorrent</span>
         }
@@ -58,6 +54,11 @@
                 <input type="hidden" name="mamId" value="@result.MamId" />
                 <button type="submit" title="Record this torrent in Fetchshelf without downloading it again">Import</button>
             </form>
+        }
+        else if (result.InQBittorrent != true && result.CannotDownloadReason is { } reason)
+        {
+            @* Selecting it would fail on its formats, so there is nothing to click: say why instead. *@
+            <span class="has-tip muted" tabindex="0">Can't download<span class="tip" role="tooltip">@reason</span></span>
         }
         else if (result.InQBittorrent != true)
         {

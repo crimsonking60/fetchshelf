@@ -14,7 +14,7 @@ public static class SharedFilterConfigMapper
         {
             MediaTypes = config.MediaType.Count == 0 ? null : config.MediaType.Select(ParseMediaType).ToList(),
             Categories = ToCategoryFilter(config.Categories),
-            Languages = config.Languages.Count == 0 ? null : config.Languages.Select(ParseLanguage).ToList(),
+            Languages = config.Languages is not { Count: > 0 } ? null : config.Languages.Select(ParseLanguage).ToList(),
             Flags = config.Flags.Count == 0 ? null : ToFlagsDictionary(config.Flags),
             MinSizeBytes = config.MinSize is null ? null : MamSizeParser.ParseBytes(config.MinSize),
             MaxSizeBytes = config.MaxSize is null ? null : MamSizeParser.ParseBytes(config.MaxSize),

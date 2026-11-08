@@ -241,6 +241,7 @@ td form:not(.inline) { display: inline-block; }
 /* Search result rows get a status "spine" on the leading edge, like a book on a shelf */
 tr[data-status] > td:first-child { box-shadow: inset 3px 0 0 transparent; }
 tr[data-status="selected"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-info); }
+tr[data-status="downloading"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-info); }
 tr[data-status="downloaded"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-warn); }
 tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok); }
 
@@ -265,6 +266,9 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 }
 .has-tip:hover > .tip, .has-tip:focus > .tip { visibility: visible; opacity: 1; }
 
+/* `development_banner = true`: tells a development install from a production one. The same in every theme. */
+.development-banner { height: 10px; background: #ff0000; }
+
 /* ---- badges -------------------------------------------------------------- */
 
 .status-badge, .badge-vip, .badge-freeleech, .badge-personal-freeleech {
@@ -279,12 +283,28 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     border-radius: 3px;
 }
 .status-selected { --badge: var(--c-info); }
+.status-downloading { --badge: var(--c-info); }
 .status-downloaded { --badge: var(--c-warn); }
 .status-linked { --badge: var(--c-ok); }
 .status-not-in-qbittorrent { --badge: var(--c-warn); }
 .badge-freeleech { --badge: var(--c-ok); }
 .badge-personal-freeleech { --badge: var(--c-info); }
 .badge-vip { --badge: var(--c-vip); }
+
+/* Metadata quality on the Search page: a rounded pill, unlike the square status badges. */
+.quality-pill {
+    --badge: var(--text-muted);
+    display: inline-block;
+    padding: 0 0.6rem;
+    font-size: 0.75rem; font-weight: 600; line-height: 1.5; white-space: nowrap;
+    color: var(--badge);
+    background: color-mix(in srgb, var(--badge) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--badge) 55%, transparent);
+    border-radius: 999px;
+}
+.quality-good { --badge: var(--c-ok); }
+.quality-lacking { --badge: var(--c-warn); }
+.quality-poor { --badge: var(--c-danger); }
 
 /* ---- pages --------------------------------------------------------------- */
 

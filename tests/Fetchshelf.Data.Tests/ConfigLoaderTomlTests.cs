@@ -48,6 +48,25 @@ public sealed class ConfigLoaderTomlTests : IDisposable
     }
 
     [Fact]
+    public void Load_AudiobookshelfPathMapping_IsRead()
+    {
+        File.WriteAllText(TomlConfigPath, """
+            mam_id = "abc123"
+
+            [audiobookshelf]
+            url = "http://abs:13378"
+            token = "secret"
+
+            [audiobookshelf.path_mapping]
+            "/mnt/Data/media/abs" = "/media"
+            """);
+
+        var settings = ConfigLoader.Load(TomlConfigPath);
+
+        Assert.Equal("/media", settings.Audiobookshelf!.PathMapping["/mnt/Data/media/abs"]);
+    }
+
+    [Fact]
     public void Load_TomlArraysOfTablesInterleavedWithOtherArrays_KeepsEveryEntry()
     {
         File.WriteAllText(TomlConfigPath, """

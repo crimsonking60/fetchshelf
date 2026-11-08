@@ -560,10 +560,10 @@ public partial class IndexPageTests
     }
 
     [Fact]
-    public async Task Get_ResultAlreadyDownloadedNotLinked_ShowsDownloadedBadge()
+    public async Task Get_ResultFinishedNotLinked_ShowsDownloadedBadge()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
-        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null, clientStatus: "stalledUP");
         var client = fixture.CreateClient();
 
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
@@ -682,23 +682,11 @@ public partial class IndexPageTests
         Assert.Equal("Manual search", selected.GrabberName);
     }
 
-    [Theory]
-    [InlineData(true, "the Download job is starting it now")]
-    [InlineData(false, "it starts at the next Download run")]
-    public async Task Post_Download_StartsTheDownloadJob_UnlessDownloadAfterSelectionIsOff(bool downloadAfterSelection, string expected)
+    /// <summary>Clicks Download on the one search result through htmx and returns the decoded answer.</summary>
+    private static async Task<string> ClickDownloadAsync(FetchshelfWebAppFixture fixture)
     {
-        using var fixture = new FetchshelfWebAppFixture(
-            $"mam_id = \"\"\ndownload_after_selection = {(downloadAfterSelection ? "true" : "false")}\n",
-            mamHandler: MamHandler(SearchResponseJson(large: false)));
-        var started = new TaskCompletionSource();
-        fixture.JobRegistry.Register("Download", _ =>
-        {
-            started.TrySetResult();
-            return Task.CompletedTask;
-        });
         using var client = fixture.CreateNoRedirectClient();
         var html = await client.GetStringAsync("/?handler=Results&Q=kings");
-
         using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -708,11 +696,101 @@ public partial class IndexPageTests
             }),
         };
         request.Headers.Add("HX-Request", "true");
-        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+        return System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+    }
 
-        Assert.Contains(expected, body);
-        var finished = await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(downloadAfterSelection ? 10 : 1)));
-        Assert.Equal(downloadAfterSelection, finished == started.Task);
+    [Theory]
+    [InlineData(null, "status-downloading", ">Downloading<")]
+    [InlineData("downloading", "status-downloading", ">Downloading<")]
+    [InlineData("stalledDL", "status-downloading", ">Downloading<")]
+    [InlineData("uploading", "status-downloaded", ">Downloaded<")]
+    [InlineData("stoppedUP", "status-downloaded", ">Downloaded<")]
+    public async Task Get_ResultNotLinked_IsDownloadingUntilQBittorrentHasFinishedIt(string? clientStatus, string badgeClass, string label)
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null, clientStatus: clientStatus);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
+
+        Assert.Contains(badgeClass, html);
+        Assert.Contains(label, html);
+    }
+
+    [Fact]
+    public async Task Get_MetadataOnlyRecord_IsDownloadedNotDownloading()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "mam:1", libraryPath: null);
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
+
+        Assert.Contains("status-downloaded", html);
+        Assert.DoesNotContain("status-downloading", html);
+    }
+
+    [Fact]
+    public async Task Post_Download_AnswersAtOnceWithSelected_AndStartsTheDownloadJob()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var release = new TaskCompletionSource();
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register("Download", async _ =>
+        {
+            started.TrySetResult();
+            await release.Task; // a slow Download job must not hold up the answer
+        });
+
+        var body = await ClickDownloadAsync(fixture);
+        release.TrySetResult();
+
+        Assert.Contains("Selected \"The Way of Kings\"; the Download job is starting it now.", body);
+        Assert.Contains("status-selected", body);
+        Assert.Contains("handler=Status", body); // the badge takes it from there
+        Assert.Same(started.Task, await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(10))));
+    }
+
+    [Fact]
+    public async Task GetResults_StoredAsDownloadingButFinishedInQBittorrent_ShowsDownloaded()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hash1", "", "audiobooks")));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: null);
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("status-downloaded", html);
+        Assert.DoesNotContain("status-downloading", html);
+    }
+
+    [Fact]
+    public async Task Page_ResultsPanelDoesNotPassItsOverlayToButtonsAndStatusChecks()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+
+        var html = await fixture.CreateClient().GetStringAsync("/");
+
+        Assert.Contains("hx-indicator=\"#search-loading\" hx-disinherit=\"hx-indicator\"", html);
+    }
+
+    [Fact]
+    public async Task Post_Download_DownloadAfterSelectionOff_LeavesItForTheScheduledRun()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            "mam_id = \"\"\ndownload_after_selection = false\n", mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var ran = false;
+        fixture.JobRegistry.Register("Download", _ =>
+        {
+            ran = true;
+            return Task.CompletedTask;
+        });
+
+        var body = await ClickDownloadAsync(fixture);
+
+        Assert.Contains("it starts at the next Download run", body);
+        Assert.False(ran);
     }
 
     [Fact]
@@ -795,8 +873,14 @@ public partial class IndexPageTests
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(json));
         var client = fixture.CreateClient();
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
-        var token = ExtractAntiforgeryToken(html);
 
+        // The row offers no download buttons for it, and says why.
+        Assert.DoesNotContain("handler=Download", html);
+        Assert.Contains("None of its file types (m4a) is in your music_types setting", html);
+
+        // A request made anyway, from a page loaded before or by hand, is still refused. The row has no form, so the
+        // antiforgery token comes from another page; it is valid for the whole session.
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["mamId"] = "1",
