@@ -5,6 +5,49 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.5 - 2026-11-08
+
+Fetchshelf can serve ebook libraries as an OPDS catalog for e-readers and reading apps, and the Search page
+follows a download all the way into the library, rates each result's metadata and says up front when a torrent
+can't be downloaded. A top-level `languages` setting sets the language once for every autograb and Hardcover
+list.
+
+### Upgrading
+
+- Nothing to do. There is no database migration, and the new settings default to the earlier behaviour, so
+  existing configurations work unchanged. Going back to 2026.11.4 is possible.
+
+### Added
+
+- `[opds]`: serves your ebook libraries as an OPDS catalog at `/opds`, for KOReader, Moon+ Reader, Thorium and
+  other readers, with recently added books, authors, series, search, covers and downloads. Audiobooks are never
+  served. The **Config** page shows the catalog's address (#20, #21).
+- `languages` at the top of the file: the languages of every `[[autograb]]` and `[[hardcover_list.grab]]` block
+  that doesn't set its own. `[[tag]]` rules don't use it.
+- Search page: a language list next to the search box, starting at the top-level `languages`.
+- Search page: a **Metadata** pill rates each result's information on MAM as Good, Lacking or Poor; point at it
+  to see what is missing.
+- Search page: **Can't download** replaces the download buttons on a result whose file types are unknown or not
+  in your format list, with the reason.
+- Search page: a **Downloading** status, between **Selected** and **Downloaded**.
+
+### Changed
+
+- Search page: a **Download** click answers at once, then shows whether the torrent was added to qBittorrent.
+  A result's status then updates by itself without a reload, and once qBittorrent has finished a torrent the
+  Link job starts straight away, so **Linked** follows within seconds.
+- A selection made while the Download job is running gets a run straight after it, instead of waiting for the
+  next scheduled run. Autograbs and Hardcover lists use the same follow-up run.
+- A misspelled name in the filter of an `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list.grab]]` no longer
+  stops Fetchshelf from starting; that job fails on each run instead, and the **Jobs** page says why. Mistakes
+  in `[[tag]]` rules and the top-level `languages` still stop startup.
+
+### Fixed
+
+- A Hardcover list's `free` grab block took non-free torrents too, then rejected the book as too expensive
+  without trying the list's later blocks. Each block now only takes torrents its `cost` accepts and leaves the
+  rest to the next block.
+
 ## 2026.11.4 - 2026-11-07
 
 Fetchshelf now handles a library of 10,000 torrents comfortably: the Link and Clean jobs no longer slow down
