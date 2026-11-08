@@ -48,6 +48,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.False(settings.AddTorrentsStopped);
         Assert.False(settings.ExcludeNarratorInLibraryDir);
         Assert.False(settings.DatabaseWal);
+        Assert.False(settings.DevelopmentBanner);
         Assert.True(settings.MetadataJson);
         Assert.False(settings.MetadataOpf);
         Assert.True(settings.PageExplanations);
@@ -177,6 +178,24 @@ public sealed class ConfigLoaderTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_opds_libraries", null);
+        }
+    }
+
+    [Fact]
+    public void Load_DevelopmentBannerOn_InFileOrFromEnvironmentVariable()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ndevelopment_banner = true\n");
+        Assert.True(ConfigLoader.Load(ConfigPath).DevelopmentBanner);
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_development_banner", "true");
+        try
+        {
+            Assert.True(ConfigLoader.Load(ConfigPath).DevelopmentBanner);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_development_banner", null);
         }
     }
 

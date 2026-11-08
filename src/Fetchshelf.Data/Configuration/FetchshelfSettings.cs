@@ -42,6 +42,12 @@ public sealed class FetchshelfSettings
     /// <summary>When true, the Jobs page shows a brief description of what each job does.</summary>
     public bool JobExplanations { get; set; } = true;
 
+    /// <summary>
+    /// Undocumented, for maintainers: when true, every page starts with a thin red bar, to tell a development install
+    /// from a production one at a glance.
+    /// </summary>
+    public bool DevelopmentBanner { get; set; }
+
     public bool ExcludeNarratorInLibraryDir { get; set; }
 
     /// <summary>The `metadata_json` of every `[[library]]` that does not set its own.</summary>

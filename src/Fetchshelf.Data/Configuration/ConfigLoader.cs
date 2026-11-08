@@ -35,6 +35,7 @@ public static class ConfigLoader
         ["download_after_selection"] = (s, v) => s.DownloadAfterSelection = bool.Parse(v),
         ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
         ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
+        ["development_banner"] = (s, v) => s.DevelopmentBanner = bool.Parse(v),
         ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
         ["database_wal"] = (s, v) => s.DatabaseWal = bool.Parse(v),
         ["metadata_json"] = (s, v) => s.MetadataJson = bool.Parse(v),

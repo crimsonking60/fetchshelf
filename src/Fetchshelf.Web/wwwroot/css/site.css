@@ -266,6 +266,9 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 }
 .has-tip:hover > .tip, .has-tip:focus > .tip { visibility: visible; opacity: 1; }
 
+/* `development_banner = true`: tells a development install from a production one. The same in every theme. */
+.development-banner { height: 10px; background: #ff0000; }
+
 /* ---- badges -------------------------------------------------------------- */
 
 .status-badge, .badge-vip, .badge-freeleech, .badge-personal-freeleech {
