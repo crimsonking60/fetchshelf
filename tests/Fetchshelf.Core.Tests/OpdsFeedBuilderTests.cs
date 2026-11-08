@@ -113,6 +113,18 @@ public class OpdsFeedBuilderTests
     }
 
     [Fact]
+    public void Acquisition_HtmlDescription_IsSentAsPlainText()
+    {
+        var book = Book(description: "<p><span class=\"a-text-bold\">Without the island&#8230;</span><br>she&#8217;s back!</p>", series: []);
+
+        var content = OpdsFeedBuilder.Acquisition("urn:x", "Recent", "/opds/recent", Now, [book], Page(1, 1)).Root!
+            .Element(Atom + "entry")!.Element(Atom + "content")!;
+
+        Assert.Equal("text", (string?)content.Attribute("type"));
+        Assert.Equal("Without the island…\nshe’s back!", content.Value);
+    }
+
+    [Fact]
     public void OpenSearchDescription_PointsAtTheSearchFeed()
     {
         var root = OpdsFeedBuilder.OpenSearchDescription("http://nas:3157/opds/search?q={searchTerms}").Root!;

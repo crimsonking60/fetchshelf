@@ -95,7 +95,7 @@ public class DetailModel(
             logger.LogInformation("MAM torrent {MamId} could not be read fully: {Reason}", mamId, ex.Message);
         }
 
-        Description = MamHitDetails.DescriptionText(Record.Description);
+        Description = DescriptionText.From(Record.Description);
         // Fetched by Fetchshelf with the session, not by the browser, which may not be logged in to MAM.
         var cover = MamHitDetails.ThumbnailUrl(Record.Thumbnail, mamOptions.BaseUrl)
             ?? MamHitDetails.CoverUrl(Record.MamId, Record.PosterType, Record.UploadedAt, mamOptions.CdnBaseUrl);

@@ -177,8 +177,9 @@ public static class OpdsFeedBuilder
             book.Genres.Select(genre => new XElement(Atom + "category", new XAttribute("term", genre), new XAttribute("label", genre))));
 
         // OPDS 1.2 has no series field, so the series go at the top of the description, where every reader shows them.
+        // The description is MAM's HTML, sent as plain text, since readers differ in how much HTML they show.
         var seriesLines = book.Series.Select(series => series.Entry is null ? series.Name : $"{series.Name} #{series.Entry}").ToList();
-        var text = string.Join("\n\n", new[] { string.Join("\n", seriesLines), book.Description }.Where(part => !string.IsNullOrEmpty(part)));
+        var text = string.Join("\n\n", new[] { string.Join("\n", seriesLines), DescriptionText.From(book.Description) }.Where(part => !string.IsNullOrEmpty(part)));
         if (text.Length > 0)
         {
             entry.Add(new XElement(Atom + "content", new XAttribute("type", "text"), text));

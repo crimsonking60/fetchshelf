@@ -187,12 +187,4 @@ public class SearchHitPageTests
         Assert.Equal(("Version", "3"), sections[0].Rows.Single());
         Assert.Equal(("extra", "00:00 One, 00:10 Two"), sections[2].Rows.Single());
     }
-
-    [Fact]
-    public void DescriptionText_DropsTagsScriptsAndExtraBlankLines()
-    {
-        var text = MamHitDetails.DescriptionText("<p>One</p><style>p{}</style><p>Two &lt;3</p><br><br><br><br>Three");
-
-        Assert.Equal("One\nTwo <3\n\nThree", text);
-    }
 }
