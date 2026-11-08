@@ -30,6 +30,9 @@ list.
 - Search page: **Can't download** replaces the download buttons on a result whose file types are unknown or not
   in your format list, with the reason.
 - Search page: a **Downloading** status, between **Selected** and **Downloaded**.
+- `path_mapping` in `[audiobookshelf]`: maps a path as Fetchshelf sees it to the same location as
+  Audiobookshelf sees it, so Audiobookshelf can mount just the library, at a path of its own, instead of at
+  Fetchshelf's path.
 
 ### Changed
 
