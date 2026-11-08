@@ -53,6 +53,15 @@ public class LibraryMetadataOpfBuilderTests
     }
 
     [Fact]
+    public void Build_TextXmlCannotHold_IsLeftOut()
+    {
+        var metadata = Metadata(Build() with { Title = "The\u0001 Way of Kings", Description = "Page one.\fPage two." });
+
+        Assert.Equal("The Way of Kings", (string?)metadata.Element(Dc + "title"));
+        Assert.Equal("Page one.Page two.", (string?)metadata.Element(Dc + "description"));
+    }
+
+    [Fact]
     public void Build_PackageIdentifiesTheBookByItsMamId()
     {
         var package = XDocument.Parse(LibraryMetadataOpfBuilder.Build(Build())).Root!;

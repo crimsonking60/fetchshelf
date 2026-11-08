@@ -95,9 +95,22 @@ public static class OpdsFeedBuilder
                 new XAttribute("type", AcquisitionType),
                 new XAttribute("template", searchTemplate))));
 
-    /// <summary>The document as UTF-8 text with an XML declaration.</summary>
+    /// <summary>
+    /// The document as UTF-8 text with an XML declaration. Characters XML can't hold, such as a form feed in a MAM
+    /// description, are left out rather than failing the whole feed.
+    /// </summary>
     public static string Serialize(XDocument document)
     {
+        foreach (var text in document.DescendantNodes().OfType<XText>())
+        {
+            text.Value = XmlSafeText.Clean(text.Value);
+        }
+
+        foreach (var attribute in document.Descendants().Attributes())
+        {
+            attribute.Value = XmlSafeText.Clean(attribute.Value);
+        }
+
         var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false) };
         using var stream = new MemoryStream();
         using (var writer = XmlWriter.Create(stream, settings))

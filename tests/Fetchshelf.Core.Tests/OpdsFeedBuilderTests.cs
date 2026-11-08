@@ -131,6 +131,18 @@ public class OpdsFeedBuilderTests
         Assert.Contains("<title>Søk &amp; finn</title>", xml);
     }
 
+    [Fact]
+    public void Serialize_TextXmlCannotHold_IsLeftOutInsteadOfFailingTheFeed()
+    {
+        var book = Book(description: "Page one.\fPage two.");
+
+        var xml = OpdsFeedBuilder.Serialize(OpdsFeedBuilder.Acquisition("urn:x", "Recently added", "/opds/recent", Now, [book], Page(1, 1)));
+
+        var content = XDocument.Parse(xml).Root!.Element(Atom + "entry")!.Element(Atom + "content")!.Value;
+        Assert.Contains("Page one.Page two.", content);
+        Assert.DoesNotContain('\f', xml);
+    }
+
     [Theory]
     [InlineData("epub", "application/epub+zip")]
     [InlineData("PDF", "application/pdf")]
