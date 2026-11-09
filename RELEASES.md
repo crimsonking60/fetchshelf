@@ -5,6 +5,35 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.6 - 2026-11-09
+
+Fixes for the OPDS catalog: book descriptions show as text instead of HTML tags, a stray character in a MAM
+description no longer breaks a feed, and each library gets its own recently added, authors and series views.
+`[audiobookshelf.path_mapping]` now reads the same way round as `[qbittorrent.path_mapping]`.
+
+### Upgrading
+
+- If you set up `[audiobookshelf.path_mapping]` in 2026.11.5, swap the two sides of every line: the
+  Audiobookshelf path now goes on the left and Fetchshelf's path on the right, as in
+  `[qbittorrent.path_mapping]`. Fetchshelf refuses to start with a table that looks written the old way round
+  and says to swap it.
+- Nothing else to do. There is no database migration. Going back to 2026.11.5 is possible, after swapping the
+  `[audiobookshelf.path_mapping]` lines back.
+
+### Changed
+
+- `[audiobookshelf.path_mapping]` maps Audiobookshelf's path = Fetchshelf's path, like
+  `[qbittorrent.path_mapping]`. Mapping two Audiobookshelf paths to the same Fetchshelf path stops startup
+  with an error.
+- OPDS: a library under **Libraries** opens its own start feed with **Recently added**, **Authors** and
+  **Series**, instead of one long list of all its books. Search still covers every served library.
+
+### Fixed
+
+- OPDS: book descriptions showed MAM's HTML tags in readers. They are now sent as plain text.
+- OPDS: a character XML can't hold, such as a form feed in a MAM description, made every feed listing that
+  book fail. Such characters are now left out, and also no longer break `metadata.opf` for that book.
+
 ## 2026.11.5 - 2026-11-08
 
 Fetchshelf can serve ebook libraries as an OPDS catalog for e-readers and reading apps, and the Search page
