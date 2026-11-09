@@ -1,6 +1,4 @@
-# Library check: find library folders and records that don't match — implementation plan
-
-Not yet an issue.
+# Library check: find library folders and records that don't match — implementation plan (#25)
 
 ## Context
 
