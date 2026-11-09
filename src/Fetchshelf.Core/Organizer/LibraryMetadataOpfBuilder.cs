@@ -7,7 +7,8 @@ namespace Fetchshelf.Core.Organizer;
 
 /// <summary>
 /// Builds the `metadata.opf` document: an OPF 2.0 package holding only metadata, in the form Calibre writes next to
-/// its books and imports from. Audiobookshelf reads it too.
+/// its books and imports from. Audiobookshelf reads it too. Text from MAM goes through <see cref="XmlSafeText"/>, so
+/// a character XML can't hold doesn't stop the book from being linked.
 /// </summary>
 public static class LibraryMetadataOpfBuilder
 {
@@ -37,7 +38,7 @@ public static class LibraryMetadataOpfBuilder
             writer.WriteString(metadata.MamId.ToString(CultureInfo.InvariantCulture));
             writer.WriteEndElement();
 
-            writer.WriteElementString("dc", "title", Dc, metadata.Title);
+            writer.WriteElementString("dc", "title", Dc, XmlSafeText.Clean(metadata.Title));
             foreach (var author in metadata.Authors)
             {
                 WriteCreator(writer, author, "aut");
@@ -50,7 +51,7 @@ public static class LibraryMetadataOpfBuilder
 
             if (!string.IsNullOrWhiteSpace(metadata.Description))
             {
-                writer.WriteElementString("dc", "description", Dc, metadata.Description);
+                writer.WriteElementString("dc", "description", Dc, XmlSafeText.Clean(metadata.Description));
             }
 
             if (LanguageCodes.For(metadata.Language) is { } language)
@@ -62,7 +63,7 @@ public static class LibraryMetadataOpfBuilder
             WriteIdentifier(writer, "ASIN", metadata.Asin);
             foreach (var genre in LibraryMetadataJsonBuilder.BuildGenres(metadata))
             {
-                writer.WriteElementString("dc", "subject", Dc, genre);
+                writer.WriteElementString("dc", "subject", Dc, XmlSafeText.Clean(genre));
             }
 
             foreach (var series in metadata.Series)
@@ -86,7 +87,7 @@ public static class LibraryMetadataOpfBuilder
     {
         writer.WriteStartElement("dc", "creator", Dc);
         writer.WriteAttributeString("opf", "role", Opf, role);
-        writer.WriteString(name);
+        writer.WriteString(XmlSafeText.Clean(name));
         writer.WriteEndElement();
     }
 
@@ -99,7 +100,7 @@ public static class LibraryMetadataOpfBuilder
 
         writer.WriteStartElement("dc", "identifier", Dc);
         writer.WriteAttributeString("opf", "scheme", Opf, scheme);
-        writer.WriteString(value);
+        writer.WriteString(XmlSafeText.Clean(value));
         writer.WriteEndElement();
     }
 
@@ -107,7 +108,7 @@ public static class LibraryMetadataOpfBuilder
     {
         writer.WriteStartElement(string.Empty, "meta", Opf);
         writer.WriteAttributeString("name", name);
-        writer.WriteAttributeString("content", content);
+        writer.WriteAttributeString("content", XmlSafeText.Clean(content));
         writer.WriteEndElement();
     }
 }

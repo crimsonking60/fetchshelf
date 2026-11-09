@@ -200,7 +200,7 @@ Optional. Leave the section out to turn the integration off.
 | `url` | (required) | Base URL of your Audiobookshelf server. Also used for the links to Audiobookshelf on torrent pages, so use the address you open it at in a browser, such as `http://192.168.1.10:13378`, rather than a Docker service name. |
 | `token` | (required) | API token for Audiobookshelf. Treat it as a secret. |
 | `interval` | `10` | Minutes between runs of the **Audiobookshelf** job, which matches linked books to Audiobookshelf items. |
-| `path_mapping` | `{}` | Table mapping a path prefix as Fetchshelf sees it to the same location as Audiobookshelf sees it. The opposite direction from qBittorrent's [`path_mapping`](#qbittorrent). |
+| `path_mapping` | `{}` | Table mapping a path prefix as Audiobookshelf sees it to the same location as Fetchshelf sees it, in the same order as qBittorrent's [`path_mapping`](#qbittorrent). |
 
 ```toml
 [audiobookshelf]
@@ -208,16 +208,21 @@ url = "http://192.168.1.10:13378"
 token = "replace-with-your-audiobookshelf-api-token"
 
 [audiobookshelf.path_mapping]
-"/mnt/Data/media/abs" = "/media"   # Fetchshelf's path = Audiobookshelf's path
+"/media" = "/mnt/Data/media/abs"   # Audiobookshelf's path = Fetchshelf's path
 ```
 
 What it does:
 
 - The **matcher** looks for linked torrents that have no Audiobookshelf id yet, finds the Audiobookshelf
   library whose folders contain the book's library path, and stores the matching item's id. Audiobookshelf
-  must therefore see the library at the same path as Fetchshelf, or `path_mapping` must translate Fetchshelf's
-  path into Audiobookshelf's. A mapping lets Audiobookshelf mount only the library, without the downloads
-  Fetchshelf needs for hardlinking. The longest matching prefix wins, and it replaces just that prefix.
+  must therefore see the library at the same path as Fetchshelf, or `path_mapping` must say where
+  Audiobookshelf sees it. A mapping lets Audiobookshelf mount only the library, without the downloads
+  Fetchshelf needs for hardlinking. Fetchshelf translates a book's path by the longest Fetchshelf path that
+  contains it, replacing just that part.
+- **Validation.** Two Audiobookshelf paths can't map to the same Fetchshelf path. In 2026.11.5 the table was
+  read the other way round, Fetchshelf's path = Audiobookshelf's path; a table that looks written in that
+  order (its Fetchshelf side has nothing to do with any `library_dir`, while its Audiobookshelf side does)
+  stops Fetchshelf from starting, with a message saying to swap the two sides.
 - After linking, and after a metadata refresh, updated metadata is pushed to matched items.
 - When a lesser format is retired into another folder than the better copy's, and when a book is unlinked,
   its Audiobookshelf item is deleted.

@@ -17,6 +17,7 @@ public sealed class OpdsCatalog(IReadOnlyList<OpdsBook> books, IReadOnlyList<Opd
     private static readonly StringComparer NameOrder = StringComparer.Create(System.Globalization.CultureInfo.InvariantCulture, ignoreCase: true);
 
     private readonly Dictionary<string, OpdsBook> _byId = books.ToDictionary(book => book.Id, StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, OpdsCatalog> _byLibrary = new();
 
     public IReadOnlyList<OpdsBook> Books { get; } = books;
 
@@ -55,6 +56,15 @@ public sealed class OpdsCatalog(IReadOnlyList<OpdsBook> books, IReadOnlyList<Opd
 
     /// <summary>One library's books, newest first.</summary>
     public IReadOnlyList<OpdsBook> ByLibrary(int index) => Newest(Books.Where(book => book.LibraryIndex == index));
+
+    /// <summary>
+    /// The catalog of one served library, with the same views as the whole catalog; null when no served library with
+    /// books has that index. Built once per library and kept, like the catalog itself.
+    /// </summary>
+    public OpdsCatalog? ForLibrary(int index) =>
+        Libraries.FirstOrDefault(library => library.Index == index) is { } library
+            ? _byLibrary.GetOrAdd(index, _ => new OpdsCatalog(Books.Where(book => book.LibraryIndex == index).ToList(), [library]))
+            : null;
 
     /// <summary>The books with every word of <paramref name="query"/> in their title, an author or a series name, newest first.</summary>
     public IReadOnlyList<OpdsBook> Search(string query) =>

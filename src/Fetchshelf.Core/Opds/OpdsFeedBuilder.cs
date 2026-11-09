@@ -95,9 +95,22 @@ public static class OpdsFeedBuilder
                 new XAttribute("type", AcquisitionType),
                 new XAttribute("template", searchTemplate))));
 
-    /// <summary>The document as UTF-8 text with an XML declaration.</summary>
+    /// <summary>
+    /// The document as UTF-8 text with an XML declaration. Characters XML can't hold, such as a form feed in a MAM
+    /// description, are left out rather than failing the whole feed.
+    /// </summary>
     public static string Serialize(XDocument document)
     {
+        foreach (var text in document.DescendantNodes().OfType<XText>())
+        {
+            text.Value = XmlSafeText.Clean(text.Value);
+        }
+
+        foreach (var attribute in document.Descendants().Attributes())
+        {
+            attribute.Value = XmlSafeText.Clean(attribute.Value);
+        }
+
         var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false) };
         using var stream = new MemoryStream();
         using (var writer = XmlWriter.Create(stream, settings))
@@ -164,8 +177,9 @@ public static class OpdsFeedBuilder
             book.Genres.Select(genre => new XElement(Atom + "category", new XAttribute("term", genre), new XAttribute("label", genre))));
 
         // OPDS 1.2 has no series field, so the series go at the top of the description, where every reader shows them.
+        // The description is MAM's HTML, sent as plain text, since readers differ in how much HTML they show.
         var seriesLines = book.Series.Select(series => series.Entry is null ? series.Name : $"{series.Name} #{series.Entry}").ToList();
-        var text = string.Join("\n\n", new[] { string.Join("\n", seriesLines), book.Description }.Where(part => !string.IsNullOrEmpty(part)));
+        var text = string.Join("\n\n", new[] { string.Join("\n", seriesLines), DescriptionText.From(book.Description) }.Where(part => !string.IsNullOrEmpty(part)));
         if (text.Length > 0)
         {
             entry.Add(new XElement(Atom + "content", new XAttribute("type", "text"), text));

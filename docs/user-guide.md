@@ -610,12 +610,13 @@ every book. With it, Fetchshelf also:
    contains the path where Fetchshelf linked the book. If Fetchshelf's `library_dir` is
    `/media/library/audiobooks`, the simplest is to mount the same folder at `/media/library/audiobooks` in
    the Audiobookshelf container and add that folder to the Audiobookshelf library. To give Audiobookshelf
-   only the library, at a path of its own such as `/audiobooks`, add a `path_mapping` from Fetchshelf's
-   path to Audiobookshelf's (see [`[audiobookshelf]`](configuration.md#audiobookshelf)):
+   only the library, at a path of its own such as `/audiobooks`, add a `path_mapping` from Audiobookshelf's
+   path to Fetchshelf's, the same way round as qBittorrent's (see
+   [`[audiobookshelf]`](configuration.md#audiobookshelf)):
 
    ```toml
    [audiobookshelf.path_mapping]
-   "/media/library/audiobooks" = "/audiobooks"
+   "/audiobooks" = "/media/library/audiobooks"   # Audiobookshelf's path = Fetchshelf's path
    ```
 
    If the paths differ and no mapping translates them, no book is ever matched.
@@ -645,8 +646,10 @@ browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, Ky
 The catalog offers:
 
 - **Recently added,** **Authors** (each author's books by series and number) and **Series** (in series
-  order), and **Libraries** when more than one is served. Long lists come 50 to a page.
-- **Search** by title, author or series, the same way as on the **Torrents** page.
+  order), and **Libraries** when more than one is served. Each library has its own **Recently added**,
+  **Authors** and **Series**, for browsing just your comics, say. Long lists come 50 to a page.
+- **Search** by title, author or series, the same way as on the **Torrents** page. It always searches every
+  served library.
 - **Each book** with its title, authors, language and genres from MAM. Its series and number are shown at
   the start of its description, since OPDS has no series field.
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
@@ -1582,7 +1585,7 @@ author used is the **first** author.
 ### Audiobookshelf does not find a book
 
 Make sure an Audiobookshelf library contains the folder `library_dir` points to, at the same path as in
-Fetchshelf or at the path `[audiobookshelf]` `path_mapping` translates it to, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
+Fetchshelf or at the path `[audiobookshelf]` `path_mapping` maps it to, and that Audiobookshelf has scanned it. The matcher runs every `interval` minutes, or press
 **Run now** on the **Audiobookshelf** job.
 
 The log says what happened to each book:
@@ -1591,8 +1594,8 @@ The log says what happened to each book:
 - *… is not in Audiobookshelf yet* (a warning): the path fits an Audiobookshelf library, but the book is not
   there. Usually Audiobookshelf has not scanned it yet; the matcher tries again on its next run.
 - *no Audiobookshelf library has a folder containing …* (an error): Audiobookshelf sees your library at a
-  different path that no `path_mapping` translates, or the library is missing from Audiobookshelf. The path
-  in the message is the one after `path_mapping`. The job then shows *Finished with errors*.
+  different path that no `path_mapping` maps, or the library is missing from Audiobookshelf. The path in the
+  message is the one Fetchshelf expects Audiobookshelf to see, after `path_mapping`. The job then shows *Finished with errors*.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
 

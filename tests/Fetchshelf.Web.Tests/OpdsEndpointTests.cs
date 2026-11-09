@@ -36,9 +36,9 @@ public sealed class OpdsEndpointTests : IDisposable
     /// <summary>Puts a book's file in the library folder and records the torrent the way the Link job would.</summary>
     private async Task SeedAsync(
         FetchshelfWebAppFixture fixture, string hash, string title, string author = "Ann Leckie", string extension = "epub",
-        string? storedRelativePath = null, Series? series = null, DateTimeOffset? createdAt = null)
+        string? storedRelativePath = null, Series? series = null, DateTimeOffset? createdAt = null, string? libraryDir = null)
     {
-        var folder = Path.Combine(_library, author, title);
+        var folder = Path.Combine(libraryDir ?? _library, author, title);
         Directory.CreateDirectory(folder);
         var fileName = $"{title}.{extension}";
         if (extension == "epub")
@@ -164,6 +164,62 @@ public sealed class OpdsEndpointTests : IDisposable
         Assert.Equal(["Ancillary Justice", "Ancillary Sword"], Titles((await GetFeedAsync(client, Link(series.Element(Atom + "entry")!, "subsection"))).Feed));
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/opds/author?name=Nobody")).StatusCode);
+    }
+
+    [Fact]
+    public async Task EachLibrary_HasItsOwnRecentAuthorsAndSeries()
+    {
+        var ebooks = Path.Combine(_library, "ebooks");
+        var comics = Path.Combine(_library, "comics");
+        using var fixture = new FetchshelfWebAppFixture(configToml: $"""
+            mam_id = ""
+
+            [[library]]
+            name = "Ebooks"
+            category = "ebooks"
+            library_dir = "{ebooks}"
+
+            [[library]]
+            name = "Comics"
+            category = "comics"
+            library_dir = "{comics}"
+
+            [opds]
+            """);
+        await SeedAsync(fixture, "aaa111", "Ancillary Justice", libraryDir: ebooks,
+            series: new Series { Name = "Imperial Radch", Entries = [SeriesEntry.ForNumber(1, "1")] });
+        await SeedAsync(fixture, "bbb222", "Saga Vol. 1", "Brian K. Vaughan", libraryDir: comics,
+            series: new Series { Name = "Saga", Entries = [SeriesEntry.ForNumber(1, "1")] });
+        using var client = fixture.CreateClient();
+
+        var (libraries, _) = await GetFeedAsync(client, "/opds/libraries");
+        Assert.Equal(["Ebooks", "Comics"], Titles(libraries));
+        var comicsHref = Link(libraries.Elements(Atom + "entry").Last(), "subsection");
+        Assert.Equal("/opds/libraries/1", comicsHref);
+
+        var (start, kind) = await GetFeedAsync(client, comicsHref);
+        Assert.Equal("navigation", kind);
+        Assert.Equal("Comics", (string?)start.Element(Atom + "title"));
+        Assert.Equal(["Recently added", "Authors", "Series"], Titles(start));
+
+        var (recent, _) = await GetFeedAsync(client, Link(start.Elements(Atom + "entry").First(), "subsection"));
+        Assert.Equal("Recently added in Comics", (string?)recent.Element(Atom + "title"));
+        Assert.Equal(["Saga Vol. 1"], Titles(recent));
+
+        var (authors, _) = await GetFeedAsync(client, "/opds/libraries/1/authors");
+        Assert.Equal(["Brian K. Vaughan"], Titles(authors));
+        var authorHref = Link(authors.Element(Atom + "entry")!, "subsection");
+        Assert.StartsWith("/opds/libraries/1/author?name=", authorHref);
+        Assert.Equal(["Saga Vol. 1"], Titles((await GetFeedAsync(client, authorHref)).Feed));
+
+        var (series, _) = await GetFeedAsync(client, "/opds/libraries/0/series");
+        Assert.Equal(["Imperial Radch"], Titles(series));
+        Assert.Equal(["Ancillary Justice"], Titles((await GetFeedAsync(client, Link(series.Element(Atom + "entry")!, "subsection"))).Feed));
+
+        // A book of another library isn't found through this one.
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/opds/libraries/0/author?name=Brian%20K.%20Vaughan")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/opds/libraries/7")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/opds/libraries/7/recent")).StatusCode);
     }
 
     [Fact]
