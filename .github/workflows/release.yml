@@ -1,6 +1,6 @@
 # Every push to main is a release. The version and release notes come from the first "## " section of RELEASES.md.
 # Publishes ghcr.io/crimsonking60/fetchshelf:<version> and :latest, tags the commit, creates the GitHub release, and
-# merges main back into develop.
+# opens a pull request that merges main back into develop.
 name: Release
 
 on:
@@ -102,12 +102,12 @@ jobs:
             --notes-file "$RUNNER_TEMP/notes.md"
 
   back-merge:
-    name: Merge main back into develop
+    name: Open a pull request from main into develop
     needs: release
     if: needs.release.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
@@ -115,28 +115,14 @@ jobs:
           ref: develop
           fetch-depth: 0
 
-      # Keeps main an ancestor of develop, so the release commit and its notes (and a hotfix) are not lost. When the
-      # merge cannot be pushed as is, a pull request does the same job and says why.
-      - name: Merge main into develop
+      # Keeps main an ancestor of develop, so the release commit and its notes (and a hotfix) are not lost. develop
+      # only takes pull requests, so the workflow opens one and leaves the merge to a maintainer.
+      - name: Open the pull request
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          open_pull_request() {
-            echo "::warning::$1 Opening a pull request from main into develop instead."
-            existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --base develop --head main --state open --json number --jq '.[0].number // empty')
-            if [ -n "$existing" ]; then
-              echo "Pull request #$existing is already open."
-              return
-            fi
-            gh pr create --repo "$GITHUB_REPOSITORY" --base develop --head main \
-              --title "Merge release $VERSION back into develop" \
-              --body "$1 Merge this with a merge commit (not a squash), so main stays an ancestor of develop."
-          }
 
           git fetch origin main
           if git merge-base --is-ancestor origin/main HEAD; then
@@ -144,15 +130,12 @@ jobs:
             exit 0
           fi
 
-          if ! git merge --no-ff origin/main -m "Merge release $VERSION back into develop"; then
-            git merge --abort
-            open_pull_request "Merging main into develop after release $VERSION has conflicts."
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Pull request #$existing is already open."
             exit 0
           fi
 
-          if ! git push origin HEAD:develop; then
-            open_pull_request "The merge of main into develop after release $VERSION could not be pushed: develop moved on during the release, or branch protection refused it."
-            exit 0
-          fi
-
-          echo "Merged main into develop."
+          gh pr create --repo "$GITHUB_REPOSITORY" --base develop --head main \
+            --title "Merge release $VERSION back into develop" \
+            --body "Brings release $VERSION from main back into develop. Merge this with a merge commit (not a squash), so main stays an ancestor of develop."

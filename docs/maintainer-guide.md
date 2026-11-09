@@ -362,11 +362,9 @@ Release when `develop` has something worth shipping and:
 
 ### After the release
 
-1. **Check that `main` was merged back into `develop`.** The release workflow's last job does this, so `main`
-   stays an ancestor of `develop`: it pushes a merge commit "Merge release 2026.10.1 back into develop" to
-   `develop`. If it can't, because the merge has conflicts, `develop` moved on during the release, or branch
-   protection refused the push, it opens a pull request from `main` into `develop` instead and says why in a
-   warning on the workflow run. Resolve any conflicts and merge that pull request with a merge commit:
+1. **Merge `main` back into `develop`.** The release workflow's last job opens a pull request "Merge release
+   2026.10.1 back into develop" from `main` into `develop`, so `main` stays an ancestor of `develop`. It
+   doesn't merge anything itself. Resolve any conflicts and merge that pull request with a merge commit:
 
    ```sh
    gh pr list --repo crimsonking60/fetchshelf --base develop --head main
@@ -375,9 +373,6 @@ Release when `develop` has something worth shipping and:
 
    A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
    bypassing the branch rules, after making sure `develop` builds.
-
-   With the current rulesets the direct push is always refused, since `develop` only takes pull requests, so
-   expect this pull request after every release.
 
    Merging it also makes the repository try to delete its head branch, `main`. The *Never delete or rewrite
    main* ruleset refuses that (see [Branches](#branches)); check afterwards that `main` is still there:
