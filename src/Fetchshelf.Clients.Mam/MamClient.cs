@@ -31,6 +31,22 @@ public sealed partial class MamClient(
 
     private const int LoggedBodyLength = 300;
 
+    /// <summary>How long to wait before sending a request again that got no answer or a 502/503/504.</summary>
+    private static readonly TimeSpan TransientRetryDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Whether <paramref name="ex"/>, thrown by sending a request, means MAM never answered: the connection failed, or
+    /// the client's timeout ran out. A cancellation the caller asked for is not one.
+    /// </summary>
+    public static bool IsNoAnswer(Exception ex, CancellationToken cancellationToken) =>
+        ex is HttpRequestException { StatusCode: null }
+        || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested);
+
+    /// <summary>A short, readable cause for a request that got no answer.</summary>
+    public static string DescribeNoAnswer(Exception ex) => ex is TaskCanceledException
+        ? "MAM did not answer in time"
+        : $"the connection to MAM failed: {ex.Message}";
+
     private readonly ILogger<MamClient> _logger = logger ?? NullLogger<MamClient>.Instance;
     private DateTimeOffset? _forbiddenUntil;
 
@@ -71,7 +87,7 @@ public sealed partial class MamClient(
     private async Task<MamAccountState> FetchAccountStateAsync(CancellationToken cancellationToken)
     {
         using var response = await SendAsync(
-            new HttpRequestMessage(HttpMethod.Get, BuildUrl("/jsonLoad.php?snatch_summary=true")), cancellationToken);
+            () => new HttpRequestMessage(HttpMethod.Get, BuildUrl("/jsonLoad.php?snatch_summary=true")), cancellationToken);
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -97,8 +113,31 @@ public sealed partial class MamClient(
     /// An HTTP 403 throws <see cref="MamForbiddenException"/> and, unless <paramref name="pauseOnForbidden"/> is
     /// false, pauses all further MAM calls for <see cref="ForbiddenPause"/>. Torrent downloads opt out of the pause,
     /// since one refused download does not show that the session itself is dead.
+    /// A request that gets no answer (the connection fails or times out) or HTTP 502, 503 or 504 is sent once more after
+    /// <see cref="TransientRetryDelay"/>, unless <paramref name="retryTransient"/> is false: a download that spends a
+    /// wedge must not be repeated, since the first attempt may have reached MAM. The request is built by
+    /// <paramref name="createRequest"/> for each attempt, as a request message can only be sent once.
     /// </summary>
-    internal async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken, bool pauseOnForbidden = true)
+    internal async Task<HttpResponseMessage> SendAsync(
+        Func<HttpRequestMessage> createRequest, CancellationToken cancellationToken, bool pauseOnForbidden = true, bool retryTransient = true)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var mayRetry = retryTransient && attempt == 1;
+            using var request = createRequest();
+            var response = await SendOnceAsync(request, cancellationToken, pauseOnForbidden, mayRetry);
+            if (response is not null)
+            {
+                return response;
+            }
+
+            await _delay(TransientRetryDelay, cancellationToken);
+        }
+    }
+
+    /// <summary>One attempt of <see cref="SendAsync"/>; null when it failed in a way worth one more try.</summary>
+    private async Task<HttpResponseMessage?> SendOnceAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken, bool pauseOnForbidden, bool mayRetry)
     {
         ThrowIfPausedAfterForbidden();
         await ApplyRateLimitBackoffAsync(cancellationToken);
@@ -108,7 +147,26 @@ public sealed partial class MamClient(
             request.Headers.Add("Cookie", $"{CookieName}={options.MamId}");
         }
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (Exception ex) when (mayRetry && IsNoAnswer(ex, cancellationToken))
+        {
+            _logger.LogInformation(
+                "MAM {Method} {Endpoint} failed ({Reason}), trying again in {Delay} s",
+                request.Method, RedactDownloadHash(request.RequestUri?.AbsolutePath ?? "?"), DescribeNoAnswer(ex), TransientRetryDelay.TotalSeconds);
+            return null;
+        }
+
+        if (mayRetry && (int)response.StatusCode is 502 or 503 or 504)
+        {
+            await LogFailedResponseAsync(request, response, cancellationToken);
+            _logger.LogInformation("Trying again in {Delay} s", TransientRetryDelay.TotalSeconds);
+            response.Dispose();
+            return null;
+        }
 
         if (!response.IsSuccessStatusCode)
         {

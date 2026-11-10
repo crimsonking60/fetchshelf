@@ -97,12 +97,12 @@ public class MamClientForbiddenTests
     public async Task SearchAsync_ServerError_LogsWithoutConsumingTheBodyTheCallerReads()
     {
         var logger = new ListLogger();
-        var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = new StringContent("upstream down") }, logger: logger);
+        var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("upstream down") }, logger: logger);
 
         await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchAsync(new MamSearchQuery()));
 
         var message = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning).Message;
-        Assert.Contains("HTTP 502", message);
+        Assert.Contains("HTTP 500", message);
         Assert.DoesNotContain("upstream down", message);
     }
 

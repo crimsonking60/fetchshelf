@@ -17,7 +17,7 @@ public sealed partial class MamClient
             $"{options.CdnBaseUrl.TrimEnd('/')}/json/loadUserDetailsTorrents.php" +
             $"?uid={account.Uid}&iteration={page}&type={kind.ToWireValue()}&cacheTime={cacheTimestamp.ToUnixTimeSeconds()}";
 
-        using var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url), cancellationToken);
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), cancellationToken);
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);

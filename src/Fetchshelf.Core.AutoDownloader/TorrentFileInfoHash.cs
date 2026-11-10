@@ -11,6 +11,24 @@ namespace Fetchshelf.Core.AutoDownloader;
 /// </summary>
 public static class TorrentFileInfoHash
 {
+    /// <summary>
+    /// The info-hash of <paramref name="torrentBytes"/>, or false when they are not a torrent file, as when MAM answers
+    /// a stale download link with a page instead.
+    /// </summary>
+    public static bool TryCompute(byte[] torrentBytes, out string infoHash)
+    {
+        try
+        {
+            infoHash = Compute(torrentBytes);
+            return true;
+        }
+        catch (Exception ex) when (ex is FormatException or IndexOutOfRangeException or ArgumentException or OverflowException)
+        {
+            infoHash = string.Empty;
+            return false;
+        }
+    }
+
     public static string Compute(byte[] torrentBytes)
     {
         if (torrentBytes.Length == 0 || torrentBytes[0] != (byte)'d')
