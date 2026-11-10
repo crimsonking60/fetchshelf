@@ -1,5 +1,4 @@
 using System.Globalization;
-using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 
@@ -16,8 +15,8 @@ public static class SharedFilterConfigMapper
             Categories = ToCategoryFilter(config.Categories),
             Languages = config.Languages is not { Count: > 0 } ? null : config.Languages.Select(ParseLanguage).ToList(),
             Flags = config.Flags.Count == 0 ? null : ToFlagsDictionary(config.Flags),
-            MinSizeBytes = config.MinSize is null ? null : MamSizeParser.ParseBytes(config.MinSize),
-            MaxSizeBytes = config.MaxSize is null ? null : MamSizeParser.ParseBytes(config.MaxSize),
+            MinSizeBytes = config.MinSize is null ? null : ParseSize(config.MinSize),
+            MaxSizeBytes = config.MaxSize is null ? null : ParseSize(config.MaxSize),
             ExcludeUploader = config.ExcludeUploader.Count == 0 ? null : config.ExcludeUploader,
             UploadedAfter = config.UploadedAfter is null ? null : ParseDate(config.UploadedAfter),
             UploadedBefore = config.UploadedBefore is null ? null : ParseDate(config.UploadedBefore),
@@ -88,6 +87,9 @@ public static class SharedFilterConfigMapper
 
         return result;
     }
+
+    private static long ParseSize(string value) => ConfigValueValidator.TryParseSize(value)
+        ?? throw new ConfigurationException($"Invalid configuration: unrecognized size '{value}', {ConfigValueValidator.SizeExample}.");
 
     private static DateOnly ParseDate(string value) => DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
         ? date

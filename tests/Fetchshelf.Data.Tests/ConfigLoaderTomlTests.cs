@@ -16,7 +16,7 @@ public sealed class ConfigLoaderTomlTests : IDisposable
         File.WriteAllText(TomlConfigPath, """
             mam_id = "abc123"
             min_ratio = 1.5
-            ignore_torrents = ["foo", "bar"]
+            ignore_torrents = ["123456", "654321"]
 
             [[qbittorrent]]
             url = "http://localhost:8080"
@@ -36,7 +36,7 @@ public sealed class ConfigLoaderTomlTests : IDisposable
 
         Assert.Equal("abc123", settings.MamId);
         Assert.Equal(1.5, settings.MinRatio);
-        Assert.Equal(["foo", "bar"], settings.IgnoreTorrents);
+        Assert.Equal(["123456", "654321"], settings.IgnoreTorrents);
         Assert.Equal(2, settings.QBittorrent.Count);
         Assert.Equal("http://localhost:8080", settings.QBittorrent[0].Url);
         Assert.Equal("admin", settings.QBittorrent[0].Username);

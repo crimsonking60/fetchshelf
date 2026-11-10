@@ -22,36 +22,36 @@ public static class ConfigLoader
         new ConfiguredCostYamlConverter(),
     ];
 
-    private static readonly Dictionary<string, Action<FetchshelfSettings, string>> EnvironmentOverrides = new()
+    private static readonly Dictionary<string, Action<FetchshelfSettings, string, string>> EnvironmentOverrides = new()
     {
-        ["mam_id"] = (s, v) => s.MamId = v,
-        ["mam_id_file"] = (s, v) => s.MamIdFile = v,
-        ["web_host"] = (s, v) => s.WebHost = v,
-        ["web_port"] = (s, v) => s.WebPort = int.Parse(v, CultureInfo.InvariantCulture),
-        ["min_ratio"] = (s, v) => s.MinRatio = double.Parse(v, CultureInfo.InvariantCulture),
-        ["unsat_buffer"] = (s, v) => s.UnsatBuffer = int.Parse(v, CultureInfo.InvariantCulture),
-        ["wedge_buffer"] = (s, v) => s.WedgeBuffer = int.Parse(v, CultureInfo.InvariantCulture),
-        ["add_torrents_stopped"] = (s, v) => s.AddTorrentsStopped = bool.Parse(v),
-        ["download_after_selection"] = (s, v) => s.DownloadAfterSelection = bool.Parse(v),
-        ["page_explanations"] = (s, v) => s.PageExplanations = bool.Parse(v),
-        ["job_explanations"] = (s, v) => s.JobExplanations = bool.Parse(v),
-        ["development_banner"] = (s, v) => s.DevelopmentBanner = bool.Parse(v),
-        ["exclude_narrator_in_library_dir"] = (s, v) => s.ExcludeNarratorInLibraryDir = bool.Parse(v),
-        ["database_wal"] = (s, v) => s.DatabaseWal = bool.Parse(v),
-        ["metadata_json"] = (s, v) => s.MetadataJson = bool.Parse(v),
-        ["metadata_opf"] = (s, v) => s.MetadataOpf = bool.Parse(v),
-        ["link_method"] = (s, v) => s.LinkMethod = Enum.Parse<LibraryLinkMethod>(v.Replace("_", "", StringComparison.Ordinal), ignoreCase: true),
-        ["search_interval"] = (s, v) => s.SearchInterval = int.Parse(v, CultureInfo.InvariantCulture),
-        ["link_interval"] = (s, v) => s.LinkInterval = int.Parse(v, CultureInfo.InvariantCulture),
-        ["ignore_torrents"] = (s, v) => s.IgnoreTorrents = SplitList(v),
-        ["languages"] = (s, v) => s.Languages = SplitList(v),
-        ["audio_types"] = (s, v) => s.AudioTypes = SplitList(v),
-        ["ebook_types"] = (s, v) => s.EbookTypes = SplitList(v),
-        ["music_types"] = (s, v) => s.MusicTypes = SplitList(v),
-        ["radio_types"] = (s, v) => s.RadioTypes = SplitList(v),
-        ["hardcover_token"] = (s, v) => (s.Hardcover ??= new()).Token = v,
-        ["hardcover_token_file"] = (s, v) => (s.Hardcover ??= new()).TokenFile = v,
-        ["opds_libraries"] = (s, v) => (s.Opds ??= new()).Libraries = SplitList(v),
+        ["mam_id"] = (s, _, v) => s.MamId = v,
+        ["mam_id_file"] = (s, _, v) => s.MamIdFile = v,
+        ["web_host"] = (s, _, v) => s.WebHost = v,
+        ["web_port"] = (s, n, v) => s.WebPort = ParseInt(n, v),
+        ["min_ratio"] = (s, n, v) => s.MinRatio = ParseDouble(n, v),
+        ["unsat_buffer"] = (s, n, v) => s.UnsatBuffer = ParseInt(n, v),
+        ["wedge_buffer"] = (s, n, v) => s.WedgeBuffer = ParseInt(n, v),
+        ["add_torrents_stopped"] = (s, n, v) => s.AddTorrentsStopped = ParseBool(n, v),
+        ["download_after_selection"] = (s, n, v) => s.DownloadAfterSelection = ParseBool(n, v),
+        ["page_explanations"] = (s, n, v) => s.PageExplanations = ParseBool(n, v),
+        ["job_explanations"] = (s, n, v) => s.JobExplanations = ParseBool(n, v),
+        ["development_banner"] = (s, n, v) => s.DevelopmentBanner = ParseBool(n, v),
+        ["exclude_narrator_in_library_dir"] = (s, n, v) => s.ExcludeNarratorInLibraryDir = ParseBool(n, v),
+        ["database_wal"] = (s, n, v) => s.DatabaseWal = ParseBool(n, v),
+        ["metadata_json"] = (s, n, v) => s.MetadataJson = ParseBool(n, v),
+        ["metadata_opf"] = (s, n, v) => s.MetadataOpf = ParseBool(n, v),
+        ["link_method"] = (s, n, v) => s.LinkMethod = ParseLinkMethod(n, v),
+        ["search_interval"] = (s, n, v) => s.SearchInterval = ParseInt(n, v),
+        ["link_interval"] = (s, n, v) => s.LinkInterval = ParseInt(n, v),
+        ["ignore_torrents"] = (s, _, v) => s.IgnoreTorrents = SplitList(v),
+        ["languages"] = (s, _, v) => s.Languages = SplitList(v),
+        ["audio_types"] = (s, _, v) => s.AudioTypes = SplitList(v),
+        ["ebook_types"] = (s, _, v) => s.EbookTypes = SplitList(v),
+        ["music_types"] = (s, _, v) => s.MusicTypes = SplitList(v),
+        ["radio_types"] = (s, _, v) => s.RadioTypes = SplitList(v),
+        ["hardcover_token"] = (s, _, v) => (s.Hardcover ??= new()).Token = v,
+        ["hardcover_token_file"] = (s, _, v) => (s.Hardcover ??= new()).TokenFile = v,
+        ["opds_libraries"] = (s, _, v) => (s.Opds ??= new()).Libraries = SplitList(v),
     };
 
     /// <summary>
@@ -74,10 +74,12 @@ public static class ConfigLoader
         var yaml = ConvertTomlToYaml(text);
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
+        ConfigValueValidator.ValidateRanges(settings);
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
         ApplyGlobalLibraryDefaults(settings);
         ApplyGlobalLanguages(settings);
+        ConfigValueValidator.ValidateFilters(settings);
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
@@ -243,10 +245,11 @@ public static class ConfigLoader
     {
         foreach (var (key, setter) in EnvironmentOverrides)
         {
-            var value = Environment.GetEnvironmentVariable(EnvironmentVariablePrefix + key);
+            var variable = EnvironmentVariablePrefix + key;
+            var value = Environment.GetEnvironmentVariable(variable);
             if (value is not null)
             {
-                setter(settings, value);
+                setter(settings, variable, value);
             }
         }
     }
@@ -311,6 +314,32 @@ public static class ConfigLoader
             throw new ConfigurationException($"Invalid configuration: the '{setting}' '{path}' could not be read: {ex.Message}", ex);
         }
     }
+
+    private static int ParseInt(string variable, string value) =>
+        int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : throw InvalidOverride(variable, value, "a whole number");
+
+    private static double ParseDouble(string variable, string value) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : throw InvalidOverride(variable, value, "a number such as 1.5");
+
+    private static bool ParseBool(string variable, string value) =>
+        bool.TryParse(value, out var result) ? result : throw InvalidOverride(variable, value, "true or false");
+
+    private static LibraryLinkMethod ParseLinkMethod(string variable, string value) =>
+        // Enum.TryParse also takes "2" or "1, 2"; only the names count.
+        Enum.GetNames<LibraryLinkMethod>().Contains(value.Replace("_", "", StringComparison.Ordinal), StringComparer.OrdinalIgnoreCase)
+            && Enum.TryParse<LibraryLinkMethod>(value.Replace("_", "", StringComparison.Ordinal), ignoreCase: true, out var result)
+            ? result
+            : throw InvalidOverride(variable, value, $"one of {LinkMethodNames}");
+
+    private static string LinkMethodNames => string.Join(", ", Enum.GetValues<LibraryLinkMethod>()
+        .Select(method => UnderscoredNamingConvention.Instance.Apply(method.ToString())));
+
+    private static ConfigurationException InvalidOverride(string variable, string value, string expected) =>
+        new($"Invalid configuration: {variable} is '{value}'; expected {expected}.");
 
     private static List<string> SplitList(string value) =>
         value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();

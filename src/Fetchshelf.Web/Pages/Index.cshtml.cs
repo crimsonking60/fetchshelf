@@ -122,7 +122,7 @@ public class IndexModel(
             // Read alongside the MAM search, not after it, in case the page's own warm-up hasn't finished.
             var presenceTask = qbittorrentPresence.GetAsync();
             var result = await mamClient.SearchAsync(query);
-            var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
+            var wedgeOverBytes = settings.Search.WedgeOverBytes;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
             var presence = await presenceTask;
             var statusByMamId = await LoadStatusesAsync(mamIds, presence.Loaded ? presence.StateByHash : null);
@@ -403,7 +403,7 @@ public class IndexModel(
     /// <summary>A result row as it stands now, for swapping into the page after Download or Import.</summary>
     private async Task<SearchResultViewModel> BuildRowAsync(MamTorrentRecord record, bool withQBittorrent)
     {
-        var wedgeOverBytes = settings.Search.WedgeOver is { } wedgeOver ? MamSizeParser.ParseBytes(wedgeOver) : (long?)null;
+        var wedgeOverBytes = settings.Search.WedgeOverBytes;
         var statuses = await LoadStatusesAsync([record.MamId]);
         var row = SearchResultViewModel.From(
             record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
