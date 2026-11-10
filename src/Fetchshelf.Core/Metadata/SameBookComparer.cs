@@ -8,7 +8,7 @@ public static class SameBookComparer
     /// Comic Book are interchangeable); languages are equal; editions agree (both none, or both
     /// present with the same number - and if that number is 0, the labels must also match; if
     /// exactly one has an edition, they are different); they share at least one author; and either
-    /// both have no narrators or they share at least one narrator.
+    /// both have no narrators or they share at least one narrator. Names are compared by <see cref="PersonNameKey"/>.
     /// </summary>
     public static bool AreSameBook(TorrentMetadata a, TorrentMetadata b)
     {
@@ -50,8 +50,15 @@ public static class SameBookComparer
         return a.Number != 0 || string.Equals(a.Label, b.Label, StringComparison.Ordinal);
     }
 
-    private static bool ShareAtLeastOne(IReadOnlyList<string> a, IReadOnlyList<string> b) =>
-        a.Intersect(b, StringComparer.Ordinal).Any();
+    /// <summary>
+    /// Whether the two lists name one person in common, compared by <see cref="PersonNameKey"/>, so spellings that
+    /// differ only in case, spacing or punctuation agree. A name with no letters or digits matches nobody.
+    /// </summary>
+    private static bool ShareAtLeastOne(IReadOnlyList<string> a, IReadOnlyList<string> b)
+    {
+        var keys = a.Select(PersonNameKey.Of).Where(key => key.Length > 0).ToHashSet(StringComparer.Ordinal);
+        return b.Select(PersonNameKey.Of).Any(keys.Contains);
+    }
 
     private static bool NarratorsAgree(IReadOnlyList<string> a, IReadOnlyList<string> b)
     {

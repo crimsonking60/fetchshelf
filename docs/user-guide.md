@@ -203,6 +203,7 @@ Common commands, run in the folder that contains the file:
 |---|---|
 | `docker compose up -d` | Create and start the container. |
 | `docker compose logs -f fetchshelf` | Follow the log. |
+| `docker compose exec fetchshelf dotnet /app/Fetchshelf.Web.dll --check-config` | Check `config.toml` without restarting: prints what Fetchshelf would load, or why it would not start. |
 | `docker compose restart fetchshelf` | Restart, for example after editing `config.toml`. |
 | `docker compose stop` / `docker compose down` | Stop, or stop and remove the container. Your config and data stay in the mounted folders. |
 
@@ -313,7 +314,8 @@ you set `mam_id`. That is intentional: you can look around before anything happe
    **Duplicates** and **Config**. There is also a theme selector. See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
-4. Edit `config.toml` in the config folder you mounted, then restart the container.
+4. Edit `config.toml` in the config folder you mounted, check it with `--check-config` (see
+   [Configuring Fetchshelf](#configuring-fetchshelf)), then restart the container.
 
 When it is working, the **Jobs** page lists your jobs with their last run time and result, and the
 container log shows each job starting and finishing.
@@ -326,12 +328,14 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 5
   shows every option.
 - **Reference.** Every setting is described in the [configuration reference](configuration.md).
-- **Most mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
-  required value, or an unrecognized name in a `[[tag]]` rule or the top-level `languages`. The error
-  message names the problem. Check `docker logs fetchshelf`. A misspelled value in the filter of an
-  autograb, snatchlist or Hardcover list (for example a language, category or size) is only noticed when
-  that job runs: the job fails, and the **Jobs** page says why. Press **Run now** on a job after editing it
-  to check it straight away.
+- **Mistakes are caught at startup.** Fetchshelf refuses to start with a setting it does not know, a missing
+  required value, a number out of range (such as `min_ratio = 0` or a negative interval), or an unrecognized
+  name or value in any filter (for example a misspelled language, category or size). The error message names
+  the setting and the section it is in. Check `docker logs fetchshelf`.
+- **Check before restarting.** After editing `config.toml`, run
+  `docker exec fetchshelf dotnet /app/Fetchshelf.Web.dll --check-config`. It loads the file the way a restart
+  would, and prints either the libraries and jobs it found or the error that would stop Fetchshelf, without
+  touching the running instance. See [Checking a configuration](configuration.md#checking-a-configuration).
 - **Changes need a restart.** Fetchshelf reads the file when it starts. After editing it, restart the
   container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
   in the database and picked up again after the restart. A job that the restart cuts off does its work on
@@ -1032,7 +1036,10 @@ How a run works out how much it may download:
 - **Slots:** your unsatisfied limit, minus the torrents already unsatisfied, minus the buffer. That is the
   most torrents one run may select.
 - **Ratio:** free torrents cost nothing. For the others, the size must fit within
-  `(uploaded − downloaded − data still being downloaded) / min_ratio`.
+  `uploaded / min_ratio − downloaded − data still being downloaded`: the most that can be downloaded while
+  the ratio stays at `min_ratio`. With 100 GB uploaded, 40 GB downloaded and `min_ratio = 2`, that is
+  10 GB. An account at or below `min_ratio` gets no ratio budget at all. The Download job logs the budget
+  at the start of every run.
 - **Wedges:** a wedge is used only while more than `wedge_buffer` remain, so you never drop below it.
 
 When a limit is reached, the remaining torrents stay selected on the **Selected** page and are tried on the
@@ -1044,7 +1051,8 @@ Other safeguards:
 - `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
   before they start.
-- Fetchshelf only removes files it linked itself, and never overwrites another torrent's files.
+- Fetchshelf only removes files it linked itself, and never overwrites another torrent's files. Unlink, Clean
+  and Relink leave a file in place when another book in the same folder also lists it.
 
 Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` or more,
 `wedge_buffer = 5`, `cost = "free"` on your first autograb, and `dry_run = true` until the log looks right.
@@ -1071,9 +1079,19 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
 
   For example `Brandon Sanderson/Stormlight Archive/Stormlight Archive #1 - The Way of Kings {Michael Kramer}`.
   Set `exclude_narrator_in_library_dir = true` to leave the narrator out. The author is the first author.
-  A torrent with no author cannot be linked and shows up on the **Errors** page.
+  A torrent with no author cannot be linked and shows up on the **Errors** page, where **Edit** adds one.
+  When MAM gives no author but the title ends in "by" and a name, such as *Exploitation Film Posters by Graham
+  Marsh*, that name is taken as the author and removed from the title. Only a name of two to four capitalized
+  words counts, so titles like *Stand by Me* or *Murder by the Book* are left alone.
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
+- **Files with the same name.** When flattening would give two files of one torrent the same name (compared
+  ignoring case), their sub-folder names go in front: `Part 1/01.mp3` and `Part 2/01.mp3` become
+  `Part 1 - 01.mp3` and `Part 2 - 01.mp3`. When a different file of the same name is already in the book's folder,
+  such as another upload or another language of the same title, the new one is placed as `name (2).ext`. A file
+  of the same size already there counts as the same file and is left as it is.
+- **Interrupted copies.** A copy is written under a hidden temporary name and renamed when complete, so a copy
+  cut off by a restart or a full disk never sits in the library looking complete.
 - **Metadata files.** A `metadata.json` next to the files of every book, whatever its media type, and a
   `metadata.opf` in libraries that ask for one. See below.
 - **Looking torrents up on MAM.** A torrent Fetchshelf doesn't know yet is looked up on MAM by its
@@ -1186,6 +1204,14 @@ preference. If two copies of the same book are linked, the one whose format come
 kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
 same book.
 
+Two torrents count as **the same book** when their titles match, they have the same media type (ebooks and
+comics count as one), language and edition, they share an author, and they share a narrator or both have none.
+Titles are compared ignoring case, accents on Latin letters, punctuation, a leading *The*, *A* or *An*, and the
+words *Volume* and *Vol*; titles in other scripts, such as Cyrillic, Greek, Arabic, Hebrew, Chinese, Japanese or
+Korean, are compared letter for letter. Author and narrator names are compared ignoring case, spacing,
+punctuation and accents, so *J. R. R. Tolkien* and *J.R.R. Tolkien* are the same author. The same rule decides
+what a new download duplicates (see the **Duplicates** page).
+
 The replaced copy has its linked files, its folder (if empty), `cover.jpg` and its metadata files removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
 was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The
@@ -1274,7 +1300,8 @@ reported, so they cannot be chosen by hand.
   - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
     **Check qBittorrent**.
   - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
-    from qBittorrent, or either.
+    from qBittorrent, torrents removed from MAM (found by an autograb with
+    [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
 
   Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
@@ -1284,7 +1311,8 @@ reported, so they cannot be chosen by hand.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
-  *(unlinked)* after its title. **Edit** on each row opens the metadata editor.
+  *(unlinked)* after its title, and one MAM no longer has *(removed from MAM)* after its client status.
+  **Edit** on each row opens the metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
   selected** or **Remove selected**.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
@@ -1312,15 +1340,16 @@ reported, so they cannot be chosen by hand.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
-  show a library mismatch, an unlinked book and, for a replaced book, a link to the torrent that replaced
-  it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
+  show a library mismatch, an unlinked book, a book MAM no longer has (with the date that was found; the MAM
+  link stays, as MAM may say why) and, for a replaced book, a link to the torrent that replaced it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
   qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
   replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
   choose one of your libraries' categories, untick a tag to remove it, type new ones separated by commas,
   and press **Set category and tags**. A category no library uses is only offered when the torrent already
   has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
-  (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
+  (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
+  such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
   through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
   details.
 
@@ -1340,7 +1369,13 @@ torrent, the error and when it last failed. The Link job tries a failed torrent 
 entry is updated while it keeps failing and disappears once it links. The exception is *MAM has no torrent
 with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
-went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
+went stale, and couldn't be refreshed, is taken out of the queue instead; **Retry download** puts it back on the
+**Selected** page. One that MAM no longer has (deleted or merged) is taken out with that reason and has no
+**Retry download**. A download that failed because MAM couldn't be reached stays queued for the next run and gets
+no entry here; the log says why.
+A torrent that couldn't be linked because MAM gives it no author, and that Fetchshelf has no record of yet,
+has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
+creates the record. The next Link run then links it.
 Tick the entries you have dealt with and use **Remove selected**.
 
 ### Duplicates
@@ -1473,6 +1508,7 @@ What matters:
 | `config.toml` | the `/config` folder | Your settings and secrets. |
 | `data.db` | the `/database` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
 | `keys` | the `/database` folder | Keys that protect the web interface's forms. Not essential: without them, a page that was open before is refused once, and works again after a reload. |
+| `instance-id` | the `/database` folder | A random name for this installation, used in the names of the browser cookies that protect its forms, so two Fetchshelf installations on one machine (on different ports) don't overwrite each other's cookies. Not essential: a new one is made if it is missing, and a page that was open before is refused once. |
 
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
@@ -1524,7 +1560,9 @@ below). *Connection refused* means Fetchshelf is not answering at all: read `doc
 
 Run `docker logs fetchshelf`. If the message begins with *Invalid configuration*, fix the setting it names
 (a misspelled key or name, a missing `url`, a library with both or neither of `category` and
-`download_dir`, and so on) and restart.
+`download_dir`, a number out of range, and so on) and restart. While the container keeps restarting,
+`docker exec` can't reach it; check the file with a one-off container instead:
+`docker run --rm --entrypoint dotnet -v /path/to/config:/config:ro ghcr.io/crimsonking60/fetchshelf /app/Fetchshelf.Web.dll --check-config`.
 
 ### Permission errors on `/config` or `/database`
 
@@ -1543,6 +1581,11 @@ Fetchshelf then pauses its MAM requests for 30 minutes. Create a new session, up
 which also ends the pause. For rate limiting, wait: the job tries again at its next interval. A blocked
 account (HTTP 406) aborts downloads; wait and check your account on MAM.
 
+A request that gets no answer from MAM (a dropped connection, or no reply within 30 seconds) or a temporary
+server error (HTTP 502, 503 or 504) is tried once more after 2 seconds before the job gives up on it; the log
+shows *trying again in 2 s*. Downloads that spend a wedge are not tried again, since the first attempt may already
+have spent it.
+
 ### qBittorrent cannot be reached
 
 Check the `url`, user name and password, and that the Web UI is enabled. In Docker, use the service or
@@ -1558,7 +1601,9 @@ container name rather than `localhost`, and make sure both containers share a ne
   both downloads and library, or use the default `hardlink_or_copy`.
 - *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
   rules and `[[library]]` entries.
-- *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
+- *No author.* The torrent has no author in its metadata. Use **Edit** to add one: on the torrent's row on the
+  **Torrents** page, or on the **Errors** page for a torrent added in qBittorrent that Fetchshelf has no
+  record of yet.
 - *No wanted file type.* None of the torrent's files has an extension from the format list for its media
   type: `audio_types`, `ebook_types`, `music_types` or `radio_types`.
 

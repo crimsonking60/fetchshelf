@@ -26,6 +26,13 @@ if (args.Contains(HealthProbe.Argument))
     return;
 }
 
+if (args.Contains(ConfigCheck.Argument))
+{
+    Environment.ExitCode = ConfigCheck.Run(
+        Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath(), Console.Out);
+    return;
+}
+
 Log.Logger = FetchshelfLogging
     .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
@@ -61,6 +68,13 @@ builder.Services.AddDataProtection()
     .SetApplicationName("Fetchshelf")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory ?? ".", "keys")));
 
+// The two cookies those keys encrypt are named after this installation, so a second Fetchshelf on the same host
+// (browsers share cookies across ports) can't overwrite them and fail every form with HTTP 400.
+var instanceId = InstanceId.LoadOrCreate(dataFileDirectory ?? ".");
+builder.Services.AddAntiforgery(options => options.Cookie.Name = $".Fetchshelf.Antiforgery.{instanceId}");
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>(
+    options => options.Cookie.Name = $".Fetchshelf.TempData.{instanceId}");
+
 builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
 builder.Services.AddSingleton(settings);
@@ -77,7 +91,7 @@ if (settings.Opds is not null)
         Path.Combine(dataFileDirectory ?? ".", "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
 }
 
-builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId });
+builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId, UserAgent = $"Fetchshelf/{AppVersion.Current}" });
 builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 {
     var mamOptions = sp.GetRequiredService<MamClientOptions>();
@@ -250,7 +264,8 @@ var app = builder.Build();
 
 using (var startupScope = app.Services.CreateScope())
 {
-    DatabaseMigrator.Migrate(startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal);
+    DatabaseMigrator.Migrate(
+        startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal, message => Log.Information("{Upgrade}", message));
 }
 
 if (args.Contains("--update-search-title"))
@@ -258,8 +273,8 @@ if (args.Contains("--update-search-title"))
     using var maintenanceScope = app.Services.CreateScope();
     var maintenanceDbContext = maintenanceScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
     Log.Information("Update search title started");
-    await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
-    Log.Information("Update search title done");
+    var (rekeyedTorrents, rekeyedSelections) = await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
+    Log.Information("Update search title done: {Torrents} torrent and {Selections} selection keys changed", rekeyedTorrents, rekeyedSelections);
     await Log.CloseAndFlushAsync();
     return;
 }
@@ -414,27 +429,6 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
                 $"{summary.Failed} {(summary.Failed == 1 ? "torrent" : "torrents")} could not be downloaded; see the log.");
         }
     }, "Sends queued, selected torrents to qBittorrent.");
-}
-
-internal static class JobNames
-{
-    public const string Link = "Link";
-    public const string Clean = "Clean";
-    public const string Download = "Download";
-    public const string Audiobookshelf = "Audiobookshelf";
-}
-
-/// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>
-internal static class AutoDownloaderJobNames
-{
-    public static string Autograb(AutograbEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"autograb[{index}]" : entry.Name;
-
-    public static string Snatchlist(SnatchlistEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
-
-    public static string HardcoverList(HardcoverListEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"hardcover_list[{index}]" : entry.Name;
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

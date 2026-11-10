@@ -41,7 +41,7 @@ public sealed partial class MamClient
         }
 
         // A refused cover says nothing about the session, so it doesn't pause other MAM calls.
-        using var response = await SendAsync(new HttpRequestMessage(HttpMethod.Get, url), cancellationToken, pauseOnForbidden: false);
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), cancellationToken, pauseOnForbidden: false);
         var contentType = response.Content.Headers.ContentType?.MediaType;
         if (!response.IsSuccessStatusCode || contentType is null || !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
             || response.Content.Headers.ContentLength > MaxImageBytes)

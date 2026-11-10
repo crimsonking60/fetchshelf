@@ -1,0 +1,1124 @@
+#!/usr/bin/env python3
+"""Shows what a Fetchshelf installation knows, read straight from its database. See docs/fs.md."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import re
+import shutil
+import sqlite3
+import sys
+import unicodedata
+from datetime import datetime, timedelta, timezone
+
+EXIT_OK, EXIT_EMPTY, EXIT_ERROR = 0, 1, 2
+
+MAM_URL = "https://www.myanonamouse.net/t/{}"
+METADATA_ONLY_PREFIX = "mam:"
+NOT_IN_CLIENT = "not in client"
+
+EVENT_KINDS = ["grabbed", "linked", "cleaned", "updated", "removed-from-mam", "unlinked"]
+ERROR_STAGES = ["grabber", "linker", "cleaner"]
+TORRENT_STATUSES = ["linked", "waiting", "replaced", "unlinked", "metadata-only"]
+SELECTED_STATES = ["queued", "downloading", "removed"]
+FORMATS = ["table", "tsv", "csv", "json", "jsonl"]
+
+
+class UsageError(Exception):
+    pass
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Columns. Each command's rows are dicts; a column's type decides how each output format shows its value.
+# Types: str, int, id (shortened in tables), path (rewritten by --path-map), time, size, list, bool.
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class Column:
+    def __init__(self, name, kind, description, flex=False):
+        self.name, self.kind, self.description, self.flex = name, kind, description, flex
+
+
+def columns(*specs):
+    return {spec[0]: Column(*spec) for spec in specs}
+
+
+TORRENT_COLUMNS = columns(
+    ("id", "id", "Info-hash, or mam:<id> for a metadata-only record"),
+    ("mam_id", "int", "MAM torrent id"),
+    ("title", "str", "Title", True),
+    ("authors", "list", "Authors", True),
+    ("narrators", "list", "Narrators", True),
+    ("series", "list", "Series and number, e.g. \"Discworld #3\"", True),
+    ("media_type", "str", "audiobook, ebook, manga, comic-book, musicology, radio, periodical-ebook, periodical-audiobook"),
+    ("language", "str", "Language"),
+    ("status", "str", "linked, waiting, replaced, unlinked or metadata-only"),
+    ("library", "str", "Library the torrent was linked into"),
+    ("category", "str", "qBittorrent category last seen"),
+    ("client_status", "str", "qBittorrent state last seen, or \"not in client\""),
+    ("mismatch", "str", "no-library, new-library-dir or new-path when the folder no longer matches"),
+    ("format", "str", "File extension(s) chosen for the library"),
+    ("file_types", "list", "File types in the torrent"),
+    ("size", "size", "Torrent size in bytes"),
+    ("linked_size", "size", "Size of the files linked into the library, in bytes"),
+    ("files", "int", "Number of files linked into the library"),
+    ("added", "time", "When Fetchshelf first recorded the torrent"),
+    ("unlinked", "time", "When it was unlinked by hand"),
+    ("replaced", "time", "When it was replaced by a better copy"),
+    ("replaced_by", "id", "Id of the torrent that replaced it"),
+    ("abs_id", "str", "Audiobookshelf item id"),
+    ("path", "path", "Library folder", True),
+    ("url", "str", "MAM page"),
+)
+
+FILE_COLUMNS = columns(
+    ("path", "path", "Full path of the linked file", True),
+    ("size", "size", "Size in bytes when it was linked"),
+    ("exists", "bool", "Whether the file is there now (only with --missing, --present or this column)"),
+    ("id", "id", "Info-hash of its torrent"),
+    ("mam_id", "int", "MAM torrent id"),
+    ("title", "str", "Title of its torrent", True),
+    ("library", "str", "Library"),
+)
+
+EVENT_COLUMNS = columns(
+    ("event_id", "int", "Event number"),
+    ("time", "time", "When it happened"),
+    ("kind", "str", "grabbed, linked, cleaned, updated, removed-from-mam or unlinked"),
+    ("id", "id", "Info-hash of the torrent"),
+    ("mam_id", "int", "MAM torrent id"),
+    ("title", "str", "Title of the torrent, if Fetchshelf still has its record", True),
+    ("grabber", "str", "grabbed: the autograb, list or \"Manual search\" that grabbed it"),
+    ("cost", "str", "grabbed: how it was paid for"),
+    ("wedge", "bool", "grabbed: whether a freeleech wedge was used"),
+    ("library", "str", "linked, cleaned, unlinked: the library"),
+    ("path", "path", "linked, cleaned, unlinked: the library folder", True),
+    ("files_removed", "list", "cleaned, unlinked: the files removed", True),
+    ("changes", "list", "updated: \"field: from -> to\" per changed field", True),
+    ("detail", "str", "A one-line summary of the kind-specific fields", True),
+)
+
+SELECTED_COLUMNS = columns(
+    ("selected_id", "int", "Queue entry number"),
+    ("mam_id", "int", "MAM torrent id"),
+    ("title", "str", "Title", True),
+    ("authors", "list", "Authors", True),
+    ("media_type", "str", "Media type"),
+    ("state", "str", "queued, downloading or removed"),
+    ("cost", "str", "How it will be paid for"),
+    ("grabber", "str", "The autograb, list or \"Manual search\" that selected it"),
+    ("category", "str", "qBittorrent category it gets"),
+    ("tags", "list", "qBittorrent tags it gets"),
+    ("size", "size", "Torrent size in bytes"),
+    ("added", "time", "When it was selected"),
+    ("started", "time", "When it was added to qBittorrent"),
+    ("removed", "time", "When it left the queue"),
+    ("url", "str", "MAM page"),
+)
+
+ERROR_COLUMNS = columns(
+    ("error_id", "int", "Error number"),
+    ("stage", "str", "grabber, linker or cleaner"),
+    ("key", "str", "MAM id (grabber) or info-hash (linker, cleaner)"),
+    ("title", "str", "Torrent name when the error was recorded", True),
+    ("error", "str", "The error", True),
+    ("time", "time", "When it was recorded"),
+)
+
+DUPLICATE_COLUMNS = columns(
+    ("duplicate_id", "int", "Entry number"),
+    ("mam_id", "int", "MAM id of the skipped torrent"),
+    ("title", "str", "Title of the skipped torrent", True),
+    ("authors", "list", "Authors", True),
+    ("media_type", "str", "Media type"),
+    ("size", "size", "Size in bytes"),
+    ("duplicate_of", "id", "Id of the torrent already in the library"),
+    ("duplicate_of_title", "str", "Its title", True),
+    ("added", "time", "When it was skipped"),
+    ("url", "str", "MAM page of the skipped torrent"),
+)
+
+LIST_COLUMNS = columns(
+    ("list_id", "str", "List id, e.g. hardcover:status:want_to_read"),
+    ("name", "str", "Name", True),
+    ("type", "str", "Service, e.g. Hardcover"),
+    ("books", "int", "Books on the list now"),
+    ("done", "int", "Books marked done"),
+    ("removed", "int", "Books no longer on the list"),
+    ("added", "time", "When Fetchshelf first read it"),
+    ("updated", "time", "When it was last read"),
+)
+
+LIST_ITEM_COLUMNS = columns(
+    ("list_id", "str", "List id"),
+    ("position", "int", "Place on the list"),
+    ("external_id", "str", "Book id at the service"),
+    ("title", "str", "Title", True),
+    ("authors", "list", "Authors", True),
+    ("series", "str", "Series and number", True),
+    ("prefer", "str", "Preferred format: audio, ebook or empty"),
+    ("audio_status", "str", "selected, wanted, not-wanted, existing, not-found, or empty when not looked for"),
+    ("audio_mam_id", "int", "MAM id found for the audiobook"),
+    ("ebook_status", "str", "As audio_status, for the ebook"),
+    ("ebook_mam_id", "int", "MAM id found for the ebook"),
+    ("searched", "time", "When MAM was last searched for it"),
+    ("added", "time", "When it first appeared on the list"),
+    ("done", "time", "When it was marked done"),
+    ("removed", "time", "When it left the list"),
+    ("url", "str", "Book page at the service"),
+)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Value helpers
+# ---------------------------------------------------------------------------------------------------------------------
+
+TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$")
+
+
+def parse_time(text):
+    """Parses EF Core's stored DateTimeOffset text, e.g. "2026-11-07 15:04:34.3504418+00:00"."""
+    if not text:
+        return None
+    match = TIMESTAMP.match(text)
+    if not match:
+        return None
+    day, clock, fraction, offset = match.groups()
+    micro = (fraction or "0")[:6].ljust(6, "0")
+    offset = "+00:00" if offset in (None, "Z") else offset
+    if len(offset) == 5:
+        offset = offset[:3] + ":" + offset[3:]
+    return datetime.fromisoformat(f"{day}T{clock}.{micro}{offset}").astimezone(timezone.utc)
+
+
+RELATIVE = re.compile(r"^(\d+)\s*([mhdw])$")
+
+
+def parse_bound(text, option):
+    """--since/--until: an ISO date or date-time (local time unless it has an offset), or 30m, 12h, 7d, 2w ago."""
+    match = RELATIVE.match(text.strip())
+    if match:
+        amount, unit = int(match.group(1)), match.group(2)
+        delta = {"m": timedelta(minutes=amount), "h": timedelta(hours=amount),
+                 "d": timedelta(days=amount), "w": timedelta(weeks=amount)}[unit]
+        return datetime.now(timezone.utc) - delta
+    try:
+        value = datetime.fromisoformat(text.strip().replace(" ", "T").replace("Z", "+00:00"))
+    except ValueError:
+        raise UsageError(f"{option}: expected a date like 2026-11-01, a date-time, or 30m/12h/7d/2w, not {text!r}")
+    if value.tzinfo is None:
+        value = value.astimezone()  # local time
+    return value.astimezone(timezone.utc)
+
+
+def kebab(text):
+    if text is None:
+        return None
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "-", str(text)).lower()
+
+
+def loose(text):
+    """For comparing user input with enum-like values: case, dashes, underscores and spaces don't matter."""
+    return re.sub(r"[-_\s]", "", str(text or "")).lower()
+
+
+def load_json(text, fallback):
+    if not text:
+        return fallback
+    try:
+        return json.loads(text)
+    except ValueError:
+        return fallback
+
+
+def series_labels(metadata):
+    labels = []
+    for series in metadata.get("Series") or []:
+        entries = series.get("SortedEntries") or series.get("Entries") or []
+        numbers = ", ".join(e.get("Display") for e in entries if e.get("Display"))
+        labels.append(f"{series.get('Name')} #{numbers}" if numbers else str(series.get("Name")))
+    return labels
+
+
+def human_size(value):
+    if value is None:
+        return ""
+    size = float(value)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return str(value)
+
+
+def display_width(text):
+    """Columns the text takes in a terminal: East Asian wide characters take two, combining marks none."""
+    width = 0
+    for char in text:
+        if unicodedata.combining(char):
+            continue
+        width += 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+    return width
+
+
+def fit_width(text, width, align_right=False):
+    """Pads or shortens text, with a trailing ellipsis, to exactly width terminal columns."""
+    if display_width(text) > width:
+        kept, used = [], 0
+        for char in text:
+            char_width = display_width(char)
+            if used + char_width > width - 1:
+                break
+            kept.append(char)
+            used += char_width
+        text = "".join(kept) + "…"
+    padding = " " * max(width - display_width(text), 0)
+    return padding + text if align_right else text + padding
+
+
+def iso(value):
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if value else None
+
+
+def split_values(values):
+    """Repeatable, comma-separated option values: --status linked,waiting --status unlinked."""
+    result = []
+    for value in values or []:
+        result.extend(v.strip() for v in value.split(",") if v.strip())
+    return result
+
+
+def check_choices(values, allowed, option):
+    for value in values:
+        if loose(value) not in {loose(a) for a in allowed}:
+            raise UsageError(f"{option}: unknown value {value!r}; choose from {', '.join(allowed)}")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------------------------------------------------
+
+REQUIRED_TABLES = {"Torrents", "Events", "SelectedTorrents", "ErroredTorrents", "DuplicateTorrents"}
+
+
+class Database(sqlite3.Connection):
+    """A connection that also knows which tables the database has."""
+
+    tables = frozenset()
+
+
+def database_path(args):
+    path = args.db or os.environ.get("FETCHSHELF_DB") or os.environ.get("FETCHSHELF_DATA_FILE") or "data.db"
+    return os.path.expanduser(path)
+
+
+def open_database(args):
+    path = database_path(args)
+    if not os.path.isfile(path):
+        raise UsageError(f"no database at {path}; set FETCHSHELF_DB or use --db")
+    try:
+        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, factory=Database)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only = ON")
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    except sqlite3.Error as error:
+        raise UsageError(f"can't read {path}: {error}")
+    missing = REQUIRED_TABLES - tables
+    if missing:
+        raise UsageError(f"{path} is not a Fetchshelf database (no {', '.join(sorted(missing))} table)")
+    connection.tables = tables
+    return connection
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Rows
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def torrent_status(row):
+    if row["Id"].startswith(METADATA_ONLY_PREFIX):
+        return "metadata-only"
+    if row["LibraryPath"] is not None:
+        return "linked"
+    if row["UnlinkedAt"] is not None:
+        return "unlinked"
+    if row["ReplacedWithTorrentId"] is not None:
+        return "replaced"
+    return "waiting"
+
+
+def torrent_row(row):
+    metadata = load_json(row["MetadataJson"], {})
+    files = load_json(row["LinkedFilesJson"], []) or []
+    formats = [f for f in (row["ChosenAudioExtension"], row["ChosenEbookExtension"]) if f]
+    return {
+        "id": row["Id"],
+        "mam_id": row["MamId"],
+        "title": row["Title"],
+        "authors": metadata.get("Authors") or [],
+        "narrators": metadata.get("Narrators") or [],
+        "series": series_labels(metadata),
+        "media_type": kebab(metadata.get("MediaType")),
+        "language": metadata.get("Language"),
+        "status": torrent_status(row),
+        "library": row["LinkerName"],
+        "category": row["QBittorrentCategory"],
+        "client_status": row["ClientStatus"],
+        "mismatch": kebab(row["LibraryMismatchState"]),
+        "format": ", ".join(formats) or None,
+        "file_types": metadata.get("FileTypes") or [],
+        "size": metadata.get("TotalSizeBytes"),
+        "linked_size": sum(f.get("SizeBytes") or 0 for f in files) if files else None,
+        "files": len(files),
+        "added": parse_time(row["CreatedAt"]),
+        "unlinked": parse_time(row["UnlinkedAt"]),
+        "replaced": parse_time(row["ReplacedAt"]),
+        "replaced_by": row["ReplacedWithTorrentId"],
+        "abs_id": row["AbsId"],
+        "path": row["LibraryPath"],
+        "url": MAM_URL.format(row["MamId"]) if row["MamId"] else None,
+        "_files": files,
+        "_metadata": metadata,
+    }
+
+
+def all_torrents(db):
+    return [torrent_row(r) for r in db.execute("SELECT * FROM Torrents")]
+
+
+def resolve_torrent(db, ident):
+    """A full info-hash, a unique prefix of at least 4 characters, mam:<id>, or a MAM id."""
+    ident = ident.strip()
+    rows = db.execute("SELECT * FROM Torrents WHERE Id = ?", (ident.lower(),)).fetchall()
+    if not rows and ident.isdigit():
+        rows = db.execute("SELECT * FROM Torrents WHERE MamId = ?", (int(ident),)).fetchall()
+    if not rows and len(ident) >= 4 and re.fullmatch(r"[0-9a-fA-F]+", ident):
+        rows = db.execute("SELECT * FROM Torrents WHERE Id LIKE ? || '%'", (ident.lower(),)).fetchall()
+    if not rows:
+        return None
+    if len(rows) > 1:
+        choices = "\n".join(f"  {r['Id']}  {r['Title']}" for r in rows)
+        raise UsageError(f"{ident!r} matches {len(rows)} torrents; use more of the info-hash:\n{choices}")
+    return torrent_row(rows[0])
+
+
+def matches_text(value, needle):
+    if value is None:
+        return False
+    if isinstance(value, list):
+        return any(needle in str(v).lower() for v in value)
+    return needle in str(value).lower()
+
+
+def filter_torrents(rows, args):
+    statuses = split_values(args.status)
+    check_choices(statuses, TORRENT_STATUSES + ["not-linked"], "--status")
+    wanted = {loose(s) for s in statuses}
+    if loose("not-linked") in wanted:
+        wanted |= {loose(s) for s in TORRENT_STATUSES if s != "linked"}
+    problems = split_values(args.problem)
+    check_choices(problems, ["any", "mismatch", "not-in-client"], "--problem")
+
+    def keep(t):
+        if wanted and loose(t["status"]) not in wanted:
+            return False
+        if problems:
+            mismatch, gone = t["mismatch"] is not None, t["client_status"] == NOT_IN_CLIENT
+            if not any({"any": mismatch or gone, "mismatch": mismatch, "notinclient": gone}[loose(p)]
+                       for p in problems):
+                return False
+        for option, field in (("library", "library"), ("category", "category"),
+                              ("media_type", "media_type"), ("language", "language")):
+            values = split_values(getattr(args, option))
+            if values and loose(t[field]) not in {loose(v) for v in values}:
+                return False
+        if args.author and not matches_text(t["authors"], args.author.lower()):
+            return False
+        if args.series and not matches_text(t["series"], args.series.lower()):
+            return False
+        if args.query:
+            needle = " ".join(args.query).lower()
+            if not any(matches_text(t[f], needle) for f in ("title", "authors", "narrators", "series", "id")):
+                return False
+        return True
+
+    return [t for t in rows if keep(t)]
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class Output:
+    def __init__(self, args):
+        self.args = args
+        self.format = args.format or ("table" if sys.stdout.isatty() else "tsv")
+        self.path_maps = []
+        for item in args.path_map or []:
+            if "=" not in item:
+                raise UsageError(f"--path-map: expected FROM=TO, not {item!r}")
+            source, target = item.split("=", 1)
+            self.path_maps.append((source.rstrip("/"), target.rstrip("/")))
+
+    def map_path(self, path):
+        if not path:
+            return path
+        for source, target in sorted(self.path_maps, key=lambda m: -len(m[0])):
+            if path == source or path.startswith(source + "/"):
+                return target + path[len(source):]
+        return path
+
+    def value(self, column, value, for_format):
+        if column.kind == "path":
+            value = self.map_path(value)
+        if for_format in ("json", "jsonl"):
+            if column.kind == "time":
+                return iso(value)
+            return value
+        if value is None:
+            return ""
+        if column.kind == "time":
+            return value.astimezone().strftime("%Y-%m-%d %H:%M") if for_format == "table" else iso(value)
+        if column.kind == "size" and for_format == "table":
+            return human_size(value)
+        if column.kind == "id" and for_format == "table" and not self.args.full_ids:
+            text = str(value)
+            return text if text.startswith(METADATA_ONLY_PREFIX) else text[:10]
+        if column.kind == "list":
+            return ", ".join(str(v) for v in value) if for_format == "table" else "; ".join(str(v) for v in value)
+        if column.kind == "bool":
+            if for_format == "table":
+                return "yes" if value else "no"
+            return "true" if value else "false"
+        text = str(value)
+        if for_format != "csv":
+            text = re.sub(r"[\t\r\n]+", " ", text)
+        return text
+
+    def pick_columns(self, available, default, id_column):
+        requested = self.args.columns
+        if requested == "help":
+            width = max(len(n) for n in available)
+            for name, column in available.items():
+                print(f"{name.ljust(width)}  {column.description}")
+            raise SystemExit(EXIT_OK)
+        if self.args.ids_only:
+            return [available[id_column]]
+        if requested:
+            names = split_values([requested])
+            if names == ["all"]:
+                return list(available.values())
+            unknown = [n for n in names if n not in available]
+            if unknown:
+                raise UsageError(f"--columns: unknown column(s) {', '.join(unknown)}; see --columns help")
+            return [available[n] for n in names]
+        if self.format in ("json", "jsonl"):
+            return list(available.values())
+        return [available[n] for n in default]
+
+    def sort(self, rows, available, default_key, default_reverse=False):
+        key = self.args.sort or default_key
+        if key not in available:
+            raise UsageError(f"--sort: unknown column {key!r}; see --columns help")
+        column = available[key]
+
+        def sort_key(row):
+            value = row.get(key)
+            if value is None:
+                return (1, "")
+            if column.kind == "list":
+                value = ", ".join(str(v) for v in value).lower()
+            elif isinstance(value, str):
+                value = value.lower()
+            return (0, value)
+
+        reverse = default_reverse if not self.args.sort else False
+        if self.args.reverse:
+            reverse = not reverse
+        present = [r for r in rows if r.get(key) is not None]
+        missing = [r for r in rows if r.get(key) is None]
+        return sorted(present, key=sort_key, reverse=reverse) + missing
+
+    def emit(self, rows, available, default_columns, default_sort, default_reverse=False, id_column="id"):
+        """Sorts, limits and prints rows. Returns the exit status: 1 when nothing matched.
+
+        With no default_sort, the rows keep their order unless --sort is given."""
+        if self.args.count:
+            print(len(rows))
+            return EXIT_OK
+        chosen = self.pick_columns(available, default_columns, id_column)
+        if default_sort is None and not self.args.sort:
+            rows = list(reversed(rows)) if self.args.reverse else rows
+        else:
+            rows = self.sort(rows, available, default_sort, default_reverse)
+        if self.args.limit is not None:
+            rows = rows[: self.args.limit]
+        if self.args.ids_only:
+            self.write_lines([self.value(chosen[0], r.get(chosen[0].name), "tsv") for r in rows])
+        elif self.format == "json":
+            json.dump([{c.name: self.value(c, r.get(c.name), "json") for c in chosen} for r in rows],
+                      sys.stdout, indent=2, ensure_ascii=False)
+            print()
+        elif self.format == "jsonl":
+            for r in rows:
+                print(json.dumps({c.name: self.value(c, r.get(c.name), "json") for c in chosen}, ensure_ascii=False))
+        elif self.format == "csv":
+            writer = csv.writer(sys.stdout, lineterminator="\n")
+            if not self.args.no_header:
+                writer.writerow([c.name for c in chosen])
+            for r in rows:
+                writer.writerow([self.value(c, r.get(c.name), "csv") for c in chosen])
+        elif self.format == "tsv":
+            lines = ["\t".join(self.value(c, r.get(c.name), "tsv") for c in chosen) for r in rows]
+            if self.args.header:
+                lines.insert(0, "\t".join(c.name for c in chosen))
+            self.write_lines(lines)
+        else:
+            self.table(chosen, [[self.value(c, r.get(c.name), "table") for c in chosen] for r in rows])
+        return EXIT_OK if rows else EXIT_EMPTY
+
+    def write_lines(self, lines):
+        end = "\0" if self.args.null else "\n"
+        for line in lines:
+            sys.stdout.write(line + end)
+
+    def table(self, chosen, cells):
+        if not cells:
+            return
+        headers = [c.name.upper() for c in chosen]
+        widths = [max([len(h)] + [display_width(row[i]) for row in cells]) for i, h in enumerate(headers)]
+        if sys.stdout.isatty() and not self.args.wide:
+            available = shutil.get_terminal_size((120, 24)).columns - 2 * (len(widths) - 1)
+            flexible = [i for i, c in enumerate(chosen) if c.flex]
+            while sum(widths) > available and flexible:
+                widest = max(flexible, key=lambda i: widths[i])
+                floor = max(len(headers[widest]), 12)
+                if widths[widest] <= floor:
+                    flexible.remove(widest)
+                    continue
+                widths[widest] -= 1
+        right = [c.kind in ("int", "size") for c in chosen]
+
+        lines = []
+        if not self.args.no_header:
+            lines.append("  ".join(fit_width(h, w, r) for h, w, r in zip(headers, widths, right)).rstrip())
+        for row in cells:
+            lines.append("  ".join(fit_width(v, w, r) for v, w, r in zip(row, widths, right)).rstrip())
+        self.write_lines(lines)
+
+
+def within(value, args):
+    if args.since and (value is None or value < args.since):
+        return False
+    if args.until and (value is None or value >= args.until):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def cmd_torrents(db, args, out):
+    rows = [t for t in filter_torrents(all_torrents(db), args) if within(t["added"], args)]
+    return out.emit(rows, TORRENT_COLUMNS, ["id", "mam_id", "title", "authors", "status", "library", "added"], "title")
+
+
+def cmd_torrent(db, args, out):
+    torrent = resolve_torrent(db, args.torrent)
+    if torrent is None:
+        print(f"fs: no torrent matches {args.torrent!r}", file=sys.stderr)
+        return EXIT_EMPTY
+    events = [event_row(r, {torrent["id"]: torrent["title"]})
+              for r in db.execute("SELECT * FROM Events WHERE TorrentId = ? ORDER BY Id", (torrent["id"],))]
+    errors = [error_row(r) for r in db.execute(
+        "SELECT * FROM ErroredTorrents WHERE Key = ? OR Key = ? ORDER BY OccurredAt",
+        (torrent["id"], str(torrent["mam_id"])))]
+    duplicates = [r["MamId"] for r in db.execute(
+        "SELECT MamId FROM DuplicateTorrents WHERE DuplicateOfTorrentId = ?", (torrent["id"],))]
+    files = [{"path": out.map_path(os.path.join(torrent["path"], f.get("RelativePath", ""))) if torrent["path"]
+              else f.get("RelativePath"), "size": f.get("SizeBytes")} for f in torrent["_files"]]
+
+    if out.format in ("json", "jsonl"):
+        record = {c.name: out.value(c, torrent[c.name], "json") for c in TORRENT_COLUMNS.values()}
+        record.update({
+            "description": torrent["_metadata"].get("Description"),
+            "linked_files": files,
+            "events": [{c.name: out.value(c, e[c.name], "json") for c in EVENT_COLUMNS.values()} for e in events],
+            "errors": [{c.name: out.value(c, e[c.name], "json") for c in ERROR_COLUMNS.values()} for e in errors],
+            "duplicates_skipped": duplicates,
+            "metadata": torrent["_metadata"],
+        })
+        print(json.dumps(record, indent=2 if out.format == "json" else None, ensure_ascii=False))
+        return EXIT_OK
+
+    pretty = out.format == "table"
+    args.full_ids = True
+    fields = [(c.name, out.value(c, torrent[c.name], "table" if pretty else "tsv")) for c in TORRENT_COLUMNS.values()]
+    if not pretty:
+        for name, value in fields:
+            print(f"{name}\t{value}")
+        for f in files:
+            print(f"file\t{f['path']}")
+        for e in events:
+            print(f"event\t{iso(e['time'])} {e['kind']} {e['detail']}".rstrip())
+        for e in errors:
+            print(f"error\t{e['stage']}: {e['error']}")
+        return EXIT_OK
+    width = max(len(n) for n, _ in fields)
+    for name, value in fields:
+        if value != "" and not (name == "files" and value == "0"):
+            print(f"{name.ljust(width)}  {value}")
+    if files:
+        print("\nLinked files")
+        for f in files:
+            print(f"  {f['path']}  ({human_size(f['size'])})")
+    if events:
+        print("\nEvents")
+        for e in events:
+            print(f"  {e['time'].astimezone().strftime('%Y-%m-%d %H:%M')}  {e['kind']:<16} {e['detail']}".rstrip())
+    if errors:
+        print("\nErrors")
+        for e in errors:
+            print(f"  {e['time'].astimezone().strftime('%Y-%m-%d %H:%M')}  {e['stage']}: {e['error']}")
+    if duplicates:
+        print("\nDuplicates skipped in its favour")
+        for mam_id in duplicates:
+            print(f"  {MAM_URL.format(mam_id)}")
+    return EXIT_OK
+
+
+def cmd_files(db, args, out):
+    if not args.status:
+        args.status = ["linked"]
+    rows = []
+    check = args.missing or args.present or (args.columns and "exists" in split_values([args.columns]))
+    for t in filter_torrents(all_torrents(db), args):
+        if not within(t["added"], args) or not t["path"]:
+            continue
+        for f in t["_files"]:
+            path = os.path.join(t["path"], f.get("RelativePath", ""))
+            row = {"path": path, "size": f.get("SizeBytes"), "id": t["id"], "mam_id": t["mam_id"],
+                   "title": t["title"], "library": t["library"], "exists": None}
+            if check:
+                row["exists"] = os.path.lexists(out.map_path(path))
+                if (args.missing and row["exists"]) or (args.present and not row["exists"]):
+                    continue
+            rows.append(row)
+    return out.emit(rows, FILE_COLUMNS, ["path"], "path", id_column="path")
+
+
+def event_row(row, titles):
+    kind = EVENT_KINDS[row["Kind"]] if 0 <= row["Kind"] < len(EVENT_KINDS) else str(row["Kind"])
+    removed = load_json(row["FilesRemovedJson"], None)
+    changes = [f"{c.get('Field')}: {c.get('From')} -> {c.get('To')}" for c in load_json(row["FieldChangesJson"], [])]
+    if kind == "grabbed":
+        detail = " ".join(p for p in (row["GrabberName"], f"({kebab(row['Cost'])})" if row["Cost"] else None,
+                                      "wedge" if row["WedgeUsed"] else None) if p)
+    elif kind == "updated":
+        detail = "; ".join(changes)
+    elif kind in ("linked", "cleaned", "unlinked"):
+        detail = row["LibraryPath"] or ""
+        if removed:
+            detail = (detail + f" ({len(removed)} file(s) removed)").strip()
+    else:
+        detail = ""
+    return {
+        "event_id": row["Id"],
+        "time": parse_time(row["OccurredAt"]),
+        "kind": kind,
+        "id": row["TorrentId"],
+        "mam_id": row["MamId"],
+        "title": titles.get(row["TorrentId"]),
+        "grabber": row["GrabberName"],
+        "cost": kebab(row["Cost"]),
+        "wedge": None if row["WedgeUsed"] is None else bool(row["WedgeUsed"]),
+        "library": row["LinkerName"],
+        "path": row["LibraryPath"],
+        "files_removed": removed if removed is not None else [],
+        "changes": changes,
+        "detail": detail,
+    }
+
+
+def cmd_events(db, args, out):
+    kinds = split_values(args.kind)
+    check_choices(kinds, EVENT_KINDS, "--kind")
+    sql, params = "SELECT * FROM Events", []
+    if args.torrent:
+        torrent = resolve_torrent(db, args.torrent)
+        if torrent is not None:
+            sql, params = sql + " WHERE TorrentId = ?", [torrent["id"]]
+        elif args.torrent.isdigit():
+            sql, params = sql + " WHERE MamId = ?", [int(args.torrent)]
+        else:
+            sql, params = sql + " WHERE TorrentId LIKE ? || '%'", [args.torrent.lower()]
+    titles = {r["Id"]: r["Title"] for r in db.execute("SELECT Id, Title FROM Torrents")}
+    rows = [event_row(r, titles) for r in db.execute(sql, params)]
+    rows = [e for e in rows if within(e["time"], args) and (not kinds or loose(e["kind"]) in {loose(k) for k in kinds})]
+    if args.query:
+        needle = " ".join(args.query).lower()
+        rows = [e for e in rows if any(matches_text(e[f], needle) for f in ("title", "detail", "id"))]
+    return out.emit(rows, EVENT_COLUMNS, ["time", "kind", "mam_id", "title", "detail"], "event_id", True)
+
+
+def selected_row(row):
+    metadata = load_json(row["MetadataJson"], {})
+    state = "removed" if row["RemovedAt"] else "downloading" if row["StartedAt"] else "queued"
+    return {
+        "selected_id": row["Id"],
+        "mam_id": row["MamId"],
+        "title": metadata.get("Title"),
+        "authors": metadata.get("Authors") or [],
+        "media_type": kebab(metadata.get("MediaType")),
+        "state": state,
+        "cost": kebab(row["CostDecision"]),
+        "grabber": row["GrabberName"],
+        "category": row["Category"],
+        "tags": load_json(row["TagsJson"], []) or [],
+        "size": metadata.get("TotalSizeBytes"),
+        "added": parse_time(row["CreatedAt"]),
+        "started": parse_time(row["StartedAt"]),
+        "removed": parse_time(row["RemovedAt"]),
+        "url": MAM_URL.format(row["MamId"]),
+    }
+
+
+def cmd_selected(db, args, out):
+    states = split_values(args.state) or ["queued", "downloading"]
+    if states == ["all"]:
+        states = SELECTED_STATES
+    check_choices(states, SELECTED_STATES, "--state")
+    rows = [selected_row(r) for r in db.execute("SELECT * FROM SelectedTorrents")]
+    rows = [s for s in rows if s["state"] in states and within(s["added"], args)]
+    grabbers = split_values(args.grabber)
+    if grabbers:
+        rows = [s for s in rows if loose(s["grabber"]) in {loose(g) for g in grabbers}]
+    if args.query:
+        needle = " ".join(args.query).lower()
+        rows = [s for s in rows if any(matches_text(s[f], needle) for f in ("title", "authors"))]
+    return out.emit(rows, SELECTED_COLUMNS, ["selected_id", "mam_id", "title", "state", "cost", "grabber", "added"],
+                    "selected_id", id_column="mam_id")
+
+
+def error_row(row):
+    stage = ERROR_STAGES[row["Stage"]] if 0 <= row["Stage"] < len(ERROR_STAGES) else str(row["Stage"])
+    title = row["Title"] if "Title" in row.keys() else None
+    if not title:
+        title = load_json(row["DisplayMetadataJson"], {}).get("Title")
+    return {"error_id": row["Id"], "stage": stage, "key": row["Key"], "title": title,
+            "error": row["ErrorText"], "time": parse_time(row["OccurredAt"])}
+
+
+def cmd_errors(db, args, out):
+    stages = split_values(args.stage)
+    check_choices(stages, ERROR_STAGES, "--stage")
+    rows = [error_row(r) for r in db.execute("SELECT * FROM ErroredTorrents")]
+    rows = [e for e in rows if within(e["time"], args) and (not stages or e["stage"] in stages)]
+    return out.emit(rows, ERROR_COLUMNS, ["time", "stage", "key", "title", "error"], "time", True,
+                    id_column="key")
+
+
+def cmd_duplicates(db, args, out):
+    titles = {r["Id"]: r["Title"] for r in db.execute("SELECT Id, Title FROM Torrents")}
+    rows = []
+    for r in db.execute("SELECT * FROM DuplicateTorrents"):
+        metadata = load_json(r["MetadataJson"], {})
+        rows.append({
+            "duplicate_id": r["Id"], "mam_id": r["MamId"], "title": metadata.get("Title"),
+            "authors": metadata.get("Authors") or [], "media_type": kebab(metadata.get("MediaType")),
+            "size": metadata.get("TotalSizeBytes"), "duplicate_of": r["DuplicateOfTorrentId"],
+            "duplicate_of_title": titles.get(r["DuplicateOfTorrentId"]), "added": parse_time(r["CreatedAt"]),
+            "url": MAM_URL.format(r["MamId"]),
+        })
+    rows = [d for d in rows if within(d["added"], args)]
+    return out.emit(rows, DUPLICATE_COLUMNS, ["added", "mam_id", "title", "duplicate_of", "duplicate_of_title"],
+                    "added", True, id_column="mam_id")
+
+
+def require_lists(db):
+    if not {"Lists", "ListItems"} <= db.tables:
+        raise UsageError("this database has no lists; it predates Hardcover list support")
+
+
+def cmd_lists(db, args, out):
+    require_lists(db)
+    rows = []
+    for r in db.execute("""
+            SELECT l.*,
+                   SUM(i.ExternalId IS NOT NULL AND i.RemovedAt IS NULL) AS Books,
+                   SUM(i.MarkedDoneAt IS NOT NULL) AS Done,
+                   SUM(i.RemovedAt IS NOT NULL) AS Removed
+            FROM Lists l LEFT JOIN ListItems i ON i.ListId = l.Id
+            GROUP BY l.Id"""):
+        rows.append({"list_id": r["Id"], "name": r["Name"], "type": r["ListType"], "books": r["Books"] or 0,
+                     "done": r["Done"] or 0, "removed": r["Removed"] or 0,
+                     "added": parse_time(r["CreatedAt"]), "updated": parse_time(r["UpdatedAt"])})
+    return out.emit(rows, LIST_COLUMNS, ["list_id", "name", "books", "done", "updated"], "name",
+                    id_column="list_id")
+
+
+def cmd_list_items(db, args, out):
+    require_lists(db)
+    statuses = split_values(args.status)
+    allowed = ["selected", "wanted", "not-wanted", "existing", "not-found", "none"]
+    check_choices(statuses, allowed, "--status")
+    rows = []
+    for r in db.execute("SELECT * FROM ListItems"):
+        series = r["SeriesName"]
+        if series and r["SeriesNumber"] is not None:
+            series += f" #{r['SeriesNumber']:g}"
+        rows.append({
+            "list_id": r["ListId"], "position": r["Position"], "external_id": r["ExternalId"],
+            "title": r["BookTitle"], "authors": load_json(r["AuthorsJson"], []), "series": series,
+            "prefer": loose(r["PreferFormat"]) or None,
+            "audio_status": kebab(r["AudioStatus"]) if r["AllowAudio"] else None, "audio_mam_id": r["AudioMamId"],
+            "ebook_status": kebab(r["EbookStatus"]) if r["AllowEbook"] else None, "ebook_mam_id": r["EbookMamId"],
+            "searched": parse_time(r["LastSearchedAt"]), "added": parse_time(r["CreatedAt"]),
+            "done": parse_time(r["MarkedDoneAt"]), "removed": parse_time(r["RemovedAt"]), "url": r["BookUrl"],
+        })
+    if args.list:
+        rows = [i for i in rows if i["list_id"] == args.list or loose(i["list_id"]).endswith(loose(args.list))]
+    if not args.all:
+        rows = [i for i in rows if i["done"] is None and i["removed"] is None]
+    if statuses:
+        wanted = {loose(s) for s in statuses}
+        rows = [i for i in rows
+                if loose(i["audio_status"] or "none") in wanted or loose(i["ebook_status"] or "none") in wanted]
+    if args.query:
+        needle = " ".join(args.query).lower()
+        rows = [i for i in rows if any(matches_text(i[f], needle) for f in ("title", "authors", "series"))]
+    rows = [i for i in rows if within(i["added"], args)]
+    return out.emit(rows, LIST_ITEM_COLUMNS,
+                    ["list_id", "position", "title", "authors", "audio_status", "ebook_status"], "position",
+                    id_column="external_id")
+
+
+def cmd_stats(db, args, out):
+    torrents = all_torrents(db)
+
+    def tally(field):
+        counts = {}
+        for t in torrents:
+            key = t[field] if t[field] is not None else "(none)"
+            counts[key] = counts.get(key, 0) + 1
+        return dict(sorted(counts.items(), key=lambda kv: (-kv[1], str(kv[0]))))
+
+    selected = [selected_row(r) for r in db.execute("SELECT * FROM SelectedTorrents")]
+    errors = [error_row(r) for r in db.execute("SELECT * FROM ErroredTorrents")]
+    last_event = db.execute("SELECT MAX(OccurredAt) FROM Events").fetchone()[0]
+    migration = db.execute("SELECT MAX(MigrationId) FROM __EFMigrationsHistory").fetchone()[0] \
+        if "__EFMigrationsHistory" in db.tables else None
+    path = database_path(args)
+    stats = {
+        "database": os.path.abspath(path),
+        "database_size": os.path.getsize(path),
+        "schema": migration,
+        "torrents": len(torrents),
+        "by_status": tally("status"),
+        "by_media_type": tally("media_type"),
+        "by_library": tally("library"),
+        "linked_files": sum(t["files"] for t in torrents),
+        "linked_size": sum(t["linked_size"] or 0 for t in torrents),
+        "mismatched": sum(1 for t in torrents if t["mismatch"]),
+        "not_in_client": sum(1 for t in torrents if t["client_status"] == NOT_IN_CLIENT),
+        "queued": sum(1 for s in selected if s["state"] == "queued"),
+        "downloading": sum(1 for s in selected if s["state"] == "downloading"),
+        "errors": {stage: sum(1 for e in errors if e["stage"] == stage) for stage in ERROR_STAGES},
+        "duplicates": db.execute("SELECT COUNT(*) FROM DuplicateTorrents").fetchone()[0],
+        "events": db.execute("SELECT COUNT(*) FROM Events").fetchone()[0],
+        "last_event": iso(parse_time(last_event)),
+        "lists": db.execute("SELECT COUNT(*) FROM Lists").fetchone()[0] if "Lists" in db.tables else 0,
+    }
+    if out.format in ("json", "jsonl"):
+        print(json.dumps(stats, indent=2 if out.format == "json" else None, ensure_ascii=False))
+        return EXIT_OK
+
+    flat = []
+    for key, value in stats.items():
+        if isinstance(value, dict):
+            flat.extend((f"{key}.{k}", v) for k, v in value.items())
+        else:
+            flat.append((key, value))
+    if out.format == "table":
+        width = max(len(k) for k, _ in flat)
+        for key, value in flat:
+            if key.endswith("_size") and isinstance(value, int):
+                value = f"{human_size(value)} ({value} bytes)"
+            print(f"{key.ljust(width)}  {'' if value is None else value}")
+    elif out.format == "csv":
+        writer = csv.writer(sys.stdout, lineterminator="\n")
+        if not args.no_header:
+            writer.writerow(["key", "value"])
+        writer.writerows(flat)
+    else:
+        out.write_lines([f"{k}\t{'' if v is None else v}" for k, v in flat])
+    return EXIT_OK
+
+
+def cmd_sql(db, args, out):
+    try:
+        cursor = db.execute(" ".join(args.query))
+    except sqlite3.Error as error:
+        raise UsageError(f"sql: {error}")
+    names = [d[0] for d in cursor.description or []]
+    if not names:
+        return EXIT_EMPTY
+    available = {n: Column(n, "str", n, True) for n in names}
+    rows = [dict(zip(names, r)) for r in cursor.fetchall()]
+    return out.emit(rows, available, names, None, id_column=names[0])
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Arguments
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def build_parser():
+    common = argparse.ArgumentParser(add_help=False)
+    group = common.add_argument_group("common options")
+    group.add_argument("--db", metavar="FILE", default=argparse.SUPPRESS,
+                       help="database file (default: $FETCHSHELF_DB, then $FETCHSHELF_DATA_FILE, then ./data.db)")
+    group.add_argument("-f", "--format", choices=FORMATS, default=argparse.SUPPRESS,
+                       help="output format (default: table on a terminal, tsv otherwise)")
+    group.add_argument("--json", dest="format", action="store_const", const="json", default=argparse.SUPPRESS,
+                       help="same as --format json")
+    group.add_argument("-c", "--columns", metavar="LIST", default=argparse.SUPPRESS,
+                       help="comma-separated columns to show, \"all\", or \"help\" to list them")
+    group.add_argument("-q", "--ids", dest="ids_only", action="store_true", default=argparse.SUPPRESS,
+                       help="print only each row's identifier (info-hash, path or MAM id), one per line")
+    group.add_argument("-n", "--count", action="store_true", default=argparse.SUPPRESS,
+                       help="print only the number of matching rows")
+    group.add_argument("-s", "--sort", metavar="COLUMN", default=argparse.SUPPRESS, help="sort by this column")
+    group.add_argument("-r", "--reverse", action="store_true", default=argparse.SUPPRESS, help="reverse the order")
+    group.add_argument("-l", "--limit", metavar="N", type=int, default=argparse.SUPPRESS,
+                       help="show at most N rows, after sorting")
+    group.add_argument("--since", metavar="WHEN", default=argparse.SUPPRESS,
+                       help="only rows from WHEN on: 2026-11-01, 2026-11-01T18:00, or 30m, 12h, 7d, 2w ago")
+    group.add_argument("--until", metavar="WHEN", default=argparse.SUPPRESS, help="only rows before WHEN")
+    group.add_argument("--header", action="store_true", default=argparse.SUPPRESS,
+                       help="print a header line in tsv output")
+    group.add_argument("--no-header", action="store_true", default=argparse.SUPPRESS,
+                       help="leave out the header line in table and csv output")
+    group.add_argument("-0", "--null", action="store_true", default=argparse.SUPPRESS,
+                       help="end tsv and --ids lines with NUL instead of newline, for xargs -0")
+    group.add_argument("-w", "--wide", action="store_true", default=argparse.SUPPRESS,
+                       help="don't shorten table columns to fit the terminal")
+    group.add_argument("--full-ids", action="store_true", default=argparse.SUPPRESS,
+                       help="show whole info-hashes in tables, not the first 10 characters")
+    group.add_argument("--path-map", metavar="FROM=TO", action="append", default=argparse.SUPPRESS,
+                       help="rewrite paths starting with FROM to start with TO (repeatable), e.g. "
+                            "/media=/srv/media when the database comes from a container")
+
+    parser = argparse.ArgumentParser(
+        prog="fs", parents=[common],
+        description="Shows what a Fetchshelf installation knows, read straight from its database (read-only).",
+        epilog="Run 'fs COMMAND --help' for a command's own options. Exit status: 0 when something was found, "
+               "1 when nothing matched, 2 on errors. See docs/fs.md.")
+    commands = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    def add(name, function, help_text, aliases=()):
+        sub = commands.add_parser(name, parents=[common], help=help_text, description=help_text, aliases=list(aliases))
+        sub.set_defaults(function=function)
+        return sub
+
+    def torrent_filters(sub):
+        f = sub.add_argument_group("filters (repeat an option or separate values with commas to allow several)")
+        f.add_argument("query", nargs="*", help="text in the title, authors, narrators, series or info-hash")
+        f.add_argument("--status", action="append", metavar="STATUS",
+                       help=f"{', '.join(TORRENT_STATUSES)}, or not-linked for all but linked")
+        f.add_argument("--problem", action="append", metavar="PROBLEM", help="any, mismatch or not-in-client")
+        f.add_argument("--library", action="append", metavar="NAME", help="library name")
+        f.add_argument("--category", action="append", metavar="NAME", help="qBittorrent category")
+        f.add_argument("--media-type", action="append", metavar="TYPE", help="e.g. audiobook, ebook, manga")
+        f.add_argument("--language", action="append", metavar="LANGUAGE", help="e.g. English")
+        f.add_argument("--author", metavar="TEXT", help="text in an author's name")
+        f.add_argument("--series", metavar="TEXT", help="text in a series name")
+
+    torrent_filters(add("torrents", cmd_torrents, "list torrents Fetchshelf has a record of", ["t"]))
+
+    sub = add("torrent", cmd_torrent, "show everything about one torrent", ["show"])
+    sub.add_argument("torrent", help="info-hash, a unique prefix of it (4+ characters), mam:<id>, or a MAM id")
+
+    sub = add("files", cmd_files, "list the files linked into the libraries")
+    torrent_filters(sub)
+    sub.add_argument("--missing", action="store_true", help="only files that are not on disk")
+    sub.add_argument("--present", action="store_true", help="only files that are on disk")
+
+    sub = add("events", cmd_events, "show the event log, newest first", ["log"])
+    sub.add_argument("query", nargs="*", help="text in the title, details or info-hash")
+    sub.add_argument("--kind", action="append", metavar="KIND", help=", ".join(EVENT_KINDS))
+    sub.add_argument("--torrent", metavar="ID", help="only this torrent's events (info-hash, prefix or MAM id)")
+
+    sub = add("selected", cmd_selected, "show the download queue", ["queue"])
+    sub.add_argument("query", nargs="*", help="text in the title or authors")
+    sub.add_argument("--state", action="append", metavar="STATE",
+                     help="queued, downloading, removed, or all (default: queued,downloading)")
+    sub.add_argument("--grabber", action="append", metavar="NAME", help="autograb or list that selected it")
+
+    sub = add("errors", cmd_errors, "show the errors on the Errors page, newest first")
+    sub.add_argument("--stage", action="append", metavar="STAGE", help=", ".join(ERROR_STAGES))
+
+    add("duplicates", cmd_duplicates, "show torrents skipped as duplicates, newest first", ["dupes"])
+
+    add("lists", cmd_lists, "show the Hardcover lists")
+
+    sub = add("list-items", cmd_list_items, "show the books on the lists, in list order", ["books"])
+    sub.add_argument("query", nargs="*", help="text in the title, authors or series")
+    sub.add_argument("--list", metavar="ID", help="only this list (its id, or the end of it, e.g. want_to_read)")
+    sub.add_argument("--status", action="append", metavar="STATUS",
+                     help="selected, wanted, not-wanted, existing, not-found, or none (not looked for); "
+                          "matches either format")
+    sub.add_argument("--all", action="store_true", help="include books marked done or no longer on the list")
+
+    add("stats", cmd_stats, "summarise the installation", ["summary"])
+
+    sub = add("sql", cmd_sql, "run a read-only SQL query against the database")
+    sub.add_argument("query", nargs="+", help="the query, e.g. \"SELECT Title FROM Torrents LIMIT 5\"")
+    return parser
+
+
+DEFAULTS = {"db": None, "format": None, "columns": None, "ids_only": False, "count": False, "sort": None,
+            "reverse": False, "limit": None, "since": None, "until": None, "header": False, "no_header": False,
+            "null": False, "wide": False, "full_ids": False, "path_map": None}
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    for key, value in DEFAULTS.items():
+        if not hasattr(args, key):
+            setattr(args, key, value)
+    if not getattr(args, "function", None):
+        parser.print_help(sys.stderr)
+        return EXIT_ERROR
+    try:
+        args.since = parse_bound(args.since, "--since") if args.since else None
+        args.until = parse_bound(args.until, "--until") if args.until else None
+        if args.limit is not None and args.limit < 0:
+            raise UsageError("--limit: must be 0 or more")
+        out = Output(args)
+        db = open_database(args)
+        try:
+            return args.function(db, args, out)
+        finally:
+            db.close()
+    except UsageError as error:
+        print(f"fs: {error}", file=sys.stderr)
+        return EXIT_ERROR
+    except BrokenPipeError:
+        # The reader went away (fs ... | head); stop quietly.
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        return EXIT_OK
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

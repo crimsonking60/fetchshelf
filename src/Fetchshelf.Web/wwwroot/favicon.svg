@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 -1 22 22">
+  <title>Fetchshelf</title>
+  <style>
+    .blue { fill: #1f5f99; }
+    .gold { fill: #b8860b; }
+    .orange { fill: #9a5200; }
+    @media (prefers-color-scheme: dark) {
+      .blue { fill: #7ab8e8; }
+      .gold { fill: #daa520; }
+      .orange { fill: #f0a24a; }
+    }
+  </style>
+  <rect class="blue" x="0" y="4" width="6" height="16" rx="1.2"/>
+  <rect class="gold" x="8" y="0" width="6" height="20" rx="1.2"/>
+  <rect class="orange" x="16" y="6" width="6" height="14" rx="1.2"/>
+</svg>

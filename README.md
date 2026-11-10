@@ -49,10 +49,12 @@ setup. If you use one, please report how it went, good or bad (see
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - `path_mapping` in `[audiobookshelf]`.
+- `mark_removed` in `[[autograb]]`.
+- `on_invalid_torrent` in `[[qbittorrent]]`.
 
 ## Latest release
 
-**2026.11.6** (2026-11-09). See [RELEASES.md](RELEASES.md#2026116---2026-11-09) for what changed, and for
+**2026.11.7** (2026-11-10). See [RELEASES.md](RELEASES.md#2026117---2026-11-10) for what changed, and for
 every earlier release.
 
 ## Contributing

@@ -41,14 +41,18 @@ to `5-everything.toml`, which uses every option.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys, costs, autograb `type`s, `sort_by` values,
-  `search_in` fields and the top-level `languages` are checked at startup. A config that fails validation is
-  rejected as a whole, and Fetchshelf doesn't start.
-- **Filter values are checked when they are first used.** The names and values in a
+  `search_in` fields, the top-level `languages`, block and library names, and every number are checked at startup. Numbers must be in
+  the range the tables below give: for example `min_ratio` above 0, intervals from 0 to 43200 minutes, buffers
+  0 or more, and a `min_` bound no larger than its `max_`. Values from environment overrides are checked the
+  same way, and one that can't be read at all, such as `FETCHSHELF_CONF_search_interval=ten`, is named in the
+  error. A config that fails validation is rejected as a whole, and Fetchshelf doesn't start; the error names
+  the setting and, inside a section, which one (`the [[autograb]] 'Bookmarks'`, or `the 2nd [[autograb]]
+  section` for one without a `name`).
+- **Filter values are checked at startup too.** The names and values in every
   [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
-  dates) are checked at startup for `[[tag]]` rules, but only when the job runs for an `[[autograb]]`,
-  `[[snatchlist]]` or `[[hardcover_list.grab]]` block. A misspelled language in an autograb therefore doesn't
-  stop Fetchshelf from starting: that autograb's job fails on each run instead, and the **Jobs** page and the
-  log name the problem. After editing a filter, press **Run now** on the job to check it straight away.
+  dates) are checked for every `[[autograb]]`, `[[snatchlist]]`, `[[hardcover_list.grab]]` block and `[[tag]]`
+  rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
+- **Checking a file before restarting.** See [Checking a configuration](#checking-a-configuration).
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
   `[[tag]]`, `[[library]]`, ...) may be interleaved with other sections, and their order is kept.
@@ -71,6 +75,30 @@ to `5-everything.toml`, which uses every option.
 | size | A number plus a unit: `B`, `KiB`, `MiB`, `GiB`, `TiB` (powers of 1024). `KB`, `MB`, `GB`, `TB` mean the same. Decimals are allowed, for example `"1.2 GiB"`. Written as a string. |
 | date | `"YYYY-MM-DD"`, as a string. |
 | list | A TOML array of strings, for example `["epub", "pdf"]`. |
+
+### Checking a configuration
+
+`--check-config` loads the configuration the way startup does, environment overrides included, and either
+prints what it understood or the reason Fetchshelf would not start. It contacts no service, leaves the database
+alone, and is safe to run while Fetchshelf is running. To check an edited `config.toml` before restarting:
+
+```sh
+docker exec fetchshelf dotnet /app/Fetchshelf.Web.dll --check-config
+```
+
+To check a configuration against a new image before switching to it:
+
+```sh
+docker run --rm --entrypoint dotnet -v /path/to/config:/config:ro ghcr.io/crimsonking60/fetchshelf:<version> /app/Fetchshelf.Web.dll --check-config
+```
+
+This skips the image's start script, which would otherwise change the owner of the files in `/config`, and
+mounts the folder read-only. Pass the same `FETCHSHELF_CONF_...` variables (`-e` or `--env-file`) if the
+running container uses any, and mount whatever `mam_id_file` points to if it is outside `/config`.
+
+The summary lists the libraries and every job under the name and schedule the **Jobs** page shows. Secrets
+appear only as set or not set. The exit code is `0` when the configuration is good and `1` when it isn't, or when
+there is no configuration file (which `--check-config` doesn't create).
 
 ## How the pieces fit together
 
@@ -125,8 +153,8 @@ These go at the top of the file, before any section.
 | `mam_id` | (required, or `mam_id_file`) | MAM session id: the cookie value created under your MAM security preferences. Empty means the UI runs but no jobs do. Treat it as a secret. |
 | `mam_id_file` | unset | Full path of a file that holds the MAM session id, instead of writing it in `mam_id`. See [below](#reading-mam_id-from-a-file). |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
-| `web_port` | `3157` | Port the web UI listens on. |
-| `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. |
+| `web_port` | `3157` | Port the web UI listens on, 1 to 65535. |
+| `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
 | `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb. |
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
@@ -136,9 +164,9 @@ These go at the top of the file, before any section.
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
-| `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block. Overridable per block. |
-| `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. |
-| `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings. |
+| `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). |
+| `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, as for `search_interval`. |
+| `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
 | `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
@@ -160,7 +188,9 @@ Notes:
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
-  budget, `(uploaded − downloaded − bytes already downloading) / min_ratio`, covers their size.
+  budget, `uploaded / min_ratio − downloaded − bytes already downloading`, covers their size. That is the
+  most that can be downloaded while the ratio stays at `min_ratio`. The Download job logs the budget at the
+  start of every run.
 
 ### Reading `mam_id` from a file
 
@@ -199,7 +229,7 @@ Optional. Leave the section out to turn the integration off.
 |---|---|---|
 | `url` | (required) | Base URL of your Audiobookshelf server. Also used for the links to Audiobookshelf on torrent pages, so use the address you open it at in a browser, such as `http://192.168.1.10:13378`, rather than a Docker service name. |
 | `token` | (required) | API token for Audiobookshelf. Treat it as a secret. |
-| `interval` | `10` | Minutes between runs of the **Audiobookshelf** job, which matches linked books to Audiobookshelf items. |
+| `interval` | `10` | Minutes between runs of the **Audiobookshelf** job, which matches linked books to Audiobookshelf items. `0` to 43200, as for `search_interval`. |
 | `path_mapping` | `{}` | Table mapping a path prefix as Audiobookshelf sees it to the same location as Fetchshelf sees it, in the same order as qBittorrent's [`path_mapping`](#qbittorrent). |
 
 ```toml
@@ -288,10 +318,10 @@ against every entry.
 | `url` | (required) | Web UI URL, for example `http://localhost:8080`. |
 | `username` | (required) | Web UI user. |
 | `password` | (required) | Web UI password. Treat it as a secret. |
-| `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. |
-| `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list. |
+| `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. Prefixes match whole folder names (`/downloads` doesn't match `/downloads2`), the longest matching prefix wins, and a trailing slash on either side makes no difference. |
+| `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list; at least one of the two must be set. |
 | `on_unlinked` | unset | What to do in qBittorrent to a torrent you **Unlink** from the library. The same table shape. |
-| `on_invalid_torrent` | unset | The same table shape. It is accepted and validated, but nothing acts on it yet. |
+| `on_invalid_torrent` | unset | What to do in qBittorrent to a torrent the Link job finds on MAM but can't read, because MAM's details hold a value Fetchshelf doesn't know, such as a new media type. The same table shape. See below. |
 
 ```toml
 [[qbittorrent]]
@@ -313,8 +343,14 @@ category = "unlinked"
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]`, `[[autograb]]` and `[[hardcover_list]]` are
-  created in qBittorrent automatically if they do not exist.
+- **`on_invalid_torrent`** applies when the Link job looks a torrent up on MAM and finds it, but its details
+  hold a media type, category, language or other value Fetchshelf doesn't know. The torrent can't be linked,
+  and the Link error says what was applied. A **category** that no `[[library]]` uses is the useful choice:
+  the torrent then no longer matches a library, so it isn't looked up again on every run. With only tags it
+  is looked up, and fails, on every run as before. A torrent MAM doesn't have at all is not covered; it is
+  usually from another tracker.
+- **Categories** named in `on_cleaned`, `on_unlinked`, `on_invalid_torrent`, `[[tag]]`, `[[autograb]]` and
+  `[[hardcover_list]]` are created in qBittorrent automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
   on one disk. See [`method`](#library).
@@ -327,7 +363,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among all three (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `snatchlist[0]`, ... on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
@@ -335,10 +371,10 @@ that is not set imposes no restriction (except `categories`, which always has de
 | `min_size`, `max_size` | [Sizes](#value-types-used-below), inclusive. |
 | `exclude_uploader` | List of uploader names to reject. |
 | `uploaded_after`, `uploaded_before` | [Dates](#value-types-used-below). Inclusive of the whole day. |
-| `min_seeders`, `max_seeders` | Inclusive numeric bounds. |
-| `min_leechers`, `max_leechers` | Inclusive numeric bounds. |
+| `min_seeders`, `max_seeders` | Inclusive numeric bounds, 0 or more. |
+| `min_leechers`, `max_leechers` | Inclusive numeric bounds, 0 or more. |
 | `min_snatched`, `max_snatched` | Inclusive bounds on the number of times the torrent was completed. |
-| `max_authors` | Maximum number of authors the torrent may list, inclusive. Use it to skip anthologies. |
+| `max_authors` | Maximum number of authors the torrent may list, inclusive, at least 1. Use it to skip anthologies. |
 
 ```toml
 media_type = ["Ebook"]
@@ -375,13 +411,13 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `query` | unset | Free-text search. Supports MAM's search syntax. |
 | `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MAM's default fields. |
 | `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
-| `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run. A page is 100 results (fixed). Paging stops early when a page comes back short. |
-| `search_interval` | global `search_interval` | Minutes between runs. `0` means UI-triggered only. |
+| `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run, at least 1. A page is 100 results (fixed). Paging stops early when a page comes back short. |
+| `search_interval` | global `search_interval` | Minutes between runs, `0` to 43200. `0` means UI-triggered only. |
 | `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
-| `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading. Requires `name`. |
+| `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading, at least 1. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
-| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |
+| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. See [`mark_removed`](#mark_removed). Not for `type = "bookmarks"`. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
 ### `type`
@@ -426,6 +462,26 @@ max_authors = 3
 max_size = "30 MiB"
 ```
 
+### `mark_removed`
+
+MAM removes torrents now and then: replaced by a better upload, merged, or taken down. With
+`mark_removed = true`, a block's run notices this for books Fetchshelf already stores:
+
+- After reading its result pages, the run takes the lowest and highest MAM id among all results, before
+  any filtering of Fetchshelf's own. A stored torrent whose MAM id lies in that range but which the results
+  didn't include is a gap.
+- Most gaps are not removals: MAM's search narrows by category, language and the query, so stored books that
+  simply don't match the search fall inside the range of every page. Each gap is therefore looked up on MAM
+  by its id, at most **20 per run**, and a torrent MAM still had is left alone for **7 days** before it is
+  looked up again. Those looked up longest ago, or never, go first.
+- A torrent MAM no longer has is marked as removed from MAM: it shows under *Problems* on the Torrents page,
+  its page says so, and a *Removed from MAM* event is logged. Nothing is changed in qBittorrent or in the
+  library: it keeps seeding and stays linked, and what to do with it is up to you.
+- With `dry_run`, the lookups still happen, but nothing is marked; what would be is logged.
+
+A `bookmarks` block can't use it: a bookmark list skips everything not bookmarked, so every stored torrent
+in its range would look like a gap. Setting `mark_removed` on one stops startup with an error.
+
 ## Cost
 
 `cost` appears on `[[autograb]]`, `[[snatchlist]]` and the `grab` blocks of `[[hardcover_list]]`.
@@ -459,7 +515,7 @@ Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`
 |---|---|---|
 | `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
 | `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
-| `max_pages` | 50 | Pages of the snatch list to read. MAM decides how many rows a page holds; it has been seen sending 1000. Reading stops early when a page brings nothing new. |
+| `max_pages` | 50 | Pages of the snatch list to read, at least 1. MAM decides how many rows a page holds; it has been seen sending 1000. Reading stops early when a page brings nothing new. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `dry_run` | `false` | Read the snatch list and work out every change, but record nothing. What would be recorded is logged. |
 
@@ -478,7 +534,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 
 | Setting | Default | Description |
 |---|---|---|
-| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. |
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
@@ -566,8 +622,8 @@ library, in file order, that accepts it is used.
 |---|---|---|
 | `library_dir` | (required) | Root folder the books are linked into. |
 | `category` | | Accept torrents with this qBittorrent category. |
-| `download_dir` | | Accept torrents whose save path is under this folder. |
-| `name` | unset | Label for the library. |
+| `download_dir` | | Accept torrents whose save path is under this folder, matched by whole folder names: `/data/audio` does not take torrents saved in `/data/audiobooks`. |
+| `name` | unset | Label for the library, used by [`[opds] libraries`](#opds) and the page filters. Two libraries can't have the same name (ignoring case). |
 | `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |

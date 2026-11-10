@@ -2,7 +2,7 @@ namespace Fetchshelf.Core.Organizer;
 
 /// <summary>
 /// Readable labels for qBittorrent's raw torrent state strings. Values it does not know (including
-/// Fetchshelf's own "not in client" / "removed from MAM" statuses) are shown unchanged. A label is a stage of the
+/// Fetchshelf's own "not in client" status) are shown unchanged. A label is a stage of the
 /// torrent's life: states that share one, such as a seeding torrent's uploading and stalledUP, are the same stage.
 /// </summary>
 public static class QBittorrentStateLabel

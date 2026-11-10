@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Fetchshelf.Core.AutoDownloader;
 
 /// <summary>
@@ -19,9 +21,51 @@ public static class DownloadBudget
     /// </summary>
     public static bool SpendsRatio(SelectedTorrentCost cost) => !IsFreeCost(cost);
 
-    /// <summary>Ratio budget = (uploaded − downloaded − bytes already in flight) / minRatio.</summary>
-    public static long ComputeRatioBudgetBytes(long uploadedBytes, long downloadedBytes, long bytesInFlight, double minRatio) =>
-        (long)Math.Max(0, (uploadedBytes - downloadedBytes - bytesInFlight) / minRatio);
+    /// <summary>
+    /// Ratio budget = uploaded / minRatio − downloaded − bytes already in flight: the largest x for which
+    /// uploaded / (downloaded + in flight + x) stays at or above minRatio. Never negative, and capped at
+    /// <see cref="long.MaxValue"/> so a minRatio of 0 gives "no limit" rather than an undefined cast.
+    /// </summary>
+    public static long ComputeRatioBudgetBytes(double uploadedBytes, double downloadedBytes, long bytesInFlight, double minRatio)
+    {
+        var budget = uploadedBytes / minRatio - downloadedBytes - bytesInFlight;
+        if (double.IsNaN(budget) || budget <= 0)
+        {
+            return 0;
+        }
+
+        return budget >= long.MaxValue ? long.MaxValue : (long)budget;
+    }
+
+    /// <summary>The run's ratio budget and what it was worked out from, for the log.</summary>
+    public static string DescribeRatioBudget(double uploadedBytes, double downloadedBytes, long bytesInFlight, double minRatio)
+    {
+        var budget = ComputeRatioBudgetBytes(uploadedBytes, downloadedBytes, bytesInFlight, minRatio);
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"Ratio budget for this run: {FormatBytes(budget)} (uploaded {FormatBytes(uploadedBytes)}, downloaded {FormatBytes(downloadedBytes)}, " +
+            $"{FormatBytes(bytesInFlight)} in flight, min_ratio {minRatio})");
+    }
+
+    private static string FormatBytes(double bytes)
+    {
+        if (bytes >= long.MaxValue)
+        {
+            return "unlimited";
+        }
+
+        string[] units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+        var unit = 0;
+        while (bytes >= 1024 && unit < units.Length - 1)
+        {
+            bytes /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{bytes:0} B")
+            : string.Create(CultureInfo.InvariantCulture, $"{bytes:0.0} {units[unit]}");
+    }
 
     /// <summary>
     /// A Ratio-cost torrent must not exceed the remaining ratio budget, so no download pushes the ratio

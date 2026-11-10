@@ -238,7 +238,17 @@ public sealed class LinkRunner(
             // A lookup can wait on MAM or on another MAM job: the batch must not hold the write lock meanwhile.
             await CommitBatchAsync();
             _lookups++;
-            var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
+            TorrentMetadata? looked;
+            try
+            {
+                looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
+            }
+            catch (UnrecognizedReferenceDataException ex)
+            {
+                await HandleUnreadableDetailsAsync(connection, client, torrent, ex, cancellationToken);
+                return;
+            }
+
             if (looked is null)
             {
                 await RecordLinkerErrorAsync(torrent, NotOnMamError, cancellationToken);
@@ -250,7 +260,9 @@ public sealed class LinkRunner(
 
         if (metadata.Authors.Count == 0)
         {
-            await RecordLinkerErrorAsync(torrent, "Torrent has no author; cannot be linked.", cancellationToken);
+            // Without a record, the Errors page's Edit needs what MAM said to start from: it becomes the record when saved.
+            var lookedUpMetadata = existing is null ? TorrentMetadataSerializer.Serialize(metadata) : null;
+            await RecordLinkerErrorAsync(torrent, NoAuthorError, cancellationToken, lookedUpMetadata);
             return;
         }
 
@@ -306,10 +318,35 @@ public sealed class LinkRunner(
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
     }
 
+    /// <summary>
+    /// MAM has the torrent, but its details hold a value Fetchshelf doesn't know, such as a new media type. With
+    /// `on_invalid_torrent`, its category and tags are applied in qBittorrent: a category no library uses keeps the
+    /// torrent from being looked up again on every run. Either way the Link error is recorded.
+    /// </summary>
+    private async Task HandleUnreadableDetailsAsync(
+        QBittorrentConnection connection, QBittorrentClient client, QBittorrentTorrent torrent,
+        UnrecognizedReferenceDataException exception, CancellationToken cancellationToken)
+    {
+        if (connection.OnInvalidTorrent is not { } setting)
+        {
+            await RecordLinkerErrorAsync(torrent, exception.Message, cancellationToken);
+            return;
+        }
+
+        await QBittorrentActions.ApplyAsync(client, torrent.Hash, setting, cancellationToken);
+        await RecordLinkerErrorAsync(
+            torrent,
+            $"MAM's details for this torrent can't be read (unrecognized {exception.FieldName}: '{exception.Value}'); "
+            + $"applied on_invalid_torrent: {QBittorrentActions.Describe(setting)}.",
+            cancellationToken);
+    }
+
+    private const string NoAuthorError = "Torrent has no author; cannot be linked.";
+
     private const string NoWantedFormat = "None of the torrent's files has a format listed for its media type.";
 
     /// <summary>Where a torrent's files were placed, what was recorded for each, and what happened to it.</summary>
-    private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes);
+    private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes, List<string> PlacedUnderOtherName);
 
     /// <summary>The best audio and the best ebook format among the torrent's files, by the library's or the global lists.</summary>
     private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files) =>
@@ -336,14 +373,22 @@ public sealed class LinkRunner(
         var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
         var linkedFiles = new List<LinkedFileRecord>();
         var outcomes = new List<LinkOutcome>();
+        var placedUnderOtherName = new List<string>();
         if (library.Method != LibraryLinkMethod.NoLink)
         {
-            foreach (var file in ChosenFiles(files, audio, ebook))
+            var chosen = ChosenFiles(files, audio, ebook);
+            var destinations = LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList());
+            for (var i = 0; i < chosen.Count; i++)
             {
-                var sourcePath = Path.Combine(mappedSavePath, file.Name);
-                var destinationPath = LinkFilePlacer.DestinationPath(destinationFolder, file.Name);
-                outcomes.Add(FileLinker.Link(sourcePath, destinationPath, library.Method));
-                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
+                var result = FileLinker.Link(Path.Combine(mappedSavePath, chosen[i].Name), destinations[i], library.Method);
+                outcomes.Add(result.Outcome);
+                if (result.PlacedAt != destinations[i])
+                {
+                    placedUnderOtherName.Add(Path.GetFileName(result.PlacedAt));
+                }
+
+                // The path actually used, so Unlink, Clean and OPDS find the file under the name it got.
+                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, result.PlacedAt), chosen[i].Size));
             }
 
             if (library.MetadataJson)
@@ -357,7 +402,7 @@ public sealed class LinkRunner(
             }
         }
 
-        return new Placement(destinationFolder, linkedFiles, outcomes);
+        return new Placement(destinationFolder, linkedFiles, outcomes, placedUnderOtherName);
     }
 
     private static void RecordPlacement(
@@ -391,7 +436,7 @@ public sealed class LinkRunner(
             return $"Recorded {torrentName} for {placement.Folder} without placing any files (no_link)";
         }
 
-        var (action, detail) = LinkOutcomeDescription.Describe(placement.Outcomes);
+        var (action, detail) = LinkOutcomeDescription.Describe(placement.Outcomes, placement.PlacedUnderOtherName);
         return $"{action} {torrentName} into {placement.Folder}{detail}";
     }
 
@@ -537,13 +582,13 @@ public sealed class LinkRunner(
         await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
 
         var oldPath = existing.LibraryPath;
-        var oldPathShared = oldPath is not null && await LibraryFileRemover.IsFolderSharedAsync(dbContext, oldPath, existing.Id, cancellationToken);
+        var oldPathUse = oldPath is null ? null : await LibraryFileRemover.FolderUseByOthersAsync(dbContext, oldPath, existing.Id, cancellationToken);
         Placement placement;
         try
         {
             if (oldPath is not null)
             {
-                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathShared);
+                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathUse!.Shared, oldPathUse.Files);
             }
 
             placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);
@@ -683,11 +728,13 @@ public sealed class LinkRunner(
         DenyTags = library.DenyTags,
     };
 
-    private async Task RecordLinkerErrorAsync(QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken)
+    /// <param name="lookedUpMetadataJson">The torrent's metadata from MAM, kept on the error for a torrent without a record.</param>
+    private async Task RecordLinkerErrorAsync(
+        QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken, string? lookedUpMetadataJson = null)
     {
         _failed++;
         _logger.LogWarning("Could not link {Torrent}: {Error}", torrent.Name, errorText);
-        await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, cancellationToken: cancellationToken);
+        await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, lookedUpMetadataJson, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

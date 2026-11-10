@@ -28,13 +28,15 @@ public sealed partial class MamClient
         // body, which sends it chunked, and MAM's front end rejects that with HTTP 400. The content
         // type is exactly "application/json": with a charset parameter MAM ignores the query and
         // returns its default newest-torrents listing.
-        var content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, SearchRequestSerializerOptions));
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl("/tor/js/loadSearchJSONbasic.php"))
+        var bodyBytes = JsonSerializer.SerializeToUtf8Bytes(body, SearchRequestSerializerOptions);
+        HttpRequestMessage CreateRequest()
         {
-            Content = content,
-        };
-        using var response = await SendAsync(request, cancellationToken);
+            var content = new ByteArrayContent(bodyBytes);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            return new HttpRequestMessage(HttpMethod.Post, BuildUrl("/tor/js/loadSearchJSONbasic.php")) { Content = content };
+        }
+
+        using var response = await SendAsync(CreateRequest, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);

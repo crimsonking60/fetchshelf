@@ -69,4 +69,18 @@ public class LibraryMatcherTests
 
         Assert.Null(index);
     }
+
+    [Fact]
+    public void FindMatchingLibraryIndex_DownloadDirIsOnlyAStringPrefixOfTheSavePath_GoesToTheLibraryThatHoldsIt()
+    {
+        IReadOnlyList<LibraryMatchRule> libraries =
+        [
+            new LibraryMatchRule { DownloadDir = "/data/audio" },
+            new LibraryMatchRule { DownloadDir = "/data/audiobooks2" },
+        ];
+
+        var index = LibraryMatcher.FindMatchingLibraryIndex(libraries, null, "/data/audiobooks2/book", []);
+
+        Assert.Equal(1, index);
+    }
 }

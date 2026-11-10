@@ -121,6 +121,47 @@ public static partial class MamMetadataCleaner
         return title;
     }
 
+    private const string ByMarker = " by ";
+
+    private static readonly HashSet<string> NameParticles = ["de", "van", "von", "der", "le", "la", "du", "da", "di", "del"];
+
+    [GeneratedRegex(@"^\p{Lu}[\p{L}'.\-]*$")]
+    private static partial Regex CapitalizedNameWordPattern();
+
+    /// <summary>
+    /// Splits the author named at the end of a title, as in "Great Book by Jane Doe", from the title, for a record
+    /// MAM gives no author. Only the clear-cut case counts: 2 to 4 words after the last " by ", each capitalized
+    /// (initials such as "J.R.R." included) except name particles such as "van" between them, and a non-empty
+    /// title before it. Null otherwise, so "Stand by Me" or "Death by 1000 Cuts" keep their title and stay without
+    /// an author.
+    /// </summary>
+    public static (string Title, string Author)? SplitAuthorFromTitle(string title)
+    {
+        var markerIndex = title.LastIndexOf(ByMarker, StringComparison.Ordinal);
+        if (markerIndex <= 0 || string.IsNullOrWhiteSpace(title[..markerIndex]))
+        {
+            return null;
+        }
+
+        var name = title[(markerIndex + ByMarker.Length)..].Trim();
+        var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length is < 2 or > 4)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < words.Length; i++)
+        {
+            var isInnerParticle = i > 0 && i < words.Length - 1 && NameParticles.Contains(words[i]);
+            if (!isInnerParticle && !CapitalizedNameWordPattern().IsMatch(words[i]))
+            {
+                return null;
+            }
+        }
+
+        return (title[..markerIndex].TrimEnd(), string.Join(' ', words));
+    }
+
     /// <summary>Removes known noise patterns from a title and trims the result.</summary>
     public static string RemoveTitleNoise(string title)
     {

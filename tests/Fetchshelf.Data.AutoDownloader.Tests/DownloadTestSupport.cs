@@ -59,7 +59,8 @@ internal static class DownloadTestSupport
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
         });
 
-        return new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" });
+        // No real waiting: politeness delays and the retry of a failed request would only slow the tests down.
+        return new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
     }
 
     public static QBittorrentClient CreateQBittorrentClient(List<QBittorrentTorrent> torrents, List<byte[]> addedTorrentBytes)

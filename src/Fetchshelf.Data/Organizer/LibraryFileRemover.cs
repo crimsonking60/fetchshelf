@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Organizer;
@@ -16,11 +17,22 @@ public static class LibraryFileRemover
     /// True when another linked torrent still uses the folder, such as a better format of the same book; its
     /// `cover.jpg`, `metadata.json` and `metadata.opf` are then left in place.
     /// </param>
-    public static List<string> Remove(string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles, bool folderSharedWithAnotherTorrent)
+    /// <param name="filesUsedByOthers">
+    /// Relative paths another linked torrent in the same folder also lists (<see cref="FolderUseByOthersAsync"/>). They
+    /// are left in place: a record can list a file it found already there, which belongs to the other torrent.
+    /// </param>
+    public static List<string> Remove(
+        string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles, bool folderSharedWithAnotherTorrent,
+        IReadOnlySet<string>? filesUsedByOthers = null)
     {
         var removed = new List<string>();
         foreach (var file in linkedFiles)
         {
+            if (filesUsedByOthers?.Contains(file.RelativePath) == true)
+            {
+                continue;
+            }
+
             var path = Path.Combine(libraryPath, file.RelativePath);
             if (File.Exists(path))
             {
@@ -52,10 +64,26 @@ public static class LibraryFileRemover
         return removed;
     }
 
-    /// <summary>Whether a linked torrent other than <paramref name="torrentId"/> also uses <paramref name="libraryPath"/>.</summary>
-    public static Task<bool> IsFolderSharedAsync(
-        FetchshelfDbContext dbContext, string libraryPath, string torrentId, CancellationToken cancellationToken) =>
-        dbContext.Torrents.AnyAsync(t => t.LibraryPath == libraryPath && t.Id != torrentId, cancellationToken);
+    /// <summary>
+    /// How linked torrents other than <paramref name="torrentId"/> use <paramref name="libraryPath"/>: whether any does,
+    /// and the relative paths of the files they list there, compared ignoring case.
+    /// </summary>
+    public static async Task<FolderUse> FolderUseByOthersAsync(
+        FetchshelfDbContext dbContext, string libraryPath, string torrentId, CancellationToken cancellationToken)
+    {
+        var others = await dbContext.Torrents
+            .Where(t => t.LibraryPath == libraryPath && t.Id != torrentId)
+            .Select(t => t.LinkedFilesJson)
+            .ToListAsync(cancellationToken);
+        var files = others
+            .SelectMany(json => json is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(json) ?? [])
+            .Select(file => file.RelativePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return new FolderUse(others.Count > 0, files);
+    }
 
     private static bool IsEmptyFolder(string path) => Directory.Exists(path) && Directory.GetFileSystemEntries(path).Length == 0;
 }
+
+/// <summary>What other linked torrents use of a library folder (<see cref="LibraryFileRemover.FolderUseByOthersAsync"/>).</summary>
+public sealed record FolderUse(bool Shared, IReadOnlySet<string> Files);

@@ -213,25 +213,22 @@ public sealed class Cleaner(
         }
         else if (SettingOf(connections.First(c => c.Client == owning).Connection) is { } setting)
         {
-            if (!string.IsNullOrEmpty(setting.Category))
-            {
-                await owning.SetCategoryAsync(member.Id, setting.Category, cancellationToken);
-            }
-
-            if (setting.Tags.Count > 0)
-            {
-                await owning.AddTagsAsync(member.Id, setting.Tags, cancellationToken);
-            }
-
+            await QBittorrentActions.ApplyAsync(owning, member.Id, setting, cancellationToken);
             details.Add($"applied {settingName} in qBittorrent");
         }
 
         var removedFiles = new List<string>();
         if (member.LibraryPath is not null)
         {
-            var shared = await LibraryFileRemover.IsFolderSharedAsync(dbContext, member.LibraryPath, member.Id, cancellationToken);
-            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, DeserializeLinkedFiles(member.LinkedFilesJson), shared);
+            var others = await LibraryFileRemover.FolderUseByOthersAsync(dbContext, member.LibraryPath, member.Id, cancellationToken);
+            var linkedFiles = DeserializeLinkedFiles(member.LinkedFilesJson);
+            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, linkedFiles, others.Shared, others.Files);
             details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
+            var kept = linkedFiles.Count(file => others.Files.Contains(file.RelativePath));
+            if (kept > 0)
+            {
+                details.Insert(1, $"kept {kept} {(kept == 1 ? "file" : "files")} another book in the folder also uses");
+            }
         }
         else
         {

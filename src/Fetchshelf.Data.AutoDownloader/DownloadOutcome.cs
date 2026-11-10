@@ -7,6 +7,9 @@ public enum DownloadOutcome
     OverRatioBudget,
     WedgeUnavailable,
     LinkStillStaleAfterRefresh,
+
+    /// <summary>MAM no longer has the torrent; the selection was taken out of the queue.</summary>
+    NoLongerOnMam,
     AlreadyFinishedInClient,
     AlreadyDownloadingInClient,
     AlreadyLinked,

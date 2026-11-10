@@ -76,6 +76,32 @@ public class MamMetadataCleanerTests
         Assert.Equal(MediaType.Ebook, result);
     }
 
+    [Theory]
+    [InlineData("Exploitation Film Posters by Graham Marsh", "Exploitation Film Posters", "Graham Marsh")]
+    [InlineData("The Hobbit by J.R.R. Tolkien", "The Hobbit", "J.R.R. Tolkien")]
+    [InlineData("The Fall of Paris by Robert van Gulik", "The Fall of Paris", "Robert van Gulik")]
+    [InlineData("Stand by Me and Others by Seán O'Brien", "Stand by Me and Others", "Seán O'Brien")]
+    [InlineData("Collected Stories by Ursula K. Le Guin", "Collected Stories", "Ursula K. Le Guin")]
+    public void SplitAuthorFromTitle_TrailingByName_SplitsTitleAndAuthor(string title, string expectedTitle, string expectedAuthor)
+    {
+        var result = MamMetadataCleaner.SplitAuthorFromTitle(title);
+
+        Assert.Equal((expectedTitle, expectedAuthor), result);
+    }
+
+    [Theory]
+    [InlineData("Stand by Me")]
+    [InlineData("Death by 1000 Cuts")]
+    [InlineData("Murder by the Book")]
+    [InlineData("Posters by Graham Marsh and Tony Nourmand")]
+    [InlineData("by Graham Marsh")]
+    [InlineData("Exploitation Film Posters")]
+    [InlineData("Lost by van Gulik Robert")]
+    public void SplitAuthorFromTitle_NoClearName_ReturnsNull(string title)
+    {
+        Assert.Null(MamMetadataCleaner.SplitAuthorFromTitle(title));
+    }
+
     [Fact]
     public void StripAuthorReference_TrailingByAuthor_IsRemoved()
     {

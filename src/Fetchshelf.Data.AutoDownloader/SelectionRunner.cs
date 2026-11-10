@@ -191,6 +191,11 @@ public sealed class SelectionRunner(
     private async Task<bool> CheckDuplicateAgainstSelectedAsync(
         long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
     {
+        if (normalizedTitle.Length == 0)
+        {
+            return false; // a blank title is the same book as nothing
+        }
+
         var sameTitle = await dbContext.SelectedTorrents
             .Where(s => s.RemovedAt == null && s.NormalizedTitleKey == normalizedTitle)
             .ToListAsync(cancellationToken);
@@ -245,6 +250,11 @@ public sealed class SelectionRunner(
     private async Task<bool> CheckDuplicateAgainstLibraryAsync(
         long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
     {
+        if (normalizedTitle.Length == 0)
+        {
+            return false; // a blank title is the same book as nothing
+        }
+
         var sameTitle = await dbContext.Torrents
             .Where(t => t.NormalizedTitleKey == normalizedTitle)
             .ToListAsync(cancellationToken);

@@ -67,4 +67,18 @@ public sealed class LibraryFileRemoverTests : IDisposable
 
         Assert.Empty(removed);
     }
+
+    [Fact]
+    public void Remove_FileAnotherRecordAlsoLists_IsKeptIgnoringCase()
+    {
+        Write("Book.epub");
+        Write("Book.mobi");
+
+        var removed = LibraryFileRemover.Remove(
+            Path.Combine(_root, "book"), [new("Book.epub", 1), new("Book.mobi", 1)], folderSharedWithAnotherTorrent: true,
+            filesUsedByOthers: new HashSet<string>(["book.EPUB"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Equal(["Book.mobi"], removed);
+        Assert.True(File.Exists(Path.Combine(_root, "book", "Book.epub")));
+    }
 }

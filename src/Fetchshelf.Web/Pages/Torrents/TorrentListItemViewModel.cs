@@ -13,6 +13,7 @@ public sealed record TorrentListItemViewModel(
     string Language,
     string? QBittorrentCategory,
     string? ClientStatus,
+    bool RemovedFromMam,
     string? LibraryMismatchState,
     bool Unlinked,
     DateTimeOffset CreatedAt)
@@ -29,6 +30,7 @@ public sealed record TorrentListItemViewModel(
             metadata.Language.ToString(),
             entity.QBittorrentCategory,
             entity.ClientStatus,
+            entity.RemovedFromMamAt is not null,
             entity.LibraryMismatchState,
             entity.UnlinkedAt is not null,
             entity.CreatedAt);

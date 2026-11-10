@@ -50,4 +50,13 @@ public class LibraryMismatchCalculatorTests
 
         Assert.Equal(LibraryMismatchState.None, state);
     }
+
+    [Fact]
+    public void Compute_StoredInASiblingFolderWithALongerName_ReturnsNewLibraryDir()
+    {
+        var state = LibraryMismatchCalculator.Compute(
+            "/library/audiobooks/author/title", "/library/audio", "/library/audio/author/title");
+
+        Assert.Equal(LibraryMismatchState.NewLibraryDir, state);
+    }
 }

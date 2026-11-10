@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -51,7 +53,8 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
                 TagsJson = payload.TagsJson,
                 GrabberName = payload.GrabberName,
                 MetadataJson = payload.MetadataJson,
-                NormalizedTitleKey = payload.NormalizedTitleKey,
+                // Recomputed rather than restored: the stored key may predate a change to the title rule.
+                NormalizedTitleKey = TitleNormalizer.Normalize(TorrentMetadataSerializer.Deserialize(payload.MetadataJson).Title),
                 CreatedAt = DateTimeOffset.UtcNow,
             });
             dbContext.ErroredTorrents.Remove(entity);

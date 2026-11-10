@@ -11,9 +11,6 @@ obj/
 # OS
 .DS_Store
 
-# Local developer scripts
-/utils/
-
 # Local test/runtime data
 *.db
 *.db-shm

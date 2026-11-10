@@ -56,7 +56,7 @@ public sealed class AbsMatcher(
             libraries ??= await ListLibrariesAsync(cancellationToken);
 
             var absPath = PathMapper.Translate(_fetchshelfToAbsPaths, torrent.LibraryPath!);
-            var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => IsPathPrefix(folder.FullPath, absPath))).ToList();
+            var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => PathPrefix.IsSameOrUnder(absPath, folder.FullPath))).ToList();
             if (candidateLibraries.Count == 0)
             {
                 _logger.LogError(
@@ -130,14 +130,5 @@ public sealed class AbsMatcher(
         }
 
         return null;
-    }
-
-    /// <summary>Path-component-aware prefix check: a raw string
-    /// prefix would wrongly match e.g. "/data/audio" against "/data/audiobooks2".</summary>
-    private static bool IsPathPrefix(string folderPath, string torrentLibraryPath)
-    {
-        var folder = folderPath.TrimEnd('/');
-        var torrent = torrentLibraryPath.TrimEnd('/');
-        return torrent == folder || torrent.StartsWith(folder + "/", StringComparison.Ordinal);
     }
 }

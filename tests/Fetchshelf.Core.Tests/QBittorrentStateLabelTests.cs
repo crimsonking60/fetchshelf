@@ -16,7 +16,6 @@ public class QBittorrentStateLabelTests
 
     [Theory]
     [InlineData("not in client")]
-    [InlineData("removed from MAM")]
     [InlineData("someFutureState")]
     public void For_UnknownState_ReturnsItUnchanged(string state) =>
         Assert.Equal(state, QBittorrentStateLabel.For(state));
