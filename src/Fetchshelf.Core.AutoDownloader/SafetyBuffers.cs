@@ -12,14 +12,12 @@ public sealed record AutograbBuffers(string Name, int? UnsatBuffer, int? WedgeBu
 public sealed class SafetyBuffers(int globalUnsatBuffer, int globalWedgeBuffer, IReadOnlyList<AutograbBuffers> autograbs)
 {
     public int UnsatBufferFor(string? grabberName) =>
-        Strictest(grabberName, a => a.UnsatBuffer) ?? globalUnsatBuffer;
+        AutograbNamed(grabberName)?.UnsatBuffer ?? globalUnsatBuffer;
 
     public int WedgeBufferFor(string? grabberName) =>
-        Strictest(grabberName, a => a.WedgeBuffer) ?? globalWedgeBuffer;
+        AutograbNamed(grabberName)?.WedgeBuffer ?? globalWedgeBuffer;
 
-    /// <summary>Should several autograbs share a name, the largest of their buffers applies.</summary>
-    private int? Strictest(string? grabberName, Func<AutograbBuffers, int?> buffer) =>
-        grabberName is null
-            ? null
-            : autograbs.Where(a => a.Name == grabberName).Select(buffer).Max();
+    /// <summary>The autograb with this name; names are unique, which the configuration loader makes sure of.</summary>
+    private AutograbBuffers? AutograbNamed(string? grabberName) =>
+        grabberName is null ? null : autograbs.FirstOrDefault(a => a.Name == grabberName);
 }

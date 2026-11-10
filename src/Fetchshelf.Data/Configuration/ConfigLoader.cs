@@ -75,6 +75,7 @@ public static class ConfigLoader
         var settings = Deserialize(yaml);
         ApplyEnvironmentOverrides(settings);
         ConfigValueValidator.ValidateRanges(settings);
+        ConfigValueValidator.ValidateNames(settings);
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
         ApplyGlobalLibraryDefaults(settings);
