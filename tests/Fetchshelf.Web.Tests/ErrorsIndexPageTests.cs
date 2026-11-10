@@ -98,6 +98,55 @@ public partial class ErrorsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_NoAuthorLinkErrorWithoutRecord_OffersEditForItsInfoHash()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
+            {
+                Stage = ErrorStage.Linker,
+                Key = "abc123",
+                Title = "Exploitation Film Posters",
+                ErrorText = "Torrent has no author; cannot be linked.",
+                DisplayMetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(
+                    OrganizerTestSupport.BuildMetadata("Exploitation Film Posters", authors: [])),
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = fixture.CreateClient();
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+
+        Assert.Contains("href=\"/torrents/abc123/edit\"", html);
+    }
+
+    [Fact]
+    public async Task Get_LinkErrorWithoutStoredMetadata_OffersNoEdit()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
+            {
+                Stage = ErrorStage.Linker,
+                Key = "abc123",
+                ErrorText = "MAM has no torrent with this info-hash.",
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = fixture.CreateClient();
+        var html = await (await client.GetAsync("/errors")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("/torrents/abc123/edit", html);
+    }
+
+    [Fact]
     public async Task Post_RemoveSelected_RemovesTheTickedErrors()
     {
         using var fixture = new FetchshelfWebAppFixture();

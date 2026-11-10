@@ -75,6 +75,40 @@ public class MamTorrentMapperTests
     }
 
     [Fact]
+    public void Map_NoAuthorsButAuthorInTitle_TakesTheAuthorFromTheTitle()
+    {
+        var record = BuildRecord(title: "Exploitation Film Posters by GRAHAM MARSH", authors: new Dictionary<long, string>());
+
+        var metadata = MamTorrentMapper.Map(record);
+
+        Assert.Equal("Exploitation Film Posters", metadata.Title);
+        Assert.Equal(["Graham Marsh"], metadata.Authors);
+    }
+
+    [Fact]
+    public void Map_AuthorsGiven_LeavesANameInTheTitleToTheUsualStripping()
+    {
+        var record = BuildRecord(title: "Dune by Brian Herbert");
+
+        var metadata = MamTorrentMapper.Map(record);
+
+        Assert.Equal("Dune by Brian Herbert", metadata.Title);
+        Assert.Equal(["Frank Herbert"], metadata.Authors);
+    }
+
+    [Fact]
+    public void Map_PeriodicalWithoutAuthors_KeepsItsTitle()
+    {
+        var record = BuildRecord(
+            mediaTypeId: (int)MediaType.PeriodicalEbook, title: "Film Monthly by Picture House", authors: new Dictionary<long, string>());
+
+        var metadata = MamTorrentMapper.Map(record);
+
+        Assert.Equal("Film Monthly by Picture House", metadata.Title);
+        Assert.Empty(metadata.Authors);
+    }
+
+    [Fact]
     public void Map_AsinPrefixedIdentifier_SplitsIntoAsinField()
     {
         var record = BuildRecord() with { Isbn = "ASIN:B000FC1PWU" };

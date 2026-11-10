@@ -1,9 +1,11 @@
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
@@ -23,22 +25,33 @@ public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner) : P
     public async Task OnGetAsync(string id)
     {
         Id = id;
-        var entity = await dbContext.Torrents.FindAsync(id);
-        if (entity is not null)
+        if (await OriginalMetadataAsync(id) is { } metadata)
         {
-            Input = EditInputModel.From(TorrentMetadataSerializer.Deserialize(entity.MetadataJson));
+            Input = EditInputModel.From(metadata);
         }
     }
 
     public async Task<IActionResult> OnPostAsync(string id)
     {
         Id = id;
-        var existing = await dbContext.Torrents.FindAsync(id);
-        var mamId = existing is not null ? TorrentMetadataSerializer.Deserialize(existing.MetadataJson).MamId : 0;
-        var uploadTime = existing?.CreatedAt ?? DateTimeOffset.UtcNow;
-
-        await linkRunner.SetManualMetadataAsync(id, Input.ToMetadata(mamId, uploadTime));
+        await linkRunner.SetManualMetadataAsync(id, Input.ToMetadata(await OriginalMetadataAsync(id)));
 
         return RedirectToPage("/Torrents/Detail", new { id });
+    }
+
+    /// <summary>
+    /// The metadata the form starts from: the torrent's record, or for a torrent without one, what MAM said about
+    /// it when the Link job refused it for having no author.
+    /// </summary>
+    private async Task<TorrentMetadata?> OriginalMetadataAsync(string id)
+    {
+        if (await dbContext.Torrents.FindAsync(id) is { } entity)
+        {
+            return TorrentMetadataSerializer.Deserialize(entity.MetadataJson);
+        }
+
+        var linkError = await dbContext.ErroredTorrents
+            .FirstOrDefaultAsync(e => e.Stage == ErrorStage.Linker && e.Key == id && e.DisplayMetadataJson != null);
+        return linkError is null ? null : TorrentMetadataSerializer.Deserialize(linkError.DisplayMetadataJson!);
     }
 }

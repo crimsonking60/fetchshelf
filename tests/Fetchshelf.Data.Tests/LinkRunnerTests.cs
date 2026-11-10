@@ -130,6 +130,11 @@ public sealed class LinkRunnerTests : IDisposable
         var error = await context.ErroredTorrents.SingleAsync();
         Assert.Equal(ErrorStage.Linker, error.Stage);
         Assert.Equal("hash1", error.Key);
+        Assert.Equal("Torrent has no author; cannot be linked.", error.ErrorText);
+        Assert.NotNull(error.DisplayMetadataJson);
+        Assert.Equal(
+            OrganizerTestSupport.BuildMetadata(authors: []).Title,
+            TorrentMetadataSerializer.Deserialize(error.DisplayMetadataJson).Title);
     }
 
     [Fact]

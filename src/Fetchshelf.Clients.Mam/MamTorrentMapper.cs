@@ -55,6 +55,15 @@ public static class MamTorrentMapper
             }
         }
 
+        // An upload without an author can't be linked; some name it in the title instead. Periodicals are left
+        // alone, as StripAuthorReference leaves their title alone: "by" there usually names a publisher.
+        var isPeriodical = mediaType is MediaType.PeriodicalEbook or MediaType.PeriodicalAudiobook;
+        if (authors.Count == 0 && !isPeriodical && MamMetadataCleaner.SplitAuthorFromTitle(title) is { } split)
+        {
+            title = split.Title;
+            authors = [MamMetadataCleaner.NormalizeNameCasing(split.Author)];
+        }
+
         title = MamMetadataCleaner.StripAuthorReference(title, authors, mediaType);
         title = MamMetadataCleaner.RemoveTitleNoise(title);
 
