@@ -68,6 +68,13 @@ builder.Services.AddDataProtection()
     .SetApplicationName("Fetchshelf")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory ?? ".", "keys")));
 
+// The two cookies those keys encrypt are named after this installation, so a second Fetchshelf on the same host
+// (browsers share cookies across ports) can't overwrite them and fail every form with HTTP 400.
+var instanceId = InstanceId.LoadOrCreate(dataFileDirectory ?? ".");
+builder.Services.AddAntiforgery(options => options.Cookie.Name = $".Fetchshelf.Antiforgery.{instanceId}");
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>(
+    options => options.Cookie.Name = $".Fetchshelf.TempData.{instanceId}");
+
 builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
 builder.Services.AddSingleton(settings);

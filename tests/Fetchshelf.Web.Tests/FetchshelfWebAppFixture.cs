@@ -17,6 +17,9 @@ public sealed class FetchshelfWebAppFixture : IDisposable
 
     public JobRegistry JobRegistry { get; } = new();
 
+    /// <summary>The folder holding the test's configuration and, by default, its database.</summary>
+    public string DataDirectory => _tempDir;
+
     public FetchshelfWebAppFixture(
         string configToml = "mam_id = \"\"\n",
         IMetadataLookup? metadataLookup = null,
