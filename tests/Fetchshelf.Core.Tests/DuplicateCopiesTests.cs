@@ -107,4 +107,37 @@ public class DuplicateCopiesTests
 
         Assert.Equal("first", keeper.Id);
     }
+
+    [Fact]
+    public void GroupBySameBook_TwoDifferentRussianBooksBySameAuthor_KeepsThemApart()
+    {
+        var groups = DuplicateCopies.GroupBySameBook([Book("Война и мир", "Лев Толстой"), Book("Анна Каренина", "Лев Толстой")], b => b);
+
+        Assert.Equal(2, groups.Count);
+    }
+
+    [Fact]
+    public void GroupBySameBook_TwoCopiesOfOneRussianBook_GroupsThem()
+    {
+        var groups = DuplicateCopies.GroupBySameBook([Book("Война и мир", "Лев Толстой"), Book("война и мир", "Лев Толстой")], b => b);
+
+        Assert.Single(groups);
+    }
+
+    [Fact]
+    public void GroupBySameBook_AuthorSpelledDifferently_GroupsTheCopies()
+    {
+        var groups = DuplicateCopies.GroupBySameBook([Book("The Hobbit", "J. R. R. Tolkien"), Book("The Hobbit", "J.R.R. Tolkien")], b => b);
+
+        Assert.Single(groups);
+    }
+
+    [Fact]
+    public void GroupBySameBook_BlankTitles_AreNeverGrouped()
+    {
+        var groups = DuplicateCopies.GroupBySameBook([Book(""), Book(" ")], b => b);
+
+        Assert.Equal(2, groups.Count);
+        Assert.False(DuplicateCopies.AreCopiesOfSameBook(Book(""), Book("")));
+    }
 }

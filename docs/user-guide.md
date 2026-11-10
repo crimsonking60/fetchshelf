@@ -1196,6 +1196,14 @@ preference. If two copies of the same book are linked, the one whose format come
 kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
 same book.
 
+Two torrents count as **the same book** when their titles match, they have the same media type (ebooks and
+comics count as one), language and edition, they share an author, and they share a narrator or both have none.
+Titles are compared ignoring case, accents on Latin letters, punctuation, a leading *The*, *A* or *An*, and the
+words *Volume* and *Vol*; titles in other scripts, such as Cyrillic, Greek, Arabic, Hebrew, Chinese, Japanese or
+Korean, are compared letter for letter. Author and narrator names are compared ignoring case, spacing,
+punctuation and accents, so *J. R. R. Tolkien* and *J.R.R. Tolkien* are the same author. The same rule decides
+what a new download duplicates (see the **Duplicates** page).
+
 The replaced copy has its linked files, its folder (if empty), `cover.jpg` and its metadata files removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
 was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The

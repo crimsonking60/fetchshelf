@@ -264,7 +264,8 @@ var app = builder.Build();
 
 using (var startupScope = app.Services.CreateScope())
 {
-    DatabaseMigrator.Migrate(startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal);
+    DatabaseMigrator.Migrate(
+        startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal, message => Log.Information("{Upgrade}", message));
 }
 
 if (args.Contains("--update-search-title"))
@@ -272,8 +273,8 @@ if (args.Contains("--update-search-title"))
     using var maintenanceScope = app.Services.CreateScope();
     var maintenanceDbContext = maintenanceScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
     Log.Information("Update search title started");
-    await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
-    Log.Information("Update search title done");
+    var (rekeyedTorrents, rekeyedSelections) = await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
+    Log.Information("Update search title done: {Torrents} torrent and {Selections} selection keys changed", rekeyedTorrents, rekeyedSelections);
     await Log.CloseAndFlushAsync();
     return;
 }

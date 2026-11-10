@@ -113,4 +113,24 @@ public class SameBookComparerTests
 
         Assert.False(SameBookComparer.AreSameBook(a, b));
     }
+
+    [Theory]
+    [InlineData("J. R. R. Tolkien", "J.R.R. Tolkien")]
+    [InlineData("Ursula K. Le Guin", "ursula k. leguin")]
+    public void AreSameBook_AuthorsSpelledDifferently_StillShareTheAuthor(string a, string b)
+    {
+        Assert.True(SameBookComparer.AreSameBook(Build(authors: [a]), Build(authors: [b])));
+    }
+
+    [Fact]
+    public void AreSameBook_NarratorsSpelledDifferently_StillAgree()
+    {
+        Assert.True(SameBookComparer.AreSameBook(Build(narrators: ["Michael Kramer"]), Build(narrators: ["michael  kramer"])));
+    }
+
+    [Fact]
+    public void AreSameBook_AuthorsWithNoLettersAtAll_DontMatch()
+    {
+        Assert.False(SameBookComparer.AreSameBook(Build(authors: ["?"]), Build(authors: ["?"])));
+    }
 }

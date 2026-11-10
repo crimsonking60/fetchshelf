@@ -200,6 +200,30 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcessCandidateAsync_DifferentRussianBookBySameAuthorInLibrary_IsSelected()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var libraryRecord = SelectionTestSupport.BuildRecord(mamId: 1, title: "Война и мир", authorName: "Лев Толстой", fileTypes: ["m4b"]);
+        var libraryMetadata = MamTorrentMapper.Map(libraryRecord);
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 1,
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(libraryMetadata.Title),
+            Title = libraryMetadata.Title,
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(libraryMetadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+
+        var candidateRecord = SelectionTestSupport.BuildRecord(mamId: 2, title: "Анна Каренина", authorName: "Лев Толстой", fileTypes: ["m4b"]);
+        var outcome = await Process(CreateRunner(context), candidateRecord, cost: ConfiguredCost.Ratio);
+
+        Assert.Equal(SelectionOutcome.Selected, outcome);
+        Assert.Empty(context.DuplicateTorrents);
+    }
+
+    [Fact]
     public async Task ProcessCandidateAsync_DuplicateOfLibrary_IsSkipped()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

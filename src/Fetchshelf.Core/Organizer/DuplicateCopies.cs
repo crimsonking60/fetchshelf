@@ -9,8 +9,11 @@ public static class DuplicateCopies
     /// Whether two linked copies are the same book: the same normalized title, and <see cref="SameBookComparer"/>
     /// agrees. The comparer alone leaves titles out, since its other callers have already matched them.
     /// </summary>
-    public static bool AreCopiesOfSameBook(TorrentMetadata a, TorrentMetadata b) =>
-        TitleNormalizer.Normalize(a.Title) == TitleNormalizer.Normalize(b.Title) && SameBookComparer.AreSameBook(a, b);
+    public static bool AreCopiesOfSameBook(TorrentMetadata a, TorrentMetadata b)
+    {
+        var title = TitleNormalizer.Normalize(a.Title);
+        return title.Length > 0 && title == TitleNormalizer.Normalize(b.Title) && SameBookComparer.AreSameBook(a, b);
+    }
 
     /// <summary>
     /// Groups copies of the same book (<see cref="AreCopiesOfSameBook"/>), in the order given. Each copy is compared
@@ -28,6 +31,12 @@ public static class DuplicateCopies
         {
             var metadata = metadataOf(copy);
             var title = TitleNormalizer.Normalize(metadata.Title);
+            if (title.Length == 0)
+            {
+                groups.Add([copy]); // a blank title is the same book as nothing
+                continue;
+            }
+
             if (!groupsByTitle.TryGetValue(title, out var sameTitle))
             {
                 sameTitle = [];
