@@ -203,6 +203,7 @@ Common commands, run in the folder that contains the file:
 |---|---|
 | `docker compose up -d` | Create and start the container. |
 | `docker compose logs -f fetchshelf` | Follow the log. |
+| `docker compose exec fetchshelf dotnet /app/Fetchshelf.Web.dll --check-config` | Check `config.toml` without restarting: prints what Fetchshelf would load, or why it would not start. |
 | `docker compose restart fetchshelf` | Restart, for example after editing `config.toml`. |
 | `docker compose stop` / `docker compose down` | Stop, or stop and remove the container. Your config and data stay in the mounted folders. |
 
@@ -313,7 +314,8 @@ you set `mam_id`. That is intentional: you can look around before anything happe
    **Duplicates** and **Config**. There is also a theme selector. See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
-4. Edit `config.toml` in the config folder you mounted, then restart the container.
+4. Edit `config.toml` in the config folder you mounted, check it with `--check-config` (see
+   [Configuring Fetchshelf](#configuring-fetchshelf)), then restart the container.
 
 When it is working, the **Jobs** page lists your jobs with their last run time and result, and the
 container log shows each job starting and finishing.
@@ -326,12 +328,14 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   `config.toml` and replace the `replace-with-...` placeholders. Example 1 is the smallest, example 5
   shows every option.
 - **Reference.** Every setting is described in the [configuration reference](configuration.md).
-- **Most mistakes are caught early.** Fetchshelf refuses to start with a setting it does not know, a missing
-  required value, or an unrecognized name in a `[[tag]]` rule or the top-level `languages`. The error
-  message names the problem. Check `docker logs fetchshelf`. A misspelled value in the filter of an
-  autograb, snatchlist or Hardcover list (for example a language, category or size) is only noticed when
-  that job runs: the job fails, and the **Jobs** page says why. Press **Run now** on a job after editing it
-  to check it straight away.
+- **Mistakes are caught at startup.** Fetchshelf refuses to start with a setting it does not know, a missing
+  required value, a number out of range (such as `min_ratio = 0` or a negative interval), or an unrecognized
+  name or value in any filter (for example a misspelled language, category or size). The error message names
+  the setting and the section it is in. Check `docker logs fetchshelf`.
+- **Check before restarting.** After editing `config.toml`, run
+  `docker exec fetchshelf dotnet /app/Fetchshelf.Web.dll --check-config`. It loads the file the way a restart
+  would, and prints either the libraries and jobs it found or the error that would stop Fetchshelf, without
+  touching the running instance. See [Checking a configuration](configuration.md#checking-a-configuration).
 - **Changes need a restart.** Fetchshelf reads the file when it starts. After editing it, restart the
   container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
   in the database and picked up again after the restart. A job that the restart cuts off does its work on
@@ -1534,7 +1538,9 @@ below). *Connection refused* means Fetchshelf is not answering at all: read `doc
 
 Run `docker logs fetchshelf`. If the message begins with *Invalid configuration*, fix the setting it names
 (a misspelled key or name, a missing `url`, a library with both or neither of `category` and
-`download_dir`, and so on) and restart.
+`download_dir`, a number out of range, and so on) and restart. While the container keeps restarting,
+`docker exec` can't reach it; check the file with a one-off container instead:
+`docker run --rm --entrypoint dotnet -v /path/to/config:/config:ro ghcr.io/crimsonking60/fetchshelf /app/Fetchshelf.Web.dll --check-config`.
 
 ### Permission errors on `/config` or `/database`
 

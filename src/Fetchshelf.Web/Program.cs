@@ -26,6 +26,13 @@ if (args.Contains(HealthProbe.Argument))
     return;
 }
 
+if (args.Contains(ConfigCheck.Argument))
+{
+    Environment.ExitCode = ConfigCheck.Run(
+        Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath(), Console.Out);
+    return;
+}
+
 Log.Logger = FetchshelfLogging
     .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
@@ -414,27 +421,6 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
                 $"{summary.Failed} {(summary.Failed == 1 ? "torrent" : "torrents")} could not be downloaded; see the log.");
         }
     }, "Sends queued, selected torrents to qBittorrent.");
-}
-
-internal static class JobNames
-{
-    public const string Link = "Link";
-    public const string Clean = "Clean";
-    public const string Download = "Download";
-    public const string Audiobookshelf = "Audiobookshelf";
-}
-
-/// <summary>Job names for per-entry `[[autograb]]`/`[[snatchlist]]` jobs: the entry's own `name` if set, else `autograb[&lt;index&gt;]`/`snatchlist[&lt;index&gt;]`</summary>
-internal static class AutoDownloaderJobNames
-{
-    public static string Autograb(AutograbEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"autograb[{index}]" : entry.Name;
-
-    public static string Snatchlist(SnatchlistEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"snatchlist[{index}]" : entry.Name;
-
-    public static string HardcoverList(HardcoverListEntry entry, int index) =>
-        string.IsNullOrWhiteSpace(entry.Name) ? $"hardcover_list[{index}]" : entry.Name;
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.
