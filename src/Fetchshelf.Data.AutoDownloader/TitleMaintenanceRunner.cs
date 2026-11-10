@@ -1,23 +1,15 @@
-using Fetchshelf.Core.Metadata;
-using Microsoft.EntityFrameworkCore;
-
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
-/// One-shot maintenance operation: recomputes every stored Torrent's normalized title key. Touches only the
-/// Torrents table — Selected torrents and Duplicate torrents are left untouched,
-/// matching the reference's `update_search_title` (which only ever scans the Torrent table).
+/// One-shot maintenance operation, run with <c>--update-search-title</c>: recomputes the normalized title key of every
+/// stored torrent and selection (<see cref="TitleKeys"/>). Startup does the same once by itself when the title rule
+/// changes; this is for running it by hand.
 /// </summary>
 public static class TitleMaintenanceRunner
 {
-    public static async Task RunAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default)
+    public static Task<(int Torrents, int Selections)> RunAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default)
     {
-        var torrents = await dbContext.Torrents.ToListAsync(cancellationToken);
-        foreach (var torrent in torrents)
-        {
-            torrent.NormalizedTitleKey = TitleNormalizer.Normalize(torrent.Title);
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(TitleKeys.RecomputeAll(dbContext));
     }
 }

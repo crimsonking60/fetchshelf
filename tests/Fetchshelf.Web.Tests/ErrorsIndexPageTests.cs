@@ -9,7 +9,7 @@ namespace Fetchshelf.Web.Tests;
 
 public partial class ErrorsIndexPageTests
 {
-    private static async Task<ErroredTorrentEntity> SeedGrabberErrorAsync(FetchshelfWebAppFixture fixture, bool restorable)
+    private static async Task<ErroredTorrentEntity> SeedGrabberErrorAsync(FetchshelfWebAppFixture fixture, bool restorable, string? storedTitleKey = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -26,7 +26,7 @@ public partial class ErrorsIndexPageTests
                     DownloadLink = "dl1",
                     CostDecision = "Ratio",
                     MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata("The Way of Kings")),
-                    NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize("The Way of Kings"),
+                    NormalizedTitleKey = storedTitleKey ?? Fetchshelf.Core.Metadata.TitleNormalizer.Normalize("The Way of Kings"),
                 })
                 : null,
         };
@@ -187,6 +187,26 @@ public partial class ErrorsIndexPageTests
         Assert.Empty(dbContext.ErroredTorrents);
         var selected = Assert.Single(dbContext.SelectedTorrents);
         Assert.Equal(1, selected.MamId);
+    }
+
+    [Fact]
+    public async Task Post_Restore_RecomputesTheTitleKeyInsteadOfTrustingTheStoredOne()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var entity = await SeedGrabberErrorAsync(fixture, restorable: true, storedTitleKey: "key made by an older rule");
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await (await client.GetAsync("/errors")).Content.ReadAsStringAsync());
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = entity.Id.ToString(),
+            ["__RequestVerificationToken"] = token,
+        });
+        await client.PostAsync("/errors?handler=Restore", form);
+
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        Assert.Equal("way of kings", Assert.Single(dbContext.SelectedTorrents).NormalizedTitleKey);
     }
 
     [GeneratedRegex(@"<input[^>]*name=""__RequestVerificationToken""[^>]*>")]
