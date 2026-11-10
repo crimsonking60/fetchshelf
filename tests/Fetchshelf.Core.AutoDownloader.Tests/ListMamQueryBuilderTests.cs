@@ -57,4 +57,25 @@ public class ListMamQueryBuilderTests
 
         Assert.Equal("@title Good Omens @author (\"Terry Pratchett\"|\"Neil Gaiman\")", query);
     }
+
+    [Theory]
+    [InlineData("Sarah J. Maas", "Sarah (J|J.) Maas")]
+    [InlineData("Sarah J Maas", "Sarah (J|J.) Maas")]
+    [InlineData("J. K. Rowling", "(J|J.) (K|K.) Rowling")]
+    [InlineData("Iain M. Banks", "Iain (M|M.) Banks")]
+    [InlineData("Brandon Sanderson", "Brandon Sanderson")]
+    [InlineData("J.R.R. Tolkien", "J.R.R. Tolkien")]
+    [InlineData("Ursula K. Le Guin", "Ursula (K|K.) Le Guin")]
+    public void BuildAuthorQuery_InitialMatchesWithOrWithoutFullStop(string author, string expected)
+    {
+        Assert.Equal(expected, ListMamQueryBuilder.BuildAuthorQuery(author));
+    }
+
+    [Fact]
+    public void Build_AuthorWithInitial_MatchesTheInitialEitherWay()
+    {
+        var query = ListMamQueryBuilder.Build("A Court of Thorns and Roses", ["Sarah J. Maas"]);
+
+        Assert.Equal("@title A Court of Thorns (and|&) Roses @author (\"Sarah (J|J.) Maas\")", query);
+    }
 }
