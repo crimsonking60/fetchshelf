@@ -313,7 +313,7 @@ public sealed class LinkRunner(
     private const string NoWantedFormat = "None of the torrent's files has a format listed for its media type.";
 
     /// <summary>Where a torrent's files were placed, what was recorded for each, and what happened to it.</summary>
-    private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes);
+    private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes, List<string> PlacedUnderOtherName);
 
     /// <summary>The best audio and the best ebook format among the torrent's files, by the library's or the global lists.</summary>
     private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files) =>
@@ -340,14 +340,22 @@ public sealed class LinkRunner(
         var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
         var linkedFiles = new List<LinkedFileRecord>();
         var outcomes = new List<LinkOutcome>();
+        var placedUnderOtherName = new List<string>();
         if (library.Method != LibraryLinkMethod.NoLink)
         {
-            foreach (var file in ChosenFiles(files, audio, ebook))
+            var chosen = ChosenFiles(files, audio, ebook);
+            var destinations = LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList());
+            for (var i = 0; i < chosen.Count; i++)
             {
-                var sourcePath = Path.Combine(mappedSavePath, file.Name);
-                var destinationPath = LinkFilePlacer.DestinationPath(destinationFolder, file.Name);
-                outcomes.Add(FileLinker.Link(sourcePath, destinationPath, library.Method));
-                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, destinationPath), file.Size));
+                var result = FileLinker.Link(Path.Combine(mappedSavePath, chosen[i].Name), destinations[i], library.Method);
+                outcomes.Add(result.Outcome);
+                if (result.PlacedAt != destinations[i])
+                {
+                    placedUnderOtherName.Add(Path.GetFileName(result.PlacedAt));
+                }
+
+                // The path actually used, so Unlink, Clean and OPDS find the file under the name it got.
+                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, result.PlacedAt), chosen[i].Size));
             }
 
             if (library.MetadataJson)
@@ -361,7 +369,7 @@ public sealed class LinkRunner(
             }
         }
 
-        return new Placement(destinationFolder, linkedFiles, outcomes);
+        return new Placement(destinationFolder, linkedFiles, outcomes, placedUnderOtherName);
     }
 
     private static void RecordPlacement(
@@ -395,7 +403,7 @@ public sealed class LinkRunner(
             return $"Recorded {torrentName} for {placement.Folder} without placing any files (no_link)";
         }
 
-        var (action, detail) = LinkOutcomeDescription.Describe(placement.Outcomes);
+        var (action, detail) = LinkOutcomeDescription.Describe(placement.Outcomes, placement.PlacedUnderOtherName);
         return $"{action} {torrentName} into {placement.Folder}{detail}";
     }
 
@@ -541,13 +549,13 @@ public sealed class LinkRunner(
         await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
 
         var oldPath = existing.LibraryPath;
-        var oldPathShared = oldPath is not null && await LibraryFileRemover.IsFolderSharedAsync(dbContext, oldPath, existing.Id, cancellationToken);
+        var oldPathUse = oldPath is null ? null : await LibraryFileRemover.FolderUseByOthersAsync(dbContext, oldPath, existing.Id, cancellationToken);
         Placement placement;
         try
         {
             if (oldPath is not null)
             {
-                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathShared);
+                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathUse!.Shared, oldPathUse.Files);
             }
 
             placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);

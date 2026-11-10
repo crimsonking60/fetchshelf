@@ -193,6 +193,40 @@ public sealed class CleanerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_RetiredCopyListsTheKeepersFile_LeavesTheFileForTheKeeper()
+    {
+        // How libraries linked before files were compared look: the second copy found the first one's Book.m4b
+        // already there and recorded it as its own.
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var bookPath = Path.Combine(_root, "book");
+        Directory.CreateDirectory(bookPath);
+        File.WriteAllText(Path.Combine(bookPath, "Book.m4b"), new string('x', 100));
+        foreach (var (id, size) in new[] { ("keeper", 100L), ("loser", 50L) })
+        {
+            var metadata = OrganizerTestSupport.BuildMetadata();
+            context.Torrents.Add(new TorrentEntity
+            {
+                Id = id,
+                MamId = 1,
+                NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+                Title = metadata.Title,
+                MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+                CreatedAt = DateTimeOffset.UtcNow,
+                LibraryPath = bookPath,
+                LinkedFilesJson = System.Text.Json.JsonSerializer.Serialize(new List<LinkedFileRecord> { new("Book.m4b", size) }),
+                ChosenAudioExtension = "m4b",
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        await CreateCleaner(context).RunAsync([]);
+
+        Assert.Equal("keeper", (await context.Torrents.SingleAsync(t => t.Id == "loser")).ReplacedWithTorrentId);
+        Assert.True(File.Exists(Path.Combine(bookPath, "Book.m4b")));
+    }
+
+    [Fact]
     public async Task RunAsync_ReplacedCopyLinkedAgain_IsRetiredAgain()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
