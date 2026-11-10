@@ -1051,7 +1051,8 @@ Other safeguards:
 - `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
   before they start.
-- Fetchshelf only removes files it linked itself, and never overwrites another torrent's files.
+- Fetchshelf only removes files it linked itself, and never overwrites another torrent's files. Unlink, Clean
+  and Relink leave a file in place when another book in the same folder also lists it.
 
 Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` or more,
 `wedge_buffer = 5`, `cost = "free"` on your first autograb, and `dry_run = true` until the log looks right.
@@ -1084,6 +1085,13 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
   words counts, so titles like *Stand by Me* or *Murder by the Book* are left alone.
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
+- **Files with the same name.** When flattening would give two files of one torrent the same name (compared
+  ignoring case), their sub-folder names go in front: `Part 1/01.mp3` and `Part 2/01.mp3` become
+  `Part 1 - 01.mp3` and `Part 2 - 01.mp3`. When a different file of the same name is already in the book's folder,
+  such as another upload or another language of the same title, the new one is placed as `name (2).ext`. A file
+  of the same size already there counts as the same file and is left as it is.
+- **Interrupted copies.** A copy is written under a hidden temporary name and renamed when complete, so a copy
+  cut off by a restart or a full disk never sits in the library looking complete.
 - **Metadata files.** A `metadata.json` next to the files of every book, whatever its media type, and a
   `metadata.opf` in libraries that ask for one. See below.
 - **Looking torrents up on MAM.** A torrent Fetchshelf doesn't know yet is looked up on MAM by its

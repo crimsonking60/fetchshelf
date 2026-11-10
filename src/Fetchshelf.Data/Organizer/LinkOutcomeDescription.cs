@@ -15,7 +15,26 @@ public static class LinkOutcomeDescription
     ];
 
     /// <summary>The verb that starts the line, and a detail (empty, or starting with a space) that ends it.</summary>
-    public static (string Action, string Detail) Describe(IReadOnlyCollection<LinkOutcome> outcomes)
+    /// <param name="placedUnderOtherName">
+    /// File names used instead of the planned ones, because a different file of that name was already there.
+    /// </param>
+    public static (string Action, string Detail) Describe(
+        IReadOnlyCollection<LinkOutcome> outcomes, IReadOnlyCollection<string>? placedUnderOtherName = null)
+    {
+        var (action, detail) = DescribeOutcomes(outcomes);
+        if (placedUnderOtherName is not { Count: > 0 })
+        {
+            return (action, detail);
+        }
+
+        var names = string.Join(", ", placedUnderOtherName.Select(name => $"\"{name}\""));
+        var renamed = placedUnderOtherName.Count == 1
+            ? $"1 file placed as {names}: a different file of that name was already there"
+            : $"{placedUnderOtherName.Count} files placed as {names}: different files of those names were already there";
+        return (action, detail.Length == 0 ? $" ({renamed})" : $"{detail[..^1]}; {renamed})");
+    }
+
+    private static (string Action, string Detail) DescribeOutcomes(IReadOnlyCollection<LinkOutcome> outcomes)
     {
         var present = Kinds.Where(k => outcomes.Contains(k.Outcome)).ToList();
 

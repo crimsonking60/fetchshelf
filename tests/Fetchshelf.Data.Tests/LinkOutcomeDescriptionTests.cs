@@ -23,4 +23,16 @@ public class LinkOutcomeDescriptionTests
             ("Placed", " (2 hardlinked, 1 copied, 1 already there)"),
             LinkOutcomeDescription.Describe(
                 [LinkOutcome.Copied, LinkOutcome.Hardlinked, LinkOutcome.AlreadyExists, LinkOutcome.Hardlinked]));
+
+    [Fact]
+    public void Describe_OneFilePlacedUnderAnotherName_SaysSoAndWhy() =>
+        Assert.Equal(
+            ("Hardlinked", " (1 file placed as \"Book (2).epub\": a different file of that name was already there)"),
+            LinkOutcomeDescription.Describe([LinkOutcome.Hardlinked], ["Book (2).epub"]));
+
+    [Fact]
+    public void Describe_MixedOutcomesAndARename_AddsTheRenameToTheBreakdown() =>
+        Assert.Equal(
+            ("Placed", " (1 hardlinked, 1 already there; 1 file placed as \"Book (2).epub\": a different file of that name was already there)"),
+            LinkOutcomeDescription.Describe([LinkOutcome.Hardlinked, LinkOutcome.AlreadyExists], ["Book (2).epub"]));
 }

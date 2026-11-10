@@ -87,6 +87,50 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(EventKind.Linked, events[0].Kind);
     }
 
+    [Fact]
+    public async Task RunAsync_SameFileNameInTwoSubFolders_LinksAndRecordsBoth()
+    {
+        WriteSourceFile("Book/Part 1/01.mp3", "part one");
+        WriteSourceFile("Book/Part 2/01.mp3", "part two, longer");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)],
+            new Dictionary<string, List<QBittorrentFile>>
+            {
+                ["hash1"] = [new() { Name = "Book/Part 1/01.mp3", Size = 8 }, new() { Name = "Book/Part 2/01.mp3", Size = 16 }],
+            });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var saved = await context.Torrents.SingleAsync();
+        Assert.Equal("part one", File.ReadAllText(Path.Combine(saved.LibraryPath!, "Part 1 - 01.mp3")));
+        Assert.Equal("part two, longer", File.ReadAllText(Path.Combine(saved.LibraryPath!, "Part 2 - 01.mp3")));
+        var recorded = System.Text.Json.JsonSerializer.Deserialize<List<LinkedFileRecord>>(saved.LinkedFilesJson!)!;
+        Assert.Equal(["Part 1 - 01.mp3", "Part 2 - 01.mp3"], recorded.Select(f => f.RelativePath));
+    }
+
+    [Fact]
+    public async Task RunAsync_DifferentFileOfTheSameNameAlreadyInTheFolder_LinksUnderTheNextFreeNameAndRecordsIt()
+    {
+        WriteSourceFile("book.m4b", "the second upload, a different file");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash2", DownloadsDir)],
+            new Dictionary<string, List<QBittorrentFile>> { ["hash2"] = [new() { Name = "book.m4b", Size = 36 }] });
+        var folder = FolderNameComputer.Compute(LibraryDir, OrganizerTestSupport.BuildMetadata(), false, Directory.Exists);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "book.m4b"), "the first upload");
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var saved = await context.Torrents.SingleAsync();
+        Assert.Equal("the first upload", File.ReadAllText(Path.Combine(folder, "book.m4b")));
+        Assert.Equal("the second upload, a different file", File.ReadAllText(Path.Combine(folder, "book (2).m4b")));
+        Assert.Equal("book (2).m4b", System.Text.Json.JsonSerializer.Deserialize<List<LinkedFileRecord>>(saved.LinkedFilesJson!)!.Single().RelativePath);
+    }
+
     [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]
