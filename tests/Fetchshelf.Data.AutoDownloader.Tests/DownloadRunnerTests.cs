@@ -270,6 +270,230 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.Equal(TorrentMetadataSerializer.Deserialize(context.SelectedTorrents.Single().MetadataJson).Title, error.Title);
     }
 
+    private DownloadRunner RunnerFor(FetchshelfDbContext context, MamClient mam, QBittorrentClient? qb = null) =>
+        new(context, new EventStore(context), mam, new MamAccessGate(), [qb ?? DownloadTestSupport.CreateQBittorrentClient([], [])],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+    private static HttpResponseMessage SearchResponse(long mamId, string downloadLink) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(DownloadTestSupport.TorrentRecordJson(mamId, downloadLink)) };
+
+    private static HttpResponseMessage NoSearchResults() =>
+        new(HttpStatusCode.OK) { Content = new StringContent("""{"perpage":0,"start":0,"total":0,"found":0,"data":[]}""") };
+
+    private static HttpResponseMessage NotATorrentFile() =>
+        new(HttpStatusCode.OK) { Content = new StringContent("<html>Torrent not found</html>") };
+
+    [Fact]
+    public async Task RunAsync_ConnectionFailsOnEveryAttempt_KeepsTheSelectionQueuedAndGoesOn()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var first = BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "dl1");
+        var second = BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2");
+        second.CreatedAt = first.CreatedAt.AddSeconds(1);
+        context.SelectedTorrents.AddRange(first, second);
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php/dl1"))
+            {
+                throw new HttpRequestException("Connection reset by peer");
+            }
+
+            return path.Contains("download.php/dl2") ? DownloadResponse(TorrentBytes2) : null;
+        });
+
+        var summary = await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 1, Failed: 1), summary);
+        var queued = context.SelectedTorrents.Single(s => s.MamId == 1);
+        Assert.Null(queued.RemovedAt);
+        Assert.Null(queued.StartedAt);
+        Assert.Equal("dl1", queued.DownloadLink);
+        Assert.Empty(context.ErroredTorrents);
+        Assert.NotNull(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
+    }
+
+    [Fact]
+    public async Task RunAsync_ServerErrorFetchingTheFile_KeepsTheSelectionQueued()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : null);
+
+        await RunnerFor(context, mam).RunAsync();
+
+        Assert.Null(context.SelectedTorrents.Single().RemovedAt);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_AnswerIsNotATorrentFile_RefreshesTheLinkAndStarts()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "stale-link"));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php/stale-link"))
+            {
+                return NotATorrentFile();
+            }
+
+            if (path.Contains("download.php/fresh-link"))
+            {
+                return DownloadResponse(TorrentBytes1);
+            }
+
+            return path.Contains("loadSearchJSONbasic.php") ? SearchResponse(1, "fresh-link") : null;
+        });
+
+        var summary = await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(1, summary.Started);
+        Assert.Equal("fresh-link", context.SelectedTorrents.Single().DownloadLink);
+    }
+
+    [Fact]
+    public async Task RunAsync_RefreshedLinkIsNotATorrentFileEither_RemovesTheSelectionRestorably()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "stale-link"));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php"))
+            {
+                return NotATorrentFile();
+            }
+
+            return path.Contains("loadSearchJSONbasic.php") ? SearchResponse(1, "fresh-link") : null;
+        });
+
+        var summary = await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
+        var error = Assert.Single(context.ErroredTorrents);
+        Assert.Equal("Download link is stale and could not be refreshed.", error.ErrorText);
+        Assert.NotNull(error.DisplayMetadataJson);
+    }
+
+    [Fact]
+    public async Task RunAsync_LookupReturnsTheSameLink_RemovesTheSelectionAsStale()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "stale-link"));
+        await context.SaveChangesAsync();
+        var downloads = 0;
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php"))
+            {
+                downloads++;
+                return NotATorrentFile();
+            }
+
+            return path.Contains("loadSearchJSONbasic.php") ? SearchResponse(1, "stale-link") : null;
+        });
+
+        await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(1, downloads);
+        Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
+        Assert.Equal("Download link is stale and could not be refreshed.", Assert.Single(context.ErroredTorrents).ErrorText);
+    }
+
+    [Fact]
+    public async Task RunAsync_MamNoLongerHasTheTorrent_RemovesTheSelectionSayingSoWithoutRetry()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "stale-link"));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            return path.Contains("loadSearchJSONbasic.php") ? NoSearchResults() : null;
+        });
+
+        var summary = await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
+        var error = Assert.Single(context.ErroredTorrents);
+        Assert.StartsWith("MAM no longer has this torrent", error.ErrorText);
+        Assert.Null(error.DisplayMetadataJson);
+    }
+
+    [Fact]
+    public async Task RunAsync_ConnectionFailsAfterTheLinkWasRefreshed_StaysQueuedWithTheNewLink()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "stale-link"));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php/stale-link"))
+            {
+                return NotATorrentFile();
+            }
+
+            if (path.Contains("download.php/fresh-link"))
+            {
+                throw new HttpRequestException("Connection reset by peer");
+            }
+
+            return path.Contains("loadSearchJSONbasic.php") ? SearchResponse(1, "fresh-link") : null;
+        });
+
+        await RunnerFor(context, mam).RunAsync();
+
+        var selected = context.SelectedTorrents.Single();
+        Assert.Null(selected.RemovedAt);
+        Assert.Equal("fresh-link", selected.DownloadLink);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_ForbiddenFetchingTheFile_StopsTheRunAndKeepsEverySelection()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var first = BuildSelected(1, SelectedTorrentCost.Ratio, downloadLink: "dl1");
+        var second = BuildSelected(2, SelectedTorrentCost.Ratio, downloadLink: "dl2");
+        second.CreatedAt = first.CreatedAt.AddSeconds(1);
+        context.SelectedTorrents.AddRange(first, second);
+        await context.SaveChangesAsync();
+        var downloads = 0;
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            if (!request.RequestUri!.AbsolutePath.Contains("download.php"))
+            {
+                return null;
+            }
+
+            downloads++;
+            return new HttpResponseMessage(HttpStatusCode.Forbidden);
+        });
+
+        var summary = await RunnerFor(context, mam).RunAsync();
+
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.Equal(1, downloads);
+        Assert.All(context.SelectedTorrents, s => Assert.Null(s.RemovedAt));
+        Assert.Empty(context.ErroredTorrents);
+    }
+
     [Fact]
     public async Task RunAsync_AlreadyFinishedInClient_CreatesRecordAndDropsSelection()
     {

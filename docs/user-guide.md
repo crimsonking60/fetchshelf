@@ -1351,7 +1351,10 @@ torrent, the error and when it last failed. The Link job tries a failed torrent 
 entry is updated while it keeps failing and disappears once it links. The exception is *MAM has no torrent
 with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
-went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
+went stale, and couldn't be refreshed, is taken out of the queue instead; **Retry download** puts it back on the
+**Selected** page. One that MAM no longer has (deleted or merged) is taken out with that reason and has no
+**Retry download**. A download that failed because MAM couldn't be reached stays queued for the next run and gets
+no entry here; the log says why.
 A torrent that couldn't be linked because MAM gives it no author, and that Fetchshelf has no record of yet,
 has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
 creates the record. The next Link run then links it.
@@ -1558,6 +1561,11 @@ An empty `mam_id` means no jobs run. Also check the interval: `0` means the job 
 Fetchshelf then pauses its MAM requests for 30 minutes. Create a new session, update `mam_id` and restart,
 which also ends the pause. For rate limiting, wait: the job tries again at its next interval. A blocked
 account (HTTP 406) aborts downloads; wait and check your account on MAM.
+
+A request that gets no answer from MAM (a dropped connection, or no reply within 30 seconds) or a temporary
+server error (HTTP 502, 503 or 504) is tried once more after 2 seconds before the job gives up on it; the log
+shows *trying again in 2 s*. Downloads that spend a wedge are not tried again, since the first attempt may already
+have spent it.
 
 ### qBittorrent cannot be reached
 

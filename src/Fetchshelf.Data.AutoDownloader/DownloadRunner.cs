@@ -89,7 +89,7 @@ public sealed class DownloadRunner(
             }
 
             LogOutcome(selected, name, outcome, wedgeSpent);
-            if (outcome == DownloadOutcome.LinkStillStaleAfterRefresh)
+            if (outcome is DownloadOutcome.LinkStillStaleAfterRefresh or DownloadOutcome.NoLongerOnMam)
             {
                 failedCount++;
             }
@@ -135,6 +135,9 @@ public sealed class DownloadRunner(
                 break;
             case DownloadOutcome.LinkStillStaleAfterRefresh:
                 _logger.LogError("Could not download {Torrent}: MAM gave no working download link. Removed from the queue; see the Errors page", name);
+                break;
+            case DownloadOutcome.NoLongerOnMam:
+                _logger.LogWarning("Could not download {Torrent}: MAM no longer has it. Removed from the queue; see the Errors page", name);
                 break;
             case DownloadOutcome.AlreadyFinishedInClient:
                 _logger.LogInformation(
@@ -214,13 +217,13 @@ public sealed class DownloadRunner(
 
         // Fetched without the wedge first: MAM spends a wedge on every download that asks for one, and only the
         // file's info hash shows whether qBittorrent already has the torrent.
-        var torrentBytes = await FetchTorrentFileAsync(selected, useWedge: false, cancellationToken);
-        if (torrentBytes is null)
+        var (torrentFile, removedAs) = await FetchTorrentFileAsync(selected, useWedge: false, cancellationToken);
+        if (torrentFile is null)
         {
-            return (DownloadOutcome.LinkStillStaleAfterRefresh, false);
+            return (removedAs!.Value, false);
         }
 
-        var hash = TorrentFileInfoHash.Compute(torrentBytes);
+        var (torrentBytes, hash) = torrentFile.Value;
 
         var dedupOutcome = await CheckExistingAsync(selected, metadata, hash, cancellationToken);
         if (dedupOutcome is not null)
@@ -240,11 +243,13 @@ public sealed class DownloadRunner(
 
         if (useWedge)
         {
-            torrentBytes = await FetchTorrentFileAsync(selected, useWedge: true, cancellationToken);
-            if (torrentBytes is null)
+            (torrentFile, removedAs) = await FetchTorrentFileAsync(selected, useWedge: true, cancellationToken);
+            if (torrentFile is null)
             {
-                return (DownloadOutcome.LinkStillStaleAfterRefresh, false);
+                return (removedAs!.Value, false);
             }
+
+            torrentBytes = torrentFile.Value.Bytes;
         }
 
         await AddToQBittorrentAsync(selected, metadata, hash, torrentBytes, cost, useWedge, cancellationToken);
@@ -257,64 +262,113 @@ public sealed class DownloadRunner(
         return result.Data.FirstOrDefault();
     }
 
-    private async Task<byte[]?> FetchTorrentFileAsync(SelectedTorrentEntity selected, bool useWedge, CancellationToken cancellationToken)
+    /// <summary>
+    /// Fetches the selection's torrent file. MAM answers a stale download link with something that isn't a torrent
+    /// file, so only that refreshes the link, by looking the torrent up again; a lookup that finds nothing means MAM no
+    /// longer has it. Either way the selection is then taken out of the queue, and the outcome says which. A failure
+    /// that says nothing about the link, such as a dropped connection, is thrown as a
+    /// <see cref="TorrentFileUnavailableException"/> and leaves the selection queued; an account-wide refusal (403, 406,
+    /// 429) and cancellation are thrown as they are, and stop the run.
+    /// </summary>
+    private async Task<((byte[] Bytes, string Hash)? File, DownloadOutcome? RemovedAs)> FetchTorrentFileAsync(
+        SelectedTorrentEntity selected, bool useWedge, CancellationToken cancellationToken)
     {
         try
         {
-            return await mamClient.DownloadTorrentFileAsync(selected.DownloadLink, selected.MamId, useWedge, cancellationToken);
-        }
-        catch (MamAccountBlockedException)
-        {
-            throw;
-        }
-        catch
-        {
+            if (await TryFetchTorrentFileAsync(selected.DownloadLink, selected.MamId, useWedge, cancellationToken) is { } file)
+            {
+                return (file, null);
+            }
+
             var current = await FetchCurrentRecordAsync(selected.MamId, cancellationToken);
-            if (current?.DownloadHash is not { } refreshedLink)
+            if (current is null)
             {
-                await RemoveStaleSelectionAsync(selected, cancellationToken);
-                return null;
+                await RemoveSelectionAsync(selected, NoLongerOnMamError, restorable: false, cancellationToken);
+                return (null, DownloadOutcome.NoLongerOnMam);
             }
 
+            if (current.DownloadHash is not { } refreshedLink || refreshedLink == selected.DownloadLink)
+            {
+                await RemoveSelectionAsync(selected, StaleLinkError, restorable: true, cancellationToken);
+                return (null, DownloadOutcome.LinkStillStaleAfterRefresh);
+            }
+
+            // Saved straight away, so a failure of the next fetch leaves the selection queued with the working link.
             selected.DownloadLink = refreshedLink;
+            await dbContext.SaveChangesAsync(cancellationToken);
 
-            try
+            if (await TryFetchTorrentFileAsync(refreshedLink, selected.MamId, useWedge, cancellationToken) is { } refreshed)
             {
-                return await mamClient.DownloadTorrentFileAsync(refreshedLink, selected.MamId, useWedge, cancellationToken);
+                return (refreshed, null);
             }
-            catch (MamAccountBlockedException)
-            {
-                throw;
-            }
-            catch
-            {
-                await RemoveStaleSelectionAsync(selected, cancellationToken);
-                return null;
-            }
+
+            await RemoveSelectionAsync(selected, StaleLinkError, restorable: true, cancellationToken);
+            return (null, DownloadOutcome.LinkStillStaleAfterRefresh);
+        }
+        catch (Exception ex) when (IsTemporaryFailure(ex, cancellationToken))
+        {
+            var wedgeNote = useWedge ? " A wedge may have been spent on the attempt." : "";
+            throw new TorrentFileUnavailableException($"{DescribeTemporaryFailure(ex)}.{wedgeNote}", ex);
         }
     }
 
-    private async Task RemoveStaleSelectionAsync(SelectedTorrentEntity selected, CancellationToken cancellationToken)
+    /// <summary>The torrent file and its info-hash, or null when MAM answered with something else (a stale link).</summary>
+    private async Task<(byte[] Bytes, string Hash)?> TryFetchTorrentFileAsync(
+        string downloadLink, long mamId, bool useWedge, CancellationToken cancellationToken)
+    {
+        byte[] bytes;
+        try
+        {
+            bytes = await mamClient.DownloadTorrentFileAsync(downloadLink, mamId, useWedge, cancellationToken);
+        }
+        catch (HttpRequestException ex) when ((int?)ex.StatusCode is >= 400 and < 500)
+        {
+            // 403, 406 and 429 are thrown as their own exceptions before this; any other refusal is about the link.
+            return null;
+        }
+
+        return TorrentFileInfoHash.TryCompute(bytes, out var hash) ? (bytes, hash) : null;
+    }
+
+    /// <summary>A failure that says nothing about the torrent or its link: no answer from MAM, or a 5xx.</summary>
+    private static bool IsTemporaryFailure(Exception ex, CancellationToken cancellationToken) =>
+        MamClient.IsNoAnswer(ex, cancellationToken) || ex is HttpRequestException { StatusCode: not null };
+
+    private static string DescribeTemporaryFailure(Exception ex) => ex is HttpRequestException { StatusCode: { } status }
+        ? $"MAM answered HTTP {(int)status}"
+        : MamClient.DescribeNoAnswer(ex);
+
+    private const string StaleLinkError = "Download link is stale and could not be refreshed.";
+
+    private const string NoLongerOnMamError = "MAM no longer has this torrent (it may have been deleted or merged).";
+
+    /// <summary>
+    /// Takes the selection out of the queue and records why on the Errors page; a restorable one keeps what
+    /// **Retry download** needs to put it back.
+    /// </summary>
+    private async Task RemoveSelectionAsync(SelectedTorrentEntity selected, string errorText, bool restorable, CancellationToken cancellationToken)
     {
         selected.RemovedAt = DateTimeOffset.UtcNow;
-        var restorePayload = new GrabberErrorRestorePayload
-        {
-            MamId = selected.MamId,
-            DownloadLink = selected.DownloadLink,
-            CostDecision = selected.CostDecision,
-            Category = selected.Category,
-            TagsJson = selected.TagsJson,
-            GrabberName = selected.GrabberName,
-            MetadataJson = selected.MetadataJson,
-            NormalizedTitleKey = selected.NormalizedTitleKey,
-        };
+        var restorePayload = restorable
+            ? System.Text.Json.JsonSerializer.Serialize(new GrabberErrorRestorePayload
+            {
+                MamId = selected.MamId,
+                DownloadLink = selected.DownloadLink,
+                CostDecision = selected.CostDecision,
+                Category = selected.Category,
+                TagsJson = selected.TagsJson,
+                GrabberName = selected.GrabberName,
+                MetadataJson = selected.MetadataJson,
+                NormalizedTitleKey = selected.NormalizedTitleKey,
+            })
+            : null;
         await ErrorLog.RecordAsync(
             dbContext,
             ErrorStage.Grabber,
             selected.MamId.ToString(),
             TorrentMetadataSerializer.Deserialize(selected.MetadataJson).Title,
-            "Download link is stale and could not be refreshed.",
-            System.Text.Json.JsonSerializer.Serialize(restorePayload),
+            errorText,
+            restorePayload,
             cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -420,3 +474,6 @@ public sealed class DownloadRunner(
     private static bool IsFreeNow(MamTorrentRecord? current) =>
         current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);
 }
+
+/// <summary>A torrent file could not be fetched for a reason that says nothing about the torrent; it stays queued.</summary>
+public sealed class TorrentFileUnavailableException(string message, Exception innerException) : Exception(message, innerException);
