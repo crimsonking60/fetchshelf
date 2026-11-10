@@ -17,6 +17,18 @@ public class JobRegistryTests
     }
 
     [Fact]
+    public void Register_NameTakenAlready_ThrowsAndKeepsTheFirstJob()
+    {
+        var registry = new JobRegistry();
+        registry.Register("Download", _ => Task.CompletedTask, "first");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => registry.Register("Download", _ => Task.CompletedTask, "second"));
+
+        Assert.Contains("'Download'", exception.Message);
+        Assert.Equal("first", registry.Get("Download")!.Description);
+    }
+
+    [Fact]
     public async Task TriggerAsync_RegisteredJob_RecordsTheStartTimeFromTheTimeProvider()
     {
         var startedAt = new DateTimeOffset(2026, 11, 2, 9, 30, 0, TimeSpan.Zero);

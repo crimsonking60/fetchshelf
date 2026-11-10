@@ -41,7 +41,7 @@ to `5-everything.toml`, which uses every option.
 - **Unknown keys are errors.** A misspelled or unsupported key stops the file from loading, and the error
   names the problem. This applies to every section.
 - **Validation.** Required keys, mutually exclusive keys, costs, autograb `type`s, `sort_by` values,
-  `search_in` fields, the top-level `languages` and every number are checked at startup. Numbers must be in
+  `search_in` fields, the top-level `languages`, block and library names, and every number are checked at startup. Numbers must be in
   the range the tables below give: for example `min_ratio` above 0, intervals from 0 to 43200 minutes, buffers
   0 or more, and a `min_` bound no larger than its `max_`. Values from environment overrides are checked the
   same way, and one that can't be read at all, such as `FETCHSHELF_CONF_search_interval=ten`, is named in the
@@ -357,7 +357,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among all three (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `snatchlist[0]`, ... on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
@@ -508,7 +508,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 
 | Setting | Default | Description |
 |---|---|---|
-| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. |
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
@@ -597,7 +597,7 @@ library, in file order, that accepts it is used.
 | `library_dir` | (required) | Root folder the books are linked into. |
 | `category` | | Accept torrents with this qBittorrent category. |
 | `download_dir` | | Accept torrents whose save path is under this folder. |
-| `name` | unset | Label for the library. |
+| `name` | unset | Label for the library, used by [`[opds] libraries`](#opds) and the page filters. Two libraries can't have the same name (ignoring case). |
 | `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |

@@ -11,8 +11,18 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
     private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
-    public void Register(string name, Func<CancellationToken, Task> runAsync, string? description = null) =>
-        _jobs[name] = new RegisteredJob { Name = name, RunAsync = runAsync, Description = description };
+    /// <summary>
+    /// Registers a job under <paramref name="name"/>. A name can only be registered once: replacing a job would leave its
+    /// schedulers triggering the other one, which is exactly the silent mix-up unique names in the configuration
+    /// prevent.
+    /// </summary>
+    public void Register(string name, Func<CancellationToken, Task> runAsync, string? description = null)
+    {
+        if (!_jobs.TryAdd(name, new RegisteredJob { Name = name, RunAsync = runAsync, Description = description }))
+        {
+            throw new InvalidOperationException($"A job named '{name}' is already registered.");
+        }
+    }
 
     public IReadOnlyList<RegisteredJob> GetAll() => _jobs.Values.OrderBy(j => j.Name, StringComparer.Ordinal).ToList();
 

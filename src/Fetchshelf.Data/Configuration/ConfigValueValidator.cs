@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 
@@ -9,7 +10,7 @@ namespace Fetchshelf.Data.Configuration;
 /// shared torrent filter convertible, so a mistake stops startup instead of failing a job later. Runs after
 /// environment overrides, so overridden values are checked too.
 /// </summary>
-internal static class ConfigValueValidator
+internal static partial class ConfigValueValidator
 {
     /// <summary>The longest interval: 30 days, well inside what the scheduler's delay accepts (about 49 days).</summary>
     public const int MaxIntervalMinutes = 43_200;
@@ -74,6 +75,79 @@ internal static class ConfigValueValidator
                 ?? throw Invalid($"[search] 'wedge_over' is '{wedgeOver}', which is not a size; {SizeExample}.");
         }
     }
+
+    /// <summary>
+    /// Every <c>[[autograb]]</c>, <c>[[snatchlist]]</c> and <c>[[hardcover_list]]</c> becomes a job under its
+    /// <c>name</c>, and its selections carry that name. So names must be unique among all three, compared ignoring case,
+    /// and must not be a built-in job's, the Search page's grabber name or of the form a block without a name gets.
+    /// Library names must be unique too: <c>[opds] libraries</c> and the page filters refer to libraries by name.
+    /// </summary>
+    public static void ValidateNames(FetchshelfSettings settings)
+    {
+        var blocks = settings.Autograb.Select((entry, i) => (entry.Name, Label: Label("autograb", entry.Name, i), JobName: AutoDownloaderJobNames.Autograb(entry, i)))
+            .Concat(settings.Snatchlist.Select((entry, i) => (entry.Name, Label: Label("snatchlist", entry.Name, i), JobName: AutoDownloaderJobNames.Snatchlist(entry, i))))
+            .Concat(settings.HardcoverList.Select((entry, i) => (entry.Name, Label: Label("hardcover_list", entry.Name, i), JobName: AutoDownloaderJobNames.HardcoverList(entry, i))))
+            .ToList();
+
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, label, jobName) in blocks)
+        {
+            if (name is not null)
+            {
+                CheckName(name, label);
+            }
+
+            if (seen.TryGetValue(jobName, out var earlier))
+            {
+                throw Invalid($"{earlier} and {label} have the same name; every autograb, snatchlist and Hardcover list needs its own.");
+            }
+
+            seen[jobName] = label;
+        }
+
+        var libraries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < settings.Library.Count; i++)
+        {
+            if (settings.Library[i].Name is not { } name)
+            {
+                continue;
+            }
+
+            var label = Label("library", name, i);
+            if (name.Length == 0 || name.Trim() != name)
+            {
+                throw Invalid($"{label} has a 'name' that is empty or starts or ends with a space.");
+            }
+
+            if (libraries.TryGetValue(name, out var earlier))
+            {
+                throw Invalid($"{earlier} and {label} have the same name; every library needs its own.");
+            }
+
+            libraries[name] = label;
+        }
+    }
+
+    private static void CheckName(string name, string label)
+    {
+        if (name.Length == 0 || name.Trim() != name)
+        {
+            throw Invalid($"{label} has a 'name' that is empty or starts or ends with a space.");
+        }
+
+        if (JobNames.Reserved.FirstOrDefault(reserved => string.Equals(reserved, name, StringComparison.OrdinalIgnoreCase)) is { } taken)
+        {
+            throw Invalid($"{label}: '{taken}' is the name of a built-in job; choose another name.");
+        }
+
+        if (GeneratedJobNamePattern().IsMatch(name))
+        {
+            throw Invalid($"{label}: names like '{name}' are given to blocks without a name; choose another name.");
+        }
+    }
+
+    [GeneratedRegex(@"^(autograb|snatchlist|hardcover_list)\[\d+\]$", RegexOptions.IgnoreCase)]
+    private static partial Regex GeneratedJobNamePattern();
 
     /// <summary>
     /// Converts the filter of every <c>[[autograb]]</c>, <c>[[snatchlist]]</c>, <c>[[hardcover_list]]</c> grab block
