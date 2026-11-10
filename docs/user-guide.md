@@ -1071,7 +1071,10 @@ qBittorrent that are 100% complete, finds the matching library and links the wan
 
   For example `Brandon Sanderson/Stormlight Archive/Stormlight Archive #1 - The Way of Kings {Michael Kramer}`.
   Set `exclude_narrator_in_library_dir = true` to leave the narrator out. The author is the first author.
-  A torrent with no author cannot be linked and shows up on the **Errors** page.
+  A torrent with no author cannot be linked and shows up on the **Errors** page, where **Edit** adds one.
+  When MAM gives no author but the title ends in "by" and a name, such as *Exploitation Film Posters by Graham
+  Marsh*, that name is taken as the author and removed from the title. Only a name of two to four capitalized
+  words counts, so titles like *Stand by Me* or *Murder by the Book* are left alone.
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
 - **Metadata files.** A `metadata.json` next to the files of every book, whatever its media type, and a
@@ -1320,7 +1323,8 @@ reported, so they cannot be chosen by hand.
   and press **Set category and tags**. A category no library uses is only offered when the torrent already
   has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
-  (one `Name #number` per line), language, category and flags. A hand-edited torrent keeps your values
+  (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
+  such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
   through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
   details.
 
@@ -1341,6 +1345,9 @@ entry is updated while it keeps failing and disappears once it links. The except
 with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
 went stale is taken out of the queue instead; **Retry download** puts it back on the **Selected** page.
+A torrent that couldn't be linked because MAM gives it no author, and that Fetchshelf has no record of yet,
+has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
+creates the record. The next Link run then links it.
 Tick the entries you have dealt with and use **Remove selected**.
 
 ### Duplicates
@@ -1558,7 +1565,9 @@ container name rather than `localhost`, and make sure both containers share a ne
   both downloads and library, or use the default `hardlink_or_copy`.
 - *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
   rules and `[[library]]` entries.
-- *No author.* The torrent has no author in its metadata. Use **Edit** to add one.
+- *No author.* The torrent has no author in its metadata. Use **Edit** to add one: on the torrent's row on the
+  **Torrents** page, or on the **Errors** page for a torrent added in qBittorrent that Fetchshelf has no
+  record of yet.
 - *No wanted file type.* None of the torrent's files has an extension from the format list for its media
   type: `audio_types`, `ebook_types`, `music_types` or `radio_types`.
 

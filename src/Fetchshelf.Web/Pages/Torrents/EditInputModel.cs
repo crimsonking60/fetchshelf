@@ -30,13 +30,28 @@ public sealed class EditInputModel
         Flags = Enum.GetValues<BookFlags>().Where(f => f != BookFlags.None && metadata.Flags.HasFlag(f)).Select(f => f.ToString()).ToList(),
     };
 
-    public TorrentMetadata ToMetadata(long mamId, DateTimeOffset uploadTime)
+    /// <summary>
+    /// The form's values applied onto <paramref name="original"/>, the metadata the form was opened with, so the fields
+    /// it doesn't show (MAM id, description, ISBN, file types, size, edition and more) survive the edit. Without
+    /// original metadata, the rest is left empty.
+    /// </summary>
+    public TorrentMetadata ToMetadata(TorrentMetadata? original)
     {
         var flags = Flags.Aggregate(BookFlags.None, (acc, f) => acc | Enum.Parse<BookFlags>(f));
-        return new TorrentMetadata
+        var baseline = original ?? new TorrentMetadata
         {
-            MamId = mamId,
+            MamId = 0,
             VipStatus = VipStatus.NotVip,
+            MediaType = LegacyCategoryGroups.MediaTypeOf(Category),
+            LegacyCategory = Category,
+            Language = Language,
+            Title = Title,
+            MetadataSource = MetadataSource.Manual,
+            UploadTime = DateTimeOffset.UtcNow,
+        };
+
+        return baseline with
+        {
             MediaType = LegacyCategoryGroups.MediaTypeOf(Category),
             LegacyCategory = Category,
             Language = Language,
@@ -46,7 +61,6 @@ public sealed class EditInputModel
             Narrators = SplitLines(Narrators),
             Series = SplitLines(Series).Select(SeriesParser.ParseLine).ToList(),
             MetadataSource = MetadataSource.Manual,
-            UploadTime = uploadTime,
         };
     }
 

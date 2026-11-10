@@ -5,7 +5,7 @@
 }
 
 <h2>Errors</h2>
-@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into, one row per torrent and job. Link tries a failed torrent again on every run: its row is updated while it keeps failing and disappears once it links. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. Tick the rows you have dealt with and use Remove selected.")
+@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into, one row per torrent and job. Link tries a failed torrent again on every run: its row is updated while it keeps failing and disappears once it links. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. For a torrent MAM gives no author, Edit adds one, and the next Link run links it. Tick the rows you have dealt with and use Remove selected.")
 
 @if (Model.Errors.Count == 0)
 {
@@ -60,6 +60,10 @@ else
                             @if (error.CanRestore)
                             {
                                 <button form="restore-@error.Id" type="submit" class="nowrap">Retry download</button>
+                            }
+                            @if (error.CanEdit)
+                            {
+                                <a class="nowrap" asp-page="/Torrents/Edit" asp-route-id="@error.Key">Edit</a>
                             }
                         </td>
                     </tr>

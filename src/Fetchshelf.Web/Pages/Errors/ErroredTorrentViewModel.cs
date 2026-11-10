@@ -15,7 +15,8 @@ public sealed record ErroredTorrentViewModel(
     string? TorrentDetailId,
     string ErrorText,
     DateTimeOffset OccurredAt,
-    bool CanRestore)
+    bool CanRestore,
+    bool CanEdit)
 {
     /// <param name="trackedTitles">Title per info-hash for the Link/Clean errors whose torrent has a Torrent record.</param>
     public static ErroredTorrentViewModel From(ErroredTorrentEntity entity, IReadOnlyDictionary<string, string> trackedTitles)
@@ -35,7 +36,9 @@ public sealed record ErroredTorrentViewModel(
             trackedTitle is null ? null : entity.Key,
             entity.ErrorText,
             entity.OccurredAt,
-            CanRestore: restorePayload is not null);
+            CanRestore: restorePayload is not null,
+            // A Link error that kept MAM's metadata is one for a torrent without a record: Edit creates the record.
+            CanEdit: entity.Stage == ErrorStage.Linker && trackedTitle is null && entity.DisplayMetadataJson is not null);
     }
 
     /// <summary>The Jobs page name of the job that records errors for a stage.</summary>

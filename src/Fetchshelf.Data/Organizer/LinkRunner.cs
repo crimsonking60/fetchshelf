@@ -250,7 +250,9 @@ public sealed class LinkRunner(
 
         if (metadata.Authors.Count == 0)
         {
-            await RecordLinkerErrorAsync(torrent, "Torrent has no author; cannot be linked.", cancellationToken);
+            // Without a record, the Errors page's Edit needs what MAM said to start from: it becomes the record when saved.
+            var lookedUpMetadata = existing is null ? TorrentMetadataSerializer.Serialize(metadata) : null;
+            await RecordLinkerErrorAsync(torrent, NoAuthorError, cancellationToken, lookedUpMetadata);
             return;
         }
 
@@ -305,6 +307,8 @@ public sealed class LinkRunner(
         _linked++;
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
     }
+
+    private const string NoAuthorError = "Torrent has no author; cannot be linked.";
 
     private const string NoWantedFormat = "None of the torrent's files has a format listed for its media type.";
 
@@ -683,11 +687,13 @@ public sealed class LinkRunner(
         DenyTags = library.DenyTags,
     };
 
-    private async Task RecordLinkerErrorAsync(QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken)
+    /// <param name="lookedUpMetadataJson">The torrent's metadata from MAM, kept on the error for a torrent without a record.</param>
+    private async Task RecordLinkerErrorAsync(
+        QBittorrentTorrent torrent, string errorText, CancellationToken cancellationToken, string? lookedUpMetadataJson = null)
     {
         _failed++;
         _logger.LogWarning("Could not link {Torrent}: {Error}", torrent.Name, errorText);
-        await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, cancellationToken: cancellationToken);
+        await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, errorText, lookedUpMetadataJson, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
