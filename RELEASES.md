@@ -5,6 +5,93 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.7 - 2026-11-10
+
+A release of fixes to how Fetchshelf protects your account and your library. The ratio budget now really
+keeps the ratio at `min_ratio`, files with the same name are no longer lost or deleted when linking, titles in
+non-Latin scripts are no longer all taken for the same book, and a dropped connection to MAM no longer drops a
+queued download. Every configuration value is checked at startup, and `--check-config` checks a file without
+starting. `mark_removed` and `on_invalid_torrent` now work.
+
+### Upgrading
+
+- **Check your configuration before switching.** Startup now refuses values it used to accept or misread:
+  intervals above 30 days or below 0, negative buffers and bounds, `max_pages` or `max_active_downloads` of 0,
+  `min_ratio` of 0 or below, a non-numeric `ignore_torrents` entry, minimums above their maximums, filter values
+  that were never valid (that block's job was already failing on every run), two blocks or two libraries with
+  the same name, blocks named `Link`, `Clean`, `Download`, `Audiobookshelf`, `Manual search` or like
+  `autograb[1]`, `mark_removed = true` on a `bookmarks` autograb, and an `on_cleaned`, `on_unlinked` or
+  `on_invalid_torrent` table with neither a category nor tags. Run `--check-config` with the new image against
+  your file first; see [Checking a configuration](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md#checking-a-configuration).
+- **Fewer ratio-cost downloads may start.** With `min_ratio` above 1, which includes the default of 2, the
+  ratio budget used to allow downloads that took the ratio below `min_ratio`. Now an account at or below
+  `min_ratio` starts none, and the rest wait on the **Selected** page until the ratio allows them. Free
+  downloads are unaffected. The Download job logs the budget and what it was worked out from at the start of
+  every run.
+- **`download_dir` and `path_mapping` match whole folder names.** `download_dir = "/data/audio"` no longer
+  claims torrents in `/data/audiobooks`, and a mapping for `/downloads` no longer rewrites `/downloads2`. If you
+  relied on that, write the full folder name. Torrents already linked stay linked; one no library claims any
+  more is flagged with a library mismatch on the **Torrents** page.
+- **The next Clean run may retire more copies.** Author and narrator names are now compared loosely
+  ("J. R. R. Tolkien" and "J.R.R. Tolkien" are one author), so copies of a book that weren't recognized as
+  duplicates before can be now.
+- The first start recomputes every stored title key, which takes a few seconds on a large library.
+- If you run two Fetchshelf instances on one host, each now names its form cookies after itself. Reload any
+  page left open from before the upgrade before using its forms.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+
+### Added
+
+- `--check-config`: loads the configuration as startup would and prints a summary of the safety settings,
+  qBittorrent connections, libraries and jobs, or says why Fetchshelf would not start. It contacts nothing and
+  doesn't open the database (#33).
+- `mark_removed` on `[[autograb]]` now works: stored torrents missing from a run's results are looked up on
+  MAM, up to 20 a run and each at most once a week, and those MAM no longer has are marked as removed from MAM.
+  They show under *Problems* on the **Torrents** page and with a notice on their page. Nothing is changed in
+  qBittorrent or the library (#39).
+- `on_invalid_torrent` on `[[qbittorrent]]` now works: a torrent the Link job finds on MAM but can't read,
+  for example because of a new media type, gets the category and tags you set. A category no library uses
+  stops it being looked up on every run (#39).
+- **Errors** page: **Edit** on a torrent that couldn't be linked because MAM gives it no author. Saving with an
+  author added records it, and the next Link run links it (#30, #31).
+- A torrent without an author on MAM whose title ends in "by" and a name, such as "Exploitation Film Posters by
+  Graham Marsh", gets that name as its author (#31).
+- `fs`, a read-only command-line view of a Fetchshelf database, in `utils/fs`. See [docs/fs.md](https://github.com/crimsonking60/fetchshelf/blob/main/docs/fs.md).
+- The web UI has the Fetchshelf logo as its icon.
+
+### Changed
+
+- A request to MAM that gets no answer, or a 502, 503 or 504, is sent once more after 2 seconds. Downloads that
+  spend a wedge are not repeated (#34).
+- MAM requests carry the running Fetchshelf version in their user agent.
+
+### Fixed
+
+- The ratio budget let downloads take the account below `min_ratio` whenever `min_ratio` was above 1 (#32).
+- Two files with the same name in one torrent, such as `Part 1/01.mp3` and `Part 2/01.mp3`, were linked as one,
+  and the second was missing from the library without an error. Clashing names now get their sub-folder in
+  front, or a number. **Relink** on a torrent's page brings back files lost this way (#38).
+- Two torrents of one book sharing a folder, each with a file of the same name, recorded the same file, and
+  retiring or relinking one of them deleted the other's file. A different file already in place is now kept,
+  and the new one goes under a numbered name (#38).
+- An interrupted copy left a partial file that was taken for the finished one on the next run (#38).
+- Titles written entirely in Cyrillic, Greek, Arabic, Hebrew, Chinese, Japanese or Korean were all taken for
+  the same book, so a second book by an author could be skipped as a duplicate or retired from the library by
+  the Clean job. Latin letters such as "Æ" were dropped from title comparisons too (#36).
+- A dropped connection, a timeout or a server error while fetching a torrent file took the selection out of
+  the queue as a stale link. It now stays queued for the next run. A link that really is stale is refreshed,
+  and a torrent MAM no longer has is taken out of the queue with that reason (#34).
+- Two blocks with the same name, or a block named like a built-in job, silently replaced each other's job;
+  an autograb named `Download` stopped all downloads (#35).
+- `download_dir` and `path_mapping` matched partial folder names (#37).
+- A configuration mistake in a number, a filter or an environment override showed up only when a job ran, or
+  stopped startup with a stack trace. Each is now refused at startup with a message naming the setting (#33).
+- Saving **Edit** dropped the description, ISBN, file types, size and other details the form doesn't show
+  (#31).
+- With two Fetchshelf instances on one host, using one made the other's forms fail with an empty HTTP 400, and
+  its page messages went missing.
+
 ## 2026.11.6 - 2026-11-09
 
 Fixes for the OPDS catalog: book descriptions show as text instead of HTML tags, a stray character in a MAM
