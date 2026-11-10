@@ -318,7 +318,7 @@ against every entry.
 | `url` | (required) | Web UI URL, for example `http://localhost:8080`. |
 | `username` | (required) | Web UI user. |
 | `password` | (required) | Web UI password. Treat it as a secret. |
-| `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. |
+| `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. Prefixes match whole folder names (`/downloads` doesn't match `/downloads2`), the longest matching prefix wins, and a trailing slash on either side makes no difference. |
 | `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list. |
 | `on_unlinked` | unset | What to do in qBittorrent to a torrent you **Unlink** from the library. The same table shape. |
 | `on_invalid_torrent` | unset | The same table shape. It is accepted and validated, but nothing acts on it yet. |
@@ -596,7 +596,7 @@ library, in file order, that accepts it is used.
 |---|---|---|
 | `library_dir` | (required) | Root folder the books are linked into. |
 | `category` | | Accept torrents with this qBittorrent category. |
-| `download_dir` | | Accept torrents whose save path is under this folder. |
+| `download_dir` | | Accept torrents whose save path is under this folder, matched by whole folder names: `/data/audio` does not take torrents saved in `/data/audiobooks`. |
 | `name` | unset | Label for the library, used by [`[opds] libraries`](#opds) and the page filters. Two libraries can't have the same name (ignoring case). |
 | `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |

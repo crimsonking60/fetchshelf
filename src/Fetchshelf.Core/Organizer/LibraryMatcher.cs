@@ -18,7 +18,7 @@ public static class LibraryMatcher
     /// <summary>
     /// Returns the index, in <paramref name="libraries"/>, of the first library that matches, or null
     /// if none does. A library matches if its `category` equals the torrent's qBittorrent category (or
-    /// its `download_dir` is a prefix of the torrent's save path), it has no deny-tag present on the
+    /// the torrent's save path is in its `download_dir`, by whole folder names), it has no deny-tag present on the
     /// torrent, and - if it declares allow-tags - at least one is present on the torrent.
     /// </summary>
     public static int? FindMatchingLibraryIndex(
@@ -45,7 +45,7 @@ public static class LibraryMatcher
             var categoryMatches = library.Category is not null
                 && string.Equals(library.Category, qbittorrentCategory, StringComparison.OrdinalIgnoreCase);
             var downloadDirMatches = library.DownloadDir is not null
-                && savePath.StartsWith(library.DownloadDir, StringComparison.Ordinal);
+                && PathPrefix.IsSameOrUnder(savePath, library.DownloadDir);
 
             if (categoryMatches || downloadDirMatches)
             {

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Xml.Linq;
 using Fetchshelf.Core.Opds;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Opds;
 
 namespace Fetchshelf.Web.Opds;
@@ -51,7 +52,7 @@ public static class OpdsEndpoints
             // stored relative path must still lead inside the book's folder.
             var folder = Path.GetFullPath(book.Folder);
             var path = Path.GetFullPath(Path.Combine(folder, book.Files[index].RelativePath));
-            if (!path.StartsWith(folder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            if (path == folder.TrimEnd(Path.DirectorySeparatorChar) || !PathPrefix.IsSameOrUnder(path, folder))
             {
                 return Results.NotFound();
             }

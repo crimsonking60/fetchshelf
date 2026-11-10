@@ -24,7 +24,7 @@ public static class LibraryMismatchCalculator
             return LibraryMismatchState.NoLibrary;
         }
 
-        if (!storedLibraryPath.StartsWith(recomputedLibraryDir, StringComparison.Ordinal))
+        if (!PathPrefix.IsSameOrUnder(storedLibraryPath, recomputedLibraryDir))
         {
             return LibraryMismatchState.NewLibraryDir;
         }

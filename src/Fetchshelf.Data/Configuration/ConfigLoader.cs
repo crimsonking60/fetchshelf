@@ -1,4 +1,5 @@
 using System.Globalization;
+using Fetchshelf.Core.Organizer;
 using Tomlyn;
 using Tomlyn.Parsing;
 using YamlDotNet.Core;
@@ -529,7 +530,7 @@ public static class ConfigLoader
         // 2026.11.5 read the table the other way round. A table whose Fetchshelf side has nothing to do with any
         // library_dir while its Audiobookshelf side does was almost certainly written in that order.
         var libraryDirs = settings.Library.Select(library => library.LibraryDir).Where(dir => dir.Length > 0).ToList();
-        bool Related(string path) => libraryDirs.Any(dir => IsSameOrInside(dir, path) || IsSameOrInside(path, dir));
+        bool Related(string path) => libraryDirs.Any(dir => PathPrefix.IsSameOrUnder(path, dir) || PathPrefix.IsSameOrUnder(dir, path));
         if (libraryDirs.Count > 0 && !abs.PathMapping.Values.Any(Related) && abs.PathMapping.Keys.Any(Related))
         {
             throw new ConfigurationException(
@@ -537,14 +538,6 @@ public static class ConfigLoader
                 + "Audiobookshelf's path. It is the other way round, like [qbittorrent.path_mapping]: Audiobookshelf's "
                 + "path = Fetchshelf's path. Swap the two sides of each line.");
         }
-    }
-
-    /// <summary>Whether <paramref name="path"/> is <paramref name="folder"/> or a path inside it, by whole path components.</summary>
-    private static bool IsSameOrInside(string folder, string path)
-    {
-        var trimmedFolder = folder.TrimEnd('/');
-        var trimmedPath = path.TrimEnd('/');
-        return trimmedPath == trimmedFolder || trimmedPath.StartsWith(trimmedFolder + "/", StringComparison.Ordinal);
     }
 
     private static void ValidateHardcover(FetchshelfSettings settings)
