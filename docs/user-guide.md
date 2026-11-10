@@ -1032,7 +1032,10 @@ How a run works out how much it may download:
 - **Slots:** your unsatisfied limit, minus the torrents already unsatisfied, minus the buffer. That is the
   most torrents one run may select.
 - **Ratio:** free torrents cost nothing. For the others, the size must fit within
-  `(uploaded − downloaded − data still being downloaded) / min_ratio`.
+  `uploaded / min_ratio − downloaded − data still being downloaded`: the most that can be downloaded while
+  the ratio stays at `min_ratio`. With 100 GB uploaded, 40 GB downloaded and `min_ratio = 2`, that is
+  10 GB. An account at or below `min_ratio` gets no ratio budget at all. The Download job logs the budget
+  at the start of every run.
 - **Wedges:** a wedge is used only while more than `wedge_buffer` remain, so you never drop below it.
 
 When a limit is reached, the remaining torrents stay selected on the **Selected** page and are tried on the

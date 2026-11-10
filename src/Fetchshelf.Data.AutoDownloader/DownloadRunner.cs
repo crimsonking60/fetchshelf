@@ -55,7 +55,9 @@ public sealed class DownloadRunner(
         var bytesInFlight = await SumInFlightBytesAsync(cancellationToken);
         var budget = new DownloadRunBudget(
             account.UnsatLimit, account.UnsatCount, account.Wedges,
-            DownloadBudget.ComputeRatioBudgetBytes((long)account.UploadedBytes, (long)account.DownloadedBytes, bytesInFlight, minRatio));
+            DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
+        _logger.LogInformation(
+            "{RatioBudget}", DownloadBudget.DescribeRatioBudget(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
 
         var (startedCount, failedCount) = (0, 0);
         foreach (var selected in pending)

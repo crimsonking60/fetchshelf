@@ -142,7 +142,12 @@ public sealed class DownloadRunnerTests : IDisposable
 
         await runner.RunAsync();
 
-        Assert.Equal(["Added T by Some Author to qBittorrent (cost Ratio, category none)"], logger.Messages(LogLevel.Information));
+        Assert.Equal(
+            [
+                "Ratio budget for this run: 488.2 KiB (uploaded 976.6 KiB, downloaded 100 B, 0 B in flight, min_ratio 2)",
+                "Added T by Some Author to qBittorrent (cost Ratio, category none)",
+            ],
+            logger.Messages(LogLevel.Information));
     }
 
     [Fact]
@@ -348,6 +353,28 @@ public sealed class DownloadRunnerTests : IDisposable
             {"ratio":2.0,"uploaded_bytes":10,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
             """;
         var mam = DownloadTestSupport.CreateMamClient(tightAccountJson, _ => null);
+        var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+        var started = (await runner.RunAsync()).Started;
+
+        Assert.Equal(0, started);
+        Assert.Null(context.SelectedTorrents.Single().StartedAt);
+    }
+
+    [Fact]
+    public async Task RunAsync_RatioCostTorrentThatWouldTakeTheRatioBelowMinRatio_StaysQueued()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+
+        // Ratio 1000/450 = 2.2. The 100-byte torrent would take it to 1000/550 = 1.8, below min_ratio 2: the budget
+        // is 1000/2 - 450 = 50 bytes.
+        const string accountJson = """
+            {"ratio":2.2,"uploaded_bytes":1000,"downloaded_bytes":450,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+            """;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
 

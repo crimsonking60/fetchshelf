@@ -11,6 +11,49 @@ public class DownloadBudgetTests
     }
 
     [Theory]
+    [InlineData(100, 40, 0, 2, 10)]
+    [InlineData(100, 40, 5, 2, 5)]
+    [InlineData(100, 60, 0, 2, 0)] // below the floor
+    [InlineData(100, 50, 0, 2, 0)] // exactly at the floor
+    [InlineData(100, 0, 0, 2, 50)]
+    [InlineData(100, 40, 0, 1, 60)]
+    [InlineData(100, 40, 0, 0.5, 160)]
+    public void ComputeRatioBudgetBytes_LeavesTheRatioAtMinRatio(
+        double uploaded, double downloaded, long inFlight, double minRatio, long expected)
+    {
+        Assert.Equal(expected, DownloadBudget.ComputeRatioBudgetBytes(uploaded, downloaded, inFlight, minRatio));
+    }
+
+    [Theory]
+    [InlineData(250_000_000_000, 40_000_000_000, 3_000_000_000, 2)]
+    [InlineData(80_000_000_000, 30_000_000_000, 0, 1.5)]
+    [InlineData(1_000_000_000_000, 900_000_000_000, 10_000_000_000, 1)]
+    public void ComputeRatioBudgetBytes_SpendingTheWholeBudgetStaysAtMinRatioAndOneByteMoreWouldNot(
+        double uploaded, double downloaded, long inFlight, double minRatio)
+    {
+        var budget = DownloadBudget.ComputeRatioBudgetBytes(uploaded, downloaded, inFlight, minRatio);
+
+        Assert.True(uploaded / (downloaded + inFlight + budget) >= minRatio);
+        Assert.True(uploaded / (downloaded + inFlight + budget + 1) < minRatio);
+    }
+
+    [Fact]
+    public void ComputeRatioBudgetBytes_MinRatioZero_IsUnlimitedRatherThanAnUndefinedCast()
+    {
+        Assert.Equal(long.MaxValue, DownloadBudget.ComputeRatioBudgetBytes(100, 40, 0, minRatio: 0));
+    }
+
+    [Fact]
+    public void DescribeRatioBudget_NamesTheBudgetAndWhatItCameFrom()
+    {
+        const double GiB = 1024d * 1024 * 1024;
+
+        var text = DownloadBudget.DescribeRatioBudget(100 * GiB, 40 * GiB, 0, 2);
+
+        Assert.Equal("Ratio budget for this run: 10.0 GiB (uploaded 100.0 GiB, downloaded 40.0 GiB, 0 B in flight, min_ratio 2)", text);
+    }
+
+    [Theory]
     [InlineData(SelectedTorrentCost.Vip)]
     [InlineData(SelectedTorrentCost.PersonalFreeleech)]
     [InlineData(SelectedTorrentCost.GlobalFreeleech)]
