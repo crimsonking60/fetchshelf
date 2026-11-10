@@ -1,7 +1,9 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +19,7 @@ public sealed class AutograbberRunner(
     ILogger<AutograbberRunner>? logger = null)
 {
     private readonly ILogger<AutograbberRunner> _logger = logger ?? NullLogger<AutograbberRunner>.Instance;
+    private readonly EventStore _eventStore = new(dbContext);
 
     /// <summary>
     /// Returns the number of torrents selected during this run. A dry run selects nothing and returns 0; what it
@@ -59,8 +62,10 @@ public sealed class AutograbberRunner(
         var filter = SharedFilterConfigMapper.ToTorrentFilter(entry);
         var selectedCount = 0;
         var resultCount = 0;
+        var budgetReachedNote = string.Empty;
+        var returnedMamIds = new HashSet<long>();
 
-        for (var page = 0; page < entry.EffectiveMaxPages; page++)
+        for (var page = 0; page < entry.EffectiveMaxPages && budgetReachedNote.Length == 0; page++)
         {
             var query = AutograbSearchTranslator.ToSearchQuery(entry, filter, page * 100L);
             var result = await mamClient.SearchAsync(query, cancellationToken);
@@ -70,6 +75,7 @@ public sealed class AutograbberRunner(
             }
 
             resultCount += result.Data.Count;
+            returnedMamIds.UnionWith(result.Data.Select(r => r.MamId));
             foreach (var record in result.Data)
             {
                 TorrentMetadata metadata;
@@ -110,7 +116,8 @@ public sealed class AutograbberRunner(
                     selectedCount++;
                     if (!isMetadataOnlyCost && selectedCount >= budget)
                     {
-                        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: $"; stopped at this run's limit of {budget} selections ({budgetExplanation})");
+                        budgetReachedNote = $"; stopped at this run's limit of {budget} selections ({budgetExplanation})";
+                        break;
                     }
                 }
             }
@@ -121,7 +128,97 @@ public sealed class AutograbberRunner(
             }
         }
 
-        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote: string.Empty);
+        if (entry.MarkRemoved && returnedMamIds.Count > 0 && entry.Type?.Kind != AutograbType.Bookmarks.Kind)
+        {
+            await MarkRemovedAsync(name, entry.DryRun, returnedMamIds, cancellationToken);
+        }
+
+        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote);
+    }
+
+    /// <summary>The most stored torrents one run asks MAM about for `mark_removed`.</summary>
+    public const int MaxRemovalChecksPerRun = 20;
+
+    /// <summary>How long a torrent MAM still had is left alone before `mark_removed` asks about it again.</summary>
+    public static readonly TimeSpan RemovalRecheckAfter = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Asks MAM about stored torrents whose MAM id lies within the ids the search returned but which it didn't return,
+    /// and marks those MAM no longer has as removed from MAM. A gap is usually a torrent that simply doesn't match the
+    /// search, so each torrent is asked about at most once per <see cref="RemovalRecheckAfter"/>, and at most
+    /// <see cref="MaxRemovalChecksPerRun"/> per run, those asked about longest ago first.
+    /// </summary>
+    private async Task MarkRemovedAsync(string name, bool dryRun, HashSet<long> returnedMamIds, CancellationToken cancellationToken)
+    {
+        var (lowest, highest) = (returnedMamIds.Min(), returnedMamIds.Max());
+        var now = DateTimeOffset.UtcNow;
+
+        // SQLite can't compare DateTimeOffset values, so the recheck interval is applied here rather than in the query.
+        var inRange = await dbContext.Torrents.AsNoTracking()
+            .Where(t => t.MamId >= lowest && t.MamId <= highest && t.RemovedFromMamAt == null)
+            .Select(t => new { t.MamId, t.MamCheckedAt })
+            .ToListAsync(cancellationToken);
+        var toCheck = inRange
+            .Where(t => !returnedMamIds.Contains(t.MamId))
+            .GroupBy(t => t.MamId)
+            .Select(g => (MamId: g.Key, CheckedAt: g.Min(t => t.MamCheckedAt)))
+            .Where(t => t.CheckedAt is null || now - t.CheckedAt >= RemovalRecheckAfter)
+            .OrderBy(t => t.CheckedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(t => t.MamId)
+            .Take(MaxRemovalChecksPerRun)
+            .Select(t => t.MamId)
+            .ToList();
+        if (toCheck.Count == 0)
+        {
+            return;
+        }
+
+        var removed = 0;
+        foreach (var mamId in toCheck)
+        {
+            var result = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId }, cancellationToken);
+            var stillOnMam = result.Data.Count > 0;
+            var torrents = await dbContext.Torrents.Where(t => t.MamId == mamId).ToListAsync(cancellationToken);
+            if (!stillOnMam)
+            {
+                removed++;
+                foreach (var torrent in torrents)
+                {
+                    _logger.LogInformation(
+                        "Autograb {Name}: MAM no longer has {Book} (MAM id {MamId}); {Outcome}",
+                        name, Describe(torrent), mamId, dryRun ? "would have been marked as removed from MAM (dry run)" : "marked as removed from MAM");
+                }
+            }
+
+            if (dryRun)
+            {
+                continue;
+            }
+
+            foreach (var torrent in torrents)
+            {
+                torrent.MamCheckedAt = now;
+                if (!stillOnMam)
+                {
+                    torrent.RemovedFromMamAt = now;
+                    await _eventStore.AppendAsync(
+                        new EventEntity { OccurredAt = now, TorrentId = torrent.Id, MamId = mamId, Kind = EventKind.RemovedFromMam },
+                        cancellationToken);
+                }
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Autograb {Name}: asked MAM about {Checked} stored {Torrents} missing from the results; {Removed} {Verb} removed",
+            name, toCheck.Count, toCheck.Count == 1 ? "torrent" : "torrents", removed, dryRun ? "would have been marked (dry run)" : "marked");
+    }
+
+    private static string Describe(TorrentEntity torrent)
+    {
+        var authors = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).Authors;
+        return authors.Count == 0 ? torrent.Title : $"{torrent.Title} by {string.Join(", ", authors)}";
     }
 
     private int Finish(string name, bool dryRun, int resultCount, int selectedCount, string budgetReachedNote)

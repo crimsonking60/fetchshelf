@@ -238,6 +238,22 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_RemovedFromMamFilter_ShowsOnlyThoseAndLabelsThem()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Gone From MAM", t => { t.ClientStatus = "uploading"; t.RemovedFromMamAt = DateTimeOffset.UtcNow; });
+        await SeedAsync(fixture, "hash2", "Still On MAM", t => t.ClientStatus = "uploading");
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Problem=removed-from-mam"));
+
+        Assert.Contains("Gone From MAM", html);
+        Assert.DoesNotContain("Still On MAM", html);
+        Assert.Contains("(removed from MAM)", html);
+        Assert.Contains("<option value=\"removed-from-mam\" selected=\"selected\">Removed from MAM</option>", html);
+    }
+
+    [Fact]
     public async Task Post_Bulk_ComesBackToTheSameFilters()
     {
         using var fixture = new FetchshelfWebAppFixture();

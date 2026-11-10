@@ -307,6 +307,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("LinkerName")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("MamCheckedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("MamId")
                         .HasColumnType("INTEGER");
 
@@ -319,6 +322,9 @@ namespace Fetchshelf.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("QBittorrentCategory")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("RemovedFromMamAt")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("ReplacedAt")

@@ -35,6 +35,7 @@ public static class TorrentListFilters
         ("any", "Any problem"),
         ("mismatch", "Library mismatch"),
         ("not-in-client", "Not in qBittorrent"),
+        ("removed-from-mam", "Removed from MAM"),
     ];
 
     /// <summary>
@@ -61,13 +62,16 @@ public static class TorrentListFilters
 
     public static bool MatchesProblem(TorrentEntity torrent, string? problem) => problem switch
     {
-        "any" => HasMismatch(torrent) || IsNotInClient(torrent),
+        "any" => HasMismatch(torrent) || IsNotInClient(torrent) || IsRemovedFromMam(torrent),
         "mismatch" => HasMismatch(torrent),
         "not-in-client" => IsNotInClient(torrent),
+        "removed-from-mam" => IsRemovedFromMam(torrent),
         _ => true,
     };
 
     private static bool HasMismatch(TorrentEntity torrent) => torrent.LibraryMismatchState is not null;
 
     private static bool IsNotInClient(TorrentEntity torrent) => torrent.ClientStatus == ClientStatuses.NotInClient;
+
+    private static bool IsRemovedFromMam(TorrentEntity torrent) => torrent.RemovedFromMamAt is not null;
 }

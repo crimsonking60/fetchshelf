@@ -38,6 +38,10 @@
     {
         <p id="unlinked-marker" class="notice">Unlinked <local-time value="unlinkedAt" />. The Link job leaves it alone; Refresh and relink links it again.</p>
     }
+    @if (torrent.RemovedFromMamAt is { } removedFromMamAt)
+    {
+        <p id="removed-from-mam" class="notice">MAM no longer has this torrent (found <local-time value="removedFromMamAt" />). It keeps seeding and stays linked; what to do with it is up to you.</p>
+    }
     @if (torrent.MamLink is not null)
     {
         <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>

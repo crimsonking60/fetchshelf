@@ -85,4 +85,35 @@ public class TorrentDetailPageTests
 
         Assert.Contains("Not linked: no library accepts this torrent's qBittorrent category", html);
     }
+
+    [Fact]
+    public async Task Get_TorrentRemovedFromMam_SaysSoAndKeepsTheMamLink()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.FetchshelfDbContext>();
+            dbContext.Torrents.Single().RemovedFromMamAt = new DateTimeOffset(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/torrents/hash1"));
+
+        Assert.Contains("id=\"removed-from-mam\"", html);
+        Assert.Contains("MAM no longer has this torrent (found <time", html);
+        Assert.Contains("2026-11-12", html);
+        Assert.Contains("id=\"mam-link\"", html);
+    }
+
+    [Fact]
+    public async Task Get_TorrentStillOnMam_HasNoRemovedNotice()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        Assert.DoesNotContain("id=\"removed-from-mam\"", html);
+    }
 }

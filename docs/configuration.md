@@ -319,9 +319,9 @@ against every entry.
 | `username` | (required) | Web UI user. |
 | `password` | (required) | Web UI password. Treat it as a secret. |
 | `path_mapping` | `{}` | Table mapping a path prefix as qBittorrent sees it to the same location as Fetchshelf sees it. Prefixes match whole folder names (`/downloads` doesn't match `/downloads2`), the longest matching prefix wins, and a trailing slash on either side makes no difference. |
-| `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list. |
+| `on_cleaned` | unset | What to do in qBittorrent to a torrent whose files were retired in favour of a better format. A table with an optional `category` and a `tags` list; at least one of the two must be set. |
 | `on_unlinked` | unset | What to do in qBittorrent to a torrent you **Unlink** from the library. The same table shape. |
-| `on_invalid_torrent` | unset | The same table shape. It is accepted and validated, but nothing acts on it yet. |
+| `on_invalid_torrent` | unset | What to do in qBittorrent to a torrent the Link job finds on MAM but can't read, because MAM's details hold a value Fetchshelf doesn't know, such as a new media type. The same table shape. See below. |
 
 ```toml
 [[qbittorrent]]
@@ -343,8 +343,14 @@ category = "unlinked"
 - **`path_mapping`** is needed when Fetchshelf and qBittorrent see the same folders under different
   paths, which is typical in Docker. The longest matching prefix wins, and it replaces just that prefix.
   Without a mapping, the paths qBittorrent reports are used as they are.
-- **Categories** named in `on_cleaned`, `on_unlinked`, `[[tag]]`, `[[autograb]]` and `[[hardcover_list]]` are
-  created in qBittorrent automatically if they do not exist.
+- **`on_invalid_torrent`** applies when the Link job looks a torrent up on MAM and finds it, but its details
+  hold a media type, category, language or other value Fetchshelf doesn't know. The torrent can't be linked,
+  and the Link error says what was applied. A **category** that no `[[library]]` uses is the useful choice:
+  the torrent then no longer matches a library, so it isn't looked up again on every run. With only tags it
+  is looked up, and fails, on every run as before. A torrent MAM doesn't have at all is not covered; it is
+  usually from another tracker.
+- **Categories** named in `on_cleaned`, `on_unlinked`, `on_invalid_torrent`, `[[tag]]`, `[[autograb]]` and
+  `[[hardcover_list]]` are created in qBittorrent automatically if they do not exist.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
   on one disk. See [`method`](#library).
@@ -411,7 +417,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading, at least 1. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
-| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. It is accepted and validated, but nothing acts on it yet. |
+| `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. See [`mark_removed`](#mark_removed). Not for `type = "bookmarks"`. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
 ### `type`
@@ -455,6 +461,26 @@ languages = ["English"]
 max_authors = 3
 max_size = "30 MiB"
 ```
+
+### `mark_removed`
+
+MAM removes torrents now and then: replaced by a better upload, merged, or taken down. With
+`mark_removed = true`, a block's run notices this for books Fetchshelf already stores:
+
+- After reading its result pages, the run takes the lowest and highest MAM id among all results, before
+  any filtering of Fetchshelf's own. A stored torrent whose MAM id lies in that range but which the results
+  didn't include is a gap.
+- Most gaps are not removals: MAM's search narrows by category, language and the query, so stored books that
+  simply don't match the search fall inside the range of every page. Each gap is therefore looked up on MAM
+  by its id, at most **20 per run**, and a torrent MAM still had is left alone for **7 days** before it is
+  looked up again. Those looked up longest ago, or never, go first.
+- A torrent MAM no longer has is marked as removed from MAM: it shows under *Problems* on the Torrents page,
+  its page says so, and a *Removed from MAM* event is logged. Nothing is changed in qBittorrent or in the
+  library: it keeps seeding and stays linked, and what to do with it is up to you.
+- With `dry_run`, the lookups still happen, but nothing is marked; what would be is logged.
+
+A `bookmarks` block can't use it: a bookmark list skips everything not bookmarked, so every stored torrent
+in its range would look like a gap. Setting `mark_removed` on one stops startup with an error.
 
 ## Cost
 

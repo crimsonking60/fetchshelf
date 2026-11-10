@@ -77,4 +77,19 @@ public class TorrentListFiltersTests
         Assert.False(TorrentListFilters.MatchesProblem(fine, "any"));
         Assert.True(TorrentListFilters.MatchesProblem(fine, null));
     }
+
+    [Fact]
+    public void MatchesProblem_FindsTorrentsRemovedFromMam()
+    {
+        var removed = Torrent();
+        removed.ClientStatus = "uploading";
+        removed.RemovedFromMamAt = DateTimeOffset.UtcNow;
+        var fine = Torrent();
+        fine.ClientStatus = "uploading";
+
+        Assert.True(TorrentListFilters.MatchesProblem(removed, "removed-from-mam"));
+        Assert.True(TorrentListFilters.MatchesProblem(removed, "any"));
+        Assert.False(TorrentListFilters.MatchesProblem(removed, "not-in-client"));
+        Assert.False(TorrentListFilters.MatchesProblem(fine, "removed-from-mam"));
+    }
 }
