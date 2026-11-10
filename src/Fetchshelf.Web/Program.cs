@@ -91,7 +91,7 @@ if (settings.Opds is not null)
         Path.Combine(dataFileDirectory ?? ".", "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
 }
 
-builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId });
+builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId, UserAgent = $"Fetchshelf/{AppVersion.Current}" });
 builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 {
     var mamOptions = sp.GetRequiredService<MamClientOptions>();
