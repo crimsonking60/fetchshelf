@@ -54,7 +54,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.6** (2026-11-09). See [RELEASES.md](RELEASES.md#2026116---2026-11-09) for what changed, and for
+**2026.11.7** (2026-11-10). See [RELEASES.md](RELEASES.md#2026117---2026-11-10) for what changed, and for
 every earlier release.
 
 ## Contributing
