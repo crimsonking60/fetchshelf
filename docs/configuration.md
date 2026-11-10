@@ -160,7 +160,9 @@ Notes:
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
-  budget, `(uploaded − downloaded − bytes already downloading) / min_ratio`, covers their size.
+  budget, `uploaded / min_ratio − downloaded − bytes already downloading`, covers their size. That is the
+  most that can be downloaded while the ratio stays at `min_ratio`. The Download job logs the budget at the
+  start of every run.
 
 ### Reading `mam_id` from a file
 
