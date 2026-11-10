@@ -81,16 +81,23 @@ public sealed class ClientStatusCheckerTests : IDisposable
         Assert.Equal(ClientStatuses.NotInClient, context.Torrents.Single().ClientStatus);
     }
 
-    [Fact]
-    public async Task CheckAsync_TorrentMissingFromClient_KeepsRemovedFromMam()
+    [Theory]
+    [InlineData("gone", "not in client")]
+    [InlineData("here", "uploading")]
+    public async Task CheckAsync_TorrentRemovedFromMam_KeepsTheMarkWhateverQBittorrentSays(string id, string expectedStatus)
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
-        await SeedAsync(context, "gone", clientStatus: ClientStatuses.RemovedFromMam);
+        await SeedAsync(context, id, clientStatus: "stoppedUP");
+        var removedAt = new DateTimeOffset(2026, 11, 12, 8, 0, 0, TimeSpan.Zero);
+        context.Torrents.Single().RemovedFromMamAt = removedAt;
+        await context.SaveChangesAsync();
         var checker = new ClientStatusChecker(context);
 
-        await checker.CheckAsync([WithTorrents()]);
+        await checker.CheckAsync([WithTorrents(InClient("here", "uploading"))]);
 
-        Assert.Equal(ClientStatuses.RemovedFromMam, context.Torrents.Single().ClientStatus);
+        var torrent = context.Torrents.Single();
+        Assert.Equal(expectedStatus, torrent.ClientStatus);
+        Assert.Equal(removedAt, torrent.RemovedFromMamAt);
     }
 
     [Fact]

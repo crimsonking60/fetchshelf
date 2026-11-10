@@ -92,6 +92,76 @@ public sealed class ConfigValidationTests : IDisposable
     }
 
     [Fact]
+    public void Load_MarkRemovedOnBookmarks_IsRejected()
+    {
+        var message = Rejected("""
+
+            [[autograb]]
+            name = "Bookmarks"
+            type = "bookmarks"
+            mark_removed = true
+            """);
+
+        Assert.Equal(
+            "Invalid configuration: the [[autograb]] 'Bookmarks' sets 'mark_removed', which needs a search by id range; bookmark lists aren't one.",
+            message);
+    }
+
+    [Fact]
+    public void Load_MarkRemovedOnASearch_IsAccepted()
+    {
+        var settings = Load("""
+
+            [[autograb]]
+            type = "freeleech"
+            mark_removed = true
+            """);
+
+        Assert.True(Assert.Single(settings.Autograb).MarkRemoved);
+    }
+
+    [Theory]
+    [InlineData("on_cleaned")]
+    [InlineData("on_unlinked")]
+    [InlineData("on_invalid_torrent")]
+    public void Load_CategoryAndTagsTableSettingNeither_IsRejected(string setting)
+    {
+        var message = Rejected($"""
+
+            [[qbittorrent]]
+            url = "http://localhost:8080"
+            username = "admin"
+            password = "adminadmin"
+
+            [qbittorrent.{setting}]
+            tags = []
+            """);
+
+        Assert.Equal(
+            $"Invalid configuration: '{setting}' in the 1st [[qbittorrent]] section sets neither a 'category' nor 'tags', so it would do nothing; set one or remove the table.",
+            message);
+    }
+
+    [Theory]
+    [InlineData("category = \"invalid\"")]
+    [InlineData("tags = [\"needs-review\"]")]
+    public void Load_OnInvalidTorrentWithCategoryOrTags_IsAccepted(string line)
+    {
+        var settings = Load($"""
+
+            [[qbittorrent]]
+            url = "http://localhost:8080"
+            username = "admin"
+            password = "adminadmin"
+
+            [qbittorrent.on_invalid_torrent]
+            {line}
+            """);
+
+        Assert.NotNull(Assert.Single(settings.QBittorrent).OnInvalidTorrent);
+    }
+
+    [Fact]
     public void Load_UnnamedBlockOutOfRange_IsNamedByItsPosition()
     {
         var message = Rejected("""

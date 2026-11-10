@@ -84,9 +84,9 @@ type = { uploader = 12345 }
 cost = "free"
 uploaded_after = "2026-01-01"
 
-# Your own uploads, kept as metadata only so they count as owned. mark_removed is meant to ask MAM
-# about stored torrents that have vanished from the results and mark them removed from MAM. It is
-# accepted and validated, but not acted on yet.
+# Your own uploads, kept as metadata only so they count as owned. mark_removed asks MAM about stored
+# torrents that are missing from the results (up to 20 a run) and marks those MAM no longer has as
+# removed from MAM.
 [[autograb]]
 name = "My uploads"
 type = "mine"

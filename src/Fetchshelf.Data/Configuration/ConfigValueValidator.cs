@@ -53,6 +53,21 @@ internal static partial class ConfigValueValidator
             CheckAtLeast("wedge_buffer", autograb.WedgeBuffer, 0, label);
             CheckAtLeast("max_active_downloads", autograb.MaxActiveDownloads, 1, label);
             CheckAtLeast("max_pages", autograb.MaxPages, 1, label);
+
+            // mark_removed reads a gap in the results' MAM ids as a sign of a removal; a bookmark list is all gaps.
+            if (autograb.MarkRemoved && autograb.Type?.Kind == AutograbType.Bookmarks.Kind)
+            {
+                throw Invalid($"{label} sets 'mark_removed', which needs a search by id range; bookmark lists aren't one.");
+            }
+        }
+
+        for (var i = 0; i < settings.QBittorrent.Count; i++)
+        {
+            var connection = settings.QBittorrent[i];
+            var label = Label("qbittorrent", name: null, i);
+            CheckDoesSomething("on_cleaned", connection.OnCleaned, label);
+            CheckDoesSomething("on_unlinked", connection.OnUnlinked, label);
+            CheckDoesSomething("on_invalid_torrent", connection.OnInvalidTorrent, label);
         }
 
         for (var i = 0; i < settings.Snatchlist.Count; i++)
@@ -237,6 +252,15 @@ internal static partial class ConfigValueValidator
         if (value < minimum)
         {
             throw Invalid($"{Where(setting, label)} must be {minimum} or more; got {value}.");
+        }
+    }
+
+    /// <summary>A category-and-tags table with neither is most likely a mistake: it would do nothing.</summary>
+    private static void CheckDoesSomething(string setting, QBittorrentCategoryAndTags? value, string label)
+    {
+        if (value is not null && string.IsNullOrEmpty(value.Category) && value.Tags.Count == 0)
+        {
+            throw Invalid($"{Where(setting, label)} sets neither a 'category' nor 'tags', so it would do nothing; set one or remove the table.");
         }
     }
 

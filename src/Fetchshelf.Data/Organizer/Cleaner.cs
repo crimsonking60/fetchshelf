@@ -213,16 +213,7 @@ public sealed class Cleaner(
         }
         else if (SettingOf(connections.First(c => c.Client == owning).Connection) is { } setting)
         {
-            if (!string.IsNullOrEmpty(setting.Category))
-            {
-                await owning.SetCategoryAsync(member.Id, setting.Category, cancellationToken);
-            }
-
-            if (setting.Tags.Count > 0)
-            {
-                await owning.AddTagsAsync(member.Id, setting.Tags, cancellationToken);
-            }
-
+            await QBittorrentActions.ApplyAsync(owning, member.Id, setting, cancellationToken);
             details.Add($"applied {settingName} in qBittorrent");
         }
 

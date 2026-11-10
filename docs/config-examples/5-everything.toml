@@ -110,7 +110,8 @@ tags = ["superseded"]
 [qbittorrent.on_unlinked]
 category = "unlinked"
 
-# Same shape. Accepted and validated, but not acted on yet.
+# Same shape, for a torrent MAM has but whose details Fetchshelf can't read (such as a new media type).
+# A category no library uses keeps the Link job from looking it up again on every run.
 [qbittorrent.on_invalid_torrent]
 category = "invalid"
 tags = ["invalid"]
@@ -141,7 +142,7 @@ unsat_buffer = 15      # overrides the global buffer for this block; needs 'name
 wedge_buffer = 5       # overrides the global buffer for this block; needs 'name'
 max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
 dry_run = false        # true: do everything except write or download, and only log
-mark_removed = false   # accepted and validated, but not acted on yet
+mark_removed = false   # true: mark stored torrents MAM no longer has; not for bookmarks
 category = "ebooks"    # force this qBittorrent category, overriding [[tag]] rules
 
 # --- shared torrent filter (all fields) ---

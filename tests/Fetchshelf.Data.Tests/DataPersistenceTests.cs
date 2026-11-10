@@ -179,6 +179,28 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_RemovedFromMamClientStatus_MovesToItsOwnColumn()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261104175626_AddHardcoverLists");
+        InsertTorrent(context, "hash1", "Removed Torrent");
+        InsertTorrent(context, "hash2", "Seeding Torrent");
+        context.Database.ExecuteSql($"UPDATE Torrents SET ClientStatus = 'removed from MAM' WHERE Id = 'hash1'");
+        context.Database.ExecuteSql($"UPDATE Torrents SET ClientStatus = 'uploading' WHERE Id = 'hash2'");
+
+        DatabaseMigrator.Migrate(context);
+
+        var removed = context.Torrents.Single(t => t.Id == "hash1");
+        Assert.Null(removed.ClientStatus);
+        Assert.NotNull(removed.RemovedFromMamAt);
+        Assert.True(DateTimeOffset.UtcNow - removed.RemovedFromMamAt < TimeSpan.FromMinutes(5));
+        Assert.Null(removed.MamCheckedAt);
+        var seeding = context.Torrents.Single(t => t.Id == "hash2");
+        Assert.Equal("uploading", seeding.ClientStatus);
+        Assert.Null(seeding.RemovedFromMamAt);
+    }
+
+    [Fact]
     public void Migrate_DatabaseFromBeforeHardcoverLists_AddsEmptyListTablesAndKeepsEverythingElse()
     {
         using var context = CreateContext();

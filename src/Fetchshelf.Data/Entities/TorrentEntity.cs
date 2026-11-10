@@ -44,5 +44,12 @@ public sealed class TorrentEntity
 
     public string? LibraryMismatchState { get; set; }
 
+    /// <summary>qBittorrent's state for the torrent, or one of <c>ClientStatuses</c>' own values.</summary>
     public string? ClientStatus { get; set; }
+
+    /// <summary>When an autograb with `mark_removed` found that MAM no longer has the torrent. qBittorrent updates leave it alone.</summary>
+    public DateTimeOffset? RemovedFromMamAt { get; set; }
+
+    /// <summary>When an autograb with `mark_removed` last asked MAM whether it still has the torrent.</summary>
+    public DateTimeOffset? MamCheckedAt { get; set; }
 }

@@ -1300,7 +1300,8 @@ reported, so they cannot be chosen by hand.
   - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
     **Check qBittorrent**.
   - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
-    from qBittorrent, or either.
+    from qBittorrent, torrents removed from MAM (found by an autograb with
+    [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
 
   Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
@@ -1310,7 +1311,8 @@ reported, so they cannot be chosen by hand.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
-  *(unlinked)* after its title. **Edit** on each row opens the metadata editor.
+  *(unlinked)* after its title, and one MAM no longer has *(removed from MAM)* after its client status.
+  **Edit** on each row opens the metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
   selected** or **Remove selected**.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
@@ -1338,8 +1340,8 @@ reported, so they cannot be chosen by hand.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
-  show a library mismatch, an unlinked book and, for a replaced book, a link to the torrent that replaced
-  it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
+  show a library mismatch, an unlinked book, a book MAM no longer has (with the date that was found; the MAM
+  link stays, as MAM may say why) and, for a replaced book, a link to the torrent that replaced it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
   qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
   replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
   choose one of your libraries' categories, untick a tag to remove it, type new ones separated by commas,

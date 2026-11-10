@@ -10,7 +10,6 @@ namespace Fetchshelf.Data.Organizer;
 public static class ClientStatuses
 {
     public const string NotInClient = "not in client";
-    public const string RemovedFromMam = "removed from MAM";
 
     /// <summary>
     /// Stores <paramref name="state"/> as the torrent's client status, unless it is the stage already stored. A seeding
@@ -98,10 +97,7 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
             {
                 // Only trustworthy when every instance answered: a torrent missing from the reachable ones may live on the one that did not.
                 notInClient++;
-                if (torrent.ClientStatus != ClientStatuses.RemovedFromMam)
-                {
-                    torrent.ClientStatus = ClientStatuses.NotInClient;
-                }
+                torrent.ClientStatus = ClientStatuses.NotInClient;
             }
         }
 

@@ -238,7 +238,17 @@ public sealed class LinkRunner(
             // A lookup can wait on MAM or on another MAM job: the batch must not hold the write lock meanwhile.
             await CommitBatchAsync();
             _lookups++;
-            var looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
+            TorrentMetadata? looked;
+            try
+            {
+                looked = await metadataLookup.TryLookupByInfoHashAsync(torrent.Hash, cancellationToken);
+            }
+            catch (UnrecognizedReferenceDataException ex)
+            {
+                await HandleUnreadableDetailsAsync(connection, client, torrent, ex, cancellationToken);
+                return;
+            }
+
             if (looked is null)
             {
                 await RecordLinkerErrorAsync(torrent, NotOnMamError, cancellationToken);
@@ -306,6 +316,29 @@ public sealed class LinkRunner(
         await CommitBatchAsync(); // the files are in place: their record must not wait for the rest of the batch
         _linked++;
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
+    }
+
+    /// <summary>
+    /// MAM has the torrent, but its details hold a value Fetchshelf doesn't know, such as a new media type. With
+    /// `on_invalid_torrent`, its category and tags are applied in qBittorrent: a category no library uses keeps the
+    /// torrent from being looked up again on every run. Either way the Link error is recorded.
+    /// </summary>
+    private async Task HandleUnreadableDetailsAsync(
+        QBittorrentConnection connection, QBittorrentClient client, QBittorrentTorrent torrent,
+        UnrecognizedReferenceDataException exception, CancellationToken cancellationToken)
+    {
+        if (connection.OnInvalidTorrent is not { } setting)
+        {
+            await RecordLinkerErrorAsync(torrent, exception.Message, cancellationToken);
+            return;
+        }
+
+        await QBittorrentActions.ApplyAsync(client, torrent.Hash, setting, cancellationToken);
+        await RecordLinkerErrorAsync(
+            torrent,
+            $"MAM's details for this torrent can't be read (unrecognized {exception.FieldName}: '{exception.Value}'); "
+            + $"applied on_invalid_torrent: {QBittorrentActions.Describe(setting)}.",
+            cancellationToken);
     }
 
     private const string NoAuthorError = "Torrent has no author; cannot be linked.";
