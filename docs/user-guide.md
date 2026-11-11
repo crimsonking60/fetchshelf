@@ -1426,8 +1426,10 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - **Cancel** replaces **Run now** while a job runs, and stops it. It asks for no confirmation, because
   nothing is lost that the next run doesn't redo: each job stops only where nothing is left half done.
-  Download stops between torrents, so a torrent whose file was fetched, perhaps with a wedge, is always
-  added to qBittorrent first. Link finishes placing the torrent it is on and keeps everything it linked.
+  Download stops before a torrent's file is fetched, when nothing has been spent; a torrent whose file was
+  fetched, perhaps with a wedge, is added to qBittorrent first. If adding it hangs for more than five
+  seconds after the cancel, it is given up, stays queued, and the log says whether a wedge may have been
+  spent on it. The same applies when Fetchshelf stops. Link finishes placing the torrent it is on and keeps everything it linked.
   Clean finishes retiring the copy it is on. Autograb, snatchlist and Hardcover list jobs stop between MAM
   requests, and Audiobookshelf between books. Cancelling a job doesn't cancel a job it started, such as
   the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled

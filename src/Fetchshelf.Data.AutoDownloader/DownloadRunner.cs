@@ -26,15 +26,26 @@ public sealed class DownloadRunner(
     double minRatio,
     bool addTorrentsStopped,
     SafetyBuffers safetyBuffers,
-    ILogger<DownloadRunner>? logger = null)
+    ILogger<DownloadRunner>? logger = null,
+    TimeSpan? finishAfterCancel = null)
 {
     private readonly ILogger<DownloadRunner> _logger = logger ?? NullLogger<DownloadRunner>.Instance;
 
     /// <summary>
+    /// How long a torrent that is being added gets to finish once the run is cancelled or Fetchshelf stops. Short enough
+    /// to end inside a container's stop grace period, so a call that hangs can't keep the process alive until it is
+    /// killed mid-torrent.
+    /// </summary>
+    public static readonly TimeSpan DefaultFinishAfterCancel = TimeSpan.FromSeconds(5);
+
+    private readonly TimeSpan _finishAfterCancel = finishAfterCancel ?? DefaultFinishAfterCancel;
+
+    /// <summary>
     /// Starts queued selections within the account's limits. A failure on one torrent is logged and the run
     /// continues; MAM refusing the account (rate limit, block, 403) ends the run, since every later request would fail too.
-    /// Cancellation lands only between torrents: a torrent whose file was fetched, possibly with a wedge, is always
-    /// added to qBittorrent and recorded before the run stops.
+    /// A cancellation stops the run before a torrent's file is in hand, when nothing has been spent. Once the file is
+    /// fetched, possibly with a wedge, the torrent is added to qBittorrent and recorded before the run stops, unless
+    /// that takes longer than <see cref="DefaultFinishAfterCancel"/> after the cancellation.
     /// </summary>
     public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
@@ -70,13 +81,18 @@ public sealed class DownloadRunner(
             bool wedgeSpent;
             try
             {
-                (outcome, wedgeSpent) = await ProcessOneAsync(selected, budget, CancellationToken.None);
+                (outcome, wedgeSpent) = await ProcessOneAsync(selected, budget, cancellationToken);
             }
             catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
             {
                 _logger.LogError("Stopped downloading at {Torrent}: {Error} The rest stay queued for the next run", name, ex.Message);
                 failedCount++;
                 break;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Download run stopped at {Torrent}; it stays queued for the next run", name);
+                throw;
             }
             catch (Exception ex)
             {
@@ -244,18 +260,35 @@ public sealed class DownloadRunner(
             }
         }
 
-        if (useWedge)
+        // From here on the torrent is added once its file is in hand, even when the run is cancelled meanwhile: a wedge
+        // spent on a file that is then dropped is lost. A cancellation only cuts this short once it is a few seconds old.
+        using var finishing = new CancellationTokenSource();
+        using var _ = cancellationToken.Register(() => finishing.CancelAfter(_finishAfterCancel));
+        cancellationToken = finishing.Token;
+
+        try
         {
-            (torrentFile, removedAs) = await FetchTorrentFileAsync(selected, useWedge: true, cancellationToken);
-            if (torrentFile is null)
+            if (useWedge)
             {
-                return (removedAs!.Value, false);
+                (torrentFile, removedAs) = await FetchTorrentFileAsync(selected, useWedge: true, cancellationToken);
+                if (torrentFile is null)
+                {
+                    return (removedAs!.Value, false);
+                }
+
+                torrentBytes = torrentFile.Value.Bytes;
             }
 
-            torrentBytes = torrentFile.Value.Bytes;
+            await AddToQBittorrentAsync(selected, metadata, hash, torrentBytes, cost, useWedge, cancellationToken);
+        }
+        catch (OperationCanceledException) when (finishing.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                "Adding {Torrent} was cut short {Seconds:0} s after the run was stopped; it stays queued for the next run{Wedge}",
+                metadata.DisplayName(), _finishAfterCancel.TotalSeconds, useWedge ? ". A wedge may have been spent on it" : "");
+            throw;
         }
 
-        await AddToQBittorrentAsync(selected, metadata, hash, torrentBytes, cost, useWedge, cancellationToken);
         return (DownloadOutcome.Started, useWedge);
     }
 

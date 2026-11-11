@@ -110,8 +110,10 @@ run.
   from the Jobs page" as its summary. A cancellation from host shutdown is recorded as `Interrupted`.
 - **Each runner is checked for where a cancellation lands**, and given explicit cancellation points where landing
   mid-step would leave a half-done step behind:
-  - **Download:** checks the token only between torrents. A torrent whose file was fetched (and a wedge possibly
-    spent) is always added to qBittorrent before the run stops.
+  - **Download:** stops before a torrent's file is in hand, when nothing has been spent. A torrent whose file was
+    fetched (and a wedge possibly spent) is added to qBittorrent before the run stops, unless that takes more than
+    five seconds after the cancellation: a call that hangs must not keep a stopping container alive until it is
+    killed. A torrent cut short that way stays queued, with a warning saying whether a wedge may have been spent.
   - **Link:** already commits its batch in a `finally` with `CancellationToken.None`; a torrent whose files are
     being placed finishes placing before the run stops.
   - **Clean:** stops between copies; a copy being retired finishes.
