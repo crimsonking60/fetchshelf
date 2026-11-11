@@ -26,4 +26,8 @@
     <Compile Include="..\Shared\Scale\*.cs" Link="Scale\Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\Mam\*.cs" Link="Shared\Mam\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

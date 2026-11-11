@@ -48,7 +48,6 @@ public sealed partial class MamClient(
         : $"the connection to MAM failed: {ex.Message}";
 
     private readonly ILogger<MamClient> _logger = logger ?? NullLogger<MamClient>.Instance;
-    private DateTimeOffset? _forbiddenUntil;
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -56,26 +55,108 @@ public sealed partial class MamClient(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, timeProvider ?? TimeProvider.System, ct));
 
     private readonly SemaphoreSlim _accountStateLock = new(1, 1);
+
+    /// <summary>
+    /// Guards the fields below. Jobs and page requests use the client at once, so every read and write of them takes
+    /// this lock.
+    /// </summary>
+    private readonly object _stateGate = new();
+    private DateTimeOffset? _forbiddenUntil;
+
+    /// <summary>When the wait after a 429 ends; the next request clears it once it has waited.</summary>
     private DateTimeOffset? _rateLimitedUntil;
-    private (DateTimeOffset FetchedAt, MamAccountState Value)? _cachedAccountState;
+
+    /// <summary>When the last 429's wait ends, kept for <see cref="PausedUntil"/> after the next request cleared the other.</summary>
+    private DateTimeOffset? _rateLimitPauseEnds;
+    private MamAccountSnapshot? _lastAccountState;
+    private DateTimeOffset? _lastSuccessAt;
+    private MamRefusal? _lastRefusal;
+
+    /// <summary>The account's numbers MAM last gave, with when; kept after the 60-second cache has run out. Null before the first read.</summary>
+    public MamAccountSnapshot? LastAccountState
+    {
+        get
+        {
+            lock (_stateGate)
+            {
+                return _lastAccountState;
+            }
+        }
+    }
+
+    /// <summary>Until when MAM calls are paused after a 403 or a 429; null while they aren't.</summary>
+    public DateTimeOffset? PausedUntil => CurrentPause()?.Until;
+
+    /// <summary>Why MAM calls are paused; null while they aren't.</summary>
+    public MamPauseReason? PauseReason => CurrentPause()?.Reason;
+
+    /// <summary>When MAM last answered any request with success; null if it hasn't since Fetchshelf started.</summary>
+    public DateTimeOffset? LastSuccessAt
+    {
+        get
+        {
+            lock (_stateGate)
+            {
+                return _lastSuccessAt;
+            }
+        }
+    }
+
+    /// <summary>The most recent time MAM refused the session (HTTP 403) or the account (HTTP 406), and what it said.</summary>
+    public MamRefusal? LastRefusal
+    {
+        get
+        {
+            lock (_stateGate)
+            {
+                return _lastRefusal;
+            }
+        }
+    }
+
+    private (DateTimeOffset Until, MamPauseReason Reason)? CurrentPause()
+    {
+        var now = _timeProvider.GetUtcNow();
+        lock (_stateGate)
+        {
+            // A refused mam_id outweighs a rate limit: it stays until mam_id is fixed or the pause runs out.
+            if (_forbiddenUntil is { } forbidden && forbidden > now)
+            {
+                return (forbidden, MamPauseReason.Forbidden);
+            }
+
+            return _rateLimitPauseEnds is { } limited && limited > now ? (limited, MamPauseReason.RateLimited) : null;
+        }
+    }
 
     /// <summary>
     /// Reads account state (ratio, upload/download totals, wedges, unsat count/limit) from
     /// `GET /jsonLoad.php?snatch_summary=true`, caching the result for about 60 seconds.
     /// </summary>
-    public async Task<MamAccountState> GetAccountStateAsync(CancellationToken cancellationToken = default)
+    public Task<MamAccountState> GetAccountStateAsync(CancellationToken cancellationToken = default) =>
+        ReadAccountStateAsync(useCache: true, cancellationToken);
+
+    /// <summary>Reads the account state from MAM even when a read less than 60 seconds old is cached, as the Account page's Refresh does.</summary>
+    public Task<MamAccountState> RefreshAccountStateAsync(CancellationToken cancellationToken = default) =>
+        ReadAccountStateAsync(useCache: false, cancellationToken);
+
+    private async Task<MamAccountState> ReadAccountStateAsync(bool useCache, CancellationToken cancellationToken)
     {
         await _accountStateLock.WaitAsync(cancellationToken);
         try
         {
             var now = _timeProvider.GetUtcNow();
-            if (_cachedAccountState is { } cached && now - cached.FetchedAt < AccountStateCacheDuration)
+            if (useCache && LastAccountState is { } cached && now - cached.FetchedAt < AccountStateCacheDuration)
             {
-                return cached.Value;
+                return cached.State;
             }
 
             var fresh = await FetchAccountStateAsync(cancellationToken);
-            _cachedAccountState = (now, fresh);
+            lock (_stateGate)
+            {
+                _lastAccountState = new MamAccountSnapshot(fresh, now);
+            }
+
             return fresh;
         }
         finally
@@ -92,8 +173,13 @@ public sealed partial class MamClient(
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var root = document.RootElement;
-        var unsat = root.GetProperty("snatch_summary").GetProperty("unsat");
+        return ParseAccountState(document.RootElement);
+    }
+
+    internal static MamAccountState ParseAccountState(JsonElement root)
+    {
+        var summary = root.GetProperty("snatch_summary");
+        var unsat = summary.GetProperty("unsat");
 
         return new MamAccountState
         {
@@ -104,7 +190,60 @@ public sealed partial class MamClient(
             Uid = MamJson.GetInt64(root.GetProperty("uid")),
             UnsatCount = MamJson.GetInt64(unsat.GetProperty("count")),
             UnsatLimit = MamJson.GetInt64(unsat.GetProperty("limit")),
+            Username = Optional(root, "username", MamJson.GetString),
+            ClassName = Optional(root, "classname", MamJson.GetString),
+            BonusPoints = Optional(root, "seedbonus", e => (double?)MamJson.GetDouble(e)),
+            Connectable = Optional(summary, "connectable", e => e.ValueKind switch
+            {
+                JsonValueKind.True => "yes",
+                JsonValueKind.False => "no",
+                _ => MamJson.GetString(e),
+            }),
+            SnatchKinds = ReadSnatchKinds(summary),
         };
+    }
+
+    /// <summary>
+    /// Every object in the snatch summary with a count, read the same way whatever its key, so a kind MAM adds shows
+    /// without a code change. Flat values such as `partial` are not kinds and are left out.
+    /// </summary>
+    private static List<MamSnatchKind> ReadSnatchKinds(JsonElement summary)
+    {
+        var kinds = new List<MamSnatchKind>();
+        foreach (var entry in summary.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.Object
+                || Optional(entry.Value, "count", e => (long?)MamJson.GetInt64(e)) is not { } count)
+            {
+                continue;
+            }
+
+            kinds.Add(new MamSnatchKind(
+                entry.Name,
+                Optional(entry.Value, "name", MamJson.GetString) ?? entry.Name,
+                count,
+                Optional(entry.Value, "size", e => (long?)MamJson.GetInt64(e))));
+        }
+
+        return kinds;
+    }
+
+    /// <summary>The property read with <paramref name="read"/>; null when it is missing, null, or can't be read.</summary>
+    private static T? Optional<T>(JsonElement parent, string name, Func<JsonElement, T> read)
+    {
+        if (!parent.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return default;
+        }
+
+        try
+        {
+            return read(value);
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException or OverflowException)
+        {
+            return default;
+        }
     }
 
     /// <summary>
@@ -168,14 +307,25 @@ public sealed partial class MamClient(
             return null;
         }
 
-        if (!response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
+        {
+            lock (_stateGate)
+            {
+                _lastSuccessAt = _timeProvider.GetUtcNow();
+            }
+        }
+        else
         {
             await LogFailedResponseAsync(request, response, cancellationToken);
         }
 
         if ((int)response.StatusCode == 429)
         {
-            _rateLimitedUntil = _timeProvider.GetUtcNow() + RateLimitBackoff;
+            lock (_stateGate)
+            {
+                _rateLimitedUntil = _rateLimitPauseEnds = _timeProvider.GetUtcNow() + RateLimitBackoff;
+            }
+
             response.Dispose();
             throw new MamRateLimitedException("MAM rate limit hit (HTTP 429).");
         }
@@ -183,34 +333,60 @@ public sealed partial class MamClient(
         if ((int)response.StatusCode == 406)
         {
             response.Dispose();
-            throw new MamAccountBlockedException("MAM account is temporarily blocked (HTTP 406).");
+            const string blocked = "MAM account is temporarily blocked (HTTP 406).";
+            RecordRefusal(blocked);
+            throw new MamAccountBlockedException(blocked);
         }
 
         if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {
             response.Dispose();
+            DateTimeOffset? pausedUntil = null;
             if (pauseOnForbidden)
             {
-                _forbiddenUntil = _timeProvider.GetUtcNow() + ForbiddenPause;
+                pausedUntil = _timeProvider.GetUtcNow() + ForbiddenPause;
+                lock (_stateGate)
+                {
+                    _forbiddenUntil = pausedUntil;
+                }
             }
 
-            throw new MamForbiddenException(ForbiddenMessage(pauseOnForbidden ? _forbiddenUntil : null));
+            var message = ForbiddenMessage(pausedUntil);
+            RecordRefusal(message);
+            throw new MamForbiddenException(message);
         }
 
         return response;
     }
 
+    private void RecordRefusal(string message)
+    {
+        lock (_stateGate)
+        {
+            _lastRefusal = new MamRefusal(_timeProvider.GetUtcNow(), message);
+        }
+    }
+
     private void ThrowIfPausedAfterForbidden()
     {
-        if (_forbiddenUntil is { } until)
+        DateTimeOffset until;
+        lock (_stateGate)
         {
-            if (_timeProvider.GetUtcNow() < until)
+            if (_forbiddenUntil is not { } forbiddenUntil)
             {
-                throw new MamForbiddenException(ForbiddenMessage(until));
+                return;
             }
 
-            _forbiddenUntil = null;
+            if (_timeProvider.GetUtcNow() >= forbiddenUntil)
+            {
+                _forbiddenUntil = null;
+                return;
+            }
+
+            until = forbiddenUntil;
         }
+
+        throw new MamForbiddenException(ForbiddenMessage(until));
     }
 
     private static string ForbiddenMessage(DateTimeOffset? pausedUntil)
@@ -268,13 +444,18 @@ public sealed partial class MamClient(
     /// <summary>Waits out a prior 429's backoff window, if still active, before issuing another request.</summary>
     private async Task ApplyRateLimitBackoffAsync(CancellationToken cancellationToken)
     {
-        if (_rateLimitedUntil is not { } blockedUntil)
+        TimeSpan remaining;
+        lock (_stateGate)
         {
-            return;
+            if (_rateLimitedUntil is not { } blockedUntil)
+            {
+                return;
+            }
+
+            remaining = blockedUntil - _timeProvider.GetUtcNow();
+            _rateLimitedUntil = null;
         }
 
-        var remaining = blockedUntil - _timeProvider.GetUtcNow();
-        _rateLimitedUntil = null;
         if (remaining > TimeSpan.Zero)
         {
             await _delay(remaining, cancellationToken);

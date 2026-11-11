@@ -73,7 +73,7 @@ public sealed class RetroactiveTagApplier(
         }
 
         MamSearchResult result;
-        using (await accessGate.AcquireAsync(cancellationToken))
+        using (await accessGate.AcquireAsync("Tagging a torrent", cancellationToken))
         {
             result = await mamClient.SearchAsync(new MamSearchQuery { Id = metadata.MamId }, cancellationToken);
         }

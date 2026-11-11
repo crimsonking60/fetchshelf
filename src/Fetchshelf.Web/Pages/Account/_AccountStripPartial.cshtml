@@ -1,0 +1,25 @@
+@model Fetchshelf.Web.Pages.Account.AccountSummary
+@using System.Globalization
+@* Above the job list: the numbers that answer "why didn't the autograb select anything?", from the last account read. *@
+<div id="account-strip" class="account-strip">
+    @if (Model.Snapshot?.State is { } account)
+    {
+        <span>Ratio @account.Ratio.ToString("0.##", CultureInfo.InvariantCulture)</span>
+        <span>Unsatisfied @account.UnsatCount of @account.UnsatLimit</span>
+        <span>Wedges @account.Wedges.ToString("N0", CultureInfo.InvariantCulture)</span>
+        @if (Model.RatioBudget is { } ratioBudget)
+        {
+            <span>Ratio budget @ratioBudget.Value</span>
+        }
+        <a asp-page="/Account/Index">Account details</a>
+    }
+    else
+    {
+        <span class="muted">No account numbers read from MAM yet.</span>
+        <a asp-page="/Account/Index">Account</a>
+    }
+    @if (Model.Pause is { } pause)
+    {
+        <p class="notice error" role="alert">MAM calls are paused until <local-time value="pause.Until" />: @pause.Reason</p>
+    }
+</div>

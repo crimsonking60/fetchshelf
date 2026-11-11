@@ -33,7 +33,7 @@ public sealed class SnatchlistImporter(
     /// </summary>
     public async Task<SnatchlistRunSummary> RunAsync(SnatchlistEntry entry, CancellationToken cancellationToken = default)
     {
-        using var _ = await accessGate.AcquireAsync(cancellationToken);
+        using var _ = await accessGate.AcquireAsync($"Snatchlist {entry.Name ?? entry.Type.ToString()}", cancellationToken);
 
         var filter = SharedFilterConfigMapper.ToTorrentFilter(entry);
         var kind = ToMamKind(entry.Type);

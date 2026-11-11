@@ -49,14 +49,9 @@ public sealed class DownloadRunner(
     /// </summary>
     public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
-        using var _ = await accessGate.AcquireAsync(cancellationToken);
+        using var _ = await accessGate.AcquireAsync("Download", cancellationToken);
 
-        // SQLite's EF provider can't translate ORDER BY on a DateTimeOffset column, so order client-side.
-        var pending = (await dbContext.SelectedTorrents
-            .Where(s => s.StartedAt == null && s.RemovedAt == null)
-            .ToListAsync(cancellationToken))
-            .OrderBy(s => s.CreatedAt)
-            .ToList();
+        var pending = await SelectionQueue.PendingAsync(dbContext, cancellationToken);
 
         if (pending.Count == 0)
         {
@@ -65,7 +60,7 @@ public sealed class DownloadRunner(
         }
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        var bytesInFlight = await SumInFlightBytesAsync(cancellationToken);
+        var bytesInFlight = await SelectionQueue.InFlightBytesAsync(dbContext, cancellationToken);
         var budget = new DownloadRunBudget(
             account.UnsatLimit, account.UnsatCount, account.Wedges,
             DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
@@ -173,18 +168,6 @@ public sealed class DownloadRunner(
                 _logger.LogInformation("{Torrent}: {Outcome}", name, outcome);
                 break;
         }
-    }
-
-    private async Task<long> SumInFlightBytesAsync(CancellationToken cancellationToken)
-    {
-        var ratioSpendingCosts = Enum.GetValues<SelectedTorrentCost>().Where(DownloadBudget.SpendsRatio).Select(c => c.ToString()).ToList();
-        var startedNonFree = await dbContext.SelectedTorrents
-            .Where(s => s.StartedAt != null && s.RemovedAt == null)
-            .Where(s => ratioSpendingCosts.Contains(s.CostDecision))
-            .Select(s => s.MetadataJson)
-            .ToListAsync(cancellationToken);
-
-        return startedNonFree.Sum(json => TorrentMetadataSerializer.Deserialize(json).TotalSizeBytes);
     }
 
     /// <summary>The outcome, and whether the torrent file was fetched with a wedge (which spends it on MAM).</summary>

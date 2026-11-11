@@ -12,7 +12,7 @@ public sealed class MamMetadataLookup(MamClient client, MamAccessGate accessGate
     /// </remarks>
     public async Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)
     {
-        using var _ = await accessGate.AcquireAsync(cancellationToken);
+        using var _ = await accessGate.AcquireAsync("Looking a torrent up (Link, or Refresh on a torrent's page)", cancellationToken);
         return await client.LookupAsync(infoHash, cancellationToken);
     }
 }

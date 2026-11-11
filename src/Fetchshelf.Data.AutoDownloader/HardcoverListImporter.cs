@@ -77,7 +77,7 @@ public sealed class HardcoverListImporter(
         var allowEbook = grabFilters.Any(f => AllowsSide(f.Categories, FilterMainType.Ebook));
         var items = await SyncItemsAsync(entry, name, books, allowAudio, allowEbook, cancellationToken);
 
-        using var _ = await accessGate.AcquireAsync(cancellationToken);
+        using var _ = await accessGate.AcquireAsync($"Hardcover list {name}", cancellationToken);
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
         var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
