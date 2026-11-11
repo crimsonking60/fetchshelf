@@ -1501,7 +1501,8 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows what the run did, such as *Success: 3 torrents linked* or *Success: 312 search
-  results, 2 selected*, or the error. Hover over it for the numbers behind it. A failed job tries again at
+  results, 2 selected*, or the error. Hover over it for the numbers behind it. It is empty while the job runs, until
+  that run ends. A failed job tries again at
   its next interval; while its runs keep failing, its row is shown in red with since when and how many runs
   in a row, and it is listed on the **Errors** page. One failing torrent never stops the others: the
   Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list jobs then show *Finished with errors*

@@ -246,6 +246,40 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task JobsPage_JobRunningAgain_ShowsNoResultUntilThisRunEnds()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var runs = 0;
+        fixture.JobRegistry.Register("Link", async _ =>
+        {
+            if (++runs == 1)
+            {
+                return new JobOutcome("3 torrents linked");
+            }
+
+            started.SetResult();
+            await release.Task;
+            return new JobOutcome("1 torrent linked");
+        });
+        await fixture.JobRegistry.TriggerAsync("Link");
+        var run = fixture.JobRegistry.TriggerAsync("Link");
+        await started.Task;
+        var client = fixture.CreateClient();
+
+        var running = await client.GetStringAsync("/Jobs?handler=JobsPartial");
+        release.SetResult();
+        await run;
+        var finished = await client.GetStringAsync("/Jobs?handler=JobsPartial");
+
+        Assert.Contains("Running for", running);
+        Assert.DoesNotContain("3 torrents linked", running);
+        Assert.Matches(@"<td class=""job-result"">\s*</td>", running);
+        Assert.Contains("Success: 1 torrent linked", finished);
+    }
+
+    [Fact]
     public async Task PostCancel_RunningJob_CancelsIt()
     {
         using var fixture = new FetchshelfWebAppFixture();

@@ -50,11 +50,15 @@ else
                             @:-
                         }
                     </td>
-                    <td>
-                        <span title="@job.CountsText">@job.LastResultText</span>
-                        @if (job.Failing is { } failing)
+                    <td class="job-result">
+                        @* Empty while the job runs: the previous run's result next to "Running" reads as this run's. *@
+                        @if (!job.IsRunning)
                         {
-                            <div class="failing-since">failing since <local-time value="failing.Since" /> @Fetchshelf.Web.Pages.Errors.FailingJobText.Runs(failing.FailedRuns)</div>
+                            <span title="@job.CountsText">@job.LastResultText</span>
+                            @if (job.Failing is { } failing)
+                            {
+                                <div class="failing-since">failing since <local-time value="failing.Since" /> @Fetchshelf.Web.Pages.Errors.FailingJobText.Runs(failing.FailedRuns)</div>
+                            }
                         }
                     </td>
                     <td>
