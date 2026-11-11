@@ -263,6 +263,23 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("ListItems");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.NotificationStateEntity", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("NotificationStates");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.SelectedTorrentEntity", b =>
                 {
                     b.Property<int>("Id")

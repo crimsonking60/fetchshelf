@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Notifications;
 
 namespace Fetchshelf.Data.Configuration;
 
@@ -142,6 +143,67 @@ internal static partial class ConfigValueValidator
             libraries[name] = label;
         }
     }
+
+    /// <summary>
+    /// Checks every `[[notify]]` block and `web_url`. The URLs are secrets, so no message repeats one: it names the block
+    /// and says what is wrong with the setting.
+    /// </summary>
+    public static void ValidateNotify(FetchshelfSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.WebUrl) && !IsWebAddress(settings.WebUrl))
+        {
+            throw Invalid($"'web_url' must be an http or https address, such as \"https://fetchshelf.example.net\"; got '{settings.WebUrl}'.");
+        }
+
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < settings.Notify.Count; i++)
+        {
+            var entry = settings.Notify[i];
+            var label = Label("notify", entry.Name, i);
+            if (entry.Name is { } name && (name.Length == 0 || name.Trim() != name))
+            {
+                throw Invalid($"{label} has a 'name' that is empty or starts or ends with a space.");
+            }
+
+            var effectiveName = NotifyTarget.NameFor(entry, i);
+            if (names.TryGetValue(effectiveName, out var earlier))
+            {
+                throw Invalid($"{earlier} and {label} have the same name; every [[notify]] needs its own.");
+            }
+
+            names[effectiveName] = label;
+
+            if (string.IsNullOrWhiteSpace(entry.Url))
+            {
+                throw Invalid($"{label} needs a 'url' or a 'url_file'.");
+            }
+
+            if (!IsWebAddress(entry.Url))
+            {
+                // Not repeated: the address is a secret.
+                throw Invalid($"{label} has a 'url' that is not an http or https address.");
+            }
+
+            if (!NotificationFormatNames.TryParse(entry.Format, out _))
+            {
+                throw Invalid($"{label} has an unknown 'format' '{entry.Format}'; expected one of {NotificationFormatNames.NameList}.");
+            }
+
+            if (entry.Events.Count == 0)
+            {
+                throw Invalid($"{label} has no 'events'; list the events to send, or [\"all\"].");
+            }
+
+            var unknown = entry.Events.FirstOrDefault(e => e != NotificationEvents.AllName && !NotificationEvents.TryParse(e, out _));
+            if (unknown is not null)
+            {
+                throw Invalid($"{label} has an unknown event '{unknown}' in 'events'; expected \"all\" or any of {NotificationEvents.NameList}.");
+            }
+        }
+    }
+
+    private static bool IsWebAddress(string address) =>
+        Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" && !string.IsNullOrEmpty(uri.Host);
 
     private static void CheckName(string name, string label)
     {

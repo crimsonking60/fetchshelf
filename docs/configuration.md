@@ -26,6 +26,7 @@ to `5-everything.toml`, which uses every option.
 - [`[[hardcover_list]]`](#hardcover_list)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
+- [`[[notify]]`](#notify)
 - [Reference data](#reference-data)
 - [Complete example](#complete-example)
 
@@ -154,6 +155,7 @@ These go at the top of the file, before any section.
 | `mam_id_file` | unset | Full path of a file that holds the MAM session id, instead of writing it in `mam_id`. See [below](#reading-mam_id-from-a-file). |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on, 1 to 65535. |
+| `web_url` | unset | The address Fetchshelf's web UI answers at, such as `"https://fetchshelf.example.net"`: the address [`[[notify]]`](#notify) messages link to. Without it, messages carry no links. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
 | `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb. |
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb. |
@@ -686,6 +688,128 @@ it as a mismatch (*No library*, *Different library* or *Different folder*). **Re
 torrent's page, or **Relink selected** on the Torrents page, links the book again from its download into
 the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count
 as a mismatch.
+
+## `[[notify]]`
+
+Optional and repeatable. Sends a message to a phone or a chat when something needs attention, such as MAM
+refusing `mam_id` or a job that keeps failing, and, if asked, when a book is grabbed or linked. Each block is
+one place to send to. Without any `[[notify]]` block, nothing is sent. See
+[Getting notified](user-guide.md#getting-notified) in the user guide.
+
+| Setting | Default | Description |
+|---|---|---|
+| `name` | `notify[i]` | A label for the log and the Config page. Must be unique among the blocks, ignoring case. |
+| `url` | (required, or `url_file`) | Where the message is POSTed. Treated as a secret, since topics and webhook URLs often are one: shown only as set on the Config page and in `--check-config`, and left out of every log line and error message. Must be an `http` or `https` address. |
+| `url_file` | unset | Full path of a file that holds the URL, instead of writing it in `url`. Works like [`mam_id_file`](#reading-mam_id-from-a-file). |
+| `format` | `"json"` | The shape of the message: `json`, `ntfy`, `gotify`, `discord` or `apprise`. See [formats](#notification-formats). |
+| `token` | unset | Sent as `Authorization: Bearer …`, for ntfy access tokens and an Apprise API server that asks for one. Gotify's application token goes in its URL (`?token=`), as Gotify documents. Treat it as a secret. |
+| `events` | (required) | Which [events](#notification-events) to send: a list of event names, or `["all"]`. Must not be empty. |
+
+At startup, and in [`--check-config`](#checking-a-configuration), each block is checked: an unknown event or
+format, a `url` that is not an `http` or `https` address, both or neither of `url` and `url_file`, an empty
+`events` list and a duplicate `name` all stop Fetchshelf from starting, with a message that names the block
+but never repeats the URL.
+
+A top-level `web_url`, such as `"https://fetchshelf.example.net"`, is the address messages link to: a grabbed
+book links to its page, a failing job to its history. Without it, messages carry no links, since the address
+a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_web_url` sets it too.
+
+### Notification events
+
+| Event | Sent when | Text, for example |
+|---|---|---|
+| `mam_refused` | MAM answers HTTP 403 (`mam_id` refused) or 406 (account blocked). Once per pause, not once per job. | "MAM refused mam_id (HTTP 403). MAM jobs are paused until 14:32 UTC. Replace mam_id and restart Fetchshelf." |
+| `rate_limited` | MAM answers HTTP 429. At most once an hour. | "MAM asked Fetchshelf to slow down (HTTP 429); MAM calls are paused for a minute." |
+| `job_failing` | A job's run fails after a run that didn't fail. | "Job Link failed: the connection to qBittorrent failed." |
+| `job_recovered` | A job's run succeeds, or finishes with errors, after failed ones. | "Job Link works again, after 6 failed runs since 08:30 UTC." |
+| `job_errors` | A run finishes with errors that the previous run didn't have. | "Link: 3 torrents linked; 2 could not be linked; see the Errors page" |
+| `grabbed` | A torrent is sent to qBittorrent. | "Grabbed The Way of Kings by Brandon Sanderson (Autograb Freeleech, freeleech)." |
+| `linked` | A torrent is linked into a library. | "Linked The Way of Kings by Brandon Sanderson into Audiobooks." |
+| `removed_from_mam` | [`mark_removed`](#mark_removed) finds that MAM no longer has a stored torrent. | "MAM no longer has The Way of Kings by Brandon Sanderson." |
+| `hit_and_run` | MAM counts more hit-and-runs ("Not Seeding - H&R - Not Yet Satisfied") than the last count seen. | "MAM counts 1 hit-and-run (Not Seeding - H&R - Not Yet Satisfied). Seed it again to avoid a penalty." |
+| `budget_spent` | The Download job leaves selections queued because the ratio budget or the unsatisfied-snatch slots are spent, after a run that left none. | "3 selections wait: the ratio budget left is 0 B, less than the 1.2 GiB the first of them needs (min_ratio 2)." |
+
+- **Only changes are sent,** not states. A job that fails every 10 minutes for a day sends `job_failing`
+  once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once. How many
+  the last Download run left waiting is kept in the database, so neither a restart nor a run that failed in
+  between sends it again.
+- **One MAM refusal is one message.** When MAM refuses `mam_id`, every job that talks to MAM fails. A block
+  that wants `mam_refused` gets that message and not a `job_failing` for each job it stopped; a block that
+  doesn't want it still gets the `job_failing` messages. The same goes for a 429 and `rate_limited`.
+- **Grabs and links are merged.** Those within 30 seconds of each other are sent as one message, "Grabbed 4
+  torrents: A, B, C and 1 more.", so a Hardcover list run that selects 20 books sends one message, not 20. A
+  burst that never pauses is sent after 5 minutes at the latest. Such a message links to the **Events** page,
+  and in the `json` format its `fields.items` hold each torrent's own fields.
+- **`hit_and_run`** compares each account read with the last count seen, which is kept in the database, so
+  a hit-and-run that appears while Fetchshelf is down is still sent after the restart. A higher count is
+  sent and stored; a lower one is only stored, so a later rise is noticed; the same count does nothing. With
+  no stored count, it counts as 0: a hit-and-run that already exists is sent once, when a block first asks
+  for the event. The count is only compared and stored while some block wants the event.
+- **Delivery.** Messages are sent in the background, so a slow or unreachable service never holds a job up.
+  Each block has a queue of its own, sent in order: a service that is down holds up only its own messages,
+  never another block's. A failure, an HTTP 5xx or an HTTP 429 is tried once more after 10 seconds; then the
+  message is dropped and logged as a warning. A refused token or a wrong address (HTTP 4xx) is not tried
+  again. Delivery failures are not themselves notified. Requests time out after 10 seconds.
+- **Not stored.** Messages waiting when Fetchshelf stops, the one being sent included, get 5 seconds to be
+  sent; what is left then is lost, and the log says how many. The Events page and each job's history hold
+  the same facts.
+- **At most 200 messages wait** for each block. When more do, the oldest is dropped, with a line in the log.
+- **Config page.** It lists each block with **Send a test message**, which sends "Fetchshelf test message
+  from *host*" to that block straight away and shows the HTTP status or the error.
+
+### Notification formats
+
+| Format | What is sent |
+|---|---|
+| `json` | `{"event": "grabbed", "title": "…", "message": "…", "url": "…", "time": "…", "fields": {…}}`, with `fields` holding the event's data (MAM id, job name, counts) and `url` left out without `web_url`. For Home Assistant, n8n, Node-RED and custom scripts. |
+| `ntfy` | The message as the body, with `Title`, `Tags` (`warning` for problems, `books` for grabs and links) and `Click` (the link) headers, and `Priority: high` for `mam_refused` and `job_failing`. A title that isn't plain ASCII is sent as an RFC 2047 encoded word, which ntfy decodes. |
+| `gotify` | `{"title", "message", "priority"}`, with priority 8 for problems and 4 otherwise, and the link as `extras["client::notification"].click.url`. |
+| `discord` | `{"content": null, "embeds": [{"title", "description", "url", "color"}]}`, red for problems, green for `job_recovered`, blue otherwise. |
+| `apprise` | `{"title", "body", "type"}` for an [Apprise API](https://github.com/caronc/apprise-api) server, which forwards to any of Apprise's services. The link ends the body, and `type` is `failure`, `warning`, `success` or `info`. |
+
+Problems are `mam_refused`, `rate_limited`, `job_failing`, `job_errors` and `hit_and_run`.
+
+One block for each of the five targets:
+
+```toml
+# ntfy: any topic on ntfy.sh, or on a server of its own. A protected topic needs an access token.
+[[notify]]
+name = "Phone"
+url = "https://ntfy.sh/fetchshelf-x7k2"        # the topic name is the secret: make it hard to guess
+format = "ntfy"
+token = "tk_replace-with-an-access-token"
+events = ["mam_refused", "job_failing", "job_recovered", "grabbed"]
+
+# Gotify: the application token goes in the URL.
+[[notify]]
+name = "Gotify"
+url = "https://gotify.example.net/message?token=replace-with-an-application-token"
+format = "gotify"
+events = ["mam_refused", "job_failing", "hit_and_run"]
+
+# Discord: a webhook, from Server Settings → Integrations → Webhooks.
+[[notify]]
+name = "Discord"
+url = "https://discord.com/api/webhooks/123456789/replace-with-the-webhook-token"
+format = "discord"
+events = ["mam_refused", "job_failing", "job_recovered", "linked"]
+
+# Apprise API: the stateless endpoint, with the key of a saved configuration.
+[[notify]]
+name = "Apprise"
+url = "http://apprise:8000/notify/fetchshelf"
+format = "apprise"
+events = ["mam_refused", "job_failing", "budget_spent"]
+
+# Anything that takes a JSON POST: Home Assistant, n8n, Node-RED, a script.
+[[notify]]
+name = "Home Assistant"
+url = "http://homeassistant:8123/api/webhook/fetchshelf"
+events = ["all"]
+```
+
+Keep the URLs out of a file that is shared by putting each in a file of its own with `url_file`, for example a
+Docker secret.
 
 ## Reference data
 

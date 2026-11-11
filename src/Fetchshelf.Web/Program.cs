@@ -4,14 +4,17 @@ using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
+using Fetchshelf.Core.Notifications;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Notifications;
 using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web;
 using Fetchshelf.Web.Jobs;
+using Fetchshelf.Web.Notifications;
 using Fetchshelf.Web.Opds;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -79,12 +82,53 @@ builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IJobRunStore, JobRunStore>();
-// The registry is told which failures are MAM refusing the session or account, so the Errors page can group them.
+
+// Notifications: one queue every part of the app publishes to, and the sender that works through it. The notifier
+// exists without any [[notify]] block, as a sink that takes nothing, so code that publishes needs no check. Whether
+// anything is sent is decided once, here, from the configuration read at startup: notificationsOn gates the sender, the
+// hit-and-run check and the MAM wiring alike.
+var notifyTargets = NotifyTarget.From(settings);
+var notificationsOn = notifyTargets.Count > 0;
+builder.Services.AddSingleton(sp => new Notifier(notifyTargets, sp.GetRequiredService<ILogger<Notifier>>()));
+builder.Services.AddSingleton<INotificationSink>(sp => sp.GetRequiredService<Notifier>());
+builder.Services.AddHttpClient("notify").ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton(sp => new NotificationDelivery(
+    notifyTargets,
+    () => sp.GetRequiredService<IHttpClientFactory>().CreateClient("notify"),
+    settings.WebUrl,
+    sp.GetRequiredService<ILogger<NotificationDelivery>>(),
+    timeProvider: sp.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IJobRunListener>(sp => new JobRunNotifier(sp.GetRequiredService<INotificationSink>()));
+builder.Services.AddSingleton(sp => new NotificationStateStore(
+    sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(), sp.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton(sp => new HitAndRunWatcher(
+    sp.GetRequiredService<NotificationStateStore>(),
+    sp.GetRequiredService<INotificationSink>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<HitAndRunWatcher>>()));
+builder.Services.AddSingleton(sp => new BudgetSpentWatcher(
+    sp.GetRequiredService<NotificationStateStore>(),
+    sp.GetRequiredService<INotificationSink>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<BudgetSpentWatcher>>()));
+if (notificationsOn)
+{
+    builder.Services.AddSingleton<IHostedService>(sp => new NotificationSender(
+        sp.GetRequiredService<Notifier>(),
+        sp.GetRequiredService<NotificationDelivery>(),
+        sp.GetRequiredService<TimeProvider>(),
+        sp.GetRequiredService<ILogger<NotificationSender>>()));
+    builder.Services.AddSingleton<IHostedService>(sp => new HitAndRunCheck(sp.GetRequiredService<HitAndRunWatcher>()));
+}
+
+// The registry is told which failures are MAM refusing the session or account, so the Errors page can group them, and
+// who to tell when a run ends, so a job that starts failing can be sent to a phone.
 builder.Services.AddSingleton<IJobRegistry>(sp => new JobRegistry(
     sp.GetRequiredService<ILogger<JobRegistry>>(),
     sp.GetRequiredService<TimeProvider>(),
     sp.GetRequiredService<IJobRunStore>(),
-    JobFailureClassifier.Classify));
+    JobFailureClassifier.Classify,
+    sp.GetServices<IJobRunListener>()));
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
 builder.Services.AddSingleton<QBittorrentPresenceCache>();
@@ -171,7 +215,8 @@ builder.Services.AddScoped(sp => new AutograbberRunner(
     sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<SelectionRunner>(),
     sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<ILogger<AutograbberRunner>>()));
+    sp.GetRequiredService<ILogger<AutograbberRunner>>(),
+    sp.GetRequiredService<INotificationSink>()));
 builder.Services.AddScoped(sp => new SnatchlistImporter(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
     sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
@@ -278,6 +323,11 @@ if (settings.BackgroundJobsEnabled)
 {
     RegisterOrganizerJobs(app.Services, settings);
     RegisterAutoDownloaderJobs(app.Services, settings);
+}
+
+if (notificationsOn)
+{
+    ConnectMamNotifications(app.Services);
 }
 
 // Before the schedulers start, which plan each job's first run from its last one.
@@ -410,12 +460,47 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
     }
 
+    var budgetSpent = services.GetRequiredService<BudgetSpentWatcher>();
     jobRegistry.Register(JobNames.Download, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
-        return JobOutcomes.Download(await downloadRunner.RunAsync(ct));
+        var summary = await downloadRunner.RunAsync(ct);
+
+        // Told once when selections start waiting for budget, not on every run they keep waiting.
+        await budgetSpent.CheckAsync(summary.LeftQueued, summary.LimitedBy);
+        return JobOutcomes.Download(summary);
     }, "Sends queued, selected torrents to qBittorrent.");
+}
+
+/// <summary>
+/// Connects what MAM answers to notifications: a refused `mam_id`, a rate limit, and each account read, which is checked
+/// for a new hit-and-run. The handlers run on the thread of the MAM call, so each only hands something over: a
+/// notification to the queue, an account read to <see cref="HitAndRunWatcher"/>'s background check.
+/// </summary>
+static void ConnectMamNotifications(IServiceProvider services)
+{
+    var notifier = services.GetRequiredService<Notifier>();
+    var mam = services.GetRequiredService<MamClient>();
+    var throttle = new NotificationThrottle();
+    mam.Refused += refusal =>
+    {
+        // A 403 is raised once per pause. A 406 pauses nothing and comes with every call, and a 429 may come every minute,
+        // so those are told at most once in a while.
+        var (key, interval, notification) = refusal.Kind switch
+        {
+            MamRefusalKind.Forbidden => ("mam_refused.403", TimeSpan.FromMinutes(30), AccountNotificationRules.MamRefused(refusal.At, refusal.PausedUntil ?? refusal.At)),
+            MamRefusalKind.Blocked => ("mam_refused.406", TimeSpan.FromMinutes(30), AccountNotificationRules.MamBlocked(refusal.At)),
+            _ => ("rate_limited", TimeSpan.FromHours(1), AccountNotificationRules.RateLimited(refusal.At)),
+        };
+        if (throttle.Allow(key, interval, refusal.At))
+        {
+            notifier.Publish(notification);
+        }
+    };
+
+    var hitAndRuns = services.GetRequiredService<HitAndRunWatcher>();
+    mam.AccountStateRead += (previous, current) => hitAndRuns.Enqueue(current.State);
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

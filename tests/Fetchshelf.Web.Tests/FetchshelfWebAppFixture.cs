@@ -15,6 +15,7 @@ public sealed class FetchshelfWebAppFixture : IDisposable
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-web-tests-").FullName;
     private readonly WebApplicationFactory<Program> _factory;
 
+    /// <summary>The registry the host uses, unless the fixture was made with <c>realJobRegistry</c>: then the app's own is in use.</summary>
     public JobRegistry JobRegistry { get; } = new(classifyFailure: Fetchshelf.Web.Jobs.JobFailureClassifier.Classify);
 
     /// <summary>The folder holding the test's configuration and, by default, its database.</summary>
@@ -26,7 +27,10 @@ public sealed class FetchshelfWebAppFixture : IDisposable
         Func<HttpRequestMessage, HttpResponseMessage>? qbittorrentHandler = null,
         Func<HttpRequestMessage, HttpResponseMessage>? mamHandler = null,
         Func<HttpRequestMessage, HttpResponseMessage>? absHandler = null,
-        string dataFileRelativePath = "data.db")
+        string dataFileRelativePath = "data.db",
+        Func<HttpRequestMessage, HttpResponseMessage>? notifyHandler = null,
+        bool realJobRegistry = false,
+        Action<IServiceCollection>? configureServices = null)
     {
         var configPath = Path.Combine(_tempDir, "config.toml");
         File.WriteAllText(configPath, configToml);
@@ -36,7 +40,19 @@ public sealed class FetchshelfWebAppFixture : IDisposable
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
-                services.AddSingleton<IJobRegistry>(JobRegistry);
+                if (!realJobRegistry)
+                {
+                    services.AddSingleton<IJobRegistry>(JobRegistry);
+                }
+
+                // Never let a test reach a real notification service: the URL could be someone's real topic. Tests that
+                // expect messages pass their own notifyHandler; without one, nothing is sent anywhere.
+                services.AddHttpClient("notify")
+                    .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(notifyHandler ?? (request =>
+                        throw new InvalidOperationException(
+                            $"Test sent a real notification ({request.Method} {request.RequestUri?.Host}). Pass notifyHandler to FetchshelfWebAppFixture."))));
+
+                configureServices?.Invoke(services);
 
                 if (metadataLookup is not null)
                 {

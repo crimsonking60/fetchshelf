@@ -83,10 +83,11 @@ public static class JobOutcomes
     public static JobOutcome Download(DownloadRunSummary summary) => Finish(
         summary.Queued == 0
             ? "No selected torrents waiting to be downloaded"
-            : $"{summary.Started} of {Count(summary.Queued, "queued torrent", "queued torrents")} added to qBittorrent",
+            : $"{summary.Started} of {Count(summary.Queued, "queued torrent", "queued torrents")} added to qBittorrent"
+                + (summary.LeftQueued > 0 ? $"; {summary.LeftQueued} stay queued: {summary.LimitedBy}" : ""),
         summary.Failed,
         "could not be downloaded; see the log",
-        new() { ["queued"] = summary.Queued, ["started"] = summary.Started, ["failed"] = summary.Failed });
+        new() { ["queued"] = summary.Queued, ["started"] = summary.Started, ["failed"] = summary.Failed, ["left_queued"] = summary.LeftQueued });
 
     /// <summary>The outcome, or with failures the same line and counts thrown as a run that finished with errors.</summary>
     private static JobOutcome Finish(string line, int failed, string failedText, Dictionary<string, long> counts)

@@ -47,7 +47,7 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events", "Lists", "ListItems", "JobRuns",
+            "Events", "Lists", "ListItems", "JobRuns", "NotificationStates",
         ];
         foreach (var expected in expectedTables)
         {
@@ -282,6 +282,25 @@ public sealed class DataPersistenceTests : IDisposable
         context.SaveChanges();
 
         Assert.Equal(Fetchshelf.Core.Jobs.JobFailureKind.MamBlocked, context.JobRuns.AsNoTracking().Single().FailureKind);
+    }
+
+    [Fact]
+    public void Migrate_DatabaseFromBeforeNotifications_AddsAnEmptyStateTableAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261111111918_AddJobRunFailureKind");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+        context.Database.ExecuteSql(
+            $"INSERT INTO JobRuns (JobName, StartedAt, Result, [Trigger]) VALUES ('Link', '2026-11-11 08:00:00+00:00', 0, 0)");
+
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Empty(context.NotificationStates);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        Assert.Equal("Link", context.JobRuns.AsNoTracking().Single().JobName);
+        context.NotificationStates.Add(new NotificationStateEntity { Key = "hit_and_run.inactHnr", Value = "2", UpdatedAt = DateTimeOffset.UtcNow });
+        context.SaveChanges();
+        Assert.Equal("2", context.NotificationStates.AsNoTracking().Single(s => s.Key == "hit_and_run.inactHnr").Value);
     }
 
     private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>

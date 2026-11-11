@@ -74,6 +74,15 @@ public class JobOutcomesTests
         Assert.Equal("No superseded copies to retire", JobOutcomes.Clean(new CleanRunSummary(0, 0)).Summary);
 
     [Fact]
+    public void Download_SelectionsLeftQueued_SaysWhichBudgetHeldThemBack()
+    {
+        var outcome = JobOutcomes.Download(new DownloadRunSummary(1, 0, 4, 3, "the ratio budget is 0 B (ratio 2.01, min_ratio 2)"));
+
+        Assert.Equal("1 of 4 queued torrents added to qBittorrent; 3 stay queued: the ratio budget is 0 B (ratio 2.01, min_ratio 2)", outcome.Summary);
+        Assert.Equal(3, outcome.Counts!["left_queued"]);
+    }
+
+    [Fact]
     public void Download_SomeQueued_SaysHowManyWereAdded() =>
         Assert.Equal("1 of 3 queued torrents added to qBittorrent", JobOutcomes.Download(new DownloadRunSummary(1, 0, 3)).Summary);
 }

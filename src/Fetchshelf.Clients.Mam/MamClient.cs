@@ -72,6 +72,31 @@ public sealed partial class MamClient(
     private DateTimeOffset? _lastSuccessAt;
     private MamRefusal? _lastRefusal;
 
+    /// <summary>
+    /// Raised when MAM refuses `mam_id` and calls are paused (403), blocks the account (406) or asks for fewer requests
+    /// (429). A 403 that finds calls already paused raises nothing: one event per pause. Handlers run on the thread
+    /// that made the call, so they must be quick, and one that throws is logged and skipped.
+    /// </summary>
+    public event Action<MamRefusalEvent>? Refused;
+
+    /// <summary>
+    /// Raised after each read of the account from MAM, with the read before it (null for the first). Handlers run on the
+    /// thread that made the read, so they must be quick, and one that throws is logged and skipped.
+    /// </summary>
+    public event Action<MamAccountSnapshot?, MamAccountSnapshot>? AccountStateRead;
+
+    private void Raise(Action raise)
+    {
+        try
+        {
+            raise();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "A handler of a MAM event failed: {Error}", ex.Message);
+        }
+    }
+
     /// <summary>The account's numbers MAM last gave, with when; kept after the 60-second cache has run out. Null before the first read.</summary>
     public MamAccountSnapshot? LastAccountState
     {
@@ -142,6 +167,7 @@ public sealed partial class MamClient(
 
     private async Task<MamAccountState> ReadAccountStateAsync(bool useCache, CancellationToken cancellationToken)
     {
+        (MamAccountSnapshot? Previous, MamAccountSnapshot Current)? read = null;
         await _accountStateLock.WaitAsync(cancellationToken);
         try
         {
@@ -152,16 +178,26 @@ public sealed partial class MamClient(
             }
 
             var fresh = await FetchAccountStateAsync(cancellationToken);
+            MamAccountSnapshot? previous;
+            var current = new MamAccountSnapshot(fresh, now);
             lock (_stateGate)
             {
-                _lastAccountState = new MamAccountSnapshot(fresh, now);
+                previous = _lastAccountState;
+                _lastAccountState = current;
             }
 
+            read = (previous, current);
             return fresh;
         }
         finally
         {
             _accountStateLock.Release();
+
+            // Told once the lock is released, so a handler can't hold up the next read.
+            if (read is { } done)
+            {
+                Raise(() => AccountStateRead?.Invoke(done.Previous, done.Current));
+            }
         }
     }
 
@@ -321,12 +357,14 @@ public sealed partial class MamClient(
 
         if ((int)response.StatusCode == 429)
         {
+            var (limitedAt, limitedUntil) = (_timeProvider.GetUtcNow(), _timeProvider.GetUtcNow() + RateLimitBackoff);
             lock (_stateGate)
             {
-                _rateLimitedUntil = _rateLimitPauseEnds = _timeProvider.GetUtcNow() + RateLimitBackoff;
+                _rateLimitedUntil = _rateLimitPauseEnds = limitedUntil;
             }
 
             response.Dispose();
+            Raise(() => Refused?.Invoke(new MamRefusalEvent(MamRefusalKind.RateLimited, limitedAt, limitedUntil)));
             throw new MamRateLimitedException("MAM rate limit hit (HTTP 429).");
         }
 
@@ -335,6 +373,7 @@ public sealed partial class MamClient(
             response.Dispose();
             const string blocked = "MAM account is temporarily blocked (HTTP 406).";
             RecordRefusal(blocked);
+            Raise(() => Refused?.Invoke(new MamRefusalEvent(MamRefusalKind.Blocked, _timeProvider.GetUtcNow(), null)));
             throw new MamAccountBlockedException(blocked);
         }
 
@@ -353,6 +392,11 @@ public sealed partial class MamClient(
 
             var message = ForbiddenMessage(pausedUntil);
             RecordRefusal(message);
+            if (pausedUntil is { } pausedAt)
+            {
+                Raise(() => Refused?.Invoke(new MamRefusalEvent(MamRefusalKind.Forbidden, _timeProvider.GetUtcNow(), pausedAt)));
+            }
+
             throw new MamForbiddenException(message);
         }
 

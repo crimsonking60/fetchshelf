@@ -1,6 +1,7 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Notifications;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -33,10 +34,11 @@ public sealed class AutograbberRunner(
     MamAccessGate accessGate,
     SelectionRunner selectionRunner,
     FetchshelfDbContext dbContext,
-    ILogger<AutograbberRunner>? logger = null)
+    ILogger<AutograbberRunner>? logger = null,
+    INotificationSink? notifications = null)
 {
     private readonly ILogger<AutograbberRunner> _logger = logger ?? NullLogger<AutograbberRunner>.Instance;
-    private readonly EventStore _eventStore = new(dbContext);
+    private readonly EventStore _eventStore = new(dbContext, notifications);
 
     /// <summary>
     /// Searches, and selects what passes the filter. A dry run selects nothing; what it would have selected is logged

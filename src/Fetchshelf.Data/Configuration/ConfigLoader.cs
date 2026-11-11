@@ -28,6 +28,7 @@ public static class ConfigLoader
         ["mam_id"] = (s, _, v) => s.MamId = v,
         ["mam_id_file"] = (s, _, v) => s.MamIdFile = v,
         ["web_host"] = (s, _, v) => s.WebHost = v,
+        ["web_url"] = (s, _, v) => s.WebUrl = v,
         ["web_port"] = (s, n, v) => s.WebPort = ParseInt(n, v),
         ["min_ratio"] = (s, n, v) => s.MinRatio = ParseDouble(n, v),
         ["unsat_buffer"] = (s, n, v) => s.UnsatBuffer = ParseInt(n, v),
@@ -79,6 +80,7 @@ public static class ConfigLoader
         ConfigValueValidator.ValidateNames(settings);
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
+        ResolveNotifyUrlFiles(settings);
         ApplyGlobalLibraryDefaults(settings);
         ApplyGlobalLanguages(settings);
         ConfigValueValidator.ValidateFilters(settings);
@@ -89,6 +91,7 @@ public static class ConfigLoader
         ValidateHardcover(settings);
         ValidateOpds(settings);
         ValidateAudiobookshelf(settings);
+        ConfigValueValidator.ValidateNotify(settings);
         return settings;
     }
 
@@ -291,6 +294,27 @@ public static class ConfigLoader
         }
 
         settings.Hardcover.Token = ReadSecretFile("token_file", path, "/run/secrets/hardcover_token");
+    }
+
+    /// <summary>Reads each `[[notify]]` URL from the file <c>url_file</c> names, if set, like <c>mam_id_file</c>.</summary>
+    private static void ResolveNotifyUrlFiles(FetchshelfSettings settings)
+    {
+        for (var i = 0; i < settings.Notify.Count; i++)
+        {
+            var entry = settings.Notify[i];
+            if (string.IsNullOrWhiteSpace(entry.UrlFile))
+            {
+                continue;
+            }
+
+            var label = ConfigValueValidator.Label("notify", entry.Name, i);
+            if (!string.IsNullOrWhiteSpace(entry.Url))
+            {
+                throw new ConfigurationException($"Invalid configuration: {label} sets both 'url' and 'url_file'; set one.");
+            }
+
+            entry.Url = ReadSecretFile("url_file", entry.UrlFile, "/run/secrets/notify_url");
+        }
     }
 
     private static string ReadSecretFile(string setting, string path, string example)

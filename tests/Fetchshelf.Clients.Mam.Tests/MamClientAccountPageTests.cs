@@ -145,4 +145,80 @@ public class MamClientAccountPageTests
 
         Assert.Equal(time.GetUtcNow(), client.LastSuccessAt);
     }
+
+    [Fact]
+    public async Task Refused_A403_IsRaisedOnceWhileThePauseLastsAndAgainForTheNextPause()
+    {
+        var time = new ManualTimeProvider();
+        var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.Forbidden), time);
+        var refusals = new List<MamRefusalEvent>();
+        client.Refused += refusals.Add;
+
+        await Assert.ThrowsAsync<MamForbiddenException>(() => client.SearchAsync(new MamSearchQuery()));
+        time.Advance(TimeSpan.FromMinutes(10));
+        await Assert.ThrowsAsync<MamForbiddenException>(() => client.SearchAsync(new MamSearchQuery())); // paused: never reaches MAM
+
+        var first = Assert.Single(refusals);
+        Assert.Equal((MamRefusalKind.Forbidden, time.GetUtcNow().AddMinutes(-10)), (first.Kind, first.At));
+        Assert.Equal(first.At.AddMinutes(30), first.PausedUntil);
+
+        time.Advance(TimeSpan.FromMinutes(25)); // the pause has ended
+        await Assert.ThrowsAsync<MamForbiddenException>(() => client.SearchAsync(new MamSearchQuery()));
+
+        Assert.Equal(2, refusals.Count);
+    }
+
+    [Fact]
+    public async Task Refused_A403OnATorrentDownload_PausesNothingSoRaisesNothing()
+    {
+        var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+        var refusals = new List<MamRefusalEvent>();
+        client.Refused += refusals.Add;
+
+        await Assert.ThrowsAsync<MamForbiddenException>(() => client.DownloadTorrentFileAsync("hash", 1));
+
+        Assert.Empty(refusals);
+    }
+
+    [Fact]
+    public async Task Refused_A406AndA429_AreRaisedWithTheirKinds()
+    {
+        var status = HttpStatusCode.NotAcceptable;
+        var time = new ManualTimeProvider();
+        var client = ClientFor(_ => new HttpResponseMessage(status), time);
+        var refusals = new List<MamRefusalEvent>();
+        client.Refused += refusals.Add;
+
+        await Assert.ThrowsAsync<MamAccountBlockedException>(() => client.SearchAsync(new MamSearchQuery()));
+        status = (HttpStatusCode)429;
+        await Assert.ThrowsAsync<MamRateLimitedException>(() => client.SearchAsync(new MamSearchQuery()));
+
+        Assert.Equal([(MamRefusalKind.Blocked, (DateTimeOffset?)null), (MamRefusalKind.RateLimited, time.GetUtcNow().AddMinutes(1))], refusals.Select(r => (r.Kind, r.PausedUntil)));
+    }
+
+    [Fact]
+    public async Task Refused_AHandlerThatThrows_DoesNotChangeWhatTheCallerSees()
+    {
+        var client = ClientFor(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+        client.Refused += _ => throw new InvalidOperationException("handler broke");
+
+        await Assert.ThrowsAsync<MamForbiddenException>(() => client.SearchAsync(new MamSearchQuery()));
+    }
+
+    [Fact]
+    public async Task AccountStateRead_IsRaisedAfterEachReadWithThePreviousOne()
+    {
+        var client = ClientFor(_ => Ok(MamAccountFixture.Json));
+        var reads = new List<(MamAccountSnapshot? Previous, MamAccountSnapshot Current)>();
+        client.AccountStateRead += (previous, current) => reads.Add((previous, current));
+
+        await client.GetAccountStateAsync();
+        await client.GetAccountStateAsync(); // served from the cache: no read, no event
+        await client.RefreshAccountStateAsync();
+
+        Assert.Equal(2, reads.Count);
+        Assert.Null(reads[0].Previous);
+        Assert.Equal(reads[0].Current, reads[1].Previous);
+        Assert.Equal(37, reads[1].Current.State.Wedges);
+    }
 }

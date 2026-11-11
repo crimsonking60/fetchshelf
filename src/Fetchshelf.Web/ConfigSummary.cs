@@ -45,7 +45,29 @@ public static class ConfigSummary
             text.AppendLine(opds.Libraries.Count == 0 ? "OPDS: the ebooks of every library" : $"OPDS: {string.Join(", ", opds.Libraries)}");
         }
 
+        AppendNotifications(text, settings);
+
         return text.ToString();
+    }
+
+    /// <summary>The `[[notify]]` blocks: name, format and events. The URLs are secrets, so they are only reported as set.</summary>
+    private static void AppendNotifications(StringBuilder text, FetchshelfSettings settings)
+    {
+        if (settings.Notify.Count == 0)
+        {
+            return;
+        }
+
+        text.AppendLine(string.IsNullOrWhiteSpace(settings.WebUrl)
+            ? "Notifications: no web_url, so messages carry no links"
+            : $"Notifications: messages link to {settings.WebUrl}");
+        var rows = NotifyTarget.From(settings).Select(target => (target.Name,
+            $"{Fetchshelf.Core.Notifications.NotificationFormatNames.Name(target.Format)}, url set, "
+            + (target.Events.Count == Fetchshelf.Core.Notifications.NotificationEvents.All.Count
+                ? "all events"
+                : string.Join(", ", Fetchshelf.Core.Notifications.NotificationEvents.All.Where(target.Events.Contains)
+                    .Select(Fetchshelf.Core.Notifications.NotificationEvents.Name))))).ToList();
+        AppendRows(text, rows);
     }
 
     private static void AppendQBittorrent(StringBuilder text, FetchshelfSettings settings)

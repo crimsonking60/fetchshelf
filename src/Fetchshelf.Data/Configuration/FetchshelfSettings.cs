@@ -119,6 +119,15 @@ public sealed class FetchshelfSettings
     /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
     public List<HardcoverListEntry> HardcoverList { get; set; } = [];
 
+    /// <summary>Repeatable `[[notify]]` entries: where to send messages about what Fetchshelf does.</summary>
+    public List<NotifyEntry> Notify { get; set; } = [];
+
+    /// <summary>
+    /// The address Fetchshelf's web UI answers at, such as <c>https://fetchshelf.example.net</c>, which notifications link to.
+    /// Without it, messages carry no links: the address the browser uses isn't known to the server.
+    /// </summary>
+    public string? WebUrl { get; set; }
+
     /// <summary>False while `mam_id` is empty: then no background job is scheduled or run.</summary>
     public bool BackgroundJobsEnabled => !string.IsNullOrWhiteSpace(MamId);
 }

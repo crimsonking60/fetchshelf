@@ -12,12 +12,19 @@ namespace Fetchshelf.Core.Jobs;
 /// Says what kind of error ended a failed run, such as a MAM refusal; every failure is <see cref="JobFailureKind.Other"/>
 /// without one. Passed in because the exceptions belong to the clients, which this project doesn't know.
 /// </param>
+/// <param name="listeners">
+/// Told of every run that ends, in turn. Given here and not added later, so the set can't change while jobs run. Runs
+/// restored from the store at startup are not reported: they happened before this start.
+/// </param>
 public sealed class JobRegistry(
     ILogger<JobRegistry>? logger = null,
     TimeProvider? timeProvider = null,
     IJobRunStore? store = null,
-    Func<Exception, JobFailureKind>? classifyFailure = null) : IJobRegistry
+    Func<Exception, JobFailureKind>? classifyFailure = null,
+    IEnumerable<IJobRunListener>? listeners = null) : IJobRegistry
 {
+    private readonly IJobRunListener[] _listeners = listeners?.ToArray() ?? [];
+
     /// <summary>The summary of a run cancelled with <see cref="Cancel"/>.</summary>
     public const string CancelledSummary = "Cancelled from the Jobs page";
 
@@ -306,11 +313,30 @@ public sealed class JobRegistry(
 
         var finishedAt = _timeProvider.GetUtcNow();
         var run = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts, failureKind);
+        var (previousRun, failingBefore) = (job.LastRun, job.Failing);
         job.LastRun = run;
-        job.Failing = JobFailureState.Next(job.Failing, run);
+        job.Failing = JobFailureState.Next(failingBefore, run);
         if (row is not null)
         {
             _writer!.Finished(row, name, run);
+        }
+
+        Notify(new JobRunFinished(name, run, previousRun, failingBefore, job.Failing));
+    }
+
+    /// <summary>Tells every listener; one that throws is logged, and the others are still told.</summary>
+    private void Notify(JobRunFinished finished)
+    {
+        foreach (var listener in _listeners)
+        {
+            try
+            {
+                listener.RunFinished(finished);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "A listener for the end of job {JobName} failed: {Error}", finished.JobName, ex.Message);
+            }
         }
     }
 
