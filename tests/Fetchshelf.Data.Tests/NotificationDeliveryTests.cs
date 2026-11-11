@@ -176,7 +176,7 @@ public class NotificationDeliveryTests
 
         var warning = Assert.Single(logger.Messages(LogLevel.Warning));
         Assert.DoesNotContain("x7k2", warning);
-        Assert.Contains("Connection refused ((url))", warning);
+        Assert.Contains("Connection refused ((hidden))", warning);
     }
 
     [Fact]
@@ -188,6 +188,47 @@ public class NotificationDeliveryTests
         await Delivery([Target("Phone", "https://x.test/a", events: NotificationEvent.Grabbed)], server, logger: logger).DeliverAsync(Grabbed());
 
         Assert.Contains("something nobody expected", Assert.Single(logger.Messages(LogLevel.Warning)));
+    }
+
+    [Fact]
+    public async Task DeliverAsync_TheUrlQuotedAsDotNetWritesItBackOrInAnInnerError_IsLoggedWithoutIt()
+    {
+        // .NET writes the address back with the default port dropped and the escaping normalised, and a socket error
+        // inside names only host and port.
+        var server = new ThrowingServer(new HttpRequestException(
+            "Connection refused (ntfy.test:443)", new InvalidOperationException("while sending to https://ntfy.test/secret%20topic-x7k2")));
+        var logger = new ListLogger<NotificationDelivery>();
+        var target = Target("Phone", "https://ntfy.test:443/secret topic-x7k2", token: "tk_secret", events: NotificationEvent.Grabbed);
+
+        await Delivery([target], server, logger: logger).DeliverAsync(Grabbed());
+
+        var warning = Assert.Single(logger.Messages(LogLevel.Warning));
+        Assert.DoesNotContain("x7k2", warning);
+        Assert.DoesNotContain("ntfy.test", warning);
+        Assert.Contains("Connection refused ((hidden))", warning);
+    }
+
+    [Theory]
+    [InlineData("https://ntfy.test/secret-topic-x7k2", "tk_secret", "failed for https://ntfy.test/secret-topic-x7k2 with tk_secret", "failed for (hidden) with (hidden)")]
+    [InlineData("https://x.test/a", null, "no answer from a server", "no answer from a server")]
+    public void Redact_TakesOutTheUrlAndTokenButNotShortPieces(string url, string? token, string text, string expected) =>
+        Assert.Equal(expected, NotificationDelivery.Redact(Target("Phone", url, token: token), text));
+
+    [Fact]
+    public async Task SendTestAsync_IsDatedByTheClockItWasGiven()
+    {
+        var server = new FakeServer(_ => Status(200));
+        var target = Target("Phone", "https://x.test/a", events: NotificationEvent.Grabbed);
+        var delivery = new NotificationDelivery([target], () => new HttpClient(server), null, timeProvider: new FixedClock(At));
+
+        await delivery.SendTestAsync(target);
+
+        Assert.Contains("\"time\":\"2026-11-11T12:00:00Z\"", Assert.Single(server.Requests).Body);
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     [Fact]

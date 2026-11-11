@@ -194,5 +194,7 @@ public class NotificationRulesTests
         public List<Notification> Published { get; } = [];
 
         public void Publish(Notification notification) => Published.Add(notification);
+
+        public bool Wants(NotificationEvent notificationEvent) => true;
     }
 }

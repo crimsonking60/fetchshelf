@@ -1,8 +1,6 @@
-using System.Globalization;
+using System.Threading.Channels;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.Notifications;
-using Fetchshelf.Data.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,21 +12,50 @@ namespace Fetchshelf.Data.Notifications;
 /// `[[notify]]` block wants <see cref="NotificationEvent.HitAndRun"/>. It is stored when the notification is queued, not
 /// when it is delivered: a message lost to a delivery failure isn't sent again on every read.
 /// </summary>
-public sealed class HitAndRunWatcher(
-    IDbContextFactory<FetchshelfDbContext> contextFactory,
-    Notifier notifier,
-    TimeProvider timeProvider,
-    ILogger<HitAndRunWatcher>? logger = null)
+/// <remarks>
+/// <see cref="Enqueue"/> is what MAM's account reads call: it only hands the read over, so the job that read the account
+/// never waits on the database. <see cref="RunAsync"/>, a background loop, does the comparing. Only the latest read waits:
+/// an older one says nothing a newer one doesn't.
+/// </remarks>
+public sealed class HitAndRunWatcher(NotificationStateStore states, INotificationSink notifications, TimeProvider timeProvider, ILogger<HitAndRunWatcher>? logger = null)
 {
     private readonly ILogger<HitAndRunWatcher> _logger = logger ?? NullLogger<HitAndRunWatcher>.Instance;
+
+    private readonly Channel<MamAccountState> _reads = Channel.CreateBounded<MamAccountState>(
+        new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
 
     /// <summary>One check at a time: two reads close together must not both find the same rise.</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    /// <summary>Checks one account read. It never throws: it runs next to a job, which it must not fail.</summary>
+    /// <summary>Hands an account read over for checking, and returns at once.</summary>
+    public void Enqueue(MamAccountState account)
+    {
+        if (notifications.Wants(NotificationEvent.HitAndRun))
+        {
+            _reads.Writer.TryWrite(account);
+        }
+    }
+
+    /// <summary>Checks each read handed over, until <paramref name="stoppingToken"/> is cancelled.</summary>
+    public async Task RunAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await foreach (var account in _reads.Reader.ReadAllAsync(stoppingToken))
+            {
+                await CheckAsync(account);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Fetchshelf is stopping: a read not yet checked is checked against the stored count on the next read.
+        }
+    }
+
+    /// <summary>Checks one account read. It never throws.</summary>
     public async Task CheckAsync(MamAccountState account)
     {
-        if (!notifier.Wants(NotificationEvent.HitAndRun)
+        if (!notifications.Wants(NotificationEvent.HitAndRun)
             || account.SnatchKinds.FirstOrDefault(k => k.Key == AccountNotificationRules.HitAndRunSnatchKey) is not { } kind)
         {
             return;
@@ -37,33 +64,16 @@ public sealed class HitAndRunWatcher(
         await _gate.WaitAsync();
         try
         {
-            await using var context = await contextFactory.CreateDbContextAsync();
-            var state = await context.NotificationStates.FirstOrDefaultAsync(s => s.Key == AccountNotificationRules.HitAndRunStateKey);
-            long? stored = state is not null && long.TryParse(state.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var count) ? count : null;
+            var stored = await states.GetAsync(AccountNotificationRules.HitAndRunStateKey);
             var (send, store) = AccountNotificationRules.DecideHitAndRun(stored, kind.Count);
             if (store is { } newCount)
             {
-                var now = timeProvider.GetUtcNow();
-                if (state is null)
-                {
-                    context.NotificationStates.Add(new NotificationStateEntity
-                    {
-                        Key = AccountNotificationRules.HitAndRunStateKey,
-                        Value = newCount.ToString(CultureInfo.InvariantCulture),
-                        UpdatedAt = now,
-                    });
-                }
-                else
-                {
-                    (state.Value, state.UpdatedAt) = (newCount.ToString(CultureInfo.InvariantCulture), now);
-                }
-
-                await context.SaveChangesAsync();
+                await states.SetAsync(AccountNotificationRules.HitAndRunStateKey, newCount);
             }
 
             if (send)
             {
-                notifier.Publish(AccountNotificationRules.HitAndRun(kind.Count, timeProvider.GetUtcNow()));
+                notifications.Publish(AccountNotificationRules.HitAndRun(kind.Count, timeProvider.GetUtcNow()));
             }
         }
         catch (Exception ex)

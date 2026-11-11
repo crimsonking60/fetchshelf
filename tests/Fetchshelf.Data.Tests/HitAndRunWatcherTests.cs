@@ -42,7 +42,8 @@ public sealed class HitAndRunWatcherTests : IDisposable
     private (HitAndRunWatcher Watcher, Notifier Notifier) CreateWatcher(params NotificationEvent[] wanted)
     {
         var notifier = new Notifier([Wanting(wanted)]);
-        return (new HitAndRunWatcher(new ContextFactory(_options), notifier, new FixedTime(Now)), notifier);
+        var time = new FixedTime(Now);
+        return (new HitAndRunWatcher(new NotificationStateStore(new ContextFactory(_options), time), notifier, time), notifier);
     }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider
@@ -198,11 +199,39 @@ public sealed class HitAndRunWatcherTests : IDisposable
     public async Task ADatabaseThatCantBeRead_IsLoggedNotThrown()
     {
         var notifier = new Notifier([Wanting(NotificationEvent.HitAndRun)]);
-        var broken = new HitAndRunWatcher(new BrokenFactory(), notifier, new FixedTime(Now));
+        var broken = new HitAndRunWatcher(new NotificationStateStore(new BrokenFactory(), new FixedTime(Now)), notifier, new FixedTime(Now));
 
         await broken.CheckAsync(Account(1)); // must not throw: it runs next to a job
 
         Assert.Empty(Sent(notifier));
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task Enqueue_HandsTheReadToTheBackgroundCheckAndReturnsAtOnce()
+    {
+        var (watcher, notifier) = CreateWatcher(NotificationEvent.HitAndRun);
+        using var stop = new CancellationTokenSource();
+        var running = watcher.RunAsync(stop.Token);
+
+        watcher.Enqueue(Account(1));
+        while (Stored() is null)
+        {
+            await Task.Delay(10);
+        }
+
+        await stop.CancelAsync();
+        await running; // stops quietly
+        Assert.Single(Sent(notifier));
+    }
+
+    [Fact]
+    public void Enqueue_NoBlockWantingHitAndRun_HandsNothingOver()
+    {
+        var (watcher, _) = CreateWatcher(NotificationEvent.Grabbed);
+
+        watcher.Enqueue(Account(1)); // nothing queued: a stopped RunAsync would otherwise find it
+
+        Assert.Null(Stored());
     }
 
     private sealed class BrokenFactory : IDbContextFactory<FetchshelfDbContext>

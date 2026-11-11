@@ -167,6 +167,7 @@ public sealed partial class MamClient(
 
     private async Task<MamAccountState> ReadAccountStateAsync(bool useCache, CancellationToken cancellationToken)
     {
+        (MamAccountSnapshot? Previous, MamAccountSnapshot Current)? read = null;
         await _accountStateLock.WaitAsync(cancellationToken);
         try
         {
@@ -185,12 +186,18 @@ public sealed partial class MamClient(
                 _lastAccountState = current;
             }
 
-            Raise(() => AccountStateRead?.Invoke(previous, current));
+            read = (previous, current);
             return fresh;
         }
         finally
         {
             _accountStateLock.Release();
+
+            // Told once the lock is released, so a handler can't hold up the next read.
+            if (read is { } done)
+            {
+                Raise(() => AccountStateRead?.Invoke(done.Previous, done.Current));
+            }
         }
     }
 

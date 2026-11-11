@@ -93,16 +93,23 @@ public sealed class NotificationBatcher
         }
 
         var verb = first.Event == NotificationEvent.Grabbed ? "Grabbed" : "Linked";
-        var items = burst.Select(n => n.Item ?? n.Title).ToList();
+        var names = burst.Select(n => n.Item ?? n.Title).ToList();
         var heading = $"{verb} {burst.Count} torrents";
-        return first with
+
+        // Every item keeps its own fields (torrent and MAM ids among them), so a webhook can act on each.
+        var items = burst.Select(n => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>(n.Fields ?? new Dictionary<string, object?>())
         {
-            Title = heading,
-            Message = $"{heading}: {NameList(items)}.",
-            Fields = new Dictionary<string, object?> { ["count"] = burst.Count, ["items"] = items },
-            LinkPath = null,
-            Item = null,
-        };
+            ["name"] = n.Item ?? n.Title,
+            ["time"] = n.Time,
+        }).ToList();
+        return new Notification(
+            first.Event,
+            heading,
+            $"{heading}: {NameList(names)}.",
+            first.Time,
+            new Dictionary<string, object?> { ["count"] = burst.Count, ["names"] = names, ["items"] = items },
+            // No one torrent's page: the Events page lists them all.
+            $"/Events?Type={first.Event}");
     }
 
     /// <summary>"A and B", "A, B and C" or, past <see cref="NamesShown"/>, "A, B, C and 2 more".</summary>

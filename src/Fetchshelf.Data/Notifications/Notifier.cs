@@ -36,7 +36,7 @@ public sealed class Notifier : INotificationSink
     /// <summary>What the sender reads.</summary>
     public ChannelReader<Notification> Reader => _queue.Reader;
 
-    /// <summary>Whether any block wants the event, so code that must work to find one can skip the work when none does.</summary>
+    /// <summary>Whether any block wants the event, so code that must work to make one can skip the work when none does.</summary>
     public bool Wants(NotificationEvent notificationEvent) => Targets.Any(target => target.Events.Contains(notificationEvent));
 
     /// <summary>Whether the block gets this notification: it wants the event, and not an event that tells the same story.</summary>

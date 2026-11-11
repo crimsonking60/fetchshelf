@@ -771,7 +771,8 @@ public sealed class DownloadRunnerTests : IDisposable
         var summary = await runner.RunAsync();
 
         Assert.Equal((0, 2, 2), (summary.Started, summary.Queued, summary.LeftQueued));
-        Assert.Equal("the ratio budget is 5 B (ratio 2.01, min_ratio 2)", summary.LimitedBy);
+        // As it stood when the first was held back: its own size against what was left.
+        Assert.Equal("the ratio budget left is 5 B, less than the 100 B the first of them needs (min_ratio 2)", summary.LimitedBy);
     }
 
     [Fact]

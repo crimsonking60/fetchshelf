@@ -32,7 +32,16 @@ public sealed class EventStore(FetchshelfDbContext dbContext, INotificationSink?
     /// </summary>
     private async Task PublishAsync(EventEntity @event, CancellationToken cancellationToken)
     {
-        if (notifications is null || @event.Kind is not (EventKind.Grabbed or EventKind.Linked or EventKind.RemovedFromMam))
+        NotificationEvent? notificationEvent = @event.Kind switch
+        {
+            EventKind.Grabbed => NotificationEvent.Grabbed,
+            EventKind.Linked => NotificationEvent.Linked,
+            EventKind.RemovedFromMam => NotificationEvent.RemovedFromMam,
+            _ => null,
+        };
+
+        // Reading the torrent costs a query per event: a run linking thousands of torrents doesn't pay it for nobody.
+        if (notifications is null || notificationEvent is not { } wanted || !notifications.Wants(wanted))
         {
             return;
         }

@@ -1563,8 +1563,9 @@ are for following along.
   sends to that block straight away and shows the HTTP status or what went wrong. `--check-config` lists the
   blocks too, with the URLs hidden.
 - **When delivery fails,** the message is tried once more after 10 seconds, then dropped, with a warning in
-  the log. Nothing waits for the network: a service that is down never slows a job. Messages are not stored,
-  so one still waiting when Fetchshelf stops is sent first, within 5 seconds, and lost if that is not enough.
+  the log. Nothing waits for the network: a service that is down never slows a job, nor another block's
+  messages. Messages are not stored, so those still waiting when Fetchshelf stops get 5 seconds to be sent,
+  and are lost if that is not enough; the log says how many.
   The **Events** page and each job's history on the **Jobs** page have the same facts.
 - **The URL is a secret.** A topic name or webhook id is all it takes to send to it, and for a public ntfy
   topic also to read what is sent. Choose a topic that is hard to guess, or keep the URL in a file with

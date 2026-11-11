@@ -77,7 +77,8 @@ public sealed class DownloadRunner(
 
         var (startedCount, failedCount) = (0, 0);
         var (overRatio, noSlot) = (0, 0);
-        var slotBuffer = 0;
+        // Why selections wait, as it stood when the first of each kind was held back: later torrents change the budget.
+        string? ratioLimit = null, slotLimit = null;
         foreach (var selected in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -121,11 +122,16 @@ public sealed class DownloadRunner(
             if (outcome == DownloadOutcome.OverRatioBudget)
             {
                 overRatio++;
+                ratioLimit ??= string.Create(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    $"the ratio budget left is {DownloadBudget.FormatBytes(budget.RatioBudgetBytes)}, less than the "
+                    + $"{DownloadBudget.FormatBytes(TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes)} the first of them needs (min_ratio {minRatio})");
             }
             else if (outcome == DownloadOutcome.NoUnsatSlot)
             {
                 noSlot++;
-                slotBuffer = safetyBuffers.UnsatBufferFor(selected.GrabberName);
+                slotLimit ??= $"no unsatisfied-snatch slot is free ({budget.UnsatCount} of {budget.UnsatLimit} in use, "
+                    + $"unsat_buffer {safetyBuffers.UnsatBufferFor(selected.GrabberName)})";
             }
 
             if (wedgeSpent)
@@ -142,19 +148,7 @@ public sealed class DownloadRunner(
             }
         }
 
-        var limits = new List<string>();
-        if (overRatio > 0)
-        {
-            limits.Add(string.Create(
-                System.Globalization.CultureInfo.InvariantCulture,
-                $"the ratio budget is {DownloadBudget.FormatBytes(budget.RatioBudgetBytes)} (ratio {account.Ratio:0.##}, min_ratio {minRatio})"));
-        }
-
-        if (noSlot > 0)
-        {
-            limits.Add($"no unsatisfied-snatch slot is free ({budget.UnsatCount} of {budget.UnsatLimit} in use, unsat_buffer {slotBuffer})");
-        }
-
+        var limits = new[] { ratioLimit, slotLimit }.OfType<string>().ToList();
         return new DownloadRunSummary(startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits));
     }
 

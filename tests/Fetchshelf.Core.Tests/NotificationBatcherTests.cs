@@ -28,8 +28,12 @@ public class NotificationBatcherTests
 
         Assert.Equal(("Grabbed 4 torrents", "Grabbed 4 torrents: A, B, C and 1 more."), (message.Title, message.Message));
         Assert.Equal(4, message.Fields!["count"]);
-        Assert.Equal(["A", "B", "C", "D"], (IEnumerable<string>)message.Fields["items"]!);
-        Assert.Null(message.LinkPath);
+        Assert.Equal(["A", "B", "C", "D"], (IEnumerable<string>)message.Fields["names"]!);
+        // Each item keeps its own fields, so a webhook can act on every torrent, and the link goes to all of them.
+        var items = (IReadOnlyList<IReadOnlyDictionary<string, object?>>)message.Fields["items"]!;
+        Assert.Equal(["A", "B", "C", "D"], items.Select(i => (string)i["name"]!));
+        Assert.All(items, i => Assert.Equal(1, i["x"]));
+        Assert.Equal("/Events?Type=Grabbed", message.LinkPath);
         Assert.False(batcher.HasPending);
     }
 

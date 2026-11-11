@@ -727,28 +727,33 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 | `linked` | A torrent is linked into a library. | "Linked The Way of Kings by Brandon Sanderson into Audiobooks." |
 | `removed_from_mam` | [`mark_removed`](#mark_removed) finds that MAM no longer has a stored torrent. | "MAM no longer has The Way of Kings by Brandon Sanderson." |
 | `hit_and_run` | MAM counts more hit-and-runs ("Not Seeding - H&R - Not Yet Satisfied") than the last count seen. | "MAM counts 1 hit-and-run (Not Seeding - H&R - Not Yet Satisfied). Seed it again to avoid a penalty." |
-| `budget_spent` | The Download job leaves selections queued because the ratio budget or the unsatisfied-snatch slots are spent, after a run that left none. | "3 selections wait: the ratio budget is 0 B (ratio 2.01, min_ratio 2)." |
+| `budget_spent` | The Download job leaves selections queued because the ratio budget or the unsatisfied-snatch slots are spent, after a run that left none. | "3 selections wait: the ratio budget left is 0 B, less than the 1.2 GiB the first of them needs (min_ratio 2)." |
 
 - **Only changes are sent,** not states. A job that fails every 10 minutes for a day sends `job_failing`
-  once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once.
+  once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once. How many
+  the last Download run left waiting is kept in the database, so neither a restart nor a run that failed in
+  between sends it again.
 - **One MAM refusal is one message.** When MAM refuses `mam_id`, every job that talks to MAM fails. A block
   that wants `mam_refused` gets that message and not a `job_failing` for each job it stopped; a block that
   doesn't want it still gets the `job_failing` messages. The same goes for a 429 and `rate_limited`.
 - **Grabs and links are merged.** Those within 30 seconds of each other are sent as one message, "Grabbed 4
   torrents: A, B, C and 1 more.", so a Hardcover list run that selects 20 books sends one message, not 20. A
-  burst that never pauses is sent after 5 minutes at the latest.
+  burst that never pauses is sent after 5 minutes at the latest. Such a message links to the **Events** page,
+  and in the `json` format its `fields.items` hold each torrent's own fields.
 - **`hit_and_run`** compares each account read with the last count seen, which is kept in the database, so
   a hit-and-run that appears while Fetchshelf is down is still sent after the restart. A higher count is
   sent and stored; a lower one is only stored, so a later rise is noticed; the same count does nothing. With
   no stored count, it counts as 0: a hit-and-run that already exists is sent once, when a block first asks
   for the event. The count is only compared and stored while some block wants the event.
 - **Delivery.** Messages are sent in the background, so a slow or unreachable service never holds a job up.
-  A failure, an HTTP 5xx or an HTTP 429 is tried once more after 10 seconds; then the message is dropped and
-  logged as a warning. A refused token or a wrong address (HTTP 4xx) is not tried again. Delivery failures
-  are not themselves notified. Requests time out after 10 seconds.
-- **Not stored.** A message that is waiting when Fetchshelf stops is sent first, within 5 seconds; one that
-  can't be sent by then is lost. The Events page and each job's history hold the same facts.
-- **At most 200 messages wait.** When more do, the oldest is dropped, with a line in the log.
+  Each block has a queue of its own, sent in order: a service that is down holds up only its own messages,
+  never another block's. A failure, an HTTP 5xx or an HTTP 429 is tried once more after 10 seconds; then the
+  message is dropped and logged as a warning. A refused token or a wrong address (HTTP 4xx) is not tried
+  again. Delivery failures are not themselves notified. Requests time out after 10 seconds.
+- **Not stored.** Messages waiting when Fetchshelf stops, the one being sent included, get 5 seconds to be
+  sent; what is left then is lost, and the log says how many. The Events page and each job's history hold
+  the same facts.
+- **At most 200 messages wait** for each block. When more do, the oldest is dropped, with a line in the log.
 - **Config page.** It lists each block with **Send a test message**, which sends "Fetchshelf test message
   from *host*" to that block straight away and shows the HTTP status or the error.
 

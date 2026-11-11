@@ -114,7 +114,7 @@ link to. Without it, messages carry no links: the address the browser uses isn't
 | `linked` | A torrent is linked into a library (`EventKind.Linked`) | "Linked *The Way of Kings* into Audiobooks." |
 | `removed_from_mam` | `mark_removed` marks a stored torrent (`EventKind.RemovedFromMam`) | "MAM no longer has *Book* by *Author*." |
 | `hit_and_run` | An account read shows a higher *Not Seeding - H&R - Not Yet Satisfied* count (`snatch_summary.inactHnr`) than the last count seen, which is kept in the database | "MAM counts 1 hit-and-run (Not Seeding - H&R - Not Yet Satisfied). Seed it again to avoid a penalty." |
-| `budget_spent` | The Download job leaves selections queued because the ratio budget or the selection slots are spent, after a run that started all it could | "3 selections wait: the ratio budget is 0 B (ratio 2.01, `min_ratio` 2)." |
+| `budget_spent` | The Download job leaves selections queued because the ratio budget or the selection slots are spent, after a run that left none | "3 selections wait: the ratio budget left is 0 B, less than the 1.2 GiB the first of them needs (min_ratio 2)." |
 
 - **Only changes are sent**, not states. A job that fails every 10 minutes for a day sends `job_failing` once and
   `job_recovered` once.
@@ -162,9 +162,12 @@ need no network.
   which only puts the notification in a bounded in-memory queue (200; the oldest is dropped, with a log line,
   when full), and only when some block would receive it. A hosted `NotificationSender` (`Fetchshelf.Web`, only
   registered when a `[[notify]]` block exists) takes from the queue, merges bursts (`NotificationBatcher`: 30
-  seconds of quiet, 5 minutes at most), and hands each message to `NotificationDelivery`, which POSTs to every
-  block that receives it, all at once. Publishing never waits on the network and never fails the job that
-  published. When Fetchshelf stops, what is queued or held is sent first, within 5 seconds.
+  seconds of quiet, 5 minutes at most), and puts each message in the queue of every block that receives it
+  (200 each, oldest dropped). Each block has a worker of its own that sends its messages in order through
+  `NotificationDelivery`, so a service that is down holds up only its own messages. A message leaves its
+  block's queue only when it is being sent. Publishing never waits on the network and never fails the job
+  that published. When Fetchshelf stops, what is queued or held gets 5 seconds (by the injected clock) to be
+  sent, the message being sent included; the log counts what is lost.
 - **Requests** use their own named `HttpClient` with a 10-second timeout. A failure to connect, a 5xx or a 429
   is retried once after 10 seconds; then the message is dropped and logged as a warning ("Notify Phone: could
   not send *grabbed*: …"). A 4xx other than 429 (a refused token, a wrong address) is not retried. The log line
@@ -190,9 +193,13 @@ need no network.
   check, which keeps its own failures.
 - **`DownloadRunner`** reports whether selections were left queued for lack of budget, and why, in its run summary
   (`DownloadRunSummary` gains `LeftQueued` and `LimitedBy`, shown in the job's result and as the count
-  `left_queued`). The Download job sends `budget_spent` when a run leaves some queued after one that left none;
-  the run before it, which the registry restores from the database after a restart, says which. So a restart
-  doesn't send it again.
+  `left_queued`). `BudgetSpentWatcher` sends `budget_spent` when a run leaves some queued after one that left
+  none. How many the last run left is kept in `NotificationStates` (`budget_spent.left_queued`), and only a run
+  that got as far as the budget changes it, so neither a restart nor a failed or cancelled run in between sends
+  it again. `LimitedBy` describes each limit as it stood when the first selection was held back by it.
+- **`HitAndRunWatcher`** gets each account read through `Enqueue`, which only hands it over; a hosted
+  `HitAndRunCheck` does the comparing. The MAM event handlers run on the thread of the MAM call, so each only
+  queues.
 
 ### 6. Trying it
 

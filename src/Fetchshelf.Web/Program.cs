@@ -84,8 +84,11 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IJobRunStore, JobRunStore>();
 
 // Notifications: one queue every part of the app publishes to, and the sender that works through it. The notifier
-// exists without any [[notify]] block, as a sink that takes nothing, so no code needs to ask whether notifications are on.
+// exists without any [[notify]] block, as a sink that takes nothing, so code that publishes needs no check. Whether
+// anything is sent is decided once, here, from the configuration read at startup: notificationsOn gates the sender, the
+// hit-and-run check and the MAM wiring alike.
 var notifyTargets = NotifyTarget.From(settings);
+var notificationsOn = notifyTargets.Count > 0;
 builder.Services.AddSingleton(sp => new Notifier(notifyTargets, sp.GetRequiredService<ILogger<Notifier>>()));
 builder.Services.AddSingleton<INotificationSink>(sp => sp.GetRequiredService<Notifier>());
 builder.Services.AddHttpClient("notify").ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -93,20 +96,29 @@ builder.Services.AddSingleton(sp => new NotificationDelivery(
     notifyTargets,
     () => sp.GetRequiredService<IHttpClientFactory>().CreateClient("notify"),
     settings.WebUrl,
-    sp.GetRequiredService<ILogger<NotificationDelivery>>()));
+    sp.GetRequiredService<ILogger<NotificationDelivery>>(),
+    timeProvider: sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<IJobRunListener>(sp => new JobRunNotifier(sp.GetRequiredService<INotificationSink>()));
+builder.Services.AddSingleton(sp => new NotificationStateStore(
+    sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(), sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton(sp => new HitAndRunWatcher(
-    sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(),
-    sp.GetRequiredService<Notifier>(),
+    sp.GetRequiredService<NotificationStateStore>(),
+    sp.GetRequiredService<INotificationSink>(),
     sp.GetRequiredService<TimeProvider>(),
     sp.GetRequiredService<ILogger<HitAndRunWatcher>>()));
-if (notifyTargets.Count > 0)
+builder.Services.AddSingleton(sp => new BudgetSpentWatcher(
+    sp.GetRequiredService<NotificationStateStore>(),
+    sp.GetRequiredService<INotificationSink>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<BudgetSpentWatcher>>()));
+if (notificationsOn)
 {
     builder.Services.AddSingleton<IHostedService>(sp => new NotificationSender(
         sp.GetRequiredService<Notifier>(),
         sp.GetRequiredService<NotificationDelivery>(),
         sp.GetRequiredService<TimeProvider>(),
         sp.GetRequiredService<ILogger<NotificationSender>>()));
+    builder.Services.AddSingleton<IHostedService>(sp => new HitAndRunCheck(sp.GetRequiredService<HitAndRunWatcher>()));
 }
 
 // The registry is told which failures are MAM refusing the session or account, so the Errors page can group them, and
@@ -313,7 +325,10 @@ if (settings.BackgroundJobsEnabled)
     RegisterAutoDownloaderJobs(app.Services, settings);
 }
 
-ConnectMamNotifications(app.Services);
+if (notificationsOn)
+{
+    ConnectMamNotifications(app.Services);
+}
 
 // Before the schedulers start, which plan each job's first run from its last one.
 var jobRegistry = app.Services.GetRequiredService<IJobRegistry>();
@@ -445,38 +460,27 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
     }
 
-    var notifications = services.GetRequiredService<INotificationSink>();
-    var timeProvider = services.GetRequiredService<TimeProvider>();
+    var budgetSpent = services.GetRequiredService<BudgetSpentWatcher>();
     jobRegistry.Register(JobNames.Download, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
         var summary = await downloadRunner.RunAsync(ct);
 
-        // Told once when selections start waiting for budget, not on every run they keep waiting: the run before this
-        // one, restored from the database after a restart, says whether some were already waiting.
-        var previousLeftQueued = jobRegistry.Get(JobNames.Download)?.LastRun?.Counts?.GetValueOrDefault("left_queued") ?? 0;
-        if (AccountNotificationRules.BudgetSpent(summary.LeftQueued, summary.LimitedBy, previousLeftQueued, timeProvider.GetUtcNow()) is { } budgetSpent)
-        {
-            notifications.Publish(budgetSpent);
-        }
-
+        // Told once when selections start waiting for budget, not on every run they keep waiting.
+        await budgetSpent.CheckAsync(summary.LeftQueued, summary.LimitedBy);
         return JobOutcomes.Download(summary);
     }, "Sends queued, selected torrents to qBittorrent.");
 }
 
 /// <summary>
 /// Connects what MAM answers to notifications: a refused `mam_id`, a rate limit, and each account read, which is checked
-/// for a new hit-and-run. Does nothing without a `[[notify]]` block.
+/// for a new hit-and-run. The handlers run on the thread of the MAM call, so each only hands something over: a
+/// notification to the queue, an account read to <see cref="HitAndRunWatcher"/>'s background check.
 /// </summary>
 static void ConnectMamNotifications(IServiceProvider services)
 {
     var notifier = services.GetRequiredService<Notifier>();
-    if (notifier.Targets.Count == 0)
-    {
-        return;
-    }
-
     var mam = services.GetRequiredService<MamClient>();
     var throttle = new NotificationThrottle();
     mam.Refused += refusal =>
@@ -496,11 +500,7 @@ static void ConnectMamNotifications(IServiceProvider services)
     };
 
     var hitAndRuns = services.GetRequiredService<HitAndRunWatcher>();
-    mam.AccountStateRead += (previous, current) =>
-    {
-        // Runs next to the job that read the account: started, not waited for. It handles its own failures.
-        _ = hitAndRuns.CheckAsync(current.State);
-    };
+    mam.AccountStateRead += (previous, current) => hitAndRuns.Enqueue(current.State);
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.

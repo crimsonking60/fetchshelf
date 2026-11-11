@@ -19,16 +19,26 @@ public sealed class EventStoreNotificationTests : IDisposable
         File.Delete(_dbPath);
     }
 
-    private sealed class RecordingSink : INotificationSink
+    private sealed class RecordingSink(bool wanted = true) : INotificationSink
     {
         public List<Notification> Published { get; } = [];
 
+        public List<NotificationEvent> Asked { get; } = [];
+
         public void Publish(Notification notification) => Published.Add(notification);
+
+        public bool Wants(NotificationEvent notificationEvent)
+        {
+            Asked.Add(notificationEvent);
+            return wanted;
+        }
     }
 
     private sealed class ThrowingSink : INotificationSink
     {
         public void Publish(Notification notification) => throw new InvalidOperationException("sink broke");
+
+        public bool Wants(NotificationEvent notificationEvent) => true;
     }
 
     private sealed class FailingSave : SaveChangesInterceptor
@@ -167,6 +177,40 @@ public sealed class EventStoreNotificationTests : IDisposable
         await new EventStore(context, sink).AppendAsync(new EventEntity { OccurredAt = At, TorrentId = "hash9", MamId = 9, Kind = EventKind.Grabbed });
 
         Assert.Equal("Grabbed Fresh Book by Brandon Sanderson.", Assert.Single(sink.Published).Message);
+    }
+
+    [Fact]
+    public async Task AppendAsync_NobodyWantsTheEvent_SkipsReadingTheTorrent()
+    {
+        await using (var setup = OrganizerTestSupport.CreateContext(_dbPath))
+        {
+            await OrganizerTestSupport.SeedTorrentAsync(setup, "hash1", mamId: 7);
+        }
+
+        // A context that counts its queries: the event's save, and nothing more.
+        var queries = new QueryCounter();
+        using var context = new FetchshelfDbContext(
+            new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite($"Data Source={_dbPath}").AddInterceptors(queries).Options);
+        var sink = new RecordingSink(wanted: false);
+
+        await new EventStore(context, sink).AppendAsync(new EventEntity { OccurredAt = At, TorrentId = "hash1", MamId = 7, Kind = EventKind.Linked });
+
+        Assert.Equal([NotificationEvent.Linked], sink.Asked);
+        Assert.Empty(sink.Published);
+        Assert.DoesNotContain(queries.Commands, c => c.Contains("FROM \"Torrents\"", StringComparison.Ordinal));
+    }
+
+    private sealed class QueryCounter : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command, CommandEventData eventData, InterceptionResult<System.Data.Common.DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
     }
 
     [Fact]

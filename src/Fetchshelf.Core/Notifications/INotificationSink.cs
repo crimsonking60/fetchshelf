@@ -8,4 +8,10 @@ public interface INotificationSink
     /// fail the job that published.
     /// </summary>
     void Publish(Notification notification);
+
+    /// <summary>
+    /// Whether anyone wants the event, so code that must work to make the notification (read a torrent, compare a count)
+    /// can skip the work when nobody does.
+    /// </summary>
+    bool Wants(NotificationEvent notificationEvent);
 }
