@@ -313,6 +313,45 @@ public class JobRegistryRunRecordTests
         public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => Inner.LastRunsAsync();
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task Cancel_WithTheNumberOfAnEarlierRun_LeavesTheRunStartedSinceGoing()
+    {
+        var registry = new JobRegistry();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runs = 0;
+        registry.Register("Link", async ct =>
+        {
+            if (++runs == 2)
+            {
+                started.SetResult();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+        });
+        await registry.TriggerAsync("Link");
+        var shownRunNumber = registry.Get("Link")!.RunNumber; // the run a page showed a Cancel button for, now over
+
+        var second = registry.TriggerAsync("Link");
+        await started.Task;
+
+        Assert.False(registry.Cancel("Link", shownRunNumber));
+        Assert.True(registry.Get("Link")!.IsRunning);
+        Assert.True(registry.Cancel("Link", registry.Get("Link")!.RunNumber));
+        await second;
+        Assert.Equal(JobRunResult.Cancelled, registry.Get("Link")!.LastRun!.Result);
+    }
+
+    [Fact]
+    public async Task RunNumber_CountsEachRun()
+    {
+        var registry = new JobRegistry();
+        registry.Register("Link", _ => Task.CompletedTask);
+
+        await registry.TriggerAsync("Link");
+        await registry.TriggerAsync("Link");
+
+        Assert.Equal(2, registry.Get("Link")!.RunNumber);
+    }
+
     [Fact]
     public void Cancel_IdleJob_ReturnsFalse()
     {

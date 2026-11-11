@@ -59,6 +59,10 @@ else
                         <form method="post" action="?handler=@handler" hx-post="?handler=@handler" hx-target="#job-list" hx-swap="innerHTML">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="jobName" value="@job.Name" />
+                            @if (job.IsRunning)
+                            {
+                                <input type="hidden" name="runNumber" value="@job.RunNumber" />
+                            }
                             <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                         </form>
                     </td>

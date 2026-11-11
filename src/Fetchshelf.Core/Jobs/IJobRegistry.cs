@@ -38,7 +38,12 @@ public interface IJobRegistry
     /// Stops the job's current run, and drops a run queued after it. Returns false when the job isn't running. The
     /// run is recorded as <see cref="JobRunResult.Cancelled"/> once it has stopped.
     /// </summary>
-    bool Cancel(string name);
+    /// <param name="name">The job.</param>
+    /// <param name="runNumber">
+    /// The <see cref="RegisteredJob.RunNumber"/> of the run to stop, as a page showed it; if another run has started
+    /// since, nothing is stopped and false is returned. Null stops whatever run is going.
+    /// </param>
+    bool Cancel(string name, long? runNumber = null);
 
     /// <summary>Stops every running job because Fetchshelf is shutting down; those runs are recorded as interrupted.</summary>
     void InterruptAll();

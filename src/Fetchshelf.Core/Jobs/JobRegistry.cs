@@ -125,7 +125,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         return RunUntilNothingQueuedAsync(job, trigger, cancellationToken);
     }
 
-    public bool Cancel(string name)
+    public bool Cancel(string name, long? runNumber = null)
     {
         if (!_jobs.TryGetValue(name, out var job))
         {
@@ -137,7 +137,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         lock (job.Gate)
         {
             cancellation = job.RunCancellation;
-            if (cancellation is null)
+            if (cancellation is null || (runNumber is { } expected && expected != job.RunNumber))
             {
                 return false;
             }
@@ -174,6 +174,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
     private void Claim(RegisteredJob job, CancellationToken cancellationToken)
     {
         job.IsRunning = true;
+        job.RunNumber++;
         job.RunCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
         job.CancelRequested = false;
     }

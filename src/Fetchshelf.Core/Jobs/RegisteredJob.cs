@@ -19,6 +19,12 @@ public sealed class RegisteredJob
     /// <summary>Whether this job's <see cref="RunAsync"/> is currently executing.</summary>
     public bool IsRunning { get; internal set; }
 
+    /// <summary>
+    /// Numbers the job's runs since Fetchshelf started; while the job runs, the number of the current run. Lets a Cancel
+    /// from a page shown a moment ago stop only the run that page showed.
+    /// </summary>
+    public long RunNumber { get; internal set; }
+
     /// <summary>When the current run started; null while the job is idle.</summary>
     public DateTimeOffset? RunningSince { get; internal set; }
 

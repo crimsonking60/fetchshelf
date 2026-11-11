@@ -5,6 +5,9 @@ namespace Fetchshelf.Web.Pages.Jobs;
 /// <summary>Display model for one job row on the Jobs page.</summary>
 public sealed record JobStatusViewModel(string Name, string? Description, DateTimeOffset? LastStartedAt, string LastResultText, bool IsRunning, DateTimeOffset? NextScheduledRun)
 {
+    /// <summary>The number of the current run, for its Cancel button. See <see cref="RegisteredJob.RunNumber"/>.</summary>
+    public long RunNumber { get; init; }
+
     /// <summary>When the current run started; null while idle.</summary>
     public DateTimeOffset? RunningSince { get; init; }
 
@@ -45,6 +48,7 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
     public static JobStatusViewModel From(RegisteredJob job) =>
         new(job.Name, job.Description, job.LastRun?.StartedAt, ResultText(job.LastRun), job.IsRunning, job.NextScheduledRun)
         {
+            RunNumber = job.RunNumber,
             RunningSince = job.RunningSince,
             LastDuration = job.LastRun is { FinishedAt: { } finishedAt } run ? finishedAt - run.StartedAt : null,
             CountsText = JobRunLabels.Counts(job.LastRun?.Counts),

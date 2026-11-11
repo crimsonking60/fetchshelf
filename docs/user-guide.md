@@ -1433,7 +1433,8 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   Clean finishes retiring the copy it is on. Autograb, snatchlist and Hardcover list jobs stop between MAM
   requests, and Audiobookshelf between books. Cancelling a job doesn't cancel a job it started, such as
   the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled
-  job runs again at its next interval.
+  job runs again at its next interval. **Cancel** stops only the run it was shown for: if that run has
+  ended and another started before the page caught up, the new run carries on.
 - An interval of `0` means the job never runs by itself.
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.

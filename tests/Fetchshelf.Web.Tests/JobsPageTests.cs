@@ -274,6 +274,41 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task PostCancel_ButtonShownForARunThatHasEnded_LeavesTheNewRunGoing()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runs = 0;
+        fixture.JobRegistry.Register("slow-job", async ct =>
+        {
+            if (++runs == 2)
+            {
+                started.SetResult();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+        });
+        await fixture.JobRegistry.TriggerAsync("slow-job"); // run 1, which the page's Cancel button was shown for
+        var run = fixture.JobRegistry.TriggerAsync("slow-job");
+        await started.Task;
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync("/Jobs");
+        Assert.Contains("name=\"runNumber\" value=\"2\"", html);
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["jobName"] = "slow-job",
+            ["runNumber"] = "1",
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+        });
+        var response = await client.PostAsync("/Jobs?handler=Cancel", form);
+
+        response.EnsureSuccessStatusCode();
+        Assert.True(fixture.JobRegistry.Get("slow-job")!.IsRunning);
+        fixture.JobRegistry.Cancel("slow-job");
+        await run;
+    }
+
+    [Fact]
     public async Task HistoryPage_RunsOfTheJob_AreListedNewestFirstWithoutOtherJobs()
     {
         using var fixture = new FetchshelfWebAppFixture();

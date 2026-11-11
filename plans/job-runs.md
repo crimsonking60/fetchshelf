@@ -107,6 +107,8 @@ run.
   `IJobRegistry.Cancel(name)` cancels it; it returns false when the job isn't running.
 - A queued extra run (`TriggerOrQueueAsync`) is dropped too: cancelling means "stop this job now", not "skip to the
   next queued run".
+- Each run gets a number (`RegisteredJob.RunNumber`), which the **Cancel** button carries. A click from a list that
+  is a moment out of date, after the run it showed has ended and another has started, stops nothing.
 - A run that ends with an `OperationCanceledException` from that source is recorded as `Cancelled`, with "Cancelled
   from the Jobs page" as its summary. A cancellation from host shutdown is recorded as `Interrupted`.
 - **Each runner is checked for where a cancellation lands**, and given explicit cancellation points where landing
