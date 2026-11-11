@@ -126,6 +126,9 @@ public sealed class FollowRunner(
                 dbContext.DiscardPendingChanges();
                 if (!settings.DryRun)
                 {
+                    // Counted as searched, so a follow that keeps failing waits its turn instead of taking a search
+                    // from the others on every run. The Errors page shows it until a search succeeds.
+                    follow.LastSearchedAt = _time.GetUtcNow();
                     await ErrorLog.RecordAsync(dbContext, ErrorStage.Follow, key, follow.DisplayName, ex.Message, cancellationToken: cancellationToken);
                     await dbContext.SaveChangesAsync(cancellationToken);
                     erroredKeys.Add(key);
@@ -160,7 +163,8 @@ public sealed class FollowRunner(
 
     /// <summary>A search result that is a book of the followed series or author.</summary>
     private sealed record Candidate(
-        MamTorrentRecord Record, TorrentMetadata Metadata, FilterMainType Side, string BookKey, string? SeriesDisplay, double? SeriesNumber);
+        MamTorrentRecord Record, TorrentMetadata Metadata, FilterMainType Side, string BookKey, string? SeriesDisplay, double? SeriesNumber,
+        double? SeriesLastNumber = null);
 
     /// <summary>What to do about one book in one format: take the winner with its block's cost, or note the match no block pays for.</summary>
     private sealed record Decision(Candidate? Winner, GrabEntry? Grab, Candidate? TooExpensive)
@@ -291,7 +295,7 @@ public sealed class FollowRunner(
         var mainCategories = grabFilters.Select(f => AutograbSearchTranslator.ToMainCategoryIds(f.Categories)).ToList();
         return new MamSearchQuery
         {
-            Text = follow.DisplayName,
+            Text = ListMamQueryBuilder.PlainWords(follow.DisplayName),
             SearchFields = [follow.Kind == FollowKind.Series ? MamSearchField.Series : MamSearchField.Author],
             Target = MamSearchTarget.New,
             SortOrder = MamSortOrder.NewestByDate,
@@ -335,7 +339,7 @@ public sealed class FollowRunner(
             : new Candidate(
                 record, metadata, side,
                 entry.Display is null ? "title:" + TitleNormalizer.Normalize(metadata.Title) : "entry:" + entry.Display,
-                entry.Display, entry.FirstNumber is { } number ? (double)number : null);
+                entry.Display, entry.FirstNumber is { } number ? (double)number : null, entry.LastNumber is { } last ? (double)last : null);
     }
 
     /// <summary>
@@ -407,8 +411,15 @@ public sealed class FollowRunner(
             return true;
         }
 
-        // A whole-numbered entry is owned when an owned entry covers its number, such as 2 within an owned 1-3.
-        return candidate.SeriesNumber is { } number && number == Math.Floor(number) && covered.Contains((int)number);
+        // Owned when owned entries cover every book it holds: 2 within an owned 1-3, but not an omnibus 3-5 when only 3
+        // is owned. An entry holding no whole book (1.5) is only owned under its own display.
+        if (candidate.SeriesNumber is not { } first)
+        {
+            return false;
+        }
+
+        var books = SeriesGaps.Covered([(first, candidate.SeriesLastNumber ?? first)]);
+        return books.Count > 0 && books.IsSubsetOf(covered);
     }
 
     /// <summary>
@@ -447,8 +458,16 @@ public sealed class FollowRunner(
 
         if (settings.PreferFormat is { } preferredSide)
         {
-            var booksInBoth = decisions.GroupBy(d => d.BookKey).Where(g => g.Select(d => d.Side).Distinct().Count() > 1).Select(g => g.Key).ToHashSet();
-            decisions.RemoveAll(d => booksInBoth.Contains(d.BookKey) && d.Side != preferredSide);
+            // A book in both formats keeps one: the preferred one, unless only the other can be taken at a cost a block
+            // accepts. Then the one that can be taken wins, rather than nothing being downloaded.
+            foreach (var book in decisions.GroupBy(d => d.BookKey).Where(g => g.Select(d => d.Side).Distinct().Count() > 1).ToList())
+            {
+                var preferred = book.First(d => d.Side == preferredSide);
+                var keep = preferred.Decision.Winner is not null || book.All(d => d.Decision.Winner is null)
+                    ? preferred
+                    : book.First(d => d.Side != preferredSide && d.Decision.Winner is not null);
+                decisions.RemoveAll(d => d.BookKey == book.Key && !ReferenceEquals(d.Decision, keep.Decision));
+            }
         }
 
         var ordered = follow.Kind == FollowKind.Series

@@ -598,7 +598,7 @@ missing.
 | `search_interval` | global `search_interval` | Minutes between runs of the Follow job, `0` to 43200. `0` means it runs only from the Jobs page. |
 | `searches_per_run` | `10` | MAM searches one run makes at most: one per followed series or author. |
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
-| `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken. Unset means both. |
+| `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
 | `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
@@ -630,7 +630,8 @@ What each run does:
    **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
 With the defaults, a run makes at most 10 MAM searches, and each followed series or author is searched once a
-day. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
+day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
+doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
 on the next run.
 
 ## `[[tag]]`

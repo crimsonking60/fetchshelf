@@ -1,13 +1,11 @@
 using Fetchshelf.Data;
-using Fetchshelf.Data.Entities;
+using Fetchshelf.Data.AutoDownloader;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.ViewComponents;
 
-/// <summary>The count on the navigation's Following link: finds waiting to be downloaded or dismissed.</summary>
+/// <summary>The count on the navigation's Following link: finds the Following page lists as waiting to be looked at.</summary>
 public sealed class FollowBadgeViewComponent(FetchshelfDbContext dbContext) : ViewComponent
 {
-    public async Task<IViewComponentResult> InvokeAsync() =>
-        View(await dbContext.FollowFinds.CountAsync(f => f.Status == FollowFindStatus.New || f.Status == FollowFindStatus.Wanted));
+    public async Task<IViewComponentResult> InvokeAsync() => View(await FollowQueries.WaitingCountAsync(dbContext));
 }

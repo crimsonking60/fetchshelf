@@ -238,6 +238,45 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task PreferFormat_WhenThePreferredFormatIsNotFree_TakesTheOtherOneThatIs()
+    {
+        var harness = CreateHarness(Results(
+            Record(2, "Caliban's War", series: "The Expanse", number: "2"),
+            Record(3, "Caliban's War", series: "The Expanse", number: "2", ebook: true, free: false)));
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
+
+        await harness.RunAsync(Settings(preferFormat: FilterMainType.Ebook));
+
+        Assert.Equal(2L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+        Assert.Equal(2L, Assert.Single(Finds(harness)).MamId);
+    }
+
+    [Fact]
+    public async Task AnOmnibus_IsNotOwned_WhenOnlyItsFirstBookIs()
+    {
+        var harness = CreateHarness(Results(
+            Record(3, "Abaddon's Gate", series: "The Expanse", number: "3"),
+            Record(9, "The Expanse Books 3-5", series: "The Expanse", number: "3-5")));
+        AddToLibrary(harness, "hash3", 300, "Abaddon's Gate (another upload)", "The Expanse", "3");
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
+
+        await harness.RunAsync();
+
+        Assert.Equal(9L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+    }
+
+    [Fact]
+    public async Task ANameWithSearchSyntax_IsSearchedAsPlainWords()
+    {
+        var harness = CreateHarness(Results());
+        AddFollows(harness, Follow(FollowKind.Series, "Ender's Saga / Shadow?"));
+
+        await harness.RunAsync();
+
+        Assert.Contains("\"text\":\"Ender s Saga Shadow\"", Assert.Single(harness.Searches));
+    }
+
+    [Fact]
     public async Task OnlyDueFollows_AreSearched_TheLongestWaitingFirst_UpToSearchesPerRun()
     {
         var harness = CreateHarness(Results());
@@ -294,6 +333,8 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal((1, 1), (summary.Failed, summary.NewFinds));
         var error = Assert.Single(harness.Context.ErroredTorrents.AsNoTracking());
         Assert.Equal((ErrorStage.Follow, "Broken"), (error.Stage, error.Title));
+        // Counted as searched, so it doesn't take a search from the others on every run.
+        Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single(f => f.DisplayName == "Broken").LastSearchedAt);
     }
 
     [Fact]

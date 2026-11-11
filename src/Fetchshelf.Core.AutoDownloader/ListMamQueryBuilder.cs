@@ -19,6 +19,20 @@ public static partial class ListMamQueryBuilder
     [GeneratedRegex(@"(?<=^|\s)(\p{Lu})\.?(?=\s|$)")]
     private static partial Regex InitialPattern();
 
+    [GeneratedRegex(@"[^\p{L}\p{N}\s.,]+")]
+    private static partial Regex NotPlainPattern();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex SpacesPattern();
+
+    /// <summary>
+    /// A name as plain words for MAM's search, with everything MAM's search syntax could read as an operator taken out:
+    /// quotes, slashes, <c>?</c>, <c>*</c>, <c>|</c>, <c>-</c>, <c>@</c>, brackets. "Ender's Saga" becomes "Ender s Saga",
+    /// "Spider-Man" "Spider Man". Letters and digits of every script stay.
+    /// </summary>
+    public static string PlainWords(string name) =>
+        SpacesPattern().Replace(NotPlainPattern().Replace(name, " "), " ").Trim();
+
     public static string Build(string title, IReadOnlyList<string> authors)
     {
         var titleQuery = BuildTitleQuery(title);

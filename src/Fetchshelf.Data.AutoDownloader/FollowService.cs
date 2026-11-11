@@ -19,6 +19,28 @@ public sealed record FollowWithFinds(FollowEntity Follow, IReadOnlyList<FollowFi
 /// <param name="Problem">Why nothing was selected, when it never got to selection.</param>
 public sealed record FindDownloadResult(SelectionOutcome? Outcome, TorrentMetadata? Metadata, string? Problem);
 
+/// <summary>
+/// What the pages and the menu read about follows. Static, as the Series page and the menu also run without a `[follow]`
+/// section, when <see cref="FollowService"/> isn't there.
+/// </summary>
+public static class FollowQueries
+{
+    /// <summary>
+    /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost. Finds of
+    /// an ignored series are left out: the Following page doesn't list those.
+    /// </summary>
+    public static Task<int> WaitingCountAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default) =>
+        (from find in dbContext.FollowFinds
+         join follow in dbContext.Follows on find.FollowId equals follow.Id
+         where follow.Mode != FollowMode.Ignore && (find.Status == FollowFindStatus.New || find.Status == FollowFindStatus.Wanted)
+         select find.Id).CountAsync(cancellationToken);
+
+    /// <summary>The follow of every followed, watched or ignored series, by key; for the Series page.</summary>
+    public static async Task<Dictionary<string, FollowEntity>> SeriesFollowsAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default) =>
+        await dbContext.Follows.AsNoTracking().Where(f => f.Kind == FollowKind.Series)
+            .ToDictionaryAsync(f => f.NameKey, StringComparer.Ordinal, cancellationToken);
+}
+
 /// <summary>The follows as the pages change them: following, the mode, stopping, finds put aside or downloaded.</summary>
 public sealed class FollowService(
     FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, SelectionRunner selectionRunner, FollowSettings settings,
@@ -34,10 +56,6 @@ public sealed class FollowService(
 
     public Task<FollowEntity?> FindAsync(FollowKind kind, string nameKey, CancellationToken cancellationToken = default) =>
         dbContext.Follows.FirstOrDefaultAsync(f => f.Kind == kind && f.NameKey == nameKey, cancellationToken);
-
-    /// <summary>The follow of every series, by key; for the Series page.</summary>
-    public async Task<Dictionary<string, FollowEntity>> SeriesFollowsAsync(CancellationToken cancellationToken = default) =>
-        await dbContext.Follows.Where(f => f.Kind == FollowKind.Series).ToDictionaryAsync(f => f.NameKey, StringComparer.Ordinal, cancellationToken);
 
     /// <summary>
     /// Follows a series or author in <paramref name="mode"/>, or its kind's default, or changes the mode of one already
@@ -78,9 +96,16 @@ public sealed class FollowService(
         return follow;
     }
 
-    /// <summary>Stops following: the follow and its finds go. Nothing already selected is touched.</summary>
-    public async Task StopAsync(int followId, CancellationToken cancellationToken = default) =>
+    /// <summary>
+    /// Stops following: the follow, its finds and its error on the Errors page go, as no run will clear that any more.
+    /// Nothing already selected is touched.
+    /// </summary>
+    public async Task StopAsync(int followId, CancellationToken cancellationToken = default)
+    {
         await dbContext.Follows.Where(f => f.Id == followId).ExecuteDeleteAsync(cancellationToken);
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Follow, ErrorLog.FollowKey(followId), cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 
     /// <summary>Makes the follow the first one the next Follow run searches, whenever it was searched last.</summary>
     public async Task SearchSoonAsync(int followId, CancellationToken cancellationToken = default)
@@ -114,10 +139,6 @@ public sealed class FollowService(
             .Select(f => new FollowWithFinds(f, finds[f.Id].OrderByDescending(x => x.FoundAt.UtcTicks).ToList()))
             .ToList();
     }
-
-    /// <summary>Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost.</summary>
-    public Task<int> WaitingCountAsync(CancellationToken cancellationToken = default) =>
-        dbContext.FollowFinds.CountAsync(f => f.Status == FollowFindStatus.New || f.Status == FollowFindStatus.Wanted, cancellationToken);
 
     /// <summary>
     /// Selects a find's torrent as the Search page's Download does: MAM is asked for it again, so the cost is today's,

@@ -54,22 +54,24 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
     public async Task OnGetAsync()
     {
         PageSize = PageSizeCookie.Apply(HttpContext, "series", PageSize);
-        var all = await LoadRowsAsync();
-        var matched = all
-            .Where(r => Show switch
+        var follows = await FollowQueries.SeriesFollowsAsync(dbContext);
+        var text = Q?.Trim() ?? string.Empty;
+        var byAuthor = text.Length == 0 ? [] : await libraryQueries.SeriesKeysWithAuthorLikeAsync(text);
+
+        // Every series' entries are needed to know which have missing books; the authors only for the page shown.
+        var matched = (await libraryQueries.SeriesAsync())
+            .Where(s => Show switch
             {
-                "missing" => r.HasMissing && r.Follow?.Mode != FollowMode.Ignore,
-                "followed" => r.Follow?.Mode is FollowMode.Download or FollowMode.Watch,
-                "ignored" => r.Follow?.Mode == FollowMode.Ignore,
+                "missing" => follows.GetValueOrDefault(s.NameKey)?.Mode != FollowMode.Ignore && SeriesRowViewModel.From(s, [], null).HasMissing,
+                "followed" => follows.GetValueOrDefault(s.NameKey)?.Mode is FollowMode.Download or FollowMode.Watch,
+                "ignored" => follows.GetValueOrDefault(s.NameKey)?.Mode == FollowMode.Ignore,
                 _ => true,
             })
-            .Where(r => string.IsNullOrWhiteSpace(Q)
-                || r.Name.Contains(Q.Trim(), StringComparison.CurrentCultureIgnoreCase)
-                || r.Authors.Any(a => a.Contains(Q.Trim(), StringComparison.CurrentCultureIgnoreCase)))
+            .Where(s => text.Length == 0 || s.Name.Contains(text, StringComparison.CurrentCultureIgnoreCase) || byAuthor.Contains(s.NameKey))
             .ToList();
         TotalCount = matched.Count;
         (var page, PageNumber, TotalPages) = Paging.Slice(matched, TotalCount, PageNumber, PageSize);
-        Rows = page;
+        Rows = await ToRowsAsync(page, follows);
     }
 
     /// <summary>Follows, watches, ignores or stops following one series; from htmx it answers with the row alone.</summary>
@@ -102,18 +104,19 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
             return RedirectToPage(RouteValues.ToDictionary(pair => pair.Key, pair => (object?)pair.Value));
         }
 
-        var row = (await LoadRowsAsync(key)).SingleOrDefault();
+        var row = await LoadRowAsync(key);
         return row is null ? Content(string.Empty) : Partial("_SeriesRowPartial", new SeriesRowPartialModel(row, CanFollow));
     }
 
-    /// <summary>The rows, by series name; only the one series when <paramref name="key"/> is given.</summary>
-    private async Task<List<SeriesRowViewModel>> LoadRowsAsync(string? key = null)
+    /// <summary>One series' row, after a button changed it.</summary>
+    private async Task<SeriesRowViewModel?> LoadRowAsync(string key) =>
+        await libraryQueries.SeriesAsync(key) is { } series
+            ? (await ToRowsAsync([series], await FollowQueries.SeriesFollowsAsync(dbContext))).Single()
+            : null;
+
+    private async Task<List<SeriesRowViewModel>> ToRowsAsync(IReadOnlyList<SeriesSummary> series, Dictionary<string, FollowEntity> follows)
     {
-        IReadOnlyList<SeriesSummary> series = key is null
-            ? await libraryQueries.SeriesAsync()
-            : await libraryQueries.SeriesAsync(key) is { } one ? [one] : [];
-        var authors = await libraryQueries.SeriesAuthorsAsync();
-        var follows = await dbContext.Follows.AsNoTracking().Where(f => f.Kind == FollowKind.Series).ToDictionaryAsync(f => f.NameKey, StringComparer.Ordinal);
+        var authors = await libraryQueries.SeriesAuthorsAsync(series.Select(s => s.NameKey).ToList());
         return series
             .Select(s => SeriesRowViewModel.From(s, authors.GetValueOrDefault(s.NameKey) ?? [], follows.GetValueOrDefault(s.NameKey)))
             .ToList();

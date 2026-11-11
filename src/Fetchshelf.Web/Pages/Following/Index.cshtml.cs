@@ -52,8 +52,14 @@ public class IndexModel(
         }
 
         var follow = await followService.SetAsync(kind, key, name);
+        if (Url.IsLocalUrl(returnUrl))
+        {
+            // The page the button was on shows it followed; a message here would wait for the next visit to this page.
+            return LocalRedirect(returnUrl);
+        }
+
         Message = $"Following {Describe(follow)}.";
-        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToPage();
+        return RedirectToPage();
     }
 
     public async Task<IActionResult> OnPostModeAsync(FollowKind kind, string key, string name, FollowMode mode)
@@ -63,7 +69,8 @@ public class IndexModel(
             return NotFound();
         }
 
-        if (kind == FollowKind.Author && mode == FollowMode.Ignore)
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(name) || !Enum.IsDefined(kind) || !Enum.IsDefined(mode)
+            || (kind == FollowKind.Author && mode == FollowMode.Ignore))
         {
             return BadRequest();
         }

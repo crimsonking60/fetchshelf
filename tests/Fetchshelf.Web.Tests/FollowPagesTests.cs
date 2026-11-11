@@ -31,16 +31,17 @@ public partial class FollowPagesTests
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash4", Book("Cibola Burn", "The Expanse", "4"));
     }
 
-    private static async Task<int> SeedFindAsync(FetchshelfWebAppFixture fixture, FollowFindStatus status = FollowFindStatus.New)
+    private static async Task<int> SeedFindAsync(
+        FetchshelfWebAppFixture fixture, FollowFindStatus status = FollowFindStatus.New, FollowKind kind = FollowKind.Author, FollowMode mode = FollowMode.Watch)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
         var follow = new FollowEntity
         {
-            Kind = FollowKind.Author,
+            Kind = kind,
             NameKey = "jamessacorey",
             DisplayName = "James S. A. Corey",
-            Mode = FollowMode.Watch,
+            Mode = mode,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         dbContext.Follows.Add(follow);
@@ -155,6 +156,74 @@ public partial class FollowPagesTests
         Assert.Equal(FollowMode.Watch, FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Mode);
         var after = WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
         Assert.Contains(">Following James S. A. Corey</a>", after);
+        // No message is left behind for a later visit to the Following page.
+        Assert.DoesNotContain("id=\"follow-message\"", await client.GetStringAsync("/Following"));
+    }
+
+    [Fact]
+    public async Task FollowingPage_AnIgnoredSeriesFinds_AreNotCountedInTheMenu()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture, kind: FollowKind.Series, mode: FollowMode.Ignore);
+        using var client = fixture.CreateClient();
+
+        Assert.DoesNotContain("id=\"follow-badge\"", await client.GetStringAsync("/Following"));
+    }
+
+    [Fact]
+    public async Task FollowingPage_Stop_RemovesTheFollowAndItsError()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        int followId;
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            followId = dbContext.Follows.Single().Id;
+            await ErrorLog.RecordAsync(dbContext, ErrorStage.Follow, ErrorLog.FollowKey(followId), "James S. A. Corey", "boom");
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = fixture.CreateClient();
+        await PostAsync(client, "/Following", "/Following?handler=Stop",
+            new() { ["followId"] = followId.ToString(System.Globalization.CultureInfo.InvariantCulture), ["name"] = "James S. A. Corey" });
+
+        using var after = fixture.CreateScope();
+        var context = after.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        Assert.Empty(context.Follows);
+        Assert.Empty(context.FollowFinds);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    [Theory]
+    [InlineData("Series", "expanse", "The Expanse", "7")]
+    [InlineData("Series", "", "The Expanse", "Download")]
+    [InlineData("Author", "jamessacorey", "James S. A. Corey", "Ignore")]
+    public async Task FollowingPage_AModeChangeThatMakesNoSense_IsRefused(string kind, string key, string name, string mode)
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        using var client = fixture.CreateClient();
+
+        var response = await PostAsync(client, "/Following", "/Following?handler=Mode",
+            new() { ["kind"] = kind, ["key"] = key, ["name"] = name, ["mode"] = mode });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var scope = fixture.CreateScope();
+        Assert.Empty(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Follows);
+    }
+
+    [Fact]
+    public async Task SeriesPage_SearchFindsASeriesByItsAuthor()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedExpanseAsync(fixture);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash9", Book("Emma", "Austen Novels", "1", "Jane Austen"));
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Series?Q=corey");
+
+        Assert.Contains("The Expanse", html);
+        Assert.DoesNotContain("Austen Novels", html);
     }
 
     [Fact]

@@ -99,14 +99,19 @@ searched newest first, so new books are still seen.
      grabber name `Follow: <display name>`. A `Selected` outcome is recorded as a `Selected` find; a `CostNotFree`
      one as `Wanted`.
    - `Watch` mode: recorded as a `New` find.
-   - `prefer_format` works as in Hardcover lists: when both an audiobook and an ebook of the same entry are found,
-     only the preferred one is taken, and the other is recorded only if the preferred one isn't there.
+   - `prefer_format`: when both an audiobook and an ebook of the same entry are found, only the preferred one is
+     taken, unless only the other has a copy a block's cost accepts; then that one is taken rather than nothing.
+   - A series entry counts as owned only when owned entries cover every book it holds: an omnibus `3-5` is not
+     owned when only book 3 is.
+   - The followed name is searched as plain words (`ListMamQueryBuilder.PlainWords`), without anything MAM's
+     search syntax would read as an operator.
 7. Stop selecting at the run's budget; the remaining follows are searched next run. The follow it stopped in
    keeps its old `LastSearchedAt`, so it comes first next time. Watched follows select nothing, so they are
    still searched when the budget is spent.
 8. Errors are handled as in the list importer: an account-wide MAM error (blocked, rate limited, forbidden) fails
    the run; any other error is recorded on the Errors page under a new `Follow` stage keyed by the follow, and
-   the run moves on.
+   the run moves on. A failed follow still counts as searched, so one that keeps failing doesn't take a search
+   from the others on every run. Stopping a follow removes its error too.
 
 `dry_run` runs everything and writes no selection, find or `LastSearchedAt`, logging what would have happened.
 

@@ -64,16 +64,22 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     /// The authors of each series' books not replaced, by series key: each author once, spelled as most of the series'
     /// books spell them, the one with the most books first.
     /// </summary>
-    public async Task<Dictionary<string, IReadOnlyList<string>>> SeriesAuthorsAsync(CancellationToken cancellationToken = default)
+    /// <param name="seriesKeys">Only these series, such as those on one page; every series when null.</param>
+    public async Task<Dictionary<string, IReadOnlyList<string>>> SeriesAuthorsAsync(
+        IReadOnlyCollection<string>? seriesKeys = null, CancellationToken cancellationToken = default)
     {
-        var rows = await (
-                from series in dbContext.TorrentSeries
-                join torrent in dbContext.Torrents on series.TorrentId equals torrent.Id
-                join person in dbContext.TorrentPeople on series.TorrentId equals person.TorrentId
-                where torrent.ReplacedWithTorrentId == null && person.Role == PersonRole.Author
-                select new { SeriesKey = series.NameKey, series.TorrentId, person.NameKey, person.Name })
-            .Distinct()
-            .ToListAsync(cancellationToken);
+        var query =
+            from series in dbContext.TorrentSeries
+            join torrent in dbContext.Torrents on series.TorrentId equals torrent.Id
+            join person in dbContext.TorrentPeople on series.TorrentId equals person.TorrentId
+            where torrent.ReplacedWithTorrentId == null && person.Role == PersonRole.Author
+            select new { SeriesKey = series.NameKey, series.TorrentId, person.NameKey, person.Name };
+        if (seriesKeys is not null)
+        {
+            query = query.Where(r => seriesKeys.Contains(r.SeriesKey));
+        }
+
+        var rows = await query.Distinct().ToListAsync(cancellationToken);
 
         return rows
             .GroupBy(r => r.SeriesKey)
@@ -86,6 +92,19 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
                     .Select(a => MostUsed(a.GroupBy(r => r.Name).Select(n => (n.Key, n.Select(r => r.TorrentId).Distinct().Count()))))
                     .ToList(),
                 StringComparer.Ordinal);
+    }
+
+    /// <summary>The series with an author whose name contains <paramref name="text"/>, ignoring case (of Latin letters, as SQLite does).</summary>
+    public async Task<HashSet<string>> SeriesKeysWithAuthorLikeAsync(string text, CancellationToken cancellationToken = default)
+    {
+        var pattern = "%" + text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal) + "%";
+        return (await (
+                from series in dbContext.TorrentSeries
+                join person in dbContext.TorrentPeople on series.TorrentId equals person.TorrentId
+                where person.Role == PersonRole.Author && EF.Functions.Like(person.Name, pattern, "\\")
+                select series.NameKey)
+            .Distinct()
+            .ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>The numbered entries of one series the library has as audiobooks, or as ebooks.</summary>
