@@ -116,6 +116,39 @@ public class JobRegistryRunRecordTests
         Assert.False(registry.Get("Download")!.IsRunning);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task Cancel_RunEndingAtTheSameTime_NeverThrows()
+    {
+        // The run can end, and dispose its cancellation source, between Cancel finding the run and cancelling it.
+        var registry = new JobRegistry();
+        registry.Register("Link", _ => Task.CompletedTask);
+        var exceptions = new System.Collections.Concurrent.ConcurrentBag<Exception>();
+        using var stop = new CancellationTokenSource();
+        var canceller = Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                try
+                {
+                    registry.Cancel("Link");
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            }
+        });
+
+        for (var i = 0; i < 2_000; i++)
+        {
+            await registry.TriggerAsync("Link");
+        }
+
+        await stop.CancelAsync();
+        await canceller;
+        Assert.Empty(exceptions);
+    }
+
     [Fact]
     public void Cancel_IdleJob_ReturnsFalse()
     {

@@ -147,7 +147,16 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         _logger.LogInformation("Job {JobName} is being cancelled", name);
         // Whoever waits for the dropped run, such as an autograb that asked for a Download run, carries on as if it ran.
         dropped?.TrySetResult();
-        cancellation.Cancel();
+        // Cancelled outside the lock, since cancelling can run the job's own code on this thread. The run may end in
+        // the meantime and dispose its source: then there is nothing left to stop.
+        try
+        {
+            cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
         return true;
     }
 
