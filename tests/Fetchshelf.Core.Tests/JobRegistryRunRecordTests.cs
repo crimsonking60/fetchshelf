@@ -149,6 +149,54 @@ public class JobRegistryRunRecordTests
         Assert.Empty(exceptions);
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task Cancel_BetweenARunAndTheRunQueuedAfterIt_DropsTheQueuedRun()
+    {
+        var store = new BlockingFinishStore();
+        var registry = new JobRegistry(store: store);
+        var runs = 0;
+        var releaseRun = new TaskCompletionSource();
+        registry.Register("Download", async _ =>
+        {
+            runs++;
+            await releaseRun.Task;
+        });
+
+        var first = registry.TriggerAsync("Download");
+        var queued = registry.TriggerOrQueueAsync("Download", JobTrigger.Chained);
+        releaseRun.SetResult();
+        await store.FinishStarted.Task; // the first run is over, and its record is being written
+
+        Assert.True(registry.Get("Download")!.IsRunning);
+        Assert.True(registry.Cancel("Download"));
+        store.ReleaseFinish.SetResult();
+        await Task.WhenAll(first, queued);
+
+        Assert.Equal(1, runs);
+        Assert.False(registry.Get("Download")!.IsRunning);
+    }
+
+    /// <summary>Holds the first run's "finished" write until released, keeping the registry between two runs.</summary>
+    private sealed class BlockingFinishStore : IJobRunStore
+    {
+        public TaskCompletionSource FinishStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource ReleaseFinish { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<long> StartedAsync(string jobName, DateTimeOffset startedAt, JobTrigger trigger) => Task.FromResult(1L);
+
+        public async Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts)
+        {
+            FinishStarted.TrySetResult();
+            await ReleaseFinish.Task;
+        }
+
+        public Task InterruptUnfinishedAsync(DateTimeOffset at, string summary) => Task.CompletedTask;
+
+        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() =>
+            Task.FromResult<IReadOnlyDictionary<string, JobRunRecord>>(new Dictionary<string, JobRunRecord>());
+    }
+
     [Fact]
     public void Cancel_IdleJob_ReturnsFalse()
     {

@@ -93,7 +93,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
                 return Task.CompletedTask;
             }
 
-            job.IsRunning = true;
+            Claim(job, cancellationToken);
         }
 
         return RunUntilNothingQueuedAsync(job, trigger, cancellationToken);
@@ -116,7 +116,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
                 return job.QueuedRun.Task;
             }
 
-            job.IsRunning = true;
+            Claim(job, cancellationToken);
         }
 
         return RunUntilNothingQueuedAsync(job, trigger, cancellationToken);
@@ -162,6 +162,17 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
 
     public void InterruptAll() => _stopping.Cancel();
 
+    /// <summary>
+    /// Marks the job as running, with the cancellation source of its next run. Called under the job's lock, so the job
+    /// is never running without a source <see cref="Cancel"/> can reach, not even between a run and the one queued after it.
+    /// </summary>
+    private void Claim(RegisteredJob job, CancellationToken cancellationToken)
+    {
+        job.IsRunning = true;
+        job.RunCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
+        job.CancelRequested = false;
+    }
+
     private RegisteredJob Find(string name) =>
         _jobs.TryGetValue(name, out var job) ? job : throw new InvalidOperationException($"No job named '{name}' is registered.");
 
@@ -171,15 +182,23 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         TaskCompletionSource? finishing = null;
         while (true)
         {
+            CancellationTokenSource cancellation;
+            lock (job.Gate)
+            {
+                cancellation = job.RunCancellation!;
+            }
+
             try
             {
-                await RunOnceAsync(job, trigger, cancellationToken);
+                await RunOnceAsync(job, trigger, cancellation);
             }
             finally
             {
                 finishing?.TrySetResult();
             }
 
+            // The finished run's source stays reachable until this point, so a Cancel up to here still drops the
+            // queued run, and the queued run gets a fresh source in the same step.
             lock (job.Gate)
             {
                 finishing = job.QueuedRun;
@@ -188,21 +207,28 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
                 if (finishing is null)
                 {
                     job.IsRunning = false;
-                    return;
+                    job.RunCancellation = null;
                 }
+                else
+                {
+                    Claim(job, cancellationToken);
+                }
+            }
+
+            cancellation.Dispose();
+            if (finishing is null)
+            {
+                return;
             }
         }
     }
 
-    private async Task RunOnceAsync(RegisteredJob job, JobTrigger trigger, CancellationToken cancellationToken)
+    private async Task RunOnceAsync(RegisteredJob job, JobTrigger trigger, CancellationTokenSource cancellation)
     {
         var name = job.Name;
         var startedAt = _timeProvider.GetUtcNow();
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
         lock (job.Gate)
         {
-            job.RunCancellation = cancellation;
-            job.CancelRequested = false;
             job.RunningSince = startedAt;
         }
 
@@ -245,7 +271,6 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         {
             lock (job.Gate)
             {
-                job.RunCancellation = null;
                 job.RunningSince = null;
             }
         }
