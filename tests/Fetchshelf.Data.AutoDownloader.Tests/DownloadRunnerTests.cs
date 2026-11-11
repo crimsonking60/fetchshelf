@@ -182,6 +182,64 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.Null(context.SelectedTorrents.Single().StartedAt);
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task RunAsync_QBittorrentTakesTheTorrentAfterTheGrace_RecordsItAll_TheWedgeTheEventAndTheStart()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var adding = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var qb = new QBittorrentClient(
+            new HttpClient(new SlowAddHandler(adding, TimeSpan.FromMilliseconds(300))), new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin"));
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false,
+            safetyBuffers: NoBuffers, finishAfterCancel: TimeSpan.FromMilliseconds(50));
+        using var cancellation = new CancellationTokenSource();
+
+        var run = runner.RunAsync(cancellation.Token);
+        await adding.Task;
+        await cancellation.CancelAsync(); // Fetchshelf stopping while qBittorrent is slow to answer, as it does take the torrent
+        try
+        {
+            await run;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        // qBittorrent has it, so it is recorded: the next run would otherwise find it there and never record the grab.
+        context.ChangeTracker.Clear();
+        Assert.Equal(TorrentHash1, Assert.Single(context.Torrents).Id);
+        Assert.NotNull(context.SelectedTorrents.Single().StartedAt);
+        Assert.True(Assert.Single(context.Events).WedgeUsed);
+    }
+
+    /// <summary>A qBittorrent that logs in, lists nothing and takes a torrent, answering the add only after a while.</summary>
+    private sealed class SlowAddHandler(TaskCompletionSource adding, TimeSpan answerAfter) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("auth/login"))
+            {
+                var login = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+                login.Headers.Add("Set-Cookie", "SID=abc123; path=/; HttpOnly");
+                return login;
+            }
+
+            if (path.Contains("torrents/add"))
+            {
+                adding.TrySetResult();
+                await Task.Delay(answerAfter, CancellationToken.None);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("[]") };
+        }
+    }
+
     /// <summary>A qBittorrent that logs in and lists nothing, and whose add never answers until cancelled.</summary>
     private sealed class HangingAddHandler(TaskCompletionSource adding) : HttpMessageHandler
     {

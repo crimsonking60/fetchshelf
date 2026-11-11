@@ -56,8 +56,8 @@ public sealed class DownloadRunner(
     /// Starts queued selections within the account's limits. A failure on one torrent is logged and the run
     /// continues; MAM refusing the account (rate limit, block, 403) ends the run, since every later request would fail too.
     /// A cancellation stops the run before a torrent's file is in hand, when nothing has been spent. Once the file is
-    /// fetched, possibly with a wedge, the torrent is added to qBittorrent and recorded before the run stops, unless
-    /// that takes longer than <see cref="DefaultFinishAfterCancel"/> after the cancellation.
+    /// fetched, possibly with a wedge, the torrent is added to qBittorrent before the run stops, unless that takes longer
+    /// than <see cref="DefaultFinishAfterCancel"/> after the cancellation. Once qBittorrent has it, it is recorded.
     /// </summary>
     public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
@@ -506,6 +506,9 @@ public sealed class DownloadRunner(
         var client = qbClients[0];
         await client.AddTorrentAsync(torrentBytes, selected.Category ?? string.Empty, tags, addTorrentsStopped, cancellationToken);
 
+        // qBittorrent has it now, so it is recorded whatever the cancellation: the next run would find it there and
+        // record it as already downloading, without the grab, its cost or its wedge.
+        cancellationToken = CancellationToken.None;
         CreateTorrentRecord(hash, metadata);
         selected.StartedAt = DateTimeOffset.UtcNow;
         await ClearGrabberErrorAsync(selected.MamId, cancellationToken);
