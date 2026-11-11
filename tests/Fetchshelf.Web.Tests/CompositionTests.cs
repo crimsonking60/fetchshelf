@@ -46,7 +46,7 @@ public class CompositionTests
         var id = await store.StartedAsync("Link", DateTimeOffset.UtcNow, Fetchshelf.Core.Jobs.JobTrigger.Manual);
 
         Assert.IsType<Fetchshelf.Data.JobRunStore>(store);
-        Assert.Equal(Fetchshelf.Core.Jobs.JobRunResult.Running, (await store.LastRunsAsync())["Link"].Result);
+        Assert.Equal(Fetchshelf.Core.Jobs.JobRunResult.Running, (await store.RecentRunsAsync())["Link"][^1].Result);
         Assert.True(id > 0);
     }
 

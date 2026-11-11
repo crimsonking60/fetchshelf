@@ -59,6 +59,41 @@ public class JobRegistryRunRecordTests
     }
 
     [Fact]
+    public async Task TriggerAsync_RunsFailThenSucceed_TheJobIsFailingUntilItSucceeds()
+    {
+        var store = new InMemoryJobRunStore();
+        var registry = new JobRegistry(store: store, classifyFailure: ex => ex is UnauthorizedAccessException ? JobFailureKind.MamRefused : JobFailureKind.Other);
+        var fail = true;
+        registry.Register("Download", _ => fail ? throw new UnauthorizedAccessException("MAM refused") : Task.CompletedTask);
+
+        await registry.TriggerAsync("Download");
+        await registry.TriggerAsync("Download");
+        await registry.RunRecordsWrittenAsync();
+
+        var failing = registry.Get("Download")!.Failing!;
+        Assert.Equal((2, "MAM refused", JobFailureKind.MamRefused), (failing.FailedRuns, failing.LatestError, failing.LatestKind));
+        Assert.Equal(JobFailureKind.MamRefused, store.Runs[^1].FailureKind);
+        fail = false;
+        await registry.TriggerAsync("Download");
+        Assert.Null(registry.Get("Download")!.Failing);
+    }
+
+    [Fact]
+    public async Task LoadLastRunsAsync_StoredFailures_RestoreSinceWhenTheJobIsFailing()
+    {
+        var store = new InMemoryJobRunStore();
+        await store.AddAsync("Link", new JobRunRecord(Now.AddHours(-3), JobRunResult.Success, null, Now.AddHours(-3)));
+        await store.AddAsync("Link", new JobRunRecord(Now.AddHours(-2), JobRunResult.Failure, "qBittorrent down", Now.AddHours(-2), FailureKind: JobFailureKind.Other));
+        await store.AddAsync("Link", new JobRunRecord(Now.AddHours(-1), JobRunResult.Failure, "qBittorrent down", Now.AddHours(-1), FailureKind: JobFailureKind.Other));
+        var registry = new JobRegistry(store: store);
+        registry.Register("Link", _ => Task.CompletedTask);
+
+        await registry.LoadLastRunsAsync();
+
+        Assert.Equal(new JobFailure(Now.AddHours(-2), 2, "qBittorrent down", JobFailureKind.Other), registry.Get("Link")!.Failing);
+    }
+
+    [Fact]
     public async Task TriggerAsync_StoreThrows_TheJobRunsAndItsLastRunIsKept()
     {
         var registry = new JobRegistry(store: new FailingJobRunStore());
@@ -285,12 +320,11 @@ public class JobRegistryRunRecordTests
             return await Inner.StartedAsync(jobName, startedAt, trigger);
         }
 
-        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
-            Inner.FinishedAsync(runId, finishedAt, result, summary, counts);
+        public Task FinishedAsync(long runId, JobRunRecord run) => Inner.FinishedAsync(runId, run);
 
         public Task InterruptUnfinishedAsync(string summary) => Inner.InterruptUnfinishedAsync(summary);
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => Inner.LastRunsAsync();
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync() => Inner.RecentRunsAsync();
     }
 
     /// <summary>A store whose first <c>failures</c> attempts to record a run's start fail, as with "database is locked".</summary>
@@ -305,12 +339,11 @@ public class JobRegistryRunRecordTests
                 ? throw new InvalidOperationException("database is locked")
                 : Inner.StartedAsync(jobName, startedAt, trigger);
 
-        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
-            Inner.FinishedAsync(runId, finishedAt, result, summary, counts);
+        public Task FinishedAsync(long runId, JobRunRecord run) => Inner.FinishedAsync(runId, run);
 
         public Task InterruptUnfinishedAsync(string summary) => Inner.InterruptUnfinishedAsync(summary);
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => Inner.LastRunsAsync();
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync() => Inner.RecentRunsAsync();
     }
 
     [Fact(Timeout = 10_000)]
@@ -410,8 +443,7 @@ public class JobRegistryRunRecordTests
     public async Task LoadLastRunsAsync_StoredRuns_ShowAsEachJobsLastRunAndAnUnfinishedOneAsInterrupted()
     {
         var store = new InMemoryJobRunStore();
-        var linkId = await store.StartedAsync("Link", Now.AddHours(-2), JobTrigger.Schedule);
-        await store.FinishedAsync(linkId, Now.AddHours(-2).AddMinutes(1), JobRunResult.Success, "3 torrents linked", null);
+        await store.AddAsync("Link", new JobRunRecord(Now.AddHours(-2), JobRunResult.Success, "3 torrents linked", Now.AddHours(-2).AddMinutes(1), JobTrigger.Schedule));
         await store.StartedAsync("Download", Now.AddMinutes(-5), JobTrigger.Chained);
         var registry = new JobRegistry(timeProvider: new FixedTimeProvider(Now), store: store);
         registry.Register("Link", _ => Task.CompletedTask);
@@ -439,6 +471,8 @@ public class JobRegistryRunRecordTests
         public string? Summary { get; set; }
 
         public IReadOnlyDictionary<string, long>? Counts { get; set; }
+
+        public JobFailureKind? FailureKind { get; set; }
     }
 
     private sealed class InMemoryJobRunStore : IJobRunStore
@@ -451,12 +485,17 @@ public class JobRegistryRunRecordTests
             return Task.FromResult((long)Runs.Count);
         }
 
-        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts)
+        public Task FinishedAsync(long runId, JobRunRecord finished)
         {
             var run = Runs.Single(r => r.Id == runId);
-            (run.FinishedAt, run.Result, run.Summary, run.Counts) = (finishedAt, result, summary, counts);
+            (run.FinishedAt, run.Result, run.Summary, run.Counts, run.FailureKind) =
+                (finished.FinishedAt, finished.Result, finished.Summary, finished.Counts, finished.FailureKind);
             return Task.CompletedTask;
         }
+
+        /// <summary>Records a whole run at once, as if it had started and finished.</summary>
+        public async Task AddAsync(string jobName, JobRunRecord run) =>
+            await FinishedAsync(await StartedAsync(jobName, run.StartedAt, run.Trigger), run);
 
         public Task InterruptUnfinishedAsync(string summary)
         {
@@ -468,11 +507,14 @@ public class JobRegistryRunRecordTests
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() =>
-            Task.FromResult<IReadOnlyDictionary<string, JobRunRecord>>(Runs
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync() =>
+            Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>>(Runs
                 .GroupBy(r => r.JobName)
-                .Select(g => g.MaxBy(r => r.Id)!)
-                .ToDictionary(r => r.JobName, r => new JobRunRecord(r.StartedAt, r.Result, r.Summary, r.FinishedAt, r.Trigger, r.Counts)));
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<JobRunRecord>)g.OrderBy(r => r.Id)
+                        .Select(r => new JobRunRecord(r.StartedAt, r.Result, r.Summary, r.FinishedAt, r.Trigger, r.Counts, r.FailureKind))
+                        .ToList()));
     }
 
     private sealed class FailingJobRunStore : IJobRunStore
@@ -480,11 +522,10 @@ public class JobRegistryRunRecordTests
         public Task<long> StartedAsync(string jobName, DateTimeOffset startedAt, JobTrigger trigger) =>
             throw new InvalidOperationException("database is locked");
 
-        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
-            throw new InvalidOperationException("database is locked");
+        public Task FinishedAsync(long runId, JobRunRecord run) => throw new InvalidOperationException("database is locked");
 
         public Task InterruptUnfinishedAsync(string summary) => throw new InvalidOperationException("database is locked");
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => throw new InvalidOperationException("database is locked");
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync() => throw new InvalidOperationException("database is locked");
     }
 }

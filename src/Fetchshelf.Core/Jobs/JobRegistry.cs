@@ -5,7 +5,18 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Core.Jobs;
 
 /// <summary><see cref="IJobRegistry"/> that keeps each job's state in memory and, with a store, its runs in the database.</summary>
-public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvider? timeProvider = null, IJobRunStore? store = null) : IJobRegistry
+/// <param name="logger">Logs each run.</param>
+/// <param name="timeProvider">The clock; the system clock if null.</param>
+/// <param name="store">Keeps the runs beyond a restart; without one, they are only kept in memory.</param>
+/// <param name="classifyFailure">
+/// Says what kind of error ended a failed run, such as a MAM refusal; every failure is <see cref="JobFailureKind.Other"/>
+/// without one. Passed in because the exceptions belong to the clients, which this project doesn't know.
+/// </param>
+public sealed class JobRegistry(
+    ILogger<JobRegistry>? logger = null,
+    TimeProvider? timeProvider = null,
+    IJobRunStore? store = null,
+    Func<Exception, JobFailureKind>? classifyFailure = null) : IJobRegistry
 {
     /// <summary>The summary of a run cancelled with <see cref="Cancel"/>.</summary>
     public const string CancelledSummary = "Cancelled from the Jobs page";
@@ -14,7 +25,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
     public const string InterruptedSummary = "Fetchshelf stopped during this run";
 
     private readonly ConcurrentDictionary<string, RegisteredJob> _jobs = new();
-    private readonly ConcurrentDictionary<string, JobRunRecord> _loadedRuns = new();
+    private readonly ConcurrentDictionary<string, IReadOnlyList<JobRunRecord>> _loadedRuns = new();
     private readonly CancellationTokenSource _stopping = new();
     private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
@@ -34,8 +45,12 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
             Name = name,
             RunAsync = runAsync,
             Description = description,
-            LastRun = _loadedRuns.GetValueOrDefault(name),
         };
+        if (_loadedRuns.TryGetValue(name, out var runs))
+        {
+            Restore(job, runs);
+        }
+
         if (!_jobs.TryAdd(name, job))
         {
             throw new InvalidOperationException($"A job named '{name}' is already registered.");
@@ -71,12 +86,12 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         try
         {
             await store.InterruptUnfinishedAsync(InterruptedSummary);
-            foreach (var (name, run) in await store.LastRunsAsync())
+            foreach (var (name, runs) in await store.RecentRunsAsync())
             {
-                _loadedRuns[name] = run;
+                _loadedRuns[name] = runs;
                 if (_jobs.TryGetValue(name, out var job) && job.LastRun is null)
                 {
-                    job.LastRun = run;
+                    Restore(job, runs);
                 }
             }
         }
@@ -84,6 +99,13 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         {
             _logger.LogWarning(ex, "Could not read the last job runs from the database: {Error}", ex.Message);
         }
+    }
+
+    /// <summary>A job's last run and failing state, from its runs kept before the restart, oldest first.</summary>
+    private static void Restore(RegisteredJob job, IReadOnlyList<JobRunRecord> runs)
+    {
+        job.LastRun = runs.Count == 0 ? null : runs[^1];
+        job.Failing = JobFailureState.From(runs);
     }
 
     public Task TriggerAsync(string name, JobTrigger trigger = JobTrigger.Manual, CancellationToken cancellationToken = default)
@@ -244,6 +266,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         JobRunResult result;
         string? summary;
         IReadOnlyDictionary<string, long>? counts = null;
+        JobFailureKind? failureKind = null;
         try
         {
             var outcome = await job.RunAsync(cancellation.Token);
@@ -270,7 +293,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         }
         catch (Exception ex)
         {
-            (result, summary) = (JobRunResult.Failure, ex.Message);
+            (result, summary, failureKind) = (JobRunResult.Failure, ex.Message, classifyFailure?.Invoke(ex) ?? JobFailureKind.Other);
             _logger.LogWarning(ex, "Job {JobName} failed: {Error}", name, ex.Message);
         }
         finally
@@ -282,10 +305,12 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         }
 
         var finishedAt = _timeProvider.GetUtcNow();
-        job.LastRun = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts);
+        var run = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts, failureKind);
+        job.LastRun = run;
+        job.Failing = JobFailureState.Next(job.Failing, run);
         if (row is not null)
         {
-            _writer!.Finished(row, name, startedAt, trigger, finishedAt, result, summary, counts);
+            _writer!.Finished(row, name, run);
         }
     }
 

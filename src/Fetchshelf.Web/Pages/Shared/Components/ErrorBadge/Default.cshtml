@@ -1,0 +1,5 @@
+@model Fetchshelf.Web.ViewComponents.ErrorBadge
+@if (Model.Total > 0)
+{
+    <span id="error-badge" class="nav-badge" title="@Model.Description">@Model.Total</span>
+}

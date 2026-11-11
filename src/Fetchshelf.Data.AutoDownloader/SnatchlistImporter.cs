@@ -28,8 +28,9 @@ public sealed class SnatchlistImporter(
     private readonly ILogger<SnatchlistImporter> _logger = logger ?? NullLogger<SnatchlistImporter>.Instance;
 
     /// <summary>
-    /// Reads the snatch list and imports each row. A row that cannot be imported is logged and the run continues;
-    /// MAM refusing the account (rate limit, block, 403) ends the run, since every later request would fail too.
+    /// Reads the snatch list and imports each row. A row that cannot be imported is logged and recorded on the Errors
+    /// page, and the run continues; the row's error is cleared once it imports. MAM refusing the session or account
+    /// (rate limit, block, 403) fails the run, since every later request would fail too, keeping what it imported.
     /// </summary>
     public async Task<SnatchlistRunSummary> RunAsync(SnatchlistEntry entry, CancellationToken cancellationToken = default)
     {
@@ -42,7 +43,7 @@ public sealed class SnatchlistImporter(
         var name = entry.Name ?? entry.Type.ToString();
         var detailLevel = entry.DryRun ? LogLevel.Information : LogLevel.Debug;
         var (rowCount, recorded, updated, failed, pagesRead) = (0, 0, 0, 0, 0);
-        var stopped = false;
+        var erroredKeys = entry.DryRun ? [] : await ErrorLog.KeysAsync(dbContext, ErrorStage.Snatchlist, cancellationToken);
 
         // MAM decides how many rows a page holds, and may send rows it already sent: paging stops at an empty page, a
         // page with nothing new, or a page shorter than the first.
@@ -53,7 +54,7 @@ public sealed class SnatchlistImporter(
             _logger.LogInformation("Snatchlist {Name}: dry run, nothing will be written", name);
         }
 
-        for (var page = 0; page < maxPages && !stopped; page++)
+        for (var page = 0; page < maxPages; page++)
         {
             IReadOnlyList<MamSnatchlistRow> rows;
             try
@@ -85,15 +86,29 @@ public sealed class SnatchlistImporter(
                 catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
                 {
                     _logger.LogError("Snatchlist {Name}: stopped at MAM torrent {MamId}: {Error} The rest is read on the next run", name, row.MamId, ex.Message);
-                    failed++;
-                    stopped = true;
-                    break;
+                    if (!entry.DryRun)
+                    {
+                        await dbContext.SaveChangesAsync(CancellationToken.None);
+                    }
+
+                    // Not this row's fault: the run fails, and the row has no error of its own.
+                    throw;
                 }
                 catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogError("Snatchlist {Name}: could not import MAM torrent {MamId}: {Error}", name, row.MamId, ex.Message);
                     failed++;
+                    if (!entry.DryRun)
+                    {
+                        await ErrorLog.RecordAsync(dbContext, ErrorStage.Snatchlist, Key(row), row.Title, ex.Message, cancellationToken: cancellationToken);
+                    }
+
                     continue;
+                }
+
+                if (erroredKeys.Remove(Key(row)))
+                {
+                    await ErrorLog.ClearAsync(dbContext, ErrorStage.Snatchlist, Key(row), cancellationToken);
                 }
 
                 if (outcome == RowOutcome.Recorded)
@@ -121,6 +136,8 @@ public sealed class SnatchlistImporter(
         LogSummary(name, entry.DryRun, rowCount, pagesRead, recorded, updated, failed);
         return new SnatchlistRunSummary(rowCount, recorded, updated, failed, entry.DryRun);
     }
+
+    private static string Key(MamSnatchlistRow row) => row.MamId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private void LogSummary(string name, bool dryRun, int rowCount, int pagesRead, int recorded, int updated, int failed)
     {

@@ -247,6 +247,43 @@ public sealed class DataPersistenceTests : IDisposable
         Assert.Equal("Link", context.JobRuns.AsNoTracking().Single().JobName);
     }
 
+    [Fact]
+    public void Migrate_DatabaseWithJobRunsAndErrors_AddsTheFailureKindAndKeepsTheRowsAsTheyWere()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261111055937_AddJobRuns");
+        context.Database.ExecuteSql(
+            $"INSERT INTO JobRuns (JobName, StartedAt, FinishedAt, Result, [Trigger], Summary) VALUES ('Link', '2026-11-11 08:00:00+00:00', '2026-11-11 08:01:00+00:00', 1, 0, 'boom')");
+        context.Database.ExecuteSql(
+            $"INSERT INTO ErroredTorrents (Stage, Key, Title, ErrorText, OccurredAt) VALUES (0, '42', 'Queued', 'stale', '2026-11-11 08:00:00+00:00'), (1, 'hash1', 'Linked', 'no author', '2026-11-11 08:00:00+00:00'), (2, 'hash2', 'Cleaned', 'busy', '2026-11-11 08:00:00+00:00')");
+
+        DatabaseMigrator.Migrate(context);
+
+        var run = context.JobRuns.AsNoTracking().Single();
+        Assert.Equal((Fetchshelf.Core.Jobs.JobRunResult.Failure, "boom", (Fetchshelf.Core.Jobs.JobFailureKind?)null), (run.Result, run.Summary, run.FailureKind));
+        Assert.Equal(
+            [(ErrorStage.Grabber, "42"), (ErrorStage.Linker, "hash1"), (ErrorStage.Cleaner, "hash2")],
+            context.ErroredTorrents.AsNoTracking().OrderBy(e => e.Id).AsEnumerable().Select(e => (e.Stage, e.Key)));
+    }
+
+    [Fact]
+    public void JobRun_WithAFailureKind_KeepsIt()
+    {
+        using var context = CreateContext();
+        DatabaseMigrator.Migrate(context);
+        context.JobRuns.Add(new JobRunEntity
+        {
+            JobName = "Download",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = Fetchshelf.Core.Jobs.JobRunResult.Failure,
+            Trigger = Fetchshelf.Core.Jobs.JobTrigger.Schedule,
+            FailureKind = Fetchshelf.Core.Jobs.JobFailureKind.MamBlocked,
+        });
+        context.SaveChanges();
+
+        Assert.Equal(Fetchshelf.Core.Jobs.JobFailureKind.MamBlocked, context.JobRuns.AsNoTracking().Single().FailureKind);
+    }
+
     private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>
         context.Database.ExecuteSql(
             $"INSERT INTO Torrents (Id, MamId, NormalizedTitleKey, Title, MetadataJson, CreatedAt) VALUES ({id}, 1, {title.ToLowerInvariant()}, {title}, '{{}}', '2026-10-22 10:00:00+00:00')");

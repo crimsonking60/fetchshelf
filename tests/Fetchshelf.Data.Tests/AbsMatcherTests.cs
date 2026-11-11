@@ -257,6 +257,42 @@ public sealed class AbsMatcherTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_TorrentWithNoAuthors_RecordsItsErrorOnTheErrorsPage()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Book", authors: []);
+        var absClient = CreateAbsClient(
+            [], [("f1", "/data/audiobooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+
+        await new AbsMatcher(context, absClient).RunAsync();
+
+        var error = Assert.Single(context.ErroredTorrents.AsNoTracking());
+        Assert.Equal((ErrorStage.Audiobookshelf, "hash1"), (error.Stage, error.Key));
+        Assert.Contains("no author", error.ErrorText);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookThatFailedBefore_IsClearedOnceItMatches()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var unreachable = CreateAbsClient(
+            [], [("f1", "/elsewhere")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+        await new AbsMatcher(context, unreachable).RunAsync();
+        Assert.Contains("No Audiobookshelf library has a folder containing", Assert.Single(context.ErroredTorrents.AsNoTracking()).ErrorText);
+
+        var reachable = CreateAbsClient(
+            [],
+            [("f1", "/data/audiobooks")],
+            new Dictionary<string, (string, string)> { ["Brandon Sanderson"] = ("a1", "Brandon Sanderson") },
+            new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/data/audiobooks/Sanderson/Book") });
+        await new AbsMatcher(context, reachable).RunAsync();
+
+        Assert.Empty(context.ErroredTorrents.AsNoTracking());
+        Assert.Equal("item1", context.Torrents.AsNoTracking().Single().AbsId);
+    }
+
+    [Fact]
     public async Task RunAsync_TorrentAlreadyMatched_SkippedWithoutAnyAbsCall()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

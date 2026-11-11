@@ -26,7 +26,7 @@ else
             }
             @foreach (var job in Model)
             {
-                <tr>
+                <tr class="@(job.Failing is null ? null : "failing")">
                     <td><a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a></td>
                     @if (Settings.JobExplanations)
                     {
@@ -50,7 +50,13 @@ else
                             @:-
                         }
                     </td>
-                    <td><span title="@job.CountsText">@job.LastResultText</span></td>
+                    <td>
+                        <span title="@job.CountsText">@job.LastResultText</span>
+                        @if (job.Failing is { } failing)
+                        {
+                            <div class="failing-since">failing since <local-time value="failing.Since" /> @Fetchshelf.Web.Pages.Errors.FailingJobText.Runs(failing.FailedRuns)</div>
+                        }
+                    </td>
                     <td>
                         @* Cancelling loses nothing the next run doesn't redo, so it asks for no confirmation. *@
                         @{

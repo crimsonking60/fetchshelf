@@ -32,11 +32,9 @@ public sealed class JobRunStoreTests : IDisposable
     public async Task FinishedAsync_ARun_IsReadBackAsItsJobsLastRun()
     {
         var id = await _store.StartedAsync("Link", Start, JobTrigger.Startup);
-        await _store.FinishedAsync(
-            id, Start.AddSeconds(42), JobRunResult.CompletedWithErrors, "2 torrents linked; 1 could not be linked",
-            new Dictionary<string, long> { ["linked"] = 2, ["failed"] = 1 });
+        await _store.FinishedAsync(id, Finished(Start.AddSeconds(42), JobRunResult.CompletedWithErrors, "2 torrents linked; 1 could not be linked", new Dictionary<string, long> { ["linked"] = 2, ["failed"] = 1 }));
 
-        var run = (await _store.LastRunsAsync())["Link"];
+        var run = (await _store.RecentRunsAsync())["Link"][^1];
 
         Assert.Equal(
             (Start, Start.AddSeconds(42), JobRunResult.CompletedWithErrors, JobTrigger.Startup, "2 torrents linked; 1 could not be linked"),
@@ -45,17 +43,17 @@ public sealed class JobRunStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task LastRunsAsync_SeveralRunsOfSeveralJobs_GivesTheNewestOfEach()
+    public async Task RecentRunsAsync_SeveralRunsOfSeveralJobs_EndWithTheNewestOfEach()
     {
         for (var i = 0; i < 3; i++)
         {
             var link = await _store.StartedAsync("Link", Start.AddMinutes(i), JobTrigger.Schedule);
-            await _store.FinishedAsync(link, Start.AddMinutes(i), JobRunResult.Success, $"run {i}", null);
+            await _store.FinishedAsync(link, Finished(Start.AddMinutes(i), JobRunResult.Success, $"run {i}", null));
         }
 
         await _store.StartedAsync("Download", Start, JobTrigger.Chained);
 
-        var lastRuns = await _store.LastRunsAsync();
+        var lastRuns = (await _store.RecentRunsAsync()).ToDictionary(p => p.Key, p => p.Value[^1]);
 
         Assert.Equal(2, lastRuns.Count);
         Assert.Equal("run 2", lastRuns["Link"].Summary);
@@ -67,11 +65,11 @@ public sealed class JobRunStoreTests : IDisposable
     {
         await _store.StartedAsync("Download", Start, JobTrigger.Chained);
         var finished = await _store.StartedAsync("Link", Start, JobTrigger.Schedule);
-        await _store.FinishedAsync(finished, Start.AddSeconds(5), JobRunResult.Success, null, null);
+        await _store.FinishedAsync(finished, Finished(Start.AddSeconds(5), JobRunResult.Success, null, null));
 
         await _store.InterruptUnfinishedAsync("stopped");
 
-        var lastRuns = await _store.LastRunsAsync();
+        var lastRuns = (await _store.RecentRunsAsync()).ToDictionary(p => p.Key, p => p.Value[^1]);
         Assert.Equal(
             (JobRunResult.Interrupted, (DateTimeOffset?)null, "stopped"),
             (lastRuns["Download"].Result, lastRuns["Download"].FinishedAt, lastRuns["Download"].Summary));
@@ -82,11 +80,11 @@ public sealed class JobRunStoreTests : IDisposable
     public async Task FinishedAsync_MoreRunsThanKept_KeepsOnlyTheNewestOfThatJob()
     {
         var other = await _store.StartedAsync("Clean", Start, JobTrigger.Chained);
-        await _store.FinishedAsync(other, Start, JobRunResult.Success, "kept", null);
+        await _store.FinishedAsync(other, Finished(Start, JobRunResult.Success, "kept", null));
         for (var i = 0; i < JobRunStore.RunsKeptPerJob + 5; i++)
         {
             var id = await _store.StartedAsync("Link", Start.AddMinutes(i), JobTrigger.Schedule);
-            await _store.FinishedAsync(id, Start.AddMinutes(i), JobRunResult.Success, $"run {i}", null);
+            await _store.FinishedAsync(id, Finished(Start.AddMinutes(i), JobRunResult.Success, $"run {i}", null));
         }
 
         await using var context = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite($"Data Source={_dbPath}").Options);
@@ -96,6 +94,11 @@ public sealed class JobRunStoreTests : IDisposable
         Assert.Equal($"run {JobRunStore.RunsKeptPerJob + 4}", linkRuns[^1]);
         Assert.Equal("kept", context.JobRuns.Single(r => r.JobName == "Clean").Summary);
     }
+
+    /// <summary>How a run ended, as the registry hands it to the store; the start time doesn't matter to it.</summary>
+    private static JobRunRecord Finished(
+        DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts, JobFailureKind? kind = null) =>
+        new(finishedAt, result, summary, finishedAt, JobTrigger.Manual, counts, kind);
 
     private sealed class ContextFactory(DbContextOptions<FetchshelfDbContext> options) : IDbContextFactory<FetchshelfDbContext>
     {

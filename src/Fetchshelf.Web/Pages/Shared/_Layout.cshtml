@@ -72,7 +72,10 @@
         <nav class="site-nav" aria-label="Main">
             @foreach (var (navPage, label) in navItems)
             {
-                <a asp-page="@navPage" aria-current="@(IsCurrent(navPage) ? "page" : null)">@label</a>
+                <a asp-page="@navPage" aria-current="@(IsCurrent(navPage) ? "page" : null)">@label@if (navPage == "/Errors/Index")
+                    {
+                        @await Component.InvokeAsync("ErrorBadge")
+                    }</a>
             }
         </nav>
         <form class="theme-switcher" method="get" action="/theme">

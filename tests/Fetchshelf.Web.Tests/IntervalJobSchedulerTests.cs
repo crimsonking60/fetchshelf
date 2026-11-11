@@ -115,12 +115,12 @@ public class IntervalJobSchedulerTests
     {
         public Task<long> StartedAsync(string name, DateTimeOffset startedAt, JobTrigger trigger) => Task.FromResult(1L);
 
-        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
-            Task.CompletedTask;
+        public Task FinishedAsync(long runId, JobRunRecord finished) => Task.CompletedTask;
 
         public Task InterruptUnfinishedAsync(string summary) => Task.CompletedTask;
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() =>
-            Task.FromResult<IReadOnlyDictionary<string, JobRunRecord>>(new Dictionary<string, JobRunRecord> { [jobName] = run });
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync() =>
+            Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>>(
+                new Dictionary<string, IReadOnlyList<JobRunRecord>> { [jobName] = [run] });
     }
 }

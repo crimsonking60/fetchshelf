@@ -1,5 +1,6 @@
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -40,6 +41,22 @@ public sealed class AbsMatcher(
 
         IReadOnlyList<AbsLibrary>? libraries = null;
         var (matched, notFoundYet, failed) = (0, 0, 0);
+        var erroredKeys = await ErrorLog.KeysAsync(dbContext, ErrorStage.Audiobookshelf, cancellationToken);
+
+        // A book's error row says why it couldn't be matched, until a run matches it or finds it not scanned yet.
+        async Task FailAsync(TorrentEntity torrent, string error)
+        {
+            failed++;
+            await ErrorLog.RecordAsync(dbContext, ErrorStage.Audiobookshelf, torrent.Id, torrent.Title, error, cancellationToken: CancellationToken.None);
+        }
+
+        async Task ClearAsync(TorrentEntity torrent)
+        {
+            if (erroredKeys.Remove(torrent.Id))
+            {
+                await ErrorLog.ClearAsync(dbContext, ErrorStage.Audiobookshelf, torrent.Id, CancellationToken.None);
+            }
+        }
 
         try
         {
@@ -51,7 +68,7 @@ public sealed class AbsMatcher(
                 if (firstAuthor is null)
                 {
                     _logger.LogError("Cannot match {Title} in Audiobookshelf: it has no author to search for", torrent.Title);
-                    failed++;
+                    await FailAsync(torrent, "It has no author to search Audiobookshelf for.");
                     continue;
                 }
 
@@ -67,7 +84,10 @@ public sealed class AbsMatcher(
                         + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf.path_mapping] must map "
                         + "Audiobookshelf's path to Fetchshelf's",
                         torrent.Title, absPath);
-                    failed++;
+                    await FailAsync(
+                        torrent,
+                        $"No Audiobookshelf library has a folder containing {absPath}. Audiobookshelf must see the library at the same "
+                        + "path as Fetchshelf, or [audiobookshelf] path_mapping must map its path to Fetchshelf's.");
                     continue;
                 }
 
@@ -79,7 +99,7 @@ public sealed class AbsMatcher(
                 catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogError("Could not match {Title} in Audiobookshelf: {Error}", torrent.Title, ex.Message);
-                    failed++;
+                    await FailAsync(torrent, ex.Message);
                     continue;
                 }
 
@@ -90,11 +110,13 @@ public sealed class AbsMatcher(
                         + "If this persists, check that Audiobookshelf has scanned the library",
                         torrent.Title, absPath);
                     notFoundYet++;
+                    await ClearAsync(torrent); // not a failure: Audiobookshelf hasn't scanned it yet
                     continue;
                 }
 
                 torrent.AbsId = matchedId;
                 matched++;
+                await ClearAsync(torrent);
                 _logger.LogInformation("Matched {Title} to Audiobookshelf item {AbsId}", torrent.Title, matchedId);
             }
 

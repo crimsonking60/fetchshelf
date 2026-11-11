@@ -33,13 +33,11 @@ internal sealed class JobRunWriter(IJobRunStore store, ILogger logger, TimeProvi
     /// Records how the run ended. If writing its start gave up, its row is created here, so the run is kept all the
     /// same.
     /// </summary>
-    public void Finished(
-        RunRow row, string jobName, DateTimeOffset startedAt, JobTrigger trigger,
-        DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
+    public void Finished(RunRow row, string jobName, JobRunRecord run) =>
         Enqueue(jobName, async () =>
         {
-            row.Id ??= await store.StartedAsync(jobName, startedAt, trigger);
-            await store.FinishedAsync(row.Id.Value, finishedAt, result, summary, counts);
+            row.Id ??= await store.StartedAsync(jobName, run.StartedAt, run.Trigger);
+            await store.FinishedAsync(row.Id.Value, run);
         });
 
     /// <summary>Completes once every write queued so far has been made or given up on.</summary>

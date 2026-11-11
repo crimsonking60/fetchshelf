@@ -24,4 +24,7 @@ public sealed class JobRunEntity
 
     /// <summary>The numbers behind the summary, by name, as a JSON object.</summary>
     public string? CountsJson { get; set; }
+
+    /// <summary>What kind of error ended a failed run; null for any other result.</summary>
+    public JobFailureKind? FailureKind { get; set; }
 }

@@ -1,11 +1,68 @@
 @page
 @model Fetchshelf.Web.Pages.Errors.IndexModel
+@using Fetchshelf.Web.Pages.Errors
 @{
     ViewData["Title"] = "Errors";
 }
 
 <h2>Errors</h2>
-@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into, one row per torrent and job. Link tries a failed torrent again on every run: its row is updated while it keeps failing and disappears once it links. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. For a torrent MAM gives no author, Edit adds one, and the next Link run links it. Tick the rows you have dealt with and use Remove selected.")
+@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into. Jobs that keep failing come first; then one row per torrent or book a job couldn't handle. The jobs try a failed item again on every run: its row is updated while it keeps failing and disappears once it succeeds. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. For a torrent MAM gives no author, Edit adds one, and the next Link run links it. Rows that have been dealt with can be ticked and removed with Remove selected.")
+
+@if (Model.FailingJobs.Count > 0)
+{
+    <h3>Jobs that are failing</h3>
+    <ul id="failing-jobs" class="failing-jobs">
+        @foreach (var group in Model.FailingJobs)
+        {
+            var advice = FailingJobText.Advice(group.Kind);
+            <li class="notice error">
+                @if (group.IsMamRefusal)
+                {
+                    var (shown, more) = FailingJobText.Names(group);
+                    <strong>@FailingJobText.Cause(group.Kind)</strong>
+                    @:since <local-time value="group.Since" />:
+                    @for (var i = 0; i < shown.Count; i++)
+                    {
+                        @(i == 0 ? "" : i == shown.Count - 1 && more == 0 ? " and " : ", ")<a asp-page="/Jobs/History" asp-route-job="@shown[i]">@shown[i]</a>
+                    }
+                    @if (more > 0)
+                    {
+                        @: and @more more
+                    }
+                    @:. @advice
+                }
+                else
+                {
+                    var (name, failure) = group.Jobs[0];
+                    <a asp-page="/Jobs/History" asp-route-job="@name"><strong>@name</strong></a>@:: @failure.LatestError
+                    <span class="failing-since">failing since <local-time value="failure.Since" /> @FailingJobText.Runs(failure.FailedRuns)</span>
+                    @if (advice is not null)
+                    {
+                        @: @advice
+                    }
+                    <form method="post" asp-page-handler="Trigger">
+                        <input type="hidden" name="jobName" value="@name" />
+                        <button type="submit">Run now</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@if (Model.HasAnyRows)
+{
+    <form method="get" class="toolbar">
+        <select name="Stage" aria-label="Job">
+            <option value="">All jobs</option>
+            @foreach (var stage in Enum.GetValues<Fetchshelf.Data.Entities.ErrorStage>())
+            {
+                <option value="@stage" selected="@(Model.Stage == stage)">@ErroredTorrentViewModel.JobName(stage)</option>
+            }
+        </select>
+        <button type="submit">Filter</button>
+    </form>
+}
 
 @if (Model.Errors.Count == 0)
 {
@@ -30,7 +87,7 @@ else
                 <tr>
                     <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.error-select').forEach(c => c.checked = this.checked)" /></th>
                     <th>Job</th>
-                    <th>Torrent</th>
+                    <th>Torrent or book</th>
                     <th>Error</th>
                     <th>Last failed</th>
                     <th></th>
@@ -47,6 +104,10 @@ else
                             @if (error.TorrentDetailId is not null)
                             {
                                 <a asp-page="/Torrents/Detail" asp-route-id="@error.TorrentDetailId">@name</a>
+                            }
+                            else if (error.ListId is not null)
+                            {
+                                <a asp-page="/Lists/Detail" asp-route-id="@error.ListId">@name</a>
                             }
                             else
                             {
