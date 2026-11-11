@@ -33,7 +33,19 @@ public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings) :
     /// </summary>
     public PartialViewResult OnPostTrigger(string jobName)
     {
-        _ = jobRegistry.TriggerAsync(jobName, CancellationToken.None);
+        _ = jobRegistry.TriggerAsync(jobName, JobTrigger.Manual, CancellationToken.None);
+        Jobs = BuildJobViewModels();
+        return Partial("_JobListPartial", Jobs);
+    }
+
+    /// <summary>
+    /// The "Cancel" action for a running job. Asks the run to stop without waiting for it: each job stops at the next
+    /// point where nothing is left half done, which polling then shows. The button carries the number of the run it was
+    /// shown for, so a click on a list a moment out of date doesn't stop a run that started since.
+    /// </summary>
+    public PartialViewResult OnPostCancel(string jobName, long? runNumber)
+    {
+        jobRegistry.Cancel(jobName, runNumber);
         Jobs = BuildJobViewModels();
         return Partial("_JobListPartial", Jobs);
     }

@@ -12,9 +12,10 @@ namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>
 /// What one snatch list run did: rows read, torrents newly recorded as owned, stored torrents whose metadata
-/// changed, and rows that could not be imported. In a dry run, the counts are what would have happened.
+/// changed, and rows that could not be imported. In a dry run, which writes nothing, the counts are what would have
+/// happened.
 /// </summary>
-public sealed record SnatchlistRunSummary(int Rows, int Recorded, int Updated, int Failed);
+public sealed record SnatchlistRunSummary(int Rows, int Recorded, int Updated, int Failed, bool DryRun = false);
 
 /// <summary>
 /// Imports a `[[snatchlist]]` entry: pages the user's MAM snatch list and refreshes the metadata of
@@ -118,7 +119,7 @@ public sealed class SnatchlistImporter(
         }
 
         LogSummary(name, entry.DryRun, rowCount, pagesRead, recorded, updated, failed);
-        return new SnatchlistRunSummary(rowCount, recorded, updated, failed);
+        return new SnatchlistRunSummary(rowCount, recorded, updated, failed, entry.DryRun);
     }
 
     private void LogSummary(string name, bool dryRun, int rowCount, int pagesRead, int recorded, int updated, int failed)

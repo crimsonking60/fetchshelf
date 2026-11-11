@@ -20,6 +20,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<ListItemEntity> ListItems => Set<ListItemEntity>();
 
+    public DbSet<JobRunEntity> JobRuns => Set<JobRunEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TorrentEntity>(entity =>
@@ -54,6 +56,11 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasKey(i => new { i.ListId, i.ExternalId });
             entity.HasIndex(i => i.ListId);
+        });
+
+        modelBuilder.Entity<JobRunEntity>(entity =>
+        {
+            entity.HasIndex(r => r.JobName);
         });
     }
 }

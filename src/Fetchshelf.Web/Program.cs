@@ -78,6 +78,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOption
 builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
 builder.Services.AddSingleton(settings);
+builder.Services.AddSingleton<IJobRunStore, JobRunStore>();
 builder.Services.AddSingleton<IJobRegistry, JobRegistry>();
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
@@ -203,52 +204,38 @@ if (settings.BackgroundJobsEnabled)
 {
     // AddSingleton<IHostedService>, not AddHostedService: with a factory lambda, AddHostedService
     // de-duplicates by implementation type, so only the first IntervalJobScheduler would be kept.
-    builder.Services.AddSingleton<IHostedService>(sp =>
-        new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), JobNames.Link, TimeSpan.FromMinutes(settings.LinkInterval)));
+    void AddScheduler(string jobName, int intervalMinutes, int startupPosition) =>
+        builder.Services.AddSingleton<IHostedService>(sp => new IntervalJobScheduler(
+            sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes),
+            StartupStagger * startupPosition, sp.GetRequiredService<TimeProvider>()));
+
+    // A job that is due, or has never run, first runs soon after start: Link first, then each MAM job in
+    // configuration order, then Download, one stagger apart. MamAccessGate already keeps the MAM jobs from
+    // overlapping; the stagger keeps their order predictable and the log readable.
+    var startupPosition = 1;
+    AddScheduler(JobNames.Link, settings.LinkInterval, startupPosition);
 
     if (settings.Audiobookshelf is { } scheduledAbsSettings)
     {
-        builder.Services.AddSingleton<IHostedService>(sp => new IntervalJobScheduler(
-            sp.GetRequiredService<IJobRegistry>(), JobNames.Audiobookshelf, TimeSpan.FromMinutes(scheduledAbsSettings.Interval)));
+        // Audiobookshelf doesn't talk to MAM, so it starts alongside Link.
+        AddScheduler(JobNames.Audiobookshelf, scheduledAbsSettings.Interval, startupPosition);
     }
 
-    for (var i = 0; i < settings.Autograb.Count; i++)
+    var mamJobs = settings.Autograb.Select((entry, i) => (AutoDownloaderJobNames.Autograb(entry, i), entry.SearchInterval))
+        .Concat(settings.Snatchlist.Select((entry, i) => (AutoDownloaderJobNames.Snatchlist(entry, i), entry.SearchInterval)))
+        .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)));
+    foreach (var (jobName, searchInterval) in mamJobs)
     {
-        var jobName = AutoDownloaderJobNames.Autograb(settings.Autograb[i], i);
-        var intervalMinutes = settings.Autograb[i].SearchInterval ?? settings.SearchInterval;
+        var intervalMinutes = searchInterval ?? settings.SearchInterval;
         if (intervalMinutes > 0)
         {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
-        }
-    }
-
-    for (var i = 0; i < settings.Snatchlist.Count; i++)
-    {
-        var jobName = AutoDownloaderJobNames.Snatchlist(settings.Snatchlist[i], i);
-        var intervalMinutes = settings.Snatchlist[i].SearchInterval ?? settings.SearchInterval;
-        if (intervalMinutes > 0)
-        {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
-        }
-    }
-
-    for (var i = 0; i < settings.HardcoverList.Count; i++)
-    {
-        var jobName = AutoDownloaderJobNames.HardcoverList(settings.HardcoverList[i], i);
-        var intervalMinutes = settings.HardcoverList[i].SearchInterval ?? settings.SearchInterval;
-        if (intervalMinutes > 0)
-        {
-            builder.Services.AddSingleton<IHostedService>(sp =>
-                new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), jobName, TimeSpan.FromMinutes(intervalMinutes)));
+            AddScheduler(jobName, intervalMinutes, ++startupPosition);
         }
     }
 
     if (settings.SearchInterval > 0)
     {
-        builder.Services.AddSingleton<IHostedService>(sp =>
-            new IntervalJobScheduler(sp.GetRequiredService<IJobRegistry>(), JobNames.Download, TimeSpan.FromMinutes(settings.SearchInterval)));
+        AddScheduler(JobNames.Download, settings.SearchInterval, ++startupPosition);
     }
 }
 
@@ -285,6 +272,11 @@ if (settings.BackgroundJobsEnabled)
     RegisterAutoDownloaderJobs(app.Services, settings);
 }
 
+// Before the schedulers start, which plan each job's first run from its last one.
+var jobRegistry = app.Services.GetRequiredService<IJobRegistry>();
+await jobRegistry.LoadLastRunsAsync();
+app.Lifetime.ApplicationStopping.Register(jobRegistry.InterruptAll);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -302,7 +294,18 @@ if (settings.Opds is not null)
     app.MapOpdsEndpoints();
 }
 
-app.Run();
+await app.RunAsync();
+
+// The runs the shutdown stopped are written in the background; give them a moment to reach the database. Any that
+// don't are marked interrupted at the next start.
+try
+{
+    await jobRegistry.RunRecordsWrittenAsync().WaitAsync(TimeSpan.FromSeconds(5));
+}
+catch (TimeoutException)
+{
+    Log.Warning("Some job runs could not be recorded before Fetchshelf stopped");
+}
 
 static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings settings)
 {
@@ -314,31 +317,24 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
     {
         using var scope = scopeFactory.CreateScope();
         var linkRunner = scope.ServiceProvider.GetRequiredService<LinkRunner>();
-        var failed = 0;
+        var (linked, failed) = (0, 0);
         foreach (var (connection, client) in QBittorrentConnections.Build(settings, qbittorrentFactory))
         {
-            failed += (await linkRunner.RunAsync(connection, client, ct)).Failed;
+            var summary = await linkRunner.RunAsync(connection, client, ct);
+            (linked, failed) = (linked + summary.Linked, failed + summary.Failed);
         }
 
-        await jobRegistry.TriggerAsync(JobNames.Clean, ct);
+        // Clean is a run of its own, so cancelling this one doesn't cancel it; this run only stops waiting for it.
+        await jobRegistry.TriggerAsync(JobNames.Clean, JobTrigger.Chained).WaitAsync(ct);
 
-        if (failed > 0)
-        {
-            throw new JobCompletedWithErrorsException(
-                $"{failed} {(failed == 1 ? "torrent" : "torrents")} could not be linked; see the Errors page.");
-        }
+        return JobOutcomes.Link(linked, failed);
     }, "Moves finished downloads from qBittorrent into your library folders.");
 
     jobRegistry.Register(JobNames.Clean, async ct =>
     {
         using var scope = scopeFactory.CreateScope();
         var cleaner = scope.ServiceProvider.GetRequiredService<Cleaner>();
-        var summary = await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
-        if (summary.Failed > 0)
-        {
-            throw new JobCompletedWithErrorsException(
-                $"{summary.Failed} superseded {(summary.Failed == 1 ? "copy" : "copies")} could not be retired; see the Errors page.");
-        }
+        return JobOutcomes.Clean(await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct));
     }, "Retires superseded duplicate torrents once a newer copy is linked.");
 
     if (settings.Audiobookshelf is not null)
@@ -347,12 +343,7 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
         {
             using var scope = scopeFactory.CreateScope();
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
-            var summary = await matcher.RunAsync(ct);
-            if (summary.Failed > 0)
-            {
-                throw new JobCompletedWithErrorsException(
-                    $"{summary.Failed} {(summary.Failed == 1 ? "book" : "books")} could not be matched in Audiobookshelf; see the log.");
-            }
+            return JobOutcomes.Audiobookshelf(await matcher.RunAsync(ct));
         }, "Matches linked torrents to their Audiobookshelf library item.");
     }
 }
@@ -371,11 +362,13 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<AutograbberRunner>();
-            var selectedCount = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-            if (selectedCount > 0 && settings.DownloadAfterSelection)
+            var summary = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
+            if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
             {
-                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, ct);
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
             }
+
+            return JobOutcomes.Autograb(summary);
         }, "Searches MAM for new matches and queues them for download.");
     }
 
@@ -387,12 +380,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
-            var summary = await importer.RunAsync(entry, ct);
-            if (summary.Failed > 0)
-            {
-                throw new JobCompletedWithErrorsException(
-                    $"{summary.Failed} snatch list {(summary.Failed == 1 ? "row" : "rows")} could not be imported; see the log.");
-            }
+            return JobOutcomes.Snatchlist(await importer.RunAsync(entry, ct));
         }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 
@@ -405,16 +393,12 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<HardcoverListImporter>();
             var summary = await importer.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-            if (summary.Selected > 0 && settings.DownloadAfterSelection)
+            if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
             {
-                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, ct);
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
             }
 
-            if (summary.Failed > 0)
-            {
-                throw new JobCompletedWithErrorsException(
-                    $"{summary.Failed} {(summary.Failed == 1 ? "book" : "books")} could not be searched for; see the log.");
-            }
+            return JobOutcomes.HardcoverList(summary);
         }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
     }
 
@@ -422,14 +406,13 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
     {
         using var scope = scopeFactory.CreateScope();
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
-        var summary = await downloadRunner.RunAsync(ct);
-        if (summary.Failed > 0)
-        {
-            throw new JobCompletedWithErrorsException(
-                $"{summary.Failed} {(summary.Failed == 1 ? "torrent" : "torrents")} could not be downloaded; see the log.");
-        }
+        return JobOutcomes.Download(await downloadRunner.RunAsync(ct));
     }, "Sends queued, selected torrents to qBittorrent.");
 }
 
 // Exposed so Fetchshelf.Web.Tests can reference WebApplicationFactory<Program>.
-public partial class Program;
+public partial class Program
+{
+    /// <summary>How far apart jobs that are due first run after start.</summary>
+    private static readonly TimeSpan StartupStagger = TimeSpan.FromSeconds(30);
+}

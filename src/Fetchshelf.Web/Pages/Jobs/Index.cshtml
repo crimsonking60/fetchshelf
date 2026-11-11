@@ -9,7 +9,7 @@
 }
 
 <h2>Jobs</h2>
-@await Html.PartialAsync("_PageExplanation", "This page shows the status of Fetchshelf's background jobs, such as searching, linking, and importing. Use the \"Run now\" button next to a job to trigger it right away instead of waiting for its schedule.")
+@await Html.PartialAsync("_PageExplanation", "This page shows the status of Fetchshelf's background jobs, such as searching, linking, and importing. Use the \"Run now\" button next to a job to trigger it right away instead of waiting for its schedule, or \"Cancel\" to stop a running one. Select a job's name to see its earlier runs.")
 
 <div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s" : null)" hx-swap="innerHTML">
     @await Html.PartialAsync("_JobListPartial", Model.Jobs)

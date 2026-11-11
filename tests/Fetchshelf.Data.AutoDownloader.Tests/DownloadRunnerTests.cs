@@ -82,6 +82,130 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_CancelledBeforeATorrentFileIsInHand_StopsWithTheTorrentStillQueued()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+        using var cancellation = new CancellationTokenSource();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("jsonLoad.php"))
+            {
+                cancellation.Cancel(); // the Cancel button, pressed before any torrent file is fetched
+            }
+
+            return request.RequestUri.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null;
+        });
+        var added = new List<byte[]>();
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], added)],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.RunAsync(cancellation.Token));
+
+        Assert.Empty(added);
+        context.ChangeTracker.Clear();
+        Assert.Null(context.SelectedTorrents.Single().StartedAt);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_CancelledWhileAWedgeIsSpent_AddsAndRecordsThatTorrentThenStops()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge, "dl1"));
+        await Task.Delay(1);
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.UseWedge, "dl2"));
+        await context.SaveChangesAsync();
+        using var cancellation = new CancellationTokenSource();
+        var downloads = new List<string>();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (!path.Contains("download.php"))
+            {
+                return null;
+            }
+
+            var withWedge = request.RequestUri.Query.Contains("&fl");
+            downloads.Add(path.Split("download.php/")[1] + (withWedge ? " with wedge" : ""));
+            if (withWedge)
+            {
+                cancellation.Cancel(); // the Cancel button, pressed while the wedge is being spent
+            }
+
+            return DownloadResponse(path.EndsWith("dl1", StringComparison.Ordinal) ? TorrentBytes1 : TorrentBytes2);
+        });
+        var added = new List<byte[]>();
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], added)],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.RunAsync(cancellation.Token));
+
+        Assert.Equal(["dl1", "dl1 with wedge"], downloads);
+        Assert.Single(added);
+        context.ChangeTracker.Clear();
+        Assert.Equal(TorrentHash1, Assert.Single(context.Torrents).Id);
+        Assert.NotNull(context.SelectedTorrents.Single(s => s.MamId == 1).StartedAt);
+        Assert.Null(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
+        Assert.True(Assert.Single(context.Events).WedgeUsed);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task RunAsync_AddingHangsAfterTheRunIsCancelled_GivesUpAfterTheGraceAndSaysAWedgeMayBeSpent()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var adding = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var qb = new QBittorrentClient(
+            new HttpClient(new HangingAddHandler(adding)), new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin"));
+        var logger = new ListLogger<DownloadRunner>();
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [qb], minRatio: 2, addTorrentsStopped: false,
+            safetyBuffers: NoBuffers, logger, finishAfterCancel: TimeSpan.FromMilliseconds(100));
+        using var cancellation = new CancellationTokenSource();
+
+        var run = runner.RunAsync(cancellation.Token);
+        await adding.Task; // qBittorrent takes the torrent and never answers
+        await cancellation.CancelAsync(); // Fetchshelf stopping
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Contains(
+            logger.Messages(LogLevel.Warning),
+            m => m.Contains("was cut short", StringComparison.Ordinal) && m.Contains("A wedge may have been spent", StringComparison.Ordinal));
+        context.ChangeTracker.Clear();
+        Assert.Null(context.SelectedTorrents.Single().StartedAt);
+    }
+
+    /// <summary>A qBittorrent that logs in and lists nothing, and whose add never answers until cancelled.</summary>
+    private sealed class HangingAddHandler(TaskCompletionSource adding) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("auth/login"))
+            {
+                var login = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
+                login.Headers.Add("Set-Cookie", "SID=abc123; path=/; HttpOnly");
+                return login;
+            }
+
+            if (path.Contains("torrents/add"))
+            {
+                adding.TrySetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("[]") };
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_GateHeldByAnotherJob_WaitsBeforeAskingMam()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
@@ -123,7 +247,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await runner.RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 0), summary);
+        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 0, Queued: 0), summary);
         Assert.Equal(0, mamCalls);
         Assert.Equal(["No selected torrents are waiting to be downloaded"], logger.Messages(LogLevel.Information));
     }
@@ -188,7 +312,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await runner.RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 1, Failed: 1), summary);
+        Assert.Equal((1, 1), (summary.Started, summary.Failed));
         Assert.StartsWith("Could not download T by Some Author: ", Assert.Single(logger.Messages(LogLevel.Error)), StringComparison.Ordinal);
         var selections = await context.SelectedTorrents.AsNoTracking().OrderBy(s => s.MamId).ToListAsync();
         Assert.Null(selections[0].StartedAt);
@@ -262,7 +386,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await runner.RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.Equal((0, 1), (summary.Started, summary.Failed));
         Assert.Empty(context.Torrents);
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         var error = Assert.Single(context.ErroredTorrents);
@@ -305,7 +429,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await RunnerFor(context, mam).RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 1, Failed: 1), summary);
+        Assert.Equal((1, 1), (summary.Started, summary.Failed));
         var queued = context.SelectedTorrents.Single(s => s.MamId == 1);
         Assert.Null(queued.RemovedAt);
         Assert.Null(queued.StartedAt);
@@ -376,7 +500,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await RunnerFor(context, mam).RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.Equal((0, 1), (summary.Started, summary.Failed));
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         var error = Assert.Single(context.ErroredTorrents);
         Assert.Equal("Download link is stale and could not be refreshed.", error.ErrorText);
@@ -428,7 +552,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await RunnerFor(context, mam).RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.Equal((0, 1), (summary.Started, summary.Failed));
         Assert.NotNull(context.SelectedTorrents.Single().RemovedAt);
         var error = Assert.Single(context.ErroredTorrents);
         Assert.StartsWith("MAM no longer has this torrent", error.ErrorText);
@@ -488,7 +612,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await RunnerFor(context, mam).RunAsync();
 
-        Assert.Equal(new DownloadRunSummary(Started: 0, Failed: 1), summary);
+        Assert.Equal((0, 1), (summary.Started, summary.Failed));
         Assert.Equal(1, downloads);
         Assert.All(context.SelectedTorrents, s => Assert.Null(s.RemovedAt));
         Assert.Empty(context.ErroredTorrents);

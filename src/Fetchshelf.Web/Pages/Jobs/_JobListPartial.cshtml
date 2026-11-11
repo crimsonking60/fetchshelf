@@ -21,37 +21,52 @@ else
             </tr>
         </thead>
         <tbody>
+            @{
+                var now = DateTimeOffset.UtcNow;
+            }
             @foreach (var job in Model)
             {
                 <tr>
-                    <td>@job.Name</td>
+                    <td><a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a></td>
                     @if (Settings.JobExplanations)
                     {
                         <td>@job.Description</td>
                     }
                     <td>
-                        @if (job.IsRunning)
+                        @if (job.RunningText(now) is { } runningText)
                         {
-                            @:Running
+                            @runningText
                         }
                         else if (job.LastStartedAt is { } lastStartedAt)
                         {
                             <local-time value="lastStartedAt" />
+                            @if (job.LastDuration is { } duration)
+                            {
+                                <span class="muted nowrap">(took @Fetchshelf.Web.Pages.Jobs.JobRunLabels.Duration(duration))</span>
+                            }
                         }
                         else
                         {
                             @:-
                         }
                     </td>
-                    <td>@job.LastResultText</td>
+                    <td><span title="@job.CountsText">@job.LastResultText</span></td>
                     <td>
-                        <form method="post" action="?handler=Trigger" hx-post="?handler=Trigger" hx-target="#job-list" hx-swap="innerHTML">
+                        @* Cancelling loses nothing the next run doesn't redo, so it asks for no confirmation. *@
+                        @{
+                            var handler = job.IsRunning ? "Cancel" : "Trigger";
+                        }
+                        <form method="post" action="?handler=@handler" hx-post="?handler=@handler" hx-target="#job-list" hx-swap="innerHTML">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="jobName" value="@job.Name" />
-                            <button type="submit" disabled="@job.IsRunning">Run now</button>
+                            @if (job.IsRunning)
+                            {
+                                <input type="hidden" name="runNumber" value="@job.RunNumber" />
+                            }
+                            <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                         </form>
                     </td>
-                    <td class="next-run">@job.NextRunText(DateTimeOffset.UtcNow)</td>
+                    <td class="next-run">@job.NextRunText(now)</td>
                 </tr>
             }
         </tbody>

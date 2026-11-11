@@ -124,6 +124,41 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.JobRunEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CountsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JobName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Result")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobName");
+
+                    b.ToTable("JobRuns");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.ListEntity", b =>
                 {
                     b.Property<string>("Id")

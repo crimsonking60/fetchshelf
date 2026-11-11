@@ -47,7 +47,7 @@ public sealed class DataPersistenceTests : IDisposable
         string[] expectedTables =
         [
             "Torrents", "SelectedTorrents", "DuplicateTorrents", "ErroredTorrents",
-            "Events", "Lists", "ListItems",
+            "Events", "Lists", "ListItems", "JobRuns",
         ];
         foreach (var expected in expectedTables)
         {
@@ -223,6 +223,28 @@ public sealed class DataPersistenceTests : IDisposable
         });
         context.SaveChanges();
         Assert.Equal("Dune", context.ListItems.AsNoTracking().Single(i => i.ExternalId == "312460").BookTitle);
+    }
+
+    [Fact]
+    public void Migrate_DatabaseFrom2026_11_7_AddsAnEmptyJobRunsTableAndKeepsEverythingElse()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261110202853_AddRemovedFromMam");
+        InsertTorrent(context, "hash1", "Kept Torrent");
+
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Empty(context.JobRuns);
+        Assert.Equal("Kept Torrent", context.Torrents.Single().Title);
+        context.JobRuns.Add(new JobRunEntity
+        {
+            JobName = "Link",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = Fetchshelf.Core.Jobs.JobRunResult.Running,
+            Trigger = Fetchshelf.Core.Jobs.JobTrigger.Startup,
+        });
+        context.SaveChanges();
+        Assert.Equal("Link", context.JobRuns.AsNoTracking().Single().JobName);
     }
 
     private static void InsertTorrent(FetchshelfDbContext context, string id, string title) =>

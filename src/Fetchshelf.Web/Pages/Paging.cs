@@ -19,9 +19,19 @@ public static class Paging
     /// </summary>
     public static (List<T> Items, int PageNumber, int TotalPages) Slice<T>(IEnumerable<T> ordered, int totalCount, int pageNumber, int pageSize)
     {
+        var window = Window(totalCount, pageNumber, pageSize);
+        return (ordered.Skip(window.Skip).Take(window.Take).ToList(), window.PageNumber, window.TotalPages);
+    }
+
+    /// <summary>
+    /// The same page as <see cref="Slice{T}"/> picks, as the rows to skip and take, for a list paged in the database: count
+    /// the matches, then fetch only <see cref="PageWindow.Take"/> rows after <see cref="PageWindow.Skip"/>.
+    /// </summary>
+    public static PageWindow Window(int totalCount, int pageNumber, int pageSize)
+    {
         if (pageSize == All)
         {
-            return (ordered.ToList(), 1, 1);
+            return new PageWindow(0, Math.Max(totalCount, 0), 1, 1);
         }
 
         if (pageSize < 0)
@@ -31,6 +41,9 @@ public static class Paging
 
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
         pageNumber = Math.Clamp(pageNumber, 1, totalPages);
-        return (ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList(), pageNumber, totalPages);
+        return new PageWindow((pageNumber - 1) * pageSize, pageSize, pageNumber, totalPages);
     }
 }
+
+/// <summary>The rows of one page: <see cref="Skip"/> rows in, at most <see cref="Take"/>, with its number and the page count.</summary>
+public sealed record PageWindow(int Skip, int Take, int PageNumber, int TotalPages);

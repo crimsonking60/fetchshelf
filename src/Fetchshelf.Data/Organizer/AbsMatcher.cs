@@ -41,61 +41,84 @@ public sealed class AbsMatcher(
         IReadOnlyList<AbsLibrary>? libraries = null;
         var (matched, notFoundYet, failed) = (0, 0, 0);
 
-        foreach (var torrent in candidates)
+        try
         {
-            var metadata = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson);
-            var firstAuthor = metadata.Authors.FirstOrDefault();
-            if (firstAuthor is null)
+            foreach (var torrent in candidates)
             {
-                _logger.LogError("Cannot match {Title} in Audiobookshelf: it has no author to search for", torrent.Title);
-                failed++;
-                continue;
+                cancellationToken.ThrowIfCancellationRequested();
+                var metadata = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson);
+                var firstAuthor = metadata.Authors.FirstOrDefault();
+                if (firstAuthor is null)
+                {
+                    _logger.LogError("Cannot match {Title} in Audiobookshelf: it has no author to search for", torrent.Title);
+                    failed++;
+                    continue;
+                }
+
+                // Fetched once, and only when some book needs it; failing to reach Audiobookshelf ends the run.
+                libraries ??= await ListLibrariesAsync(cancellationToken);
+
+                var absPath = PathMapper.Translate(_fetchshelfToAbsPaths, torrent.LibraryPath!);
+                var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => PathPrefix.IsSameOrUnder(absPath, folder.FullPath))).ToList();
+                if (candidateLibraries.Count == 0)
+                {
+                    _logger.LogError(
+                        "Cannot match {Title} in Audiobookshelf: no Audiobookshelf library has a folder containing {AbsPath}. "
+                        + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf.path_mapping] must map "
+                        + "Audiobookshelf's path to Fetchshelf's",
+                        torrent.Title, absPath);
+                    failed++;
+                    continue;
+                }
+
+                string? matchedId;
+                try
+                {
+                    matchedId = await FindMatchAsync(candidateLibraries, absPath, firstAuthor, cancellationToken);
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogError("Could not match {Title} in Audiobookshelf: {Error}", torrent.Title, ex.Message);
+                    failed++;
+                    continue;
+                }
+
+                if (matchedId is null)
+                {
+                    _logger.LogWarning(
+                        "{Title} is not in Audiobookshelf yet at {AbsPath}; trying again next run. "
+                        + "If this persists, check that Audiobookshelf has scanned the library",
+                        torrent.Title, absPath);
+                    notFoundYet++;
+                    continue;
+                }
+
+                torrent.AbsId = matchedId;
+                matched++;
+                _logger.LogInformation("Matched {Title} to Audiobookshelf item {AbsId}", torrent.Title, matchedId);
             }
 
-            // Fetched once, and only when some book needs it; failing to reach Audiobookshelf ends the run.
-            libraries ??= await ListLibrariesAsync(cancellationToken);
-
-            var absPath = PathMapper.Translate(_fetchshelfToAbsPaths, torrent.LibraryPath!);
-            var candidateLibraries = libraries.Where(library => library.Folders.Any(folder => PathPrefix.IsSameOrUnder(absPath, folder.FullPath))).ToList();
-            if (candidateLibraries.Count == 0)
-            {
-                _logger.LogError(
-                    "Cannot match {Title} in Audiobookshelf: no Audiobookshelf library has a folder containing {AbsPath}. "
-                    + "Audiobookshelf must see the library at the same path as Fetchshelf, or [audiobookshelf.path_mapping] must map "
-                    + "Audiobookshelf's path to Fetchshelf's",
-                    torrent.Title, absPath);
-                failed++;
-                continue;
-            }
-
-            string? matchedId;
+            // Every book was gone through: what was matched is saved even if the run was cancelled meanwhile.
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // The matches found before the run was cancelled, or stopped by an error, are kept if they can be. If even
+            // that fails, the error that stopped the run is the one reported.
             try
             {
-                matchedId = await FindMatchAsync(candidateLibraries, absPath, firstAuthor, cancellationToken);
+                await dbContext.SaveChangesAsync(CancellationToken.None);
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogError("Could not match {Title} in Audiobookshelf: {Error}", torrent.Title, ex.Message);
-                failed++;
-                continue;
-            }
-
-            if (matchedId is null)
+            catch (Exception saveException)
             {
                 _logger.LogWarning(
-                    "{Title} is not in Audiobookshelf yet at {AbsPath}; trying again next run. "
-                    + "If this persists, check that Audiobookshelf has scanned the library",
-                    torrent.Title, absPath);
-                notFoundYet++;
-                continue;
+                    "Could not keep the Audiobookshelf matches found before the run stopped ({Reason}): {Error}",
+                    ex.Message, saveException.Message);
             }
 
-            torrent.AbsId = matchedId;
-            matched++;
-            _logger.LogInformation("Matched {Title} to Audiobookshelf item {AbsId}", torrent.Title, matchedId);
+            throw;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
         return new AbsMatchSummary(matched, notFoundYet, failed);
     }
 

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Fetchshelf.Web.Tests;
 
 /// <summary>
@@ -31,6 +33,21 @@ public class CompositionTests
         Assert.Contains("example-job", updatedHtml);
         Assert.Contains("Success", updatedHtml);
         Assert.DoesNotContain("Never run", updatedHtml);
+    }
+
+    [Fact]
+    public async Task Host_KeepsJobRunsInTheDatabase()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await fixture.CreateClient().GetAsync("/Jobs"); // starts the host, which creates the database
+        using var scope = fixture.CreateScope();
+        var store = scope.ServiceProvider.GetRequiredService<Fetchshelf.Core.Jobs.IJobRunStore>();
+
+        var id = await store.StartedAsync("Link", DateTimeOffset.UtcNow, Fetchshelf.Core.Jobs.JobTrigger.Manual);
+
+        Assert.IsType<Fetchshelf.Data.JobRunStore>(store);
+        Assert.Equal(Fetchshelf.Core.Jobs.JobRunResult.Running, (await store.LastRunsAsync())["Link"].Result);
+        Assert.True(id > 0);
     }
 
     private static string ExtractAntiforgeryToken(string html)

@@ -252,7 +252,7 @@ public sealed class SnatchlistImporterTests : IDisposable
         var summary = await importer.RunAsync(new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd, DryRun = true });
 
         // The summary counts what would have been recorded; nothing is written.
-        Assert.Equal(1, summary.Recorded);
+        Assert.Equal((1, true), (summary.Recorded, summary.DryRun));
         Assert.Empty(context.Torrents);
         var messages = logger.Messages(LogLevel.Information);
         Assert.Contains(messages, m => m.Contains("The Way of Kings by A would be recorded as owned"));

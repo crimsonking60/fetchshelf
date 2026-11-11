@@ -30,7 +30,10 @@ public sealed class Cleaner(
 {
     private readonly ILogger<Cleaner> _logger = logger ?? NullLogger<Cleaner>.Instance;
 
-    /// <summary>Retires every superseded copy; a failure on one is logged and recorded as a clean error, and the run continues.</summary>
+    /// <summary>
+    /// Retires every superseded copy; a failure on one is logged and recorded as a clean error, and the run continues.
+    /// Cancellation lands between copies: a copy being retired is retired completely.
+    /// </summary>
     /// <param name="connections">Every configured qBittorrent connection, each paired with its client.</param>
     public async Task<CleanRunSummary> RunAsync(
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
@@ -60,16 +63,17 @@ public sealed class Cleaner(
                 // The automatic pass only deletes the member's ABS item when the keeper ends
                 // up at a different library path.
                 var forceAbsDeletion = keeper.LibraryPath is not null && keeper.LibraryPath != member.LibraryPath;
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    await RetireAsync(member, keeper, connections, forceAbsDeletion, cancellationToken);
+                    await RetireAsync(member, keeper, connections, forceAbsDeletion, CancellationToken.None);
                     retired++;
                 }
-                catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                catch (Exception ex)
                 {
                     // One copy that cannot be retired must not stop the rest; it is tried again next run.
                     failed++;
-                    await RecordCleanErrorAsync(member, keeper, ex.Message, cancellationToken);
+                    await RecordCleanErrorAsync(member, keeper, ex.Message, CancellationToken.None);
                 }
             }
         }

@@ -340,8 +340,8 @@ All settings live in one TOML file, `config.toml`, in the folder mounted at `/co
   container. Restarting is safe at any time: queued selections, known torrents, events and errors are kept
   in the database and picked up again after the restart. A job that the restart cuts off does its work on
   its next run, and a download that already reached qBittorrent is recognised there rather than added
-  twice. Two things start fresh: the **Jobs** page forgets each job's last run, and each scheduled job
-  waits one full interval before its first run. Use **Run now** if you don't want to wait.
+  twice. The **Jobs** page keeps each job's last run and history, and a cut-off run shows as *Interrupted*.
+  See [when a job first runs after a restart](#when-a-job-first-runs-after-a-restart).
 - **Environment overrides.** Any simple top-level setting can be set through an environment variable named
   `FETCHSHELF_CONF_<setting>` with the setting name in lower case, for example
   `FETCHSHELF_CONF_mam_id`. Environment variables win over the file. This is one way to keep a secret such
@@ -1268,7 +1268,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MAM and download books by hand. |
-| **Jobs** | Every background job, its last run and result, when it runs next, and a **Run now** button. Updates live. Below them, the kinds of job you have not configured. |
+| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Below them, the kinds of job you have not configured. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
@@ -1424,15 +1424,45 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
 *Snatchlist is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
+- **Cancel** replaces **Run now** while a job runs, and stops it. It asks for no confirmation, because
+  nothing is lost that the next run doesn't redo: each job stops only where nothing is left half done.
+  Download stops before a torrent's file is fetched, when nothing has been spent; a torrent whose file was
+  fetched, perhaps with a wedge, is added to qBittorrent first. If adding it hangs for more than five
+  seconds after the cancel, it is given up, stays queued, and the log says whether a wedge may have been
+  spent on it. The same applies when Fetchshelf stops. Link finishes placing the torrent it is on and keeps everything it linked.
+  Clean finishes retiring the copy it is on. Autograb, snatchlist and Hardcover list jobs stop between MAM
+  requests, and Audiobookshelf between books. Cancelling a job doesn't cancel a job it started, such as
+  the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled
+  job runs again at its next interval. **Cancel** stops only the run it was shown for: if that run has
+  ended and another started before the page caught up, the new run carries on.
 - An interval of `0` means the job never runs by itself.
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
-- The *last result* shows success or the error. A failed job tries again at its next interval. One failing
+- The *last result* shows what the run did, such as *Success: 3 torrents linked* or *Success: 312 search
+  results, 2 selected*, or the error. Hover over it for the numbers behind it. A failed job tries again at
+  its next interval. One failing
   torrent never stops the others: the Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list
   jobs then show *Finished with errors* with the number of torrents or books that failed, and the log has a
   line for each. Link and Clean problems, and downloads removed from the queue, are also listed on the
   **Errors** page.
 - With an empty `mam_id`, no job runs at all.
+
+Selecting a job's name opens its **history**: its runs, newest first, 50 to a page, each with when it
+started, how long it took, what started it (*Schedule*, *Startup*, *Manual* or *Another job*), its result and
+its summary. Hover over a summary for its numbers. **Only runs that didn't succeed** leaves out the
+successful ones. The newest 200 runs of each job are kept.
+
+### When a job first runs after a restart
+
+A job whose last run ended less than one interval ago keeps its rhythm: it next runs one interval after
+that run ended, as it would have without the restart. A run the restart cut off has no known end, so one
+interval after its start counts instead, and a container that keeps restarting can't make a job run more
+often than its interval.
+
+A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
+MAM at once: Link (and Audiobookshelf) after 30 seconds, then each autograb, snatchlist and Hardcover list in
+the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
+shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
 
 ## Common setups
 

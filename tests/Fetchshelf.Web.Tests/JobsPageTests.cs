@@ -1,4 +1,9 @@
+using System.Net;
 using System.Text.RegularExpressions;
+using Fetchshelf.Core.Jobs;
+using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
@@ -197,6 +202,221 @@ public partial class JobsPageTests
         response.EnsureSuccessStatusCode();
         Assert.Contains("example-job", html);
         Assert.DoesNotContain("<html", html);
+    }
+
+    [Fact]
+    public async Task JobsPage_JobThatReportedAnOutcome_ShowsTheSummaryItsCountsAndAHistoryLink()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("Link", _ => Task.FromResult<JobOutcome?>(
+            new JobOutcome("3 torrents linked", new Dictionary<string, long> { ["linked"] = 3, ["failed"] = 0 })));
+        await fixture.JobRegistry.TriggerAsync("Link");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.Contains("Success: 3 torrents linked", html);
+        Assert.Contains("title=\"linked: 3, failed: 0\"", html);
+        Assert.Contains("href=\"/Jobs/History?job=Link\"", html);
+        Assert.Contains("(took 0s)", html);
+    }
+
+    [Fact]
+    public async Task JobsPage_RunningJob_ShowsHowLongItHasRunAndACancelButton()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register("slow-job", async ct =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+        });
+        var run = fixture.JobRegistry.TriggerAsync("slow-job");
+        await started.Task;
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.Contains("Running for 0s", html);
+        Assert.Contains("hx-post=\"?handler=Cancel\"", html);
+        Assert.Contains(">Cancel</button>", html);
+        Assert.DoesNotContain(">Run now</button>", html);
+        fixture.JobRegistry.Cancel("slow-job");
+        await run;
+    }
+
+    [Fact]
+    public async Task PostCancel_RunningJob_CancelsIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register("slow-job", async ct =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+        });
+        var run = fixture.JobRegistry.TriggerAsync("slow-job");
+        await started.Task;
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/Jobs"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["jobName"] = "slow-job",
+            ["__RequestVerificationToken"] = token,
+        });
+        var response = await client.PostAsync("/Jobs?handler=Cancel", form);
+        await run;
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(JobRunResult.Cancelled, fixture.JobRegistry.Get("slow-job")!.LastRun!.Result);
+        Assert.Contains("Cancelled", await client.GetStringAsync("/Jobs?handler=JobsPartial"));
+    }
+
+    [Fact]
+    public async Task PostCancel_ButtonShownForARunThatHasEnded_LeavesTheNewRunGoing()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runs = 0;
+        fixture.JobRegistry.Register("slow-job", async ct =>
+        {
+            if (++runs == 2)
+            {
+                started.SetResult();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+        });
+        await fixture.JobRegistry.TriggerAsync("slow-job"); // run 1, which the page's Cancel button was shown for
+        var run = fixture.JobRegistry.TriggerAsync("slow-job");
+        await started.Task;
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync("/Jobs");
+        Assert.Contains("name=\"runNumber\" value=\"2\"", html);
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["jobName"] = "slow-job",
+            ["runNumber"] = "1",
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+        });
+        var response = await client.PostAsync("/Jobs?handler=Cancel", form);
+
+        response.EnsureSuccessStatusCode();
+        Assert.True(fixture.JobRegistry.Get("slow-job")!.IsRunning);
+        fixture.JobRegistry.Cancel("slow-job");
+        await run;
+    }
+
+    [Fact]
+    public async Task HistoryPage_RunsOfTheJob_AreListedNewestFirstWithoutOtherJobs()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs"); // starts the host, which creates the database
+        AddRuns(
+            fixture,
+            Run("Link", JobRunResult.Success, "first run", JobTrigger.Startup),
+            Run("Clean", JobRunResult.Success, "a Clean run", JobTrigger.Chained),
+            Run("Link", JobRunResult.Failure, "second run", JobTrigger.Manual),
+            Run("Link", JobRunResult.Success, "third run", JobTrigger.Schedule));
+
+        var response = await client.GetAsync("/Jobs/History?job=Link");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var third = html.IndexOf("third run", StringComparison.Ordinal);
+        var second = html.IndexOf("second run", StringComparison.Ordinal);
+        var first = html.IndexOf("first run", StringComparison.Ordinal);
+        Assert.True(third >= 0 && third < second && second < first);
+        Assert.DoesNotContain("a Clean run", html);
+        Assert.Contains("Startup", html);
+        Assert.Contains("title=\"linked: 2\"", html);
+    }
+
+    [Fact]
+    public async Task HistoryPage_OnlyUnsuccessful_LeavesOutTheRunsThatSucceeded()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        AddRuns(
+            fixture,
+            Run("Link", JobRunResult.Success, "went fine", JobTrigger.Schedule),
+            Run("Link", JobRunResult.Failure, "qBittorrent unreachable", JobTrigger.Schedule),
+            Run("Link", JobRunResult.Cancelled, JobRegistry.CancelledSummary, JobTrigger.Manual),
+            Run("Link", JobRunResult.Interrupted, JobRegistry.InterruptedSummary, JobTrigger.Schedule));
+
+        var html = await client.GetStringAsync("/Jobs/History?job=Link&Unsuccessful=true");
+
+        Assert.DoesNotContain("went fine", html);
+        Assert.Contains("qBittorrent unreachable", html);
+        Assert.Contains(JobRegistry.CancelledSummary, html);
+        Assert.Contains(JobRegistry.InterruptedSummary, html);
+    }
+
+    [Fact]
+    public async Task HistoryPage_MoreRunsThanFitOnAPage_PagesThemNewestFirst()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        AddRuns(fixture, Enumerable.Range(1, 55).Select(i => Run("Link", JobRunResult.Success, $"run number {i}.", JobTrigger.Schedule)).ToArray());
+
+        var first = await client.GetStringAsync("/Jobs/History?job=Link");
+        var second = await client.GetStringAsync("/Jobs/History?job=Link&PageNumber=2");
+
+        Assert.Contains("run number 55.", first);
+        Assert.Contains("run number 6.", first);
+        Assert.DoesNotContain("run number 5.", first);
+        Assert.Contains("Page 1 of 2", first);
+        Assert.Contains("run number 5.", second);
+        Assert.Contains("run number 1.", second);
+        Assert.DoesNotContain("run number 6.", second);
+    }
+
+    [Fact]
+    public async Task HistoryPage_RunWhoseEndIsNotKnown_ShowsNoDuration()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        AddRuns(fixture, Run("Link", JobRunResult.Interrupted, JobRegistry.InterruptedSummary, JobTrigger.Schedule));
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.JobRuns.Single().FinishedAt = null;
+            dbContext.SaveChanges();
+        }
+
+        var html = await client.GetStringAsync("/Jobs/History?job=Link");
+
+        var row = html[html.IndexOf("<tbody>", StringComparison.Ordinal)..html.IndexOf("</tbody>", StringComparison.Ordinal)];
+        Assert.Contains("Interrupted", row);
+        Assert.Matches(@"</time></td>\s*<td class=""nowrap""></td>", row);
+    }
+
+    private static JobRunEntity Run(string jobName, JobRunResult result, string summary, JobTrigger trigger) => new()
+    {
+        JobName = jobName,
+        StartedAt = new DateTimeOffset(2026, 11, 11, 8, 0, 0, TimeSpan.Zero),
+        FinishedAt = new DateTimeOffset(2026, 11, 11, 8, 1, 5, TimeSpan.Zero),
+        Result = result,
+        Trigger = trigger,
+        Summary = summary,
+        CountsJson = "{\"linked\":2}",
+    };
+
+    private static void AddRuns(FetchshelfWebAppFixture fixture, params JobRunEntity[] runs)
+    {
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        foreach (var run in runs)
+        {
+            // One at a time, so the ids follow the order given.
+            dbContext.JobRuns.Add(run);
+            dbContext.SaveChanges();
+        }
     }
 
     [GeneratedRegex(@"<input[^>]*name=""__RequestVerificationToken""[^>]*>")]

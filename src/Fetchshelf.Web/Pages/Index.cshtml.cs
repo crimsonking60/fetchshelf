@@ -200,7 +200,7 @@ public class IndexModel(
 
         if (finished && jobRegistry.Get(JobNames.Link) is not null)
         {
-            _ = jobRegistry.TriggerAsync(JobNames.Link, CancellationToken.None);
+            _ = jobRegistry.TriggerAsync(JobNames.Link, JobTrigger.Manual, CancellationToken.None);
         }
     }
 
@@ -428,7 +428,7 @@ public class IndexModel(
             return false;
         }
 
-        _ = jobRegistry.TriggerOrQueueAsync(JobNames.Download, CancellationToken.None);
+        _ = jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Manual, CancellationToken.None);
         return true;
     }
 

@@ -100,7 +100,7 @@ public class JobRegistryTests
         Assert.NotNull(job.LastRun);
         Assert.Equal(JobRunResult.Success, job.LastRun!.Result);
         Assert.True(job.LastRun.StartedAt >= before);
-        Assert.Null(job.LastRun.ErrorMessage);
+        Assert.Null(job.LastRun.Summary);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class JobRegistryTests
 
         var job = registry.Get("failing-job")!;
         Assert.Equal(JobRunResult.Failure, job.LastRun!.Result);
-        Assert.Equal("boom", job.LastRun.ErrorMessage);
+        Assert.Equal("boom", job.LastRun.Summary);
 
         // Job remains registered and runnable again after a failure.
         Assert.NotNull(registry.Get("failing-job"));
@@ -201,7 +201,7 @@ public class JobRegistryTests
 
         var lastRun = registry.Get("link")!.LastRun!;
         Assert.Equal(JobRunResult.CompletedWithErrors, lastRun.Result);
-        Assert.Equal("2 torrents could not be linked", lastRun.ErrorMessage);
+        Assert.Equal("2 torrents could not be linked", lastRun.Summary);
         var entry = logger.Entries[^1];
         Assert.Equal(LogLevel.Warning, entry.Level);
         Assert.StartsWith("Job link finished in ", entry.Message, StringComparison.Ordinal);
