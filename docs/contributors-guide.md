@@ -410,6 +410,15 @@ working. When you change an entity or the database context:
 
 Never edit a migration that is already on `develop` or `main`. Add a new one instead.
 
+Some values need application code to change, such as title keys or anything worked out from the metadata JSON.
+`DatabaseMigrator` runs those as numbered *data upgrades*, tracked in SQLite's `user_version`: raise
+`CurrentDataVersion` and add a step for the new number.
+
+A torrent's authors, narrators and series (the `TorrentPeople` and `TorrentSeries` tables) and its `Language`
+and `MediaType` columns are derived from `MetadataJson`. `FetchshelfDbContext` rewrites them on every save that
+adds a torrent or changes its `MetadataJson`, so code that writes metadata needs to do nothing more, and nothing
+else should write them. Query them through `LibraryQueries`.
+
 ## Working with MAM responsibly
 
 MAM is a private tracker with rules about automated access, and Fetchshelf runs against real

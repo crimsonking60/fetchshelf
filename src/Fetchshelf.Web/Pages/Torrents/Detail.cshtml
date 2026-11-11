@@ -14,9 +14,9 @@
     }
     @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, unlink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     <div class="meta-block">
-        <p><span class="label">Authors</span><span class="value">@string.Join(", ", torrent.Metadata.Authors)</span></p>
-        <p><span class="label">Narrators</span><span class="value">@string.Join(", ", torrent.Metadata.Narrators)</span></p>
-        <p><span class="label">Series</span><span class="value">@string.Join(", ", torrent.Metadata.Series.Select(s => s.Name))</span></p>
+        <p><span class="label">Authors</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Authors(torrent.Metadata), nameof(IndexModel.Author))" /></span></p>
+        <p><span class="label">Narrators</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Narrators(torrent.Metadata), nameof(IndexModel.Narrator))" /></span></p>
+        <p><span class="label">Series</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Series(torrent.Metadata), nameof(IndexModel.Series))" /></span></p>
         <p><span class="label">Language</span><span class="value">@torrent.Metadata.Language</span></p>
         <p><span class="label">Media type</span><span class="value">@torrent.Metadata.MediaType</span></p>
         <p><span class="label">Metadata source</span><span class="value">@torrent.Metadata.MetadataSource</span></p>

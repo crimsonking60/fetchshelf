@@ -182,6 +182,9 @@ button.wedge-highlighted {
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.6rem 0 1rem; }
 .toolbar input[type="text"] { flex: 1 1 14rem; max-width: 26rem; }
 .toolbar label { display: inline-flex; align-items: center; gap: 0.3rem; }
+/* An author, narrator or series filter in use, with its x to drop it */
+.name-filter { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-2); }
+.name-filter a { text-decoration: none; }
 
 form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 

@@ -1,0 +1,11 @@
+@model Fetchshelf.Web.Pages.Torrents.NameLinksViewModel
+@* Each name links to the Torrents page filtered by it, keeping the list's other filters when it has any. *@
+@for (var i = 0; i < Model.Names.Count; i++)
+{
+    var name = Model.Names[i];
+    @if (i > 0)
+    {
+        @:,
+    }
+    <a asp-page="/Torrents/Index" asp-all-route-data="Model.RouteValuesFor(name)">@name.Name</a>
+}

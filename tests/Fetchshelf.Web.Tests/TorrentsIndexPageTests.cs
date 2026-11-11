@@ -105,6 +105,51 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_AuthorAndSeriesNames_AreFilterLinks_ThatNarrowTheListAndShowTheName()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings") with
+        {
+            Series = [Fetchshelf.Core.Metadata.SeriesParser.Parse("The Stormlight Archive", "1")],
+        });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Emma", ["Jane Austen"]));
+        var client = fixture.CreateClient();
+
+        var listHtml = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Language=English"));
+        var byAuthor = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Author=janeausten"));
+        var bySeries = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Series=stormlight+archive"));
+
+        var authorLink = Regex.Match(listHtml, @"href=""([^""]*Author=janeausten[^""]*)""").Groups[1].Value;
+        Assert.Contains("Language=English", authorLink);
+        Assert.Contains("Series=stormlight%20archive", listHtml);
+        Assert.Contains("Emma", byAuthor);
+        Assert.DoesNotContain("The Way of Kings", byAuthor);
+        Assert.Contains("Author: Jane Austen", byAuthor);
+        Assert.Contains("id=\"clear-filters\"", byAuthor);
+        Assert.Contains("The Way of Kings", bySeries);
+        Assert.DoesNotContain("Emma", bySeries);
+        Assert.Contains("Series: The Stormlight Archive", bySeries);
+    }
+
+    [Fact]
+    public async Task Get_NarratorFilter_FromTheDetailPageLink_NarrowsTheList()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(
+            fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings") with { Narrators = ["Michael Kramer", "Kate Reading"] });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Emma", ["Jane Austen"]));
+        var client = fixture.CreateClient();
+
+        var detailHtml = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
+        var narratorLink = Regex.Match(detailHtml, @"href=""([^""]*Narrator=katereading[^""]*)""").Groups[1].Value;
+        var filtered = await client.GetStringAsync(narratorLink);
+
+        Assert.Contains("Author=brandonsanderson", detailHtml);
+        Assert.Contains("The Way of Kings", filtered);
+        Assert.DoesNotContain("Emma", filtered);
+    }
+
+    [Fact]
     public async Task Get_SortAndFilterLinks_KeepTheSearchAndOtherFilters()
     {
         using var fixture = new FetchshelfWebAppFixture();

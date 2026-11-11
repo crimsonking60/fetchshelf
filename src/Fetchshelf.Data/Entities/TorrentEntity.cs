@@ -52,4 +52,13 @@ public sealed class TorrentEntity
 
     /// <summary>When an autograb with `mark_removed` last asked MAM whether it still has the torrent.</summary>
     public DateTimeOffset? MamCheckedAt { get; set; }
+
+    /// <summary>
+    /// The metadata's language (<c>Language</c> enum name), kept in step with <see cref="MetadataJson"/> by
+    /// <see cref="FetchshelfDbContext"/> so it can be filtered on; null when the metadata can't be read.
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>The metadata's media type (<c>MediaType</c> enum name), kept in step like <see cref="Language"/>.</summary>
+    public string? MediaType { get; set; }
 }

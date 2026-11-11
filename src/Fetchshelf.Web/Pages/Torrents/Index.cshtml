@@ -60,9 +60,21 @@
             @if (Model.Query.HasFilters)
             {
                 <a id="clear-filters" asp-page="/Torrents/Index"
-                   asp-all-route-data="(Model.Query with { Status = null, Library = null, QbCategory = null, Problem = null, Language = null, MediaType = null }).ToRouteValues()">Clear filters</a>
+                   asp-all-route-data="Model.Query.WithoutFilters().ToRouteValues()">Clear filters</a>
             }
         </div>
+        @* Author, narrator and series are filtered by following a name's link; each shows here with a way to drop it. *@
+        @if (Model.NameFilters.Count > 0)
+        {
+            <div class="toolbar">
+                @foreach (var filter in Model.NameFilters)
+                {
+                    <input type="hidden" name="@filter.Parameter" value="@filter.Key" />
+                    <span class="name-filter">@filter.Label: @filter.Name
+                        <a asp-page="/Torrents/Index" asp-all-route-data="filter.Without.ToRouteValues()" aria-label="Stop filtering by @filter.Label.ToLowerInvariant()">&times;</a></span>
+                }
+            </div>
+        }
         <input type="hidden" name="Sort" value="@Model.Sort" />
         <input type="hidden" name="Dir" value="@Model.Dir" />
         <input type="hidden" name="PageSize" value="@Model.PageSize" />

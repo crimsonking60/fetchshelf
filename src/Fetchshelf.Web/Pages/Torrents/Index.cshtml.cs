@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Torrents;
 
 public class IndexModel(
-    FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
+    FetchshelfDbContext dbContext, LibraryQueries libraryQueries, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker,
     ILogger<IndexModel> logger) : PageModel
 {
@@ -39,6 +39,18 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public string? MediaType { get; set; }
 
+    /// <summary>An author's name key (<see cref="PersonNameKey"/>), set by following an author's name.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Author { get; set; }
+
+    /// <summary>A narrator's name key, set by following a narrator's name.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Narrator { get; set; }
+
+    /// <summary>A series' name key (<see cref="SeriesNameKey"/>), set by following a series name.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Series { get; set; }
+
     [BindProperty(SupportsGet = true)]
     public string Sort { get; set; } = "CreatedAt";
 
@@ -51,7 +63,10 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
-    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize);
+    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series);
+
+    /// <summary>The author, narrator and series filters in use, with the names they stand for.</summary>
+    public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
 
     /// <summary>The choices for the Library, Language and Media type filters: the values among all tracked torrents.</summary>
     public IReadOnlyList<string> LibraryOptions { get; private set; } = [];
@@ -259,29 +274,62 @@ public class IndexModel(
 
     private async Task<List<TorrentListItemViewModel>> LoadAsync()
     {
-        // Filtering, sorting and paging happen in memory, not in SQL: the SQLite EF Core provider cannot translate an
-        // ORDER BY over a DateTimeOffset column (CreatedAt), SQLite's substring match is case-sensitive, and the
-        // language, media type, authors and series are inside the serialized metadata. This app's realistic data
-        // volume (a self-hosted single-user library) makes that an acceptable trade-off.
-        var all = (await dbContext.Torrents.AsNoTracking().ToListAsync())
-            .Select(t => (Entity: t, Metadata: TorrentMetadataSerializer.Deserialize(t.MetadataJson)))
-            .ToList();
+        // The filters on columns and on the author and series rows run in SQL. Status, problems, the search text and
+        // the sort still run in memory on what is left: the SQLite EF Core provider cannot translate an ORDER BY over a
+        // DateTimeOffset column (CreatedAt), SQLite's substring match is case-sensitive, and the search text is matched
+        // against the serialized metadata. This app's realistic data volume (a self-hosted single-user library) makes
+        // that an acceptable trade-off.
+        var torrents = dbContext.Torrents.AsNoTracking();
 
         // The value in use stays a choice even when no torrent has it any more, so the dropdown still shows it.
-        LibraryOptions = Distinct(all.Select(t => t.Entity.LinkerName).Append(Library));
-        QbCategoryOptions = Distinct(all.Select(t => t.Entity.QBittorrentCategory).Append(QbCategory));
-        LanguageOptions = Distinct(all.Select(t => t.Metadata.Language.ToString()).Append(Language));
-        MediaTypeOptions = Distinct(all.Select(t => t.Metadata.MediaType.ToString()).Append(MediaType));
+        LibraryOptions = Distinct((await torrents.Select(t => t.LinkerName).Distinct().ToListAsync()).Append(Library));
+        QbCategoryOptions = Distinct((await torrents.Select(t => t.QBittorrentCategory).Distinct().ToListAsync()).Append(QbCategory));
+        LanguageOptions = Distinct((await torrents.Select(t => t.Language).Distinct().ToListAsync()).Append(Language));
+        MediaTypeOptions = Distinct((await torrents.Select(t => t.MediaType).Distinct().ToListAsync()).Append(MediaType));
+        NameFilters = await LoadNameFiltersAsync();
 
-        var matched = all
-            .Where(t => TorrentListFilters.MatchesStatus(t.Entity, Status))
-            .Where(t => string.IsNullOrEmpty(Library) || t.Entity.LinkerName == Library)
-            .Where(t => string.IsNullOrEmpty(QbCategory) || t.Entity.QBittorrentCategory == QbCategory)
-            .Where(t => TorrentListFilters.MatchesProblem(t.Entity, Problem))
-            .Where(t => string.IsNullOrEmpty(Language) || t.Metadata.Language.ToString() == Language)
-            .Where(t => string.IsNullOrEmpty(MediaType) || t.Metadata.MediaType.ToString() == MediaType)
-            .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(t.Metadata, Q))
-            .Select(t => t.Entity)
+        if (!string.IsNullOrEmpty(Library))
+        {
+            torrents = torrents.Where(t => t.LinkerName == Library);
+        }
+
+        if (!string.IsNullOrEmpty(QbCategory))
+        {
+            torrents = torrents.Where(t => t.QBittorrentCategory == QbCategory);
+        }
+
+        if (!string.IsNullOrEmpty(Language))
+        {
+            torrents = torrents.Where(t => t.Language == Language);
+        }
+
+        if (!string.IsNullOrEmpty(MediaType))
+        {
+            torrents = torrents.Where(t => t.MediaType == MediaType);
+        }
+
+        if (!string.IsNullOrEmpty(Author))
+        {
+            var ids = libraryQueries.TorrentIdsWithPerson(PersonRole.Author, Author);
+            torrents = torrents.Where(t => ids.Contains(t.Id));
+        }
+
+        if (!string.IsNullOrEmpty(Narrator))
+        {
+            var ids = libraryQueries.TorrentIdsWithPerson(PersonRole.Narrator, Narrator);
+            torrents = torrents.Where(t => ids.Contains(t.Id));
+        }
+
+        if (!string.IsNullOrEmpty(Series))
+        {
+            var ids = libraryQueries.TorrentIdsInSeries(Series);
+            torrents = torrents.Where(t => ids.Contains(t.Id));
+        }
+
+        var matched = (await torrents.ToListAsync())
+            .Where(t => TorrentListFilters.MatchesStatus(t, Status))
+            .Where(t => TorrentListFilters.MatchesProblem(t, Problem))
+            .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
             .ToList();
 
         IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
@@ -298,6 +346,37 @@ public class IndexModel(
         return entities.Select(TorrentListItemViewModel.From).ToList();
     }
 
+    /// <summary>
+    /// The author, narrator and series filters, each with the name it stands for. A key no torrent has any more still
+    /// shows, as the key itself, so the filter can be dropped.
+    /// </summary>
+    private async Task<List<NameFilter>> LoadNameFiltersAsync()
+    {
+        var filters = new List<NameFilter>();
+        if (!string.IsNullOrEmpty(Author))
+        {
+            filters.Add(new NameFilter(nameof(Author), Author, "Author",
+                await libraryQueries.PersonNameAsync(PersonRole.Author, Author) ?? Author, Query with { Author = null }));
+        }
+
+        if (!string.IsNullOrEmpty(Narrator))
+        {
+            filters.Add(new NameFilter(nameof(Narrator), Narrator, "Narrator",
+                await libraryQueries.PersonNameAsync(PersonRole.Narrator, Narrator) ?? Narrator, Query with { Narrator = null }));
+        }
+
+        if (!string.IsNullOrEmpty(Series))
+        {
+            filters.Add(new NameFilter(nameof(Series), Series, "Series",
+                await libraryQueries.SeriesNameAsync(Series) ?? Series, Query with { Series = null }));
+        }
+
+        return filters;
+    }
+
     private static List<string> Distinct(IEnumerable<string?> values) =>
         values.OfType<string>().Where(v => v.Length > 0).Distinct().Order(StringComparer.OrdinalIgnoreCase).ToList();
 }
+
+/// <summary>An author, narrator or series filter in use: its query parameter and key, and the name shown for it.</summary>
+public sealed record NameFilter(string Parameter, string Key, string Label, string Name, TorrentListQuery Without);

@@ -350,6 +350,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Language")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("LibraryMismatchState")
                         .HasColumnType("TEXT");
 
@@ -367,6 +370,9 @@ namespace Fetchshelf.Data.Migrations
 
                     b.Property<long>("MamId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("MediaType")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MetadataJson")
                         .IsRequired()
@@ -397,11 +403,108 @@ namespace Fetchshelf.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Language");
+
                     b.HasIndex("MamId");
+
+                    b.HasIndex("MediaType");
 
                     b.HasIndex("NormalizedTitleKey");
 
                     b.ToTable("Torrents");
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentPersonEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TorrentId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TorrentId");
+
+                    b.HasIndex("Role", "NameKey");
+
+                    b.ToTable("TorrentPeople", (string)null);
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentSeriesEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Display")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("FirstNumber")
+                        .HasColumnType("REAL");
+
+                    b.Property<int?>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("LastNumber")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TorrentId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NameKey");
+
+                    b.HasIndex("TorrentId");
+
+                    b.ToTable("TorrentSeries", (string)null);
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentPersonEntity", b =>
+                {
+                    b.HasOne("Fetchshelf.Data.Entities.TorrentEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TorrentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentSeriesEntity", b =>
+                {
+                    b.HasOne("Fetchshelf.Data.Entities.TorrentEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TorrentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
