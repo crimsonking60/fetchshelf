@@ -34,7 +34,7 @@ public sealed record SeriesEntry
     [System.Text.Json.Serialization.JsonIgnore]
     public decimal LastNumber =>
         Kind == SeriesEntryKind.Range
-        && Display.LastIndexOf('-') is var dash and > 0
+        && Display?.LastIndexOf('-') is int dash and > 0
         && decimal.TryParse(Display[(dash + 1)..], System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var last)
         && last >= FirstNumber
             ? last

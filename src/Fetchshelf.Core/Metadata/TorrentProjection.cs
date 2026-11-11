@@ -27,18 +27,24 @@ public sealed record TorrentProjection(
     /// <summary>
     /// Authors and narrators each keep their order, and a name listed twice in one role (by its
     /// <see cref="PersonNameKey"/>) is kept once. Series names are keyed by <see cref="SeriesNameKey"/>; a series whose
-    /// name keys as nothing is left out, and an entry listed twice is kept once.
+    /// name keys as nothing is left out, and an entry listed twice is kept once. Stored JSON can hold nulls where the
+    /// model allows none (an author list of null, a null series name); those are skipped like blanks.
     /// </summary>
     public static TorrentProjection From(TorrentMetadata metadata)
     {
         var people = new List<ProjectedPerson>();
-        AddPeople(people, PersonRole.Author, metadata.Authors);
-        AddPeople(people, PersonRole.Narrator, metadata.Narrators);
+        AddPeople(people, PersonRole.Author, metadata.Authors ?? []);
+        AddPeople(people, PersonRole.Narrator, metadata.Narrators ?? []);
 
         var series = new List<ProjectedSeriesEntry>();
         var seen = new HashSet<(string Key, string? Display)>();
-        foreach (var one in metadata.Series)
+        foreach (var one in metadata.Series ?? [])
         {
+            if (one?.Name is null)
+            {
+                continue;
+            }
+
             var name = one.Name.Trim();
             var key = SeriesNameKey.Of(name);
             if (key.Length == 0)
@@ -46,7 +52,8 @@ public sealed record TorrentProjection(
                 continue;
             }
 
-            if (one.Entries.Count == 0)
+            var entries = (one.Entries ?? []).OfType<SeriesEntry>().ToList();
+            if (entries.Count == 0)
             {
                 if (seen.Add((key, null)))
                 {
@@ -56,7 +63,7 @@ public sealed record TorrentProjection(
                 continue;
             }
 
-            foreach (var entry in one.SortedEntries)
+            foreach (var entry in entries.OrderBy(e => e.FirstNumber).ThenBy(e => e.Kind))
             {
                 if (seen.Add((key, entry.Display)))
                 {
@@ -75,6 +82,11 @@ public sealed record TorrentProjection(
         var keys = new HashSet<string>();
         foreach (var raw in names)
         {
+            if (raw is null)
+            {
+                continue;
+            }
+
             var name = raw.Trim();
             var key = PersonNameKey.Of(name);
             if (key.Length > 0 && keys.Add(key))

@@ -59,20 +59,23 @@ already; the features that need "selected but not yet downloaded" read it as the
 
 `FetchshelfDbContext` overrides `SaveChangesAsync` (and `SaveChanges`):
 
-1. Before saving, it collects every `TorrentEntity` entry that is `Added`, or `Modified` with `MetadataJson`
-   among its modified properties.
-2. For each, it deserializes `MetadataJson` once and sets `Language` and `MediaType`.
-3. For the modified ones, it loads their existing people and series rows and marks them deleted; then it adds the
-   new rows to the context. Rows left tracked by an earlier save that failed are dropped first, so a retry makes
-   no duplicates.
-4. Everything is part of the same `SaveChanges`, so it is one transaction with the torrent's own change.
+1. It detects changes once, and the save itself doesn't detect them again.
+2. It collects every `TorrentEntity` entry that is `Added`, or `Modified` with `MetadataJson` among its modified
+   properties.
+3. For each, it deserializes `MetadataJson` once, sets `Language` and `MediaType`, and adds the new rows.
+4. For the modified ones, it deletes the old rows by torrent (`ExecuteDelete`), not row by row, in one transaction
+   with the save. Two saves of one torrent at the same time therefore both succeed, and the last one wins, as
+   before. A failed save rolls the delete back and keeps the old rows. Rows made for a save that failed are dropped
+   before the next save, so a retry makes no duplicates, and leaves no stale rows when the metadata is no longer
+   changed.
 
 The projection itself, `TorrentProjection.From(TorrentMetadata) → (people, series, language, mediaType)`, is a
 pure function in `Fetchshelf.Core/Metadata/` and is where the rules above live and are tested.
 
 None of the write sites change. A write that sets `MetadataJson` is projected, whichever page or runner made
-it. A deserialization failure is logged and the torrent gets no rows, rather than failing the save: the JSON was
-written by Fetchshelf itself and has always been readable, but a save must not be blocked by a side table.
+it. Metadata that can't be read or projected is logged and the torrent gets no rows, rather than failing the save or
+the startup upgrade: the JSON was written by Fetchshelf itself and has always been readable, but a save must not be
+blocked by a side table. Nulls in stored JSON (an author list of null) are skipped like blanks.
 
 Bulk paths that clear the change tracker (`LinkRunner`'s batches) are unaffected: the projection runs per
 `SaveChanges`, on what that save contains.
@@ -82,8 +85,8 @@ Bulk paths that clear the change tracker (`LinkRunner`'s batches) are unaffected
 `DatabaseMigrator` gets data version 2:
 
 - an EF migration adds the tables and the two columns, empty;
-- the data upgrade reads the torrents in batches of 500 (`Id`, `MetadataJson` only), projects each, and inserts
-  the rows and sets the columns with one `SaveChanges` per batch;
+- the data upgrade reads the torrents in batches of 500, projects each, and inserts the rows and sets the two
+  columns with one `SaveChanges` per batch. The metadata JSON is read, never written back;
 - a database at version 1 is upgraded at startup like the title keys were. At 10,000 torrents this is expected
   to take seconds; the log says how many torrents were projected and how long it took.
 

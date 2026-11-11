@@ -326,10 +326,12 @@ public class IndexModel(
             torrents = torrents.Where(t => ids.Contains(t.Id));
         }
 
+        // The metadata read for the search is kept for the rows shown, so no row's JSON is read twice.
+        var metadataById = new Dictionary<string, TorrentMetadata>();
         var matched = (await torrents.ToListAsync())
             .Where(t => TorrentListFilters.MatchesStatus(t, Status))
             .Where(t => TorrentListFilters.MatchesProblem(t, Problem))
-            .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
+            .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(metadataById[t.Id] = TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
             .ToList();
 
         IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
@@ -343,7 +345,7 @@ public class IndexModel(
         TotalCount = matched.Count;
 
         (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
-        return entities.Select(TorrentListItemViewModel.From).ToList();
+        return entities.Select(t => TorrentListItemViewModel.From(t, metadataById.GetValueOrDefault(t.Id))).ToList();
     }
 
     /// <summary>

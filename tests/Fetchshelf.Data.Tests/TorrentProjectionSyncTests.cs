@@ -170,6 +170,115 @@ public sealed class TorrentProjectionSyncTests : IDisposable
     }
 
     [Fact]
+    public async Task TwoSavesOfOneTorrentAtOnce_BothSucceed_AndTheLastOneWins()
+    {
+        await AddAsync(Torrent("h1", Metadata("Dune", ["Frank Herbert"], "Dune", "1")));
+
+        await using var first = CreateContext();
+        first.Torrents.Single().MetadataJson = TorrentMetadataSerializer.Serialize(Metadata("Dune", ["First Writer"], "Dune", "1"));
+        // The first save commits in the middle of the second: after the second has read the old author rows, or just
+        // before it starts its transaction if it never reads them. A save that read the old rows and then deleted them
+        // one by one would find them gone.
+        var interleave = new RunOnce(() => first.SaveChanges());
+        await using var second = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>()
+            .UseSqlite($"Data Source={_dbPath}")
+            .AddInterceptors(new AfterReadingPeopleRows(interleave), new BeforeATransaction(interleave))
+            .Options);
+        second.Torrents.Single().MetadataJson = TorrentMetadataSerializer.Serialize(Metadata("Dune", ["Second Writer"], "Dune", "2"));
+
+        await second.SaveChangesAsync();
+
+        Assert.True(interleave.Ran);
+        await using var reopened = CreateContext();
+        Assert.Equal("Second Writer", reopened.TorrentPeople.Single().Name);
+        Assert.Equal("2", reopened.TorrentSeries.Single().Display);
+    }
+
+    private sealed class RunOnce(Action action)
+    {
+        public bool Ran { get; private set; }
+
+        public void Run()
+        {
+            if (!Ran)
+            {
+                Ran = true;
+                action();
+            }
+        }
+    }
+
+    /// <summary>Runs the action once a read of the people rows is finished, when this connection holds no lock.</summary>
+    private sealed class AfterReadingPeopleRows(RunOnce once) : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult DataReaderClosing(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.DataReaderClosingEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult result)
+        {
+            if (command.CommandText.Contains("FROM \"TorrentPeople\"", StringComparison.Ordinal))
+            {
+                once.Run();
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>Runs the action before this connection starts a transaction, which would lock the database for writing.</summary>
+    private sealed class BeforeATransaction(RunOnce once) : Microsoft.EntityFrameworkCore.Diagnostics.DbTransactionInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbTransaction>> TransactionStartingAsync(
+            System.Data.Common.DbConnection connection, Microsoft.EntityFrameworkCore.Diagnostics.TransactionStartingEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbTransaction> result, CancellationToken cancellationToken = default)
+        {
+            once.Run();
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    [Fact]
+    public async Task AFailedSave_ThenTheMetadataPutBack_KeepsTheOldRows()
+    {
+        await AddAsync(Torrent("h1", Metadata("Dune", ["Frank Herbert"])));
+
+        await using (var context = CreateContext())
+        {
+            var torrent = context.Torrents.Single();
+            var original = torrent.MetadataJson;
+            torrent.MetadataJson = TorrentMetadataSerializer.Serialize(Metadata("Dune", ["Someone Else"]));
+            var errors = Enumerable.Range(0, 2)
+                .Select(_ => new ErroredTorrentEntity { Stage = ErrorStage.Linker, Key = "k", ErrorText = "e", OccurredAt = DateTimeOffset.UnixEpoch })
+                .ToList();
+            context.ErroredTorrents.AddRange(errors);
+            await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+
+            errors.ForEach(e => context.Entry(e).State = EntityState.Detached);
+            torrent.MetadataJson = original;
+            context.Entry(torrent).Property(t => t.MetadataJson).IsModified = false;
+            torrent.LibraryPath = "/library/Dune";
+            await context.SaveChangesAsync();
+        }
+
+        await using var reopened = CreateContext();
+        Assert.Equal("Frank Herbert", reopened.TorrentPeople.Single().Name);
+    }
+
+    [Fact]
+    public async Task NullsInTheStoredJson_AreSkipped_NotAFailedSave()
+    {
+        var torrent = Torrent("h1", Metadata("Dune", ["Frank Herbert"]));
+        torrent.MetadataJson = torrent.MetadataJson
+            .Replace("\"Authors\":[\"Frank Herbert\"]", "\"Authors\":[null,\"Frank Herbert\"]", StringComparison.Ordinal)
+            .Replace("\"Narrators\":[]", "\"Narrators\":null", StringComparison.Ordinal);
+        Assert.Contains("[null,", torrent.MetadataJson);
+
+        await AddAsync(torrent);
+
+        await using var context = CreateContext();
+        Assert.Equal("Frank Herbert", context.TorrentPeople.Single().Name);
+    }
+
+    [Fact]
     public async Task UnreadableMetadata_SavesTheTorrentWithoutRows()
     {
         var torrent = Torrent("h1", Metadata("Dune", ["Frank Herbert"]));
@@ -222,6 +331,45 @@ public sealed class TorrentProjectionSyncTests : IDisposable
         Assert.Equal(["Audiobook", "Ebook"], all[1].MediaTypes);
         Assert.Equal([("1", 1.0, 1.0), ("2-3", 2.0, 3.0)], audio.Select(e => (e.Display!, e.FirstNumber!.Value, e.LastNumber!.Value)));
         Assert.Equal(["1"], ebook.Select(e => e.Display));
+    }
+
+    [Fact]
+    public async Task OwnedEntries_LeaveOutBooksWithoutANumber_LikeSeries()
+    {
+        await AddAsync(
+            Torrent("h1", Metadata("Leviathan Wakes", ["Corey"], "The Expanse", "1")),
+            Torrent("h2", Metadata("The Expanse Companion", ["Corey"], "The Expanse", null)));
+
+        await using var context = CreateContext();
+        var queries = new LibraryQueries(context);
+
+        Assert.Equal(["1"], (await queries.OwnedEntriesAsync("expanse", FilterMainType.Audio)).Select(e => e.Display));
+        Assert.Equal(["1"], (await queries.SeriesAsync("expanse"))!.Entries.Select(e => e.Display));
+    }
+
+    [Fact]
+    public async Task Names_AreSpelledAsTheCopiesNotReplaced_UnlessOnlyReplacedOnesHaveThem()
+    {
+        TorrentEntity Replaced(string id, string author, string series)
+        {
+            var torrent = Torrent(id, Metadata("Book " + id, [author], series, "1"));
+            torrent.ReplacedWithTorrentId = "h1";
+            return torrent;
+        }
+
+        await AddAsync(
+            Torrent("h1", Metadata("The Hobbit", ["J.R.R. Tolkien"], "Middle-earth", "1")),
+            Replaced("h2", "J R R Tolkien", "MIDDLE-EARTH"),
+            Replaced("h3", "J R R Tolkien", "MIDDLE-EARTH"),
+            Replaced("h4", "Old Writer", "Old Series"));
+
+        await using var context = CreateContext();
+        var queries = new LibraryQueries(context);
+
+        Assert.Equal("J.R.R. Tolkien", await queries.PersonNameAsync(PersonRole.Author, "jrrtolkien"));
+        Assert.Equal("Middle-earth", await queries.SeriesNameAsync(SeriesNameKey.Of("Middle-earth")));
+        Assert.Equal("Old Writer", await queries.PersonNameAsync(PersonRole.Author, "oldwriter"));
+        Assert.Equal("J.R.R. Tolkien", (await queries.PeopleAsync(PersonRole.Author)).Single(p => p.NameKey == "jrrtolkien").Name);
     }
 
     [Fact]

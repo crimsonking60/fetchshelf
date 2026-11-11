@@ -132,6 +132,24 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_AnAuthorWithoutLettersOrDigits_IsStillShown_WithoutALink()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("Mystery Book", ["???", "Jane Austen"]));
+        var client = fixture.CreateClient();
+
+        var listHtml = await client.GetStringAsync("/torrents");
+        var detailHtml = await client.GetStringAsync("/torrents/hash1");
+
+        foreach (var html in new[] { listHtml, detailHtml })
+        {
+            Assert.Contains("???", html);
+            Assert.Contains("Author=janeausten", html);
+            Assert.DoesNotContain("Author=&", html);
+        }
+    }
+
+    [Fact]
     public async Task Get_NarratorFilter_FromTheDetailPageLink_NarrowsTheList()
     {
         using var fixture = new FetchshelfWebAppFixture();

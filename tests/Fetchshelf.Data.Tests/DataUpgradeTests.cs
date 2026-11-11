@@ -111,6 +111,42 @@ public sealed class DataUpgradeTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_DatabaseAtDataVersion1_ReadsTheMetadataJson_WithoutWritingItBack()
+    {
+        SeedVersion1Database();
+        var commands = new CommandRecorder();
+
+        using var context = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>()
+            .UseSqlite($"Data Source={_dbPath}").AddInterceptors(commands).Options);
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Contains(commands.Texts, text => text.Contains("UPDATE \"Torrents\"", StringComparison.Ordinal));
+        Assert.DoesNotContain(commands.Texts, text => text.Contains("UPDATE \"Torrents\"", StringComparison.Ordinal)
+            && text.Contains("\"MetadataJson\" = ", StringComparison.Ordinal));
+        Assert.Equal("Russian", context.Torrents.AsNoTracking().Single(t => t.Id == "hash1").Language);
+    }
+
+    private sealed class CommandRecorder : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public List<string> Texts { get; } = [];
+
+        public override int NonQueryExecuted(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandExecutedEventData eventData, int result)
+        {
+            Texts.Add(command.CommandText);
+            return result;
+        }
+
+        public override System.Data.Common.DbDataReader ReaderExecuted(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandExecutedEventData eventData,
+            System.Data.Common.DbDataReader result)
+        {
+            Texts.Add(command.CommandText);
+            return result;
+        }
+    }
+
+    [Fact]
     public void Migrate_AuthorsAlreadyFilledIn_RunAgain_MakesNoSecondRows()
     {
         SeedVersion1Database();

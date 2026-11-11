@@ -60,13 +60,15 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
         return rows.Count == 0 ? null : ToSummary(rows.GroupBy(r => r.NameKey).Single());
     }
 
-    /// <summary>The entries of one series the library has as audiobooks, or as ebooks.</summary>
+    /// <summary>The numbered entries of one series the library has as audiobooks, or as ebooks.</summary>
     public async Task<IReadOnlyList<OwnedSeriesEntry>> OwnedEntriesAsync(
         string seriesNameKey, FilterMainType side, CancellationToken cancellationToken = default)
     {
         var mediaTypes = MediaTypesOf(side);
         var rows = await OwnedSeriesRows(seriesNameKey, mediaTypes).ToListAsync(cancellationToken);
+        // Like SeriesAsync, a book without a number in the series is no entry.
         return rows
+            .Where(r => r.Display is not null)
             .Select(r => new OwnedSeriesEntry(r.Display, r.FirstNumber, r.LastNumber, r.MediaType!))
             .Distinct()
             .OrderBy(e => e.FirstNumber ?? double.MaxValue)
@@ -81,25 +83,38 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     public IQueryable<string> TorrentIdsInSeries(string nameKey) =>
         dbContext.TorrentSeries.Where(s => s.NameKey == nameKey).Select(s => s.TorrentId);
 
-    /// <summary>The spelling of an author's or narrator's name used most, or null when no torrent has them.</summary>
+    /// <summary>
+    /// The spelling of an author's or narrator's name used most, counted like <see cref="PeopleAsync"/> among copies not
+    /// replaced; among the replaced ones when only those have it; null when no torrent has it.
+    /// </summary>
     public async Task<string?> PersonNameAsync(PersonRole role, string nameKey, CancellationToken cancellationToken = default) =>
-        MostUsedOrNull(await dbContext.TorrentPeople
-            .Where(p => p.Role == role && p.NameKey == nameKey)
-            .GroupBy(p => p.Name)
-            .Select(g => new { Name = g.Key, Count = g.Count() })
-            .ToListAsync(cancellationToken), r => (r.Name, r.Count));
+        PreferringCurrentCopies(await (
+                from person in dbContext.TorrentPeople
+                join torrent in dbContext.Torrents on person.TorrentId equals torrent.Id
+                where person.Role == role && person.NameKey == nameKey
+                select new SpellingRow(person.TorrentId, person.Name, torrent.ReplacedWithTorrentId == null))
+            .ToListAsync(cancellationToken));
 
-    /// <summary>The spelling of a series name used most, or null when no torrent is in it.</summary>
+    /// <summary>The spelling of a series name used most, counted like <see cref="PersonNameAsync"/>.</summary>
     public async Task<string?> SeriesNameAsync(string nameKey, CancellationToken cancellationToken = default) =>
+        PreferringCurrentCopies(await (
+                from series in dbContext.TorrentSeries
+                join torrent in dbContext.Torrents on series.TorrentId equals torrent.Id
+                where series.NameKey == nameKey
+                select new SpellingRow(series.TorrentId, series.Name, torrent.ReplacedWithTorrentId == null))
+            .ToListAsync(cancellationToken));
+
+    private sealed record SpellingRow(string TorrentId, string Name, bool Current);
+
+    /// <summary>The spelling most used by the copies not replaced, or by the replaced ones when there are no others.</summary>
+    private static string? PreferringCurrentCopies(List<SpellingRow> rows)
+    {
+        var counted = rows.Any(r => r.Current) ? rows.Where(r => r.Current) : rows;
         // A torrent's several entries of one series count its spelling once.
-        MostUsedOrNull((await dbContext.TorrentSeries
-                .Where(s => s.NameKey == nameKey)
-                .Select(s => new { s.TorrentId, s.Name })
-                .Distinct()
-                .ToListAsync(cancellationToken))
-            .GroupBy(s => s.Name)
-            .Select(g => (Name: g.Key, Count: g.Count()))
-            .ToList(), r => r);
+        return MostUsedOrNull(
+            counted.DistinctBy(r => (r.TorrentId, r.Name)).GroupBy(r => r.Name).Select(g => (Name: g.Key, Count: g.Count())).ToList(),
+            r => r);
+    }
 
     private sealed record SeriesRow(
         string TorrentId, string NameKey, string Name, string? Display, double? FirstNumber, double? LastNumber, string? MediaType);

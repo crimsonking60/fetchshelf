@@ -19,9 +19,10 @@ public sealed record TorrentListItemViewModel(
     bool Unlinked,
     DateTimeOffset CreatedAt)
 {
-    public static TorrentListItemViewModel From(TorrentEntity entity)
+    /// <param name="metadata">The entity's metadata when the caller has already read it, so it isn't read twice.</param>
+    public static TorrentListItemViewModel From(TorrentEntity entity, TorrentMetadata? metadata = null)
     {
-        var metadata = TorrentMetadataSerializer.Deserialize(entity.MetadataJson);
+        metadata ??= TorrentMetadataSerializer.Deserialize(entity.MetadataJson);
         return new TorrentListItemViewModel(
             entity.Id,
             metadata.Title,
@@ -38,19 +39,29 @@ public sealed record TorrentListItemViewModel(
     }
 }
 
-/// <summary>An author, narrator or series name with the key the Torrents page filters it by.</summary>
+/// <summary>
+/// An author, narrator or series name with the key the Torrents page filters it by. Every name in the metadata is
+/// kept, as written; one whose key is empty (no letters or digits, such as "???") is shown without a link.
+/// </summary>
 public sealed record NameLink(string Name, string Key)
 {
-    public static IReadOnlyList<NameLink> Authors(TorrentMetadata metadata) => People(metadata, PersonRole.Author);
+    public static IReadOnlyList<NameLink> Authors(TorrentMetadata metadata) => People(metadata.Authors);
 
-    public static IReadOnlyList<NameLink> Narrators(TorrentMetadata metadata) => People(metadata, PersonRole.Narrator);
+    public static IReadOnlyList<NameLink> Narrators(TorrentMetadata metadata) => People(metadata.Narrators);
 
     /// <summary>Each series once, in the metadata's order.</summary>
     public static IReadOnlyList<NameLink> Series(TorrentMetadata metadata) =>
-        TorrentProjection.From(metadata).Series.DistinctBy(s => s.NameKey).Select(s => new NameLink(s.Name, s.NameKey)).ToList();
+        (metadata.Series ?? [])
+            .Where(s => !string.IsNullOrWhiteSpace(s?.Name))
+            .Select(s => new NameLink(s.Name.Trim(), SeriesNameKey.Of(s.Name)))
+            .DistinctBy(link => link.Key.Length > 0 ? link.Key : link.Name)
+            .ToList();
 
-    private static List<NameLink> People(TorrentMetadata metadata, PersonRole role) =>
-        TorrentProjection.From(metadata).People.Where(p => p.Role == role).Select(p => new NameLink(p.Name, p.NameKey)).ToList();
+    private static List<NameLink> People(IReadOnlyList<string>? names) =>
+        (names ?? [])
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => new NameLink(name.Trim(), PersonNameKey.Of(name)))
+            .ToList();
 }
 
 /// <summary>Names to show as Torrents page filter links: authors, narrators or series.</summary>
