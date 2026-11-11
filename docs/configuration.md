@@ -25,6 +25,7 @@ to `5-everything.toml`, which uses every option.
 - [`[[snatchlist]]`](#snatchlist)
 - [`[[hardcover_list]]`](#hardcover_list)
 - [`[follow]`](#follow)
+- [`[upgrade]`](#upgrade)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [`[[notify]]`](#notify)
@@ -633,6 +634,41 @@ With the defaults, a run makes at most 10 MAM searches, and each followed series
 day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
 doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
 on the next run.
+
+## `[upgrade]`
+
+Optional. The Upgrade job searches MAM for better formats of books in the library: a book whose linked copy is in
+a format that isn't the first in its format list (`audio_types`, `ebook_types`, `music_types`, `radio_types`),
+such as an mp3 audiobook with `audio_types = ["m4b", "mp3"]`. A better copy goes through the usual selection
+rules, and the Clean job retires the old one once the new one is linked. Without this section there is no
+Upgrade job; better copies other searches happen to find are still taken.
+
+| Setting | Default | Description |
+|---|---|---|
+| `search_interval` | global `search_interval` | Minutes between runs of the Upgrade job, `0` to 43200. `0` means it runs only from the Jobs page. |
+| `searches_per_run` | `20` | MAM searches one run makes at most: one per book. |
+| `search_again_after` | `30` | Days before the same book is searched again, `1` to `365`, whether a better copy was found or not. |
+| `libraries` | `[]` | Only books in these [`[[library]]`](#library) names. Empty means every library. |
+| `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. |
+| `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
+
+What each run does: it picks the books that could be better, never-searched first and then the longest ago,
+searches MAM for each by its title and first author in its language and media type, and keeps the results that
+are the same book (as for duplicates) in a better format. The best of them that a `grab` block accepts is
+selected, with the old copy's qBittorrent category when that is a library's. A run stops selecting at the
+unsatisfied-snatch budget.
+
+```toml
+[upgrade]
+libraries = ["Audiobooks"]
+
+[[upgrade.grab]]
+cost = "free"
+
+[[upgrade.grab]]            # pay a wedge for a better copy of an audiobook
+cost = "wedge"
+categories = { ebook = false }
+```
 
 ## `[[tag]]`
 

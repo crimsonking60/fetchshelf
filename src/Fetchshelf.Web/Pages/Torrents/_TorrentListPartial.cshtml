@@ -38,6 +38,10 @@ else
                         {
                             <span class="muted">(unlinked)</span>
                         }
+                        @if (torrent.UpgradeNote is { } upgradeNote)
+                        {
+                            <span class="muted upgrade-note" title="A better format of this book is possible">(@upgradeNote)</span>
+                        }
                     </td>
                     <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Authors, nameof(IndexModel.Author), Model.Query)" /></td>
                     <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Series, nameof(IndexModel.Series), Model.Query)" /></td>

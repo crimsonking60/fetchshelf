@@ -368,7 +368,7 @@ public sealed class HardcoverListImporter(
             dryRun: entry.DryRun, cancellationToken: cancellationToken);
         var status = outcome switch
         {
-            SelectionOutcome.Selected or SelectionOutcome.DuplicateOfSelected or SelectionOutcome.RefreshedSelected => ListItemSideStatus.Selected,
+            SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade or SelectionOutcome.DuplicateOfSelected or SelectionOutcome.RefreshedSelected => ListItemSideStatus.Selected,
             SelectionOutcome.DuplicateOfLibrary or SelectionOutcome.RefreshedLibrary => ListItemSideStatus.Existing,
             SelectionOutcome.CostNotFree => ListItemSideStatus.Wanted,
             _ => ListItemSideStatus.NotFound,
@@ -377,7 +377,7 @@ public sealed class HardcoverListImporter(
         _logger.Log(
             Detail(entry), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId}: {Outcome}",
             name, item.BookTitle, format, winner.Payload.MamId, outcome.Describe(entry.DryRun));
-        return outcome == SelectionOutcome.Selected ? 1 : 0;
+        return outcome.IsSelected() ? 1 : 0;
     }
 
     private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";

@@ -19,6 +19,9 @@ public sealed record TorrentListItemViewModel(
     bool Unlinked,
     DateTimeOffset CreatedAt)
 {
+    /// <summary>"mp3; m4b preferred" when a better format of this copy is possible (<see cref="Torrents.UpgradeNote"/>).</summary>
+    public string? UpgradeNote { get; init; }
+
     /// <param name="metadata">The entity's metadata when the caller has already read it, so it isn't read twice.</param>
     public static TorrentListItemViewModel From(TorrentEntity entity, TorrentMetadata? metadata = null)
     {

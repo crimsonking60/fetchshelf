@@ -15,8 +15,11 @@ namespace Fetchshelf.Web.Pages.Torrents;
 public class DetailModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions,
-    ILogger<DetailModel> logger) : PageModel
+    Core.AutoDownloader.FormatPreferenceLists formatPreferenceLists, ILogger<DetailModel> logger) : PageModel
 {
+    /// <summary>"mp3; m4b preferred" when a better format of this copy is possible; null otherwise.</summary>
+    public string? UpgradeNote { get; private set; }
+
     public TorrentDetailViewModel? Torrent { get; private set; }
 
     /// <summary>What is followed, by kind and key, for the follow buttons; empty without a `[follow]` section.</summary>
@@ -233,6 +236,8 @@ public class DetailModel(
         {
             return null;
         }
+
+        UpgradeNote = Torrents.UpgradeNote.For(entity, formatPreferenceLists);
 
         // Sorted in memory: the SQLite EF Core provider cannot translate ORDER BY over a
         // DateTimeOffset column (see the same note in Pages/Torrents/Index.cshtml.cs).

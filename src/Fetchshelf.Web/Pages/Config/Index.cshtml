@@ -240,6 +240,30 @@
 </section>
 
 <section>
+    <h3>Upgrades</h3>
+    @if (settings.Upgrade is not { } upgrade)
+    {
+        <p class="empty">No [upgrade] section configured.</p>
+    }
+    else
+    {
+        <table id="upgrade-settings">
+            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Libraries</th><th>Grab costs</th><th>Dry run</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@upgrade.SearchesPerRun</td>
+                    <td>@upgrade.SearchAgainAfter days</td>
+                    <td>@(upgrade.SearchInterval is { } interval ? $"{interval} minutes" : "global")</td>
+                    <td>@(upgrade.Libraries.Count == 0 ? "all" : string.Join(", ", upgrade.Libraries))</td>
+                    <td>@string.Join(", ", upgrade.Grab.Select(g => g.Cost))</td>
+                    <td>@(upgrade.DryRun ? "yes" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Notifications</h3>
     @if (Model.NotifyTargets.Count == 0)
     {

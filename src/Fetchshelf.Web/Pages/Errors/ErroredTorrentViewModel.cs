@@ -79,6 +79,7 @@ public sealed record ErroredTorrentViewModel(
         ErrorStage.HardcoverList => "Hardcover list",
         ErrorStage.Audiobookshelf => "Audiobookshelf",
         ErrorStage.Follow => "Follow",
+        ErrorStage.Upgrade => "Upgrade",
         _ => stage.ToString(),
     };
 }

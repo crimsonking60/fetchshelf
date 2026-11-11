@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
@@ -13,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Torrents;
 
 public class IndexModel(
-    FetchshelfDbContext dbContext, LibraryQueries libraryQueries, LinkRunner linkRunner, Cleaner cleaner,
+    FetchshelfDbContext dbContext, LibraryQueries libraryQueries, FormatPreferenceLists formatPreferenceLists, LinkRunner linkRunner, Cleaner cleaner,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker,
     ILogger<IndexModel> logger) : PageModel
 {
@@ -337,7 +338,9 @@ public class IndexModel(
         var metadataById = new Dictionary<string, TorrentMetadata>();
         var matched = (await torrents.ToListAsync())
             .Where(t => TorrentListFilters.MatchesStatus(t, Status))
-            .Where(t => TorrentListFilters.MatchesProblem(t, Problem))
+            .Where(t => Problem == TorrentListFilters.Upgradable
+                ? LibraryCopyRank.CouldBeUpgraded(t, formatPreferenceLists)
+                : TorrentListFilters.MatchesProblem(t, Problem))
             .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(metadataById[t.Id] = TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
             .ToList();
 
@@ -352,7 +355,9 @@ public class IndexModel(
         TotalCount = matched.Count;
 
         (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
-        return entities.Select(t => TorrentListItemViewModel.From(t, metadataById.GetValueOrDefault(t.Id))).ToList();
+        return entities
+            .Select(t => TorrentListItemViewModel.From(t, metadataById.GetValueOrDefault(t.Id)) with { UpgradeNote = UpgradeNote.For(t, formatPreferenceLists) })
+            .ToList();
     }
 
     /// <summary>

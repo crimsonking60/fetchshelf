@@ -136,9 +136,9 @@ public class IndexModel(
             var result = await followService.DownloadAsync(findId, wedge, HttpContext.RequestAborted);
             if (result.Outcome is { } outcome && result.Metadata is { } metadata)
             {
-                var started = outcome == SelectionOutcome.Selected && StartDownload();
+                var started = outcome.IsSelected() && StartDownload();
                 Message = SelectionOutcomeMessages.Describe(outcome, metadata, formatPreferenceLists, started);
-                MessageIsError = outcome != SelectionOutcome.Selected;
+                MessageIsError = !outcome.IsSelected();
             }
             else
             {

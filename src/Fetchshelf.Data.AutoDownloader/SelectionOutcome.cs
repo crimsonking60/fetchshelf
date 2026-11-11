@@ -13,10 +13,16 @@ public enum SelectionOutcome
     DuplicateOfLibrary,
     CostNotFree,
     Selected,
+
+    /// <summary>Selected, and better than the library's copy of the same book, which the Clean job retires once it is linked.</summary>
+    SelectedAsUpgrade,
 }
 
 public static class SelectionOutcomeDescriptions
 {
+    /// <summary>Whether the torrent was selected: as a new book, or as a better copy of one in the library.</summary>
+    public static bool IsSelected(this SelectionOutcome outcome) => outcome is SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade;
+
     /// <summary>
     /// "Selected" only means queued: ratio, unsatisfied-snatch and wedge limits are checked when the downloader
     /// starts it.
@@ -25,6 +31,8 @@ public static class SelectionOutcomeDescriptions
     {
         (SelectionOutcome.Selected, true) => "would be selected; the downloader still checks ratio, unsat slots and wedges before starting it",
         (SelectionOutcome.Selected, false) => "selected",
+        (SelectionOutcome.SelectedAsUpgrade, true) => "would be selected as a better copy than the library's; the downloader still checks ratio, unsat slots and wedges before starting it",
+        (SelectionOutcome.SelectedAsUpgrade, false) => "selected as a better copy than the library's",
         (SelectionOutcome.Ignored, _) => "in ignore_torrents, skipped",
         (SelectionOutcome.RefreshedSelected, _) => "already selected",
         (SelectionOutcome.RefreshedLibrary, _) => "already in the library",

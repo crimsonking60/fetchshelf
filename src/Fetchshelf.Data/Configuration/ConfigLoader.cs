@@ -90,6 +90,7 @@ public static class ConfigLoader
         ValidateSnatchlists(settings);
         ValidateHardcover(settings);
         ValidateFollow(settings);
+        ValidateUpgrade(settings);
         ValidateOpds(settings);
         ValidateAudiobookshelf(settings);
         ConfigValueValidator.ValidateNotify(settings);
@@ -564,6 +565,36 @@ public static class ConfigLoader
                 "Invalid configuration: [audiobookshelf.path_mapping] looks like it is written Fetchshelf's path = "
                 + "Audiobookshelf's path. It is the other way round, like [qbittorrent.path_mapping]: Audiobookshelf's "
                 + "path = Fetchshelf's path. Swap the two sides of each line.");
+        }
+    }
+
+    /// <summary>
+    /// Checks the `[upgrade]` section and gives it its default grab block: without one, upgrades are taken only when
+    /// free. Its blocks don't get the top-level `languages`: a better copy is searched in the language of the book.
+    /// </summary>
+    private static void ValidateUpgrade(FetchshelfSettings settings)
+    {
+        if (settings.Upgrade is not { } upgrade)
+        {
+            return;
+        }
+
+        var libraries = settings.Library.Select(library => library.Name).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        if (upgrade.Libraries.FirstOrDefault(name => !libraries.Contains(name)) is { } unknown)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: [upgrade] 'libraries' names '{unknown}', but no [[library]] has that name.");
+        }
+
+        if (upgrade.Grab.Any(g => g.Cost is Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: the [upgrade] section has a 'grab' block with a metadata-only 'cost'; the Upgrade job downloads books.");
+        }
+
+        if (upgrade.Grab.Count == 0)
+        {
+            upgrade.Grab.Add(new GrabEntry { Cost = Core.AutoDownloader.ConfiguredCost.Free });
         }
     }
 

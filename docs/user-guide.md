@@ -1286,6 +1286,30 @@ The Link job leaves a replaced torrent alone. To bring one back, for example aft
 copy, use **Refresh and relink** on its page or **Relink selected** on the **Torrents** page: it is linked
 again and no longer marked replaced. If the better copy is still linked, the next Clean retires it again.
 
+#### Finding better copies
+
+A better copy is found by any search: an autograb, a Hardcover list, the Follow job or the Search page. Such a
+download is logged as *selected as a better copy than the library's*. To look for better copies on purpose:
+
+- **Could be upgraded**, under *Problems* on the **Torrents** page, lists the linked books whose format isn't
+  the first in its list, such as an mp3 audiobook when `audio_types` starts with m4b. Each shows its format and
+  the preferred one: *(mp3; m4b preferred)*. *Any problem* leaves them out; a worse format is no problem.
+- A book's own page shows the same, with **Look for a better copy**: a Search page search for its title and
+  first author.
+- The **Upgrade** job, with an [`[upgrade]`](configuration.md#upgrade) section, searches MAM for each such book
+  in turn and selects a better copy of the same book when one is there:
+
+  ```toml
+  [upgrade]
+  libraries = ["Audiobooks"]   # optional: only these libraries
+  ```
+
+  It searches at most `searches_per_run` books per run (20), and each book at most once every
+  `search_again_after` days (30), whether a better copy was found or not. The better copy gets the old copy's
+  qBittorrent category when that is a library's, so it lands in the same library. Without `[[upgrade.grab]]`
+  blocks it only takes free copies (VIP, freeleech or personal freeleech): a book already in the library is
+  worth a better copy, but rarely worth ratio or a wedge. Add blocks with another `cost` to change that.
+
 ### Unlinking a book you don't want
 
 To take a book out of your library while qBittorrent keeps seeding it, use **Unlink** on its torrent page,

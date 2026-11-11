@@ -85,6 +85,17 @@ internal static partial class ConfigValueValidator
             CheckInterval("search_interval", list.SearchInterval, Label("hardcover_list", list.Name, i));
         }
 
+        if (settings.Upgrade is { } upgrade)
+        {
+            const string label = "the [upgrade] section";
+            CheckInterval("search_interval", upgrade.SearchInterval, label);
+            CheckAtLeast("searches_per_run", upgrade.SearchesPerRun, 1, label);
+            if (upgrade.SearchAgainAfter is < 1 or > UpgradeSettings.MaxSearchAgainAfterDays)
+            {
+                throw Invalid($"'search_again_after' in {label} must be between 1 and {UpgradeSettings.MaxSearchAgainAfterDays} days; got {upgrade.SearchAgainAfter}.");
+            }
+        }
+
         if (settings.Follow is { } follow)
         {
             const string label = "the [follow] section";
@@ -261,6 +272,11 @@ internal static partial class ConfigValueValidator
             {
                 ValidateFilter(list.Grab[g], $"grab block {g + 1} of {Label("hardcover_list", list.Name, i)}");
             }
+        }
+
+        for (var g = 0; g < (settings.Upgrade?.Grab.Count ?? 0); g++)
+        {
+            ValidateFilter(settings.Upgrade!.Grab[g], $"grab block {g + 1} of the [upgrade] section");
         }
 
         for (var g = 0; g < (settings.Follow?.Grab.Count ?? 0); g++)

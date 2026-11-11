@@ -171,7 +171,7 @@ public sealed class FollowService(
             grabberName: FollowRunner.GrabberName(follow), cancellationToken: cancellationToken);
         var status = outcome switch
         {
-            SelectionOutcome.Selected or SelectionOutcome.DuplicateOfSelected or SelectionOutcome.RefreshedSelected => FollowFindStatus.Selected,
+            SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade or SelectionOutcome.DuplicateOfSelected or SelectionOutcome.RefreshedSelected => FollowFindStatus.Selected,
             SelectionOutcome.DuplicateOfLibrary or SelectionOutcome.RefreshedLibrary => FollowFindStatus.Owned,
             _ => find.Status,
         };

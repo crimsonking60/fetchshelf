@@ -103,7 +103,7 @@ public sealed class SelectionRunner(
             return SelectionOutcome.DuplicateOfSelected;
         }
 
-        var duplicateAgainstLibrary = await CheckDuplicateAgainstLibraryAsync(
+        var (duplicateAgainstLibrary, betterThanLibrary) = await CheckDuplicateAgainstLibraryAsync(
             record.MamId, metadata, normalizedTitle, candidateRank, dryRun, cancellationToken);
         if (duplicateAgainstLibrary)
         {
@@ -131,15 +131,16 @@ public sealed class SelectionRunner(
             return SelectionOutcome.CostNotFree;
         }
 
+        var selected = betterThanLibrary ? SelectionOutcome.SelectedAsUpgrade : SelectionOutcome.Selected;
         if (dryRun)
         {
             _dryRunSelections.Add(new DryRunSelection(record.MamId, metadata, normalizedTitle));
-            return SelectionOutcome.Selected;
+            return selected;
         }
 
         CreateSelected(record, metadata, cost.Value, category, tags, grabberName);
         await dbContext.SaveChangesAsync(CancellationToken.None); // a selection being written is written, even if the run is cancelled
-        return SelectionOutcome.Selected;
+        return selected;
     }
 
     private sealed record DryRunSelection(long MamId, TorrentMetadata Metadata, string NormalizedTitle);
@@ -247,13 +248,19 @@ public sealed class SelectionRunner(
         return false;
     }
 
-    private async Task<bool> CheckDuplicateAgainstLibraryAsync(
+    /// <returns>
+    /// Whether the library has an equal or better copy, so the candidate is a duplicate; and whether it has only worse
+    /// ones, so the candidate is an upgrade.
+    /// </returns>
+    private async Task<(bool Duplicate, bool BetterThanLibrary)> CheckDuplicateAgainstLibraryAsync(
         long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
     {
         if (normalizedTitle.Length == 0)
         {
-            return false; // a blank title is the same book as nothing
+            return (false, false); // a blank title is the same book as nothing
         }
+
+        var betterThanLibrary = false;
 
         var sameTitle = await dbContext.Torrents
             .Where(t => t.NormalizedTitleKey == normalizedTitle)
@@ -275,14 +282,15 @@ public sealed class SelectionRunner(
                     RecordDuplicate(candidateMamId, candidateMeta, duplicateOfTorrentId: other.Id);
                 }
 
-                return true;
+                return (true, false);
             }
 
             // Candidate is better; proceed without touching the library entry - the cleaner
             // (library-organizer) retires it later.
+            betterThanLibrary |= other.ReplacedWithTorrentId is null;
         }
 
-        return false;
+        return (false, betterThanLibrary);
     }
 
     private void RecordDuplicate(long mamId, TorrentMetadata metadata, string duplicateOfTorrentId) =>

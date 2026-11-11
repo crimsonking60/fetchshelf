@@ -16,6 +16,9 @@ public static class SelectionOutcomeMessages
             SelectionOutcome.Selected => downloadStarted
                 ? $"Selected {title}; the Download job is starting it now."
                 : $"Selected {title}; it starts at the next Download run.",
+            SelectionOutcome.SelectedAsUpgrade => downloadStarted
+                ? $"Selected {title}, a better copy than the one in the library; the Download job is starting it now. The Clean job retires the old copy once this one is linked."
+                : $"Selected {title}, a better copy than the one in the library; it starts at the next Download run. The Clean job retires the old copy once this one is linked.",
             SelectionOutcome.RefreshedSelected => $"{title} is already selected.",
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>

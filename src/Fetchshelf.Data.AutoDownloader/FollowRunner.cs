@@ -229,7 +229,7 @@ public sealed class FollowRunner(
             Log(follow, shown, outcome.Describe(settings.DryRun));
             switch (outcome)
             {
-                case SelectionOutcome.Selected:
+                case SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade:
                     Record(follow, shown, FollowFindStatus.Selected, finds, now);
                     run.Selected++;
                     run.BudgetLeft--;

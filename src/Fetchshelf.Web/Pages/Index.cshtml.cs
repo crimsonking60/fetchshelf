@@ -444,9 +444,9 @@ public class IndexModel(
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, [], cost, autograbCategory: category, grabberName: JobNames.ManualSearchGrabber);
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                var downloadStarted = outcome == SelectionOutcome.Selected && StartDownload();
+                var downloadStarted = outcome.IsSelected() && StartDownload();
                 message = SelectionOutcomeMessages.Describe(outcome, metadata, formatPreferenceLists, downloadStarted);
-                if (outcome == SelectionOutcome.Selected && category is not null)
+                if (outcome.IsSelected() && category is not null)
                 {
                     message += $" Category: {category}.";
                 }

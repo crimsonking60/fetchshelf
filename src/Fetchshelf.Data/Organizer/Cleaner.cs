@@ -169,21 +169,7 @@ public sealed class Cleaner(
     private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) =>
         DuplicateCopies.PickKeeper(group, Rank, TotalLinkedSize);
 
-    private int Rank(TorrentEntity torrent)
-    {
-        if (torrent.ChosenAudioExtension is not null)
-        {
-            var mediaType = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).MediaType;
-            return FormatRanker.Rank(formatPreferenceLists.AudioSideFor(mediaType), [torrent.ChosenAudioExtension]);
-        }
-
-        if (torrent.ChosenEbookExtension is not null)
-        {
-            return FormatRanker.Rank(formatPreferenceLists.EbookTypes, [torrent.ChosenEbookExtension]);
-        }
-
-        return FormatRanker.NotPresent;
-    }
+    private int Rank(TorrentEntity torrent) => LibraryCopyRank.Of(torrent, formatPreferenceLists);
 
     private static long TotalLinkedSize(TorrentEntity torrent) =>
         DeserializeLinkedFiles(torrent.LinkedFilesJson).Sum(f => f.SizeBytes);

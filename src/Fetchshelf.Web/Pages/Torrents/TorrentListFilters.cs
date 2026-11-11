@@ -36,7 +36,14 @@ public static class TorrentListFilters
         ("mismatch", "Library mismatch"),
         ("not-in-client", "Not in qBittorrent"),
         ("removed-from-mam", "Removed from MAM"),
+        (Upgradable, "Could be upgraded"),
     ];
+
+    /// <summary>
+    /// The Problems choice for copies a better format is possible for. Not a problem as such, so "any problem" leaves
+    /// it out; the page applies it, as it needs the format lists.
+    /// </summary>
+    public const string Upgradable = "upgradable";
 
     /// <summary>
     /// A torrent with a library folder counts as linked whatever its markers say, since its files are in the library.

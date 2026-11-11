@@ -480,6 +480,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<DateTimeOffset?>("UnlinkedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("UpgradeSearchedAt")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Language");
