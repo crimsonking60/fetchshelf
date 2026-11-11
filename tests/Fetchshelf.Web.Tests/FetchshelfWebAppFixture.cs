@@ -15,7 +15,7 @@ public sealed class FetchshelfWebAppFixture : IDisposable
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-web-tests-").FullName;
     private readonly WebApplicationFactory<Program> _factory;
 
-    public JobRegistry JobRegistry { get; } = new();
+    public JobRegistry JobRegistry { get; } = new(classifyFailure: Fetchshelf.Web.Jobs.JobFailureClassifier.Classify);
 
     /// <summary>The folder holding the test's configuration and, by default, its database.</summary>
     public string DataDirectory => _tempDir;

@@ -9,6 +9,13 @@ namespace Fetchshelf.Data;
 /// </summary>
 public static class ErrorLog
 {
+    /// <summary>The key of a Hardcover list book's error: the list's id and the book's Hardcover id, joined with a space.</summary>
+    public static string ListItemKey(string listId, string externalId) => $"{listId} {externalId}";
+
+    /// <summary>The keys that have an error row at <paramref name="stage"/>, so a run clears only the rows there are.</summary>
+    public static async Task<HashSet<string>> KeysAsync(FetchshelfDbContext dbContext, ErrorStage stage, CancellationToken cancellationToken = default) =>
+        (await dbContext.ErroredTorrents.Where(e => e.Stage == stage).Select(e => e.Key).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+
     public static async Task RecordAsync(
         FetchshelfDbContext dbContext,
         ErrorStage stage,

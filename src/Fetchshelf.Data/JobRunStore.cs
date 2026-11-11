@@ -26,8 +26,7 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
         return run.Id;
     }
 
-    public async Task FinishedAsync(
-        long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts)
+    public async Task FinishedAsync(long runId, JobRunRecord finished)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var run = await context.JobRuns.FirstOrDefaultAsync(r => r.Id == runId);
@@ -36,10 +35,11 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
             return;
         }
 
-        run.FinishedAt = finishedAt;
-        run.Result = result;
-        run.Summary = summary;
-        run.CountsJson = counts is null ? null : JsonSerializer.Serialize(counts);
+        run.FinishedAt = finished.FinishedAt;
+        run.Result = finished.Result;
+        run.Summary = finished.Summary;
+        run.CountsJson = finished.Counts is null ? null : JsonSerializer.Serialize(finished.Counts);
+        run.FailureKind = finished.FailureKind;
         await context.SaveChangesAsync();
 
         // Ids grow with every run, so the newest runs are the highest ids.
@@ -65,16 +65,18 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
                 .SetProperty(r => r.Summary, summary));
     }
 
-    public async Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync()
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<JobRunRecord>>> RecentRunsAsync()
     {
         await using var context = await contextFactory.CreateDbContextAsync();
-        var newestIds = await context.JobRuns.GroupBy(r => r.JobName).Select(g => g.Max(r => r.Id)).ToListAsync();
-        var runs = await context.JobRuns.AsNoTracking().Where(r => newestIds.Contains(r.Id)).ToListAsync();
-        return runs.ToDictionary(r => r.JobName, ToRecord);
+        // At most RunsKeptPerJob per job are kept, so this stays small. Ids grow with every run: lowest is oldest.
+        var runs = await context.JobRuns.AsNoTracking().OrderBy(r => r.Id).ToListAsync();
+        return runs
+            .GroupBy(r => r.JobName)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<JobRunRecord>)g.Select(ToRecord).ToList());
     }
 
     public static JobRunRecord ToRecord(JobRunEntity run) =>
-        new(run.StartedAt, run.Result, run.Summary, run.FinishedAt, run.Trigger, ReadCounts(run.CountsJson));
+        new(run.StartedAt, run.Result, run.Summary, run.FinishedAt, run.Trigger, ReadCounts(run.CountsJson), run.FailureKind);
 
     public static IReadOnlyDictionary<string, long>? ReadCounts(string? countsJson) =>
         countsJson is null ? null : JsonSerializer.Deserialize<Dictionary<string, long>>(countsJson);

@@ -1273,7 +1273,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
-| **Errors** | Problems found by the Download, Link and Clean jobs. |
+| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
@@ -1404,8 +1404,26 @@ between pages.
 
 ### Errors
 
-One entry per torrent and job, showing the job that ran into the problem (Download, Link or Clean), the
-torrent, the error and when it last failed. The Link job tries a failed torrent again on every run: the
+**Jobs that are failing** come first: every job whose latest run failed, with that run's error, since when it
+has been failing and how many runs in a row, a link to its history, and **Run now**. A job leaves the list as
+soon as a run succeeds, finishes with errors (it did its work) or is cancelled; there is nothing to remove.
+When MAM refuses `mam_id` (HTTP 403) or blocks the account (HTTP 406), every job that talks to MAM fails at
+once; those jobs share one line, "MAM refused `mam_id` (HTTP 403) since …", naming them and saying what to do.
+
+Below them, one entry per torrent or book and job, showing the job that ran into the problem, the torrent or
+book, the error and when it last failed. Every job tries a failed item again on its next run: the entry is
+updated while it keeps failing and disappears once the item succeeds. The jobs that record entries:
+
+- **Download**, **Link** and **Clean**, described below.
+- **Snatchlist**: a snatch list row that couldn't be imported, by MAM id. It links to the torrent when
+  Fetchshelf has it.
+- **Hardcover list**: a book a list couldn't search MAM for, linking to its list. A refusal from MAM that
+  stops the whole run is a failing job instead, not an entry per book.
+- **Audiobookshelf**: a linked torrent that couldn't be matched to an Audiobookshelf item, such as one with no
+  author or in a folder no Audiobookshelf library contains. A book Audiobookshelf hasn't scanned yet is not
+  an error and gets no entry.
+
+The list can be narrowed to one job. The Link job tries a failed torrent again on every run: the
 entry is updated while it keeps failing and disappears once it links. The exception is *MAM has no torrent
 with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
@@ -1417,6 +1435,10 @@ A torrent that couldn't be linked because MAM gives it no author, and that Fetch
 has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
 creates the record. The next Link run then links it.
 Tick the entries you have dealt with and use **Remove selected**.
+
+The **Errors** link in the menu carries a count when something needs attention: the failing jobs, and the
+entries recorded or updated in the last day, such as "Errors 3", with what it counts on hover. Older entries
+stay on the page but don't keep the count lit.
 
 ### Duplicates
 
@@ -1480,11 +1502,11 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   turn.
 - The *last result* shows what the run did, such as *Success: 3 torrents linked* or *Success: 312 search
   results, 2 selected*, or the error. Hover over it for the numbers behind it. A failed job tries again at
-  its next interval. One failing
-  torrent never stops the others: the Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list
-  jobs then show *Finished with errors* with the number of torrents or books that failed, and the log has a
-  line for each. Link and Clean problems, and downloads removed from the queue, are also listed on the
-  **Errors** page.
+  its next interval; while its runs keep failing, its row is shown in red with since when and how many runs
+  in a row, and it is listed on the **Errors** page. One failing torrent never stops the others: the
+  Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list jobs then show *Finished with errors*
+  with the number of torrents or books that failed, and each is listed on the **Errors** page, except a
+  download that failed because MAM couldn't be reached, which stays queued for the next run.
 - With an empty `mam_id`, no job runs at all.
 
 Selecting a job's name opens its **history**: its runs, newest first, 50 to a page, each with when it
@@ -1618,7 +1640,8 @@ fix the ownership of the copied files.
 
 ## Troubleshooting
 
-First, look at the **Jobs**, **Errors** and **Events** pages and at `docker logs fetchshelf`.
+First, look at the **Jobs**, **Errors** and **Events** pages and at `docker logs fetchshelf`. A count on the
+menu's **Errors** link means a job keeps failing or something failed in the last day.
 
 ### The container is unhealthy
 
@@ -1711,7 +1734,8 @@ The log says what happened to each book:
   there. Usually Audiobookshelf has not scanned it yet; the matcher tries again on its next run.
 - *no Audiobookshelf library has a folder containing …* (an error): Audiobookshelf sees your library at a
   different path that no `path_mapping` maps, or the library is missing from Audiobookshelf. The path in the
-  message is the one Fetchshelf expects Audiobookshelf to see, after `path_mapping`. The job then shows *Finished with errors*.
+  message is the one Fetchshelf expects Audiobookshelf to see, after `path_mapping`. The job then shows *Finished with errors*,
+  and the book is listed on the **Errors** page.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
 

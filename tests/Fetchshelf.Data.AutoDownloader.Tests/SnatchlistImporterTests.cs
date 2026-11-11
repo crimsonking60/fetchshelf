@@ -5,6 +5,7 @@ using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
@@ -185,6 +186,80 @@ public sealed class SnatchlistImporterTests : IDisposable
         Assert.Equal(new SnatchlistRunSummary(Rows: 2, Recorded: 1, Updated: 0, Failed: 1), summary);
         Assert.Contains("could not import MAM torrent 1", Assert.Single(logger.Messages(LogLevel.Error)));
         Assert.Equal(2, Assert.Single(context.Torrents).MamId);
+    }
+
+    private const string BrokenAndFineRows =
+        """{"rows":[{"id":1,"title":"Broken","seeders":5,"leechers":1},{"id":2,"title":"Fine","seeders":5,"leechers":1}]}""";
+
+    /// <summary>A MAM with the rows Broken (1) and Fine (2), whose lookups answer as <paramref name="lookup"/> says for each MAM id.</summary>
+    private static MamClient TwoRowMam(Func<long, HttpResponseMessage> lookup) =>
+        new(new HttpClient(new FakeHttpMessageHandler(request =>
+        {
+            var uri = request.RequestUri!;
+            if (uri.AbsolutePath.Contains("jsonLoad.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AccountStateJson) };
+            }
+
+            if (uri.AbsolutePath.Contains("loadUserDetailsTorrents.php"))
+            {
+                var rows = uri.Query.Contains("iteration=0") ? BrokenAndFineRows : SnatchlistPageJson(empty: true);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(rows) };
+            }
+
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return lookup(body.Contains("\"id\":1", StringComparison.Ordinal) || body.Contains("\"id\":\"1\"", StringComparison.Ordinal) ? 1 : 2);
+        })), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
+
+    private static HttpResponseMessage Found(long mamId, string title) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(DownloadTestSupport.TorrentRecordJson(mamId, $"dl{mamId}", title: title, authorName: "A")),
+    };
+
+    private static readonly SnatchlistEntry MetadataOnlyAdd = new() { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd };
+
+    [Fact]
+    public async Task RunAsync_RowFailsThenImports_RecordsItsErrorAndClearsItOnTheNextRun()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var broken = true;
+        var mam = TwoRowMam(id => id == 1 && broken ? new HttpResponseMessage(HttpStatusCode.InternalServerError) : Found(id, id == 1 ? "Broken" : "Fine"));
+
+        await new SnatchlistImporter(context, mam, new MamAccessGate()).RunAsync(MetadataOnlyAdd);
+
+        var error = Assert.Single(context.ErroredTorrents.AsNoTracking());
+        Assert.Equal((ErrorStage.Snatchlist, "1", "Broken"), (error.Stage, error.Key, error.Title));
+        Assert.Contains("500", error.ErrorText);
+
+        broken = false;
+        await new SnatchlistImporter(context, mam, new MamAccessGate()).RunAsync(MetadataOnlyAdd);
+
+        Assert.Empty(context.ErroredTorrents.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task RunAsync_MamRefusesTheSession_FailsTheRunKeepsWhatItImportedAndRecordsNoRowErrors()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        // Rows are imported in order: Fine (2) can't come first, so Broken (1) is refused and nothing after it is read.
+        var mam = TwoRowMam(id => id == 1 ? new HttpResponseMessage(HttpStatusCode.Forbidden) : Found(id, "Fine"));
+
+        await Assert.ThrowsAsync<MamForbiddenException>(() => new SnatchlistImporter(context, mam, new MamAccessGate()).RunAsync(MetadataOnlyAdd));
+
+        Assert.Empty(context.ErroredTorrents.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task RunAsync_DryRunWithAFailingRow_RecordsNothing()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var mam = TwoRowMam(id => id == 1 ? new HttpResponseMessage(HttpStatusCode.InternalServerError) : Found(id, "Fine"));
+
+        var summary = await new SnatchlistImporter(context, mam, new MamAccessGate()).RunAsync(
+            new SnatchlistEntry { Type = SnatchlistType.Unsat, Cost = ConfiguredCost.MetadataOnlyAdd, DryRun = true });
+
+        Assert.Equal(1, summary.Failed);
+        Assert.Empty(context.ErroredTorrents.AsNoTracking());
     }
 
     [Fact]

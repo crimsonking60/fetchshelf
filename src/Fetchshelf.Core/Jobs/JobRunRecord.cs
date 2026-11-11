@@ -41,10 +41,30 @@ public enum JobTrigger
 /// <param name="FinishedAt">When the run ended; null while it runs, and for a run whose end isn't known.</param>
 /// <param name="Trigger">What started the run.</param>
 /// <param name="Counts">The numbers behind <paramref name="Summary"/>, by name, such as <c>linked</c> and <c>failed</c>.</param>
+/// <param name="FailureKind">What kind of error ended a <see cref="JobRunResult.Failure"/>; null for any other result.</param>
 public sealed record JobRunRecord(
     DateTimeOffset StartedAt,
     JobRunResult Result,
     string? Summary,
     DateTimeOffset? FinishedAt = null,
     JobTrigger Trigger = JobTrigger.Manual,
-    IReadOnlyDictionary<string, long>? Counts = null);
+    IReadOnlyDictionary<string, long>? Counts = null,
+    JobFailureKind? FailureKind = null);
+
+/// <summary>
+/// What kind of error ended a failed run, so the Errors page can tell one MAM refusal that stopped every MAM job from
+/// unrelated failures. Stored as a number, so new values go at the end.
+/// </summary>
+public enum JobFailureKind
+{
+    Other,
+
+    /// <summary>MAM refused `mam_id` (HTTP 403).</summary>
+    MamRefused,
+
+    /// <summary>MAM blocked the account (HTTP 406).</summary>
+    MamBlocked,
+
+    /// <summary>MAM asked for fewer requests (HTTP 429).</summary>
+    MamRateLimited,
+}

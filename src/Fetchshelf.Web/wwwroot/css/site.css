@@ -435,3 +435,15 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .key-values td { vertical-align: top; }
 .account-strip { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0 0 1rem; }
 .account-strip .notice { flex-basis: 100%; margin: 0; }
+
+/* ---- failures ------------------------------------------------------------ */
+.nav-badge {
+    display: inline-block; min-width: 1.2rem; margin-left: 0.3rem; padding: 0 0.35rem;
+    font-size: 0.7rem; font-weight: 700; line-height: 1.2rem; text-align: center;
+    color: #fff; background: var(--c-danger); border-radius: 0.6rem;
+}
+tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent); }
+.failing-since { color: var(--c-danger); font-size: 0.85em; }
+.failing-jobs { margin-bottom: 1.5rem; }
+.failing-jobs li { margin-bottom: 0.4rem; }
+.failing-jobs form { display: inline; }

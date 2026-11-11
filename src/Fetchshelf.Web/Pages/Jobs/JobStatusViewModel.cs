@@ -14,6 +14,9 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
     /// <summary>How long the last run took; null if it never finished.</summary>
     public TimeSpan? LastDuration { get; init; }
 
+    /// <summary>Since when the job's runs keep failing; null while it isn't failing.</summary>
+    public JobFailure? Failing { get; init; }
+
     /// <summary>The last run's counts, shown on hover over its result.</summary>
     public string? CountsText { get; init; }
 
@@ -52,5 +55,6 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
             RunningSince = job.RunningSince,
             LastDuration = job.LastRun is { FinishedAt: { } finishedAt } run ? finishedAt - run.StartedAt : null,
             CountsText = JobRunLabels.Counts(job.LastRun?.Counts),
+            Failing = job.Failing,
         };
 }

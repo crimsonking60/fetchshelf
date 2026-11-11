@@ -79,7 +79,12 @@ builder.WebHost.UseUrls(ListenAddress.Build(settings));
 
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IJobRunStore, JobRunStore>();
-builder.Services.AddSingleton<IJobRegistry, JobRegistry>();
+// The registry is told which failures are MAM refusing the session or account, so the Errors page can group them.
+builder.Services.AddSingleton<IJobRegistry>(sp => new JobRegistry(
+    sp.GetRequiredService<ILogger<JobRegistry>>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<IJobRunStore>(),
+    JobFailureClassifier.Classify));
 builder.Services.AddHttpClient("qbittorrent");
 builder.Services.AddSingleton<QBittorrentClientFactory>();
 builder.Services.AddSingleton<QBittorrentPresenceCache>();

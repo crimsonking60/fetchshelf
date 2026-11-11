@@ -133,6 +133,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("CountsJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("FailureKind")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("TEXT");
 

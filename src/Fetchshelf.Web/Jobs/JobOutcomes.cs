@@ -34,7 +34,7 @@ public static class JobOutcomes
         return Finish(
             line,
             summary.Failed,
-            "could not be matched; see the log",
+            "could not be matched; see the Errors page",
             new() { ["matched"] = summary.Matched, ["not_found_yet"] = summary.NotFoundYet, ["failed"] = summary.Failed });
     }
 
@@ -68,7 +68,7 @@ public static class JobOutcomes
                 ? $"{Count(summary.Rows, "row", "rows")} read, {summary.Recorded} would have been recorded, {summary.Updated} would have been updated"
                 : $"{Count(summary.Rows, "row", "rows")} read, {summary.Recorded} recorded, {summary.Updated} updated"),
         summary.Failed,
-        "could not be imported; see the log",
+        "could not be imported; see the Errors page",
         new() { ["rows"] = summary.Rows, ["recorded"] = summary.Recorded, ["updated"] = summary.Updated, ["failed"] = summary.Failed });
 
     public static JobOutcome HardcoverList(HardcoverListRunSummary summary) => Finish(
@@ -77,7 +77,7 @@ public static class JobOutcomes
             $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "
                 + (summary.DryRun ? "would have been selected" : "selected")),
         summary.Failed,
-        "could not be searched for; see the log",
+        "could not be searched for; see the Errors page",
         new() { ["books"] = summary.Books, ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
 
     public static JobOutcome Download(DownloadRunSummary summary) => Finish(

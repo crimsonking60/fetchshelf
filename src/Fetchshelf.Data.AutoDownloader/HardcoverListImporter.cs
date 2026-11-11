@@ -93,6 +93,7 @@ public sealed class HardcoverListImporter(
         var selected = 0;
         var failed = 0;
         var searched = 0;
+        var erroredKeys = entry.DryRun ? [] : await ErrorLog.KeysAsync(dbContext, ErrorStage.HardcoverList, cancellationToken);
         foreach (var item in items.Where(i => i.RemovedAt is null && i.MarkedDoneAt is null).OrderBy(i => i.Position))
         {
             if (selected >= budget)
@@ -108,8 +109,19 @@ public sealed class HardcoverListImporter(
                 searched += outcome.Searched ? 1 : 0;
                 if (!entry.DryRun)
                 {
+                    if (erroredKeys.Remove(ErrorKey(item)))
+                    {
+                        await ErrorLog.ClearAsync(dbContext, ErrorStage.HardcoverList, ErrorKey(item), cancellationToken);
+                    }
+
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
+            }
+            catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
+            {
+                // Every later book would fail the same way: the run fails, and the book has no error of its own.
+                dbContext.DiscardPendingChanges();
+                throw;
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
@@ -117,6 +129,12 @@ public sealed class HardcoverListImporter(
                 _logger.LogWarning(ex, "Hardcover list {Name}: \"{Title}\" failed: {Reason}", name, item.BookTitle, ex.Message);
                 // What the failed book changed must not be saved along with the next one.
                 dbContext.DiscardPendingChanges();
+                if (!entry.DryRun)
+                {
+                    await ErrorLog.RecordAsync(dbContext, ErrorStage.HardcoverList, ErrorKey(item), item.BookTitle, ex.Message, cancellationToken: cancellationToken);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    erroredKeys.Add(ErrorKey(item));
+                }
             }
         }
 
@@ -126,6 +144,8 @@ public sealed class HardcoverListImporter(
             failed == 0 ? string.Empty : $", {failed} failed");
         return new HardcoverListRunSummary(selected, failed, books.Count, searched, entry.DryRun);
     }
+
+    private static string ErrorKey(ListItemEntity item) => ErrorLog.ListItemKey(item.ListId, item.ExternalId);
 
     /// <summary>
     /// Brings the stored rows in line with the books Hardcover returned: new books are added, known ones refreshed,

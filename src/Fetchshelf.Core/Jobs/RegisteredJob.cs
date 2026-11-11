@@ -13,6 +13,9 @@ public sealed class RegisteredJob
     /// <summary>The last run that ended, or that a restart interrupted. Null if the job has never run.</summary>
     public JobRunRecord? LastRun { get; internal set; }
 
+    /// <summary>Since when the job's runs keep failing; null while it isn't failing. See <see cref="JobFailureState"/>.</summary>
+    public JobFailure? Failing { get; internal set; }
+
     /// <summary>When the interval scheduler will next trigger this job. Null if the job has no timer.</summary>
     public DateTimeOffset? NextScheduledRun { get; internal set; }
 

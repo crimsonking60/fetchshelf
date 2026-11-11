@@ -90,7 +90,11 @@ public sealed class HardcoverListImporterTests : IDisposable
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
-    private Harness CreateHarness(Func<string, string> searchResponse)
+    private Harness CreateHarness(Func<string, string> searchResponse) =>
+        CreateHarness(body => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) });
+
+    /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/>'s whole response, status and all.</summary>
+    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -106,12 +110,12 @@ public sealed class HardcoverListImporterTests : IDisposable
             {
                 var body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty;
                 searches.Add(body);
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) };
+                return searchResponse(body);
             }
 
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
         });
-        var mamClient = new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" });
+        var mamClient = new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
         var books = new FakeBookSource();
         var clock = new Clock(new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero));
         return new Harness(context, books, clock, searches, ctx => new HardcoverListImporter(
@@ -138,6 +142,36 @@ public sealed class HardcoverListImporterTests : IDisposable
 
     private ListItemEntity Item(Harness harness, long bookId) =>
         harness.Context.ListItems.AsNoTracking().Single(i => i.ExternalId == bookId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    [Fact]
+    public async Task RunAsync_BookFailsThenWorks_RecordsItsErrorAndClearsItOnTheNextRun()
+    {
+        var broken = true;
+        var harness = CreateHarness(_ => broken ? "not json" : EmptyResultJson);
+        harness.Books.Books = [Book(1, "Dune")];
+
+        var summary = await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Equal(1, summary.Failed);
+        var error = Assert.Single(harness.Context.ErroredTorrents.AsNoTracking());
+        Assert.Equal((ErrorStage.HardcoverList, "hardcover:status:want_to_read 1", "Dune"), (error.Stage, error.Key, error.Title));
+
+        broken = false;
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Empty(harness.Context.ErroredTorrents.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task RunAsync_MamRefusesTheSession_FailsTheRunWithoutAnErrorPerBook()
+    {
+        var harness = CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+        harness.Books.Books = [Book(1, "Dune"), Book(2, "Dune Messiah")];
+
+        await Assert.ThrowsAsync<MamForbiddenException>(() => harness.RunAsync(Entry(grab: AudioOnly())));
+
+        Assert.Empty(harness.Context.ErroredTorrents.AsNoTracking());
+    }
 
     [Fact]
     public async Task RunAsync_NewBooks_AreStoredInHardcoversOrder_AndMarkedNotFound()
