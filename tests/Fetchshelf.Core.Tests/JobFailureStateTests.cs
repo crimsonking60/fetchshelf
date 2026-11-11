@@ -23,7 +23,6 @@ public class JobFailureStateTests
     [Theory]
     [InlineData(JobRunResult.Success)]
     [InlineData(JobRunResult.CompletedWithErrors)]
-    [InlineData(JobRunResult.Cancelled)]
     public void From_LatestRunDidntFail_IsNotFailing(JobRunResult latest) =>
         Assert.Null(JobFailureState.From([Run(0, JobRunResult.Failure, "boom"), Run(1, latest)]));
 
@@ -31,11 +30,13 @@ public class JobFailureStateTests
     public void From_NeverSucceeded_IsFailingSinceItsFirstRun() =>
         Assert.Equal(T0, JobFailureState.From([Run(0, JobRunResult.Failure, "a"), Run(1, JobRunResult.Failure, "b")])!.Since);
 
-    [Fact]
-    public void From_RunInterruptedBetweenFailures_NeitherEndsNorCountsInTheStreak() =>
+    [Theory]
+    [InlineData(JobRunResult.Interrupted)]
+    [InlineData(JobRunResult.Cancelled)]
+    public void From_RunInterruptedOrCancelledBetweenFailures_NeitherEndsNorCountsInTheStreak(JobRunResult between) =>
         Assert.Equal(
             new JobFailure(T0, 2, "b", JobFailureKind.Other),
-            JobFailureState.From([Run(0, JobRunResult.Failure, "a"), Run(1, JobRunResult.Interrupted), Run(2, JobRunResult.Failure, "b")]));
+            JobFailureState.From([Run(0, JobRunResult.Failure, "a"), Run(1, between), Run(2, JobRunResult.Failure, "b")]));
 
     [Fact]
     public void From_NoRuns_IsNotFailing() => Assert.Null(JobFailureState.From([]));

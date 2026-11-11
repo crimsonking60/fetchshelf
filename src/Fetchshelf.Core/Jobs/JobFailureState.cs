@@ -11,15 +11,16 @@ public sealed record JobFailure(DateTimeOffset Since, int FailedRuns, string? La
 public static class JobFailureState
 {
     /// <summary>
-    /// The state after one more run. A failed run starts or extends the streak. A run that succeeded, finished with
-    /// errors (it did its work) or was cancelled ends it. A run Fetchshelf stopped during, or one still running, says
-    /// nothing either way and leaves it as it was.
+    /// The state after one more run. A failed run starts or extends the streak. A run that succeeded or finished with
+    /// errors (it did its work) ends it. A run that was cancelled, that Fetchshelf stopped during, or that is still
+    /// running says nothing either way and leaves it as it was: ending it there would drop the job from the failing
+    /// ones without a recovery, and a failure after it would count as a new streak.
     /// </summary>
     public static JobFailure? Next(JobFailure? current, JobRunRecord run) => run.Result switch
     {
         JobRunResult.Failure => new JobFailure(
             current?.Since ?? run.StartedAt, (current?.FailedRuns ?? 0) + 1, run.Summary, run.FailureKind ?? JobFailureKind.Other),
-        JobRunResult.Success or JobRunResult.CompletedWithErrors or JobRunResult.Cancelled => null,
+        JobRunResult.Success or JobRunResult.CompletedWithErrors => null,
         _ => current,
     };
 

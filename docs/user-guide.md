@@ -1501,8 +1501,9 @@ between pages.
 ### Errors
 
 **Jobs that are failing** come first: every job whose latest run failed, with that run's error, since when it
-has been failing and how many runs in a row, a link to its history, and **Run now**. A job leaves the list as
-soon as a run succeeds, finishes with errors (it did its work) or is cancelled; there is nothing to remove.
+has been failing and how many runs in a row, a link to its history, and **Run now**. A run that was cancelled,
+or that Fetchshelf stopped during, doesn't count either way. A job leaves the list as soon as a run succeeds or
+finishes with errors (it did its work); there is nothing to remove.
 When MAM refuses `mam_id` (HTTP 403) or blocks the account (HTTP 406), every job that talks to MAM fails at
 once; those jobs share one line, "MAM refused `mam_id` (HTTP 403) since …", naming them and saying what to do.
 
