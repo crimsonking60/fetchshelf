@@ -28,7 +28,7 @@ public sealed class IntervalJobScheduler(
             return;
         }
 
-        var first = FirstRunPlanner.Plan(_timeProvider.GetUtcNow(), jobRegistry.Get(jobName)?.LastRun?.StartedAt, interval, startupDelay);
+        var first = FirstRunPlanner.Plan(_timeProvider.GetUtcNow(), jobRegistry.Get(jobName)?.LastRun, interval, startupDelay);
         var nextRun = first.At;
         var trigger = first.IsStartup ? JobTrigger.Startup : JobTrigger.Schedule;
         while (!stoppingToken.IsCancellationRequested)

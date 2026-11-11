@@ -85,8 +85,9 @@ never fails the job.
 `IntervalJobScheduler` works out the first trigger from the job's last recorded start instead of waiting a full
 interval:
 
-- **Run before, and not yet due:** the first run is at the last start plus the interval. A restart doesn't change
-  a job's rhythm.
+- **Run before, and not yet due:** the first run is one interval after the last run ended, as the scheduler times
+  every later run. A restart doesn't change a job's rhythm. A run with no known end (cut off by the restart) counts
+  from its start, and a last run that seems to lie ahead (the clock was set back) counts as having just ended.
 - **Never run, or overdue:** the first run is soon after start, staggered so jobs don't all reach MAM at once:
   the Link job after 30 seconds, then each MAM-talking job (autograbs, snatchlists, Hardcover lists, in
   configuration order) 30 seconds after the previous one, and the Download job after the last of them. The

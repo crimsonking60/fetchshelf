@@ -1453,9 +1453,10 @@ successful ones. The newest 200 runs of each job are kept.
 
 ### When a job first runs after a restart
 
-A job that ran less than one interval ago keeps its rhythm: it next runs one interval after that run
-started, as if there had been no restart. This also holds when the restart cut that run off, so a
-container that keeps restarting can't make a job run more often than its interval.
+A job whose last run ended less than one interval ago keeps its rhythm: it next runs one interval after
+that run ended, as it would have without the restart. A run the restart cut off has no known end, so one
+interval after its start counts instead, and a container that keeps restarting can't make a job run more
+often than its interval.
 
 A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
 MAM at once: Link (and Audiobookshelf) after 30 seconds, then each autograb, snatchlist and Hardcover list in

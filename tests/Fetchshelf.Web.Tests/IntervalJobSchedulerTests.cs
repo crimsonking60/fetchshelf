@@ -41,7 +41,7 @@ public class IntervalJobSchedulerTests
     }
 
     [Fact(Timeout = 10_000)]
-    public async Task RanRecently_FirstRunsOneIntervalAfterTheLastStart()
+    public async Task RanRecently_FirstRunsOneIntervalAfterTheLastRunEnded()
     {
         var time = new TimerCountingTimeProvider(Start);
         var store = new OneRunStore("Link", new JobRunRecord(Start.AddMinutes(-10), JobRunResult.Success, null, Start.AddMinutes(-9)));
@@ -53,12 +53,12 @@ public class IntervalJobSchedulerTests
 
         await scheduler.StartAsync(CancellationToken.None);
         await time.WaitForTimersAsync(1);
-        Assert.Equal(Start.AddMinutes(20), registry.Get("Link")!.NextScheduledRun);
+        Assert.Equal(Start.AddMinutes(21), registry.Get("Link")!.NextScheduledRun);
 
-        time.Advance(TimeSpan.FromMinutes(20));
+        time.Advance(TimeSpan.FromMinutes(21));
         await runs.WaitForRunAsync(1);
 
-        Assert.Equal([Start.AddMinutes(20)], runs.Times);
+        Assert.Equal([Start.AddMinutes(21)], runs.Times);
         await scheduler.StopAsync(CancellationToken.None);
     }
 
