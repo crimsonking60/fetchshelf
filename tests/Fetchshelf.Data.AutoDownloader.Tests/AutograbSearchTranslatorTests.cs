@@ -19,6 +19,10 @@ public class AutograbSearchTranslatorTests
     [InlineData("random", MamSortOrder.Random)]
     [InlineData("low_seeders", MamSortOrder.LowestSeeders)]
     [InlineData("low_snatches", MamSortOrder.LowestSnatches)]
+    [InlineData("high_seeders", MamSortOrder.MostSeeders)]
+    [InlineData("high_snatches", MamSortOrder.MostSnatches)]
+    [InlineData("largest_first", MamSortOrder.LargestFirst)]
+    [InlineData("title", MamSortOrder.TitleAsc)]
     public void ToSearchQuery_SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
     {
         var entry = Entry(AutograbType.New);

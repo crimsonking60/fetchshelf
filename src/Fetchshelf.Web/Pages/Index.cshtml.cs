@@ -44,6 +44,116 @@ public class IndexModel(
 
     public const string AnyLanguage = "any";
 
+    /// <summary>The fields the search text is looked for in (<see cref="SearchQueryBuilder.FieldOptions"/>); title and author when none.</summary>
+    [BindProperty(SupportsGet = true)]
+    public List<string> In { get; set; } = [];
+
+    /// <summary>One of <see cref="SearchQueryBuilder.SortOptions"/>; MAM's own order when unset.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Sort { get; set; }
+
+    /// <summary>One of <see cref="SearchQueryBuilder.TypeOptions"/>; every torrent when unset.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Type { get; set; }
+
+    /// <summary>The page of results, from 1. Not called Page: Razor Pages keeps that name for itself.</summary>
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    public IReadOnlyList<string> SearchFields => SearchQueryBuilder.Fields(In);
+
+    public string SearchSort => SearchQueryBuilder.Sort(Sort);
+
+    public string SearchType => SearchQueryBuilder.Type(Type);
+
+    /// <summary>The search type's label, such as "Freeleech"; null for every torrent.</summary>
+    public string? SearchTypeLabel =>
+        SearchType == SearchQueryBuilder.DefaultType ? null : SearchQueryBuilder.TypeOptions.First(o => o.Value == SearchType).Label;
+
+    /// <summary>The heading without search text: "Newest on MAM", "On MAM" when sorted otherwise, or "Freeleech on MAM".</summary>
+    public string BrowseHeading =>
+        SearchTypeLabel is { } type ? $"{type} on MAM"
+        : SearchSort is SearchQueryBuilder.DefaultSort or "newest" ? "Newest on MAM"
+        : "On MAM";
+
+    /// <summary>How many torrents MAM found for the search, over all pages; null until the results are in.</summary>
+    public int? Found { get; private set; }
+
+    /// <summary>Results on this page left out because the account snatched them, with the "not snatched" type.</summary>
+    public int SnatchedLeftOut { get; private set; }
+
+    public int FirstResultNumber => (SearchQueryBuilder.PageNumber(PageNumber) - 1) * SearchQueryBuilder.PageSize + 1;
+
+    public bool HasNextPage => Found is { } found && SearchQueryBuilder.PageNumber(PageNumber) * SearchQueryBuilder.PageSize < found;
+
+    /// <summary>
+    /// The search as query-string values, with <paramref name="pageNumber"/> as the page, for links and the results
+    /// request. Defaults are left out, so a plain search keeps a plain address.
+    /// </summary>
+    public RouteValueDictionary SearchRouteValues(int pageNumber)
+    {
+        var values = new RouteValueDictionary();
+        if (!string.IsNullOrWhiteSpace(Q))
+        {
+            values[nameof(Q)] = Q;
+        }
+
+        if (!string.IsNullOrEmpty(Lang))
+        {
+            values[nameof(Lang)] = Lang;
+        }
+
+        if (!SearchFields.SequenceEqual(SearchQueryBuilder.DefaultFields))
+        {
+            values[nameof(In)] = SearchFields.ToArray();
+        }
+
+        if (SearchSort != SearchQueryBuilder.DefaultSort)
+        {
+            values[nameof(Sort)] = SearchSort;
+        }
+
+        if (SearchType != SearchQueryBuilder.DefaultType)
+        {
+            values[nameof(Type)] = SearchType;
+        }
+
+        if (pageNumber > 1)
+        {
+            values[nameof(PageNumber)] = pageNumber;
+        }
+
+        return values;
+    }
+
+    /// <summary>The cookie that remembers the category chosen for downloads, as people usually fill one library at a time.</summary>
+    public const string CategoryCookie = "fs-search-category";
+
+    /// <summary>The category Download sends, as last chosen; empty for the `[[tag]]` rules.</summary>
+    public string ChosenCategory => Request.Cookies[CategoryCookie] ?? string.Empty;
+
+    /// <summary>
+    /// The categories a download can go to: each library's, then any other qBittorrent has torrents in (once its list
+    /// has been read). Empty means the `[[tag]]` rules decide.
+    /// </summary>
+    public IReadOnlyList<(string Value, string Label)> CategoryOptions { get; private set; } = [];
+
+    private static IReadOnlyList<(string Value, string Label)> CategoriesFor(FetchshelfSettings settings, QBittorrentPresence presence)
+    {
+        var libraries = LibraryCategories.For(settings);
+        var options = libraries.Select(c => (c.Category, c.Label)).ToList();
+        if (presence.Loaded)
+        {
+            options.AddRange(presence.CategoryByHash.Values
+                .Where(c => c.Length > 0 && libraries.All(l => l.Category != c))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(c => (c, c)));
+        }
+
+        return options;
+    }
+
     /// <summary>The top-level <c>languages</c>, which a search uses unless <see cref="Lang"/> says otherwise. Validated when the config loads.</summary>
     public IReadOnlyList<Language> DefaultLanguages => settings.Languages
         .Select(name => LanguageNameResolver.TryResolve(name, out var language) ? language : (Language?)null)
@@ -108,14 +218,7 @@ public class IndexModel(
         // query or the Results list - both are applied browser-side (see the page's script)
         // against each row's data-media-type/data-status attribute, so every result is always
         // fetched and rendered regardless of the current filter state.
-        var query = new MamSearchQuery
-        {
-            Text = string.IsNullOrWhiteSpace(Q) ? null : Q,
-            SearchFields = string.IsNullOrWhiteSpace(Q) ? [] : [MamSearchField.Title, MamSearchField.Author],
-            Target = MamSearchTarget.New,
-            ReturnDownloadLink = true,
-            LanguageIds = SearchLanguages.Select(language => (int)language).ToList(),
-        };
+        var query = SearchQueryBuilder.Build(Q, In, Sort, Type, PageNumber, SearchLanguages);
 
         try
         {
@@ -125,10 +228,19 @@ public class IndexModel(
             var wedgeOverBytes = settings.Search.WedgeOverBytes;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
             var presence = await presenceTask;
+            CategoryOptions = CategoriesFor(settings, presence);
             var statusByMamId = await LoadStatusesAsync(mamIds, presence.Loaded ? presence.StateByHash : null);
             var hashesByMamId = await KnownHashesAsync(mamIds);
+            Found = result.Found;
 
-            Results = result.Data
+            // MAM can't be asked for torrents the account hasn't snatched, so those it has are left out of this page.
+            var records = result.Data.ToList();
+            if (SearchType == SearchQueryBuilder.NotSnatchedType)
+            {
+                SnatchedLeftOut = records.RemoveAll(record => record.IsSnatchedByMe);
+            }
+
+            Results = records
                 .Select(record => WithQBittorrent(
                     SearchResultViewModel.From(
                         record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
@@ -274,11 +386,29 @@ public class IndexModel(
     /// Starts the selection for <paramref name="mamId"/>. From the Search page's htmx forms it answers with just the
     /// outcome message and the refreshed row, so the page is not reloaded; without htmx it redirects back to the page.
     /// </summary>
-    public async Task<IActionResult> OnPostDownloadAsync(long mamId, bool wedge)
+    /// <param name="category">
+    /// The qBittorrent category chosen on the page, instead of the one the `[[tag]]` rules give; empty for the rules.
+    /// It must be a library's category or one qBittorrent already has, so a stale cookie can't create categories.
+    /// </param>
+    public async Task<IActionResult> OnPostDownloadAsync(long mamId, bool wedge, string? category)
     {
         MamTorrentRecord? record = null;
         var failed = false;
         string message;
+        category = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
+        if (category is not null && !await IsOfferedCategoryAsync(category))
+        {
+            message = $"Not downloaded: {category} is neither a library's category nor one qBittorrent has. Choose another category.";
+            if (!Request.Headers.ContainsKey("HX-Request"))
+            {
+                DownloadMessage = message;
+                return RedirectToPage(new { Q });
+            }
+
+            return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, null, IsError: true));
+        }
+
+        RememberCategory(category);
         try
         {
             var lookup = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnDownloadLink = true });
@@ -288,10 +418,14 @@ public class IndexModel(
                 var metadata = MamTorrentMapper.Map(record);
                 var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
                 var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, [], cost, autograbCategory: null, grabberName: JobNames.ManualSearchGrabber);
+                    record, metadata, [], cost, autograbCategory: category, grabberName: JobNames.ManualSearchGrabber);
                 logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
                 var downloadStarted = outcome == SelectionOutcome.Selected && StartDownload();
                 message = DescribeOutcome(outcome, metadata, formatPreferenceLists, downloadStarted);
+                if (outcome == SelectionOutcome.Selected && category is not null)
+                {
+                    message += $" Category: {category}.";
+                }
             }
             else
             {
@@ -317,6 +451,27 @@ public class IndexModel(
         // Set only on the redirect path above: TempData would otherwise show this message again on the next page load.
         var row = record is null ? null : await BuildRowAsync(record, withQBittorrent: false);
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
+    }
+
+    private async Task<bool> IsOfferedCategoryAsync(string category) =>
+        LibraryCategories.IsLibraryCategory(settings, category)
+        || (await qbittorrentPresence.GetAsync()) is { Loaded: true } presence && presence.CategoryByHash.Values.Contains(category, StringComparer.Ordinal);
+
+    private void RememberCategory(string? category)
+    {
+        if (category is null)
+        {
+            Response.Cookies.Delete(CategoryCookie, new CookieOptions { Path = "/" });
+            return;
+        }
+
+        Response.Cookies.Append(CategoryCookie, category, new CookieOptions
+        {
+            Path = "/",
+            MaxAge = TimeSpan.FromDays(365),
+            SameSite = SameSiteMode.Lax,
+            IsEssential = true,
+        });
     }
 
     /// <summary>

@@ -412,7 +412,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `cost` | `"free"` | How to pay for matching torrents. See [cost](#cost). |
 | `query` | unset | Free-text search. Supports MAM's search syntax. |
 | `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MAM's default fields. |
-| `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders` or `low_snatches`. |
+| `sort_by` | newest first | `newest_first` (same as unset), `oldest_first`, `random`, `low_seeders`, `low_snatches`, `high_seeders`, `high_snatches`, `largest_first` or `title`. With a `query`, `newest_first` is MAM's own order, which sorts by relevance. |
 | `max_pages` | 50 for `bookmarks`, `freeleech`, `mine`; 1 otherwise | Number of result pages to read per run, at least 1. A page is 100 results (fixed). Paging stops early when a page comes back short. |
 | `search_interval` | global `search_interval` | Minutes between runs, `0` to 43200. `0` means UI-triggered only. |
 | `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |

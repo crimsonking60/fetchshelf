@@ -95,6 +95,21 @@ public class SearchResponseParserTests
         Assert.Equal("abcdef0123456789", record.DownloadHash);
     }
 
+    [Theory]
+    [InlineData("\"my_snatched\": 1,", true)]
+    [InlineData("\"my_snatched\": \"1\",", true)]
+    [InlineData("\"my_snatched\": 0,", false)]
+    [InlineData("\"my_snatched\": null,", false)]
+    [InlineData("", false)]
+    public void Parse_MySnatched_SaysWhetherTheAccountSnatchedIt(string field, bool expected)
+    {
+        var json = ResponseJson.Replace("\"fl_vip\": false,", "\"fl_vip\": false, " + field, StringComparison.Ordinal);
+
+        var record = Assert.Single(SearchResponseParser.Parse(Parse(json)).Data);
+
+        Assert.Equal(expected, record.IsSnatchedByMe);
+    }
+
     [Fact]
     public void Parse_EmptyResultErrorShape_ReturnsNoResultsWithoutThrowing()
     {

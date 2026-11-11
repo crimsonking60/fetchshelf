@@ -290,6 +290,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .status-downloaded { --badge: var(--c-warn); }
 .status-linked { --badge: var(--c-ok); }
 .status-not-in-qbittorrent { --badge: var(--c-warn); }
+.status-snatched { --badge: var(--text-muted); }
 .badge-freeleech { --badge: var(--c-ok); }
 .badge-personal-freeleech { --badge: var(--c-info); }
 .badge-vip { --badge: var(--c-vip); }
@@ -450,3 +451,9 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .failing-jobs { margin-bottom: 1.5rem; }
 .failing-jobs li { margin-bottom: 0.4rem; }
 .failing-jobs form { display: inline; }
+
+/* ---- search page: fields to search in, result pages ---------------------- */
+.search-fields summary { cursor: pointer; color: var(--text-muted); }
+.search-fields label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0.3rem 1rem 0 0; }
+.search-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.8rem 0; }
+.search-pager #results-count { color: var(--text-muted); }

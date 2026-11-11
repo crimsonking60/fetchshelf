@@ -43,6 +43,21 @@ public class SearchRequestBuilderTests
         Assert.False(tor.TryGetProperty("startNumber", out _));
     }
 
+    [Theory]
+    [InlineData(MamSortOrder.OldestFirst, "dateAsc")]
+    [InlineData(MamSortOrder.NewestByDate, "dateDesc")]
+    [InlineData(MamSortOrder.MostSeeders, "seedersDesc")]
+    [InlineData(MamSortOrder.MostSnatches, "snatchedDesc")]
+    [InlineData(MamSortOrder.LargestFirst, "sizeDesc")]
+    [InlineData(MamSortOrder.TitleAsc, "titleAsc")]
+    public void BuildSearchRequestBody_SortOrder_SendsItsSortType(MamSortOrder sortOrder, string sortType)
+    {
+        var dto = MamClient.BuildSearchRequestBody(new MamSearchQuery { SortOrder = sortOrder });
+        var tor = JsonSerializer.SerializeToElement(dto, MamClient.SearchRequestSerializerOptions).GetProperty("tor");
+
+        Assert.Equal(sortType, tor.GetProperty("sortType").GetString());
+    }
+
     [Fact]
     public void BuildSearchRequestBody_LookupById_SetsIdOnTor()
     {
