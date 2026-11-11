@@ -124,6 +124,85 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.FollowEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("LastFoundAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastSearchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kind", "NameKey")
+                        .IsUnique();
+
+                    b.ToTable("Follows");
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.FollowFindEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FollowId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("FoundAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("MamId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MediaSide")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeriesDisplay")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("StatusAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("FollowId", "MamId")
+                        .IsUnique();
+
+                    b.ToTable("FollowFinds");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.JobRunEntity", b =>
                 {
                     b.Property<long>("Id")
@@ -487,6 +566,15 @@ namespace Fetchshelf.Data.Migrations
                     b.HasIndex("TorrentId");
 
                     b.ToTable("TorrentSeries", (string)null);
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.FollowFindEntity", b =>
+                {
+                    b.HasOne("Fetchshelf.Data.Entities.FollowEntity", null)
+                        .WithMany()
+                        .HasForeignKey("FollowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentPersonEntity", b =>

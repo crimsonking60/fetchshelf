@@ -31,7 +31,7 @@ download_after_selection = true # start downloading as soon as something is sele
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 
-languages = ["English"] # the default 'languages' of every [[autograb]] and [[hardcover_list.grab]] block
+languages = ["English"] # the default 'languages' of every [[autograb]], [[hardcover_list.grab]] and [[follow.grab]] block
                         # that doesn't set its own, and the Search page's starting language. Empty = any.
                         # Not used by [[tag]] rules.
 
@@ -253,6 +253,24 @@ list = "books-to-fetch"  # instead of status: the slug of one of your lists, fro
 
 [[hardcover_list.grab]]
 cost = "free"
+
+# =====================================================================================================
+# [follow]: optional. Lets series and authors be followed from the Series page, a torrent's page and the
+# Torrents page; the Follow job then searches MAM for their missing and new books. What is followed is
+# chosen in the web UI, not here.
+# =====================================================================================================
+[follow]
+search_interval = 60     # overrides the global search_interval
+searches_per_run = 10    # MAM searches per run at most, one per followed series or author
+search_again_after = 24  # hours before the same series or author is searched again
+prefer_format = "audio"  # when both formats are found, take only this one; unset = both
+category = "audiobooks"  # qBittorrent category for everything it downloads; overrides [[tag]] rules
+dry_run = false
+
+# One or more grab blocks, tried in order, as for [[hardcover_list]].
+[[follow.grab]]
+cost = "free"
+categories = { audio = true, ebook = false }
 
 # =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.

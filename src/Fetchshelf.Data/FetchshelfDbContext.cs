@@ -32,6 +32,10 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<TorrentSeriesEntity> TorrentSeries => Set<TorrentSeriesEntity>();
 
+    public DbSet<FollowEntity> Follows => Set<FollowEntity>();
+
+    public DbSet<FollowFindEntity> FollowFinds => Set<FollowFindEntity>();
+
     /// <summary>The people and series rows the last save added for its torrents, dropped again if that save failed.</summary>
     internal List<object> PendingProjectionRows { get; } = [];
 
@@ -109,6 +113,18 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasOne<TorrentEntity>().WithMany().HasForeignKey(p => p.TorrentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(p => p.TorrentId);
             entity.HasIndex(p => new { p.Role, p.NameKey });
+        });
+
+        modelBuilder.Entity<FollowEntity>(entity =>
+        {
+            entity.HasIndex(f => new { f.Kind, f.NameKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<FollowFindEntity>(entity =>
+        {
+            entity.HasOne<FollowEntity>().WithMany().HasForeignKey(f => f.FollowId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(f => new { f.FollowId, f.MamId }).IsUnique();
+            entity.HasIndex(f => f.Status);
         });
 
         modelBuilder.Entity<TorrentSeriesEntity>(entity =>

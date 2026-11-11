@@ -19,6 +19,10 @@ public class DetailModel(
 {
     public TorrentDetailViewModel? Torrent { get; private set; }
 
+    /// <summary>What is followed, by kind and key, for the follow buttons; empty without a `[follow]` section.</summary>
+    public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Data.Entities.FollowMode> Followed { get; private set; } =
+        new Dictionary<(Data.Entities.FollowKind, string), Data.Entities.FollowMode>();
+
     /// <summary>What the last action did, shown once after the redirect back to this page.</summary>
     [TempData]
     public string? ActionMessage { get; set; }
@@ -35,6 +39,11 @@ public class DetailModel(
         }
 
         Torrent = loaded;
+        if (settings.Follow is not null)
+        {
+            Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext, HttpContext.RequestAborted);
+        }
+
         return Page();
     }
 

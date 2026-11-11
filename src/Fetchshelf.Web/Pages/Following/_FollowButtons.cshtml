@@ -1,0 +1,20 @@
+@model Fetchshelf.Web.Pages.Following.FollowButtonsViewModel
+@using Fetchshelf.Data.Entities
+@foreach (var (name, mode) in Model.Buttons)
+{
+    if (mode is { } followMode)
+    {
+        <a class="follow-state" asp-page="/Following/Index">@(followMode == FollowMode.Ignore ? "Ignored" : "Following") @name.Name</a>
+    }
+    else
+    {
+        <form method="post" asp-page="/Following/Index" asp-page-handler="Follow" class="inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="kind" value="@Model.Kind" />
+            <input type="hidden" name="key" value="@name.Key" />
+            <input type="hidden" name="name" value="@name.Name" />
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <button type="submit" title="@(Model.Kind == FollowKind.Series ? "Download this series' missing and future books" : "List this author's new books on the Following page")">Follow @name.Name</button>
+        </form>
+    }
+}

@@ -233,6 +233,28 @@ if (settings.Hardcover is not null)
         logger: sp.GetRequiredService<ILogger<HardcoverListImporter>>()));
 }
 
+if (settings.Follow is { } followSettings)
+{
+    builder.Services.AddSingleton(followSettings);
+    builder.Services.AddScoped(sp => new FollowRunner(
+        sp.GetRequiredService<FetchshelfDbContext>(),
+        sp.GetRequiredService<MamClient>(),
+        sp.GetRequiredService<MamAccessGate>(),
+        sp.GetRequiredService<SelectionRunner>(),
+        sp.GetRequiredService<LibraryQueries>(),
+        followSettings,
+        formatPreferenceLists,
+        sp.GetRequiredService<TimeProvider>(),
+        logger: sp.GetRequiredService<ILogger<FollowRunner>>()));
+    builder.Services.AddScoped(sp => new FollowService(
+        sp.GetRequiredService<FetchshelfDbContext>(),
+        sp.GetRequiredService<MamClient>(),
+        sp.GetRequiredService<MamAccessGate>(),
+        sp.GetRequiredService<SelectionRunner>(),
+        followSettings,
+        sp.GetRequiredService<TimeProvider>()));
+}
+
 // The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
 builder.Services.AddSingleton(new SafetyBuffers(
     settings.UnsatBuffer, settings.WedgeBuffer,
@@ -277,7 +299,8 @@ if (settings.BackgroundJobsEnabled)
 
     var mamJobs = settings.Autograb.Select((entry, i) => (AutoDownloaderJobNames.Autograb(entry, i), entry.SearchInterval))
         .Concat(settings.Snatchlist.Select((entry, i) => (AutoDownloaderJobNames.Snatchlist(entry, i), entry.SearchInterval)))
-        .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)));
+        .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)))
+        .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : []);
     foreach (var (jobName, searchInterval) in mamJobs)
     {
         var intervalMinutes = searchInterval ?? settings.SearchInterval;
@@ -459,6 +482,22 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
 
             return JobOutcomes.HardcoverList(summary);
         }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
+    }
+
+    if (settings.Follow is not null)
+    {
+        jobRegistry.Register(JobNames.Follow, async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var runner = scope.ServiceProvider.GetRequiredService<FollowRunner>();
+            var summary = await runner.RunAsync(settings.UnsatBuffer, ignoreTorrents, ct);
+            if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
+            {
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
+            }
+
+            return JobOutcomes.Follow(summary);
+        }, "Searches MAM for the followed series and authors, and selects or lists the books the library is missing.");
     }
 
     var budgetSpent = services.GetRequiredService<BudgetSpentWatcher>();

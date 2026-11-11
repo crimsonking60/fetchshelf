@@ -25,6 +25,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Automatic downloads](#automatic-downloads)
 - [Snatchlists](#snatchlists)
 - [Books you want, from Hardcover](#books-you-want-from-hardcover)
+- [Completing series and following authors](#completing-series-and-following-authors)
 - [Protecting your account](#protecting-your-account)
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
 - [Using the web interface](#using-the-web-interface)
@@ -1043,6 +1044,44 @@ Use `dry_run = true` first to see in the log what a list would select. See
 Hardcover's API is still in beta, so Hardcover may change it or reset tokens without notice. If the job
 starts failing, see [A Hardcover list fails](#a-hardcover-list-fails).
 
+## Completing series and following authors
+
+The **Series** page lists every series in the library: its authors, the books it has (*1–4, 6*), the books
+missing between them (*5*), and the media types. Books with a number like 1.5, usually novellas between two
+books, are shown when owned but never counted as missing. It can be limited to series with missing books,
+followed series or ignored ones, and searched by series or author name. Each series name leads to its books
+on the **Torrents** page.
+
+With a [`[follow]`](configuration.md#follow) section, series and authors can be followed:
+
+```toml
+[follow]
+category = "audiobooks"        # optional: the library the books go to
+
+[[follow.grab]]
+cost = "free"
+categories = { ebook = false }
+```
+
+- **Follow** a series on the **Series** page: the Follow job then downloads its missing books, and new ones
+  as they are uploaded, through the same rules as automatic downloads.
+- **Watch** a series instead to have what is found listed on the **Following** page, with **Download**,
+  **Wedge download** and **Dismiss** buttons, and nothing downloaded by itself.
+- **Ignore** a series to leave it out of the series with missing books.
+- **Follow an author** with the button on a torrent's page, or next to an author filter on the **Torrents**
+  page. An author is watched to begin with: their new books are listed, not downloaded. The **Following**
+  page switches a follow between downloading automatically and only listing.
+
+The **Following** page lists every followed or watched series and author with what was found for it; the
+count on its menu link is what is waiting to be looked at. A find marked *not free* matched, but none of the
+`[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. **Search now** puts a
+series or author first in line and starts the Follow job.
+
+Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
+at most once every `search_again_after` hours (24). Fifty followed series are then each searched once a day,
+in five runs. This keeps the number of requests to MAM low. Use
+`dry_run = true` first to see in the log what the job would select.
+
 ## Protecting your account
 
 Fetchshelf will not start a download that would break these limits.
@@ -1298,6 +1337,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
+| **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow, watch or ignore it. |
+| **Following** | The followed series and authors and what was found for them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |

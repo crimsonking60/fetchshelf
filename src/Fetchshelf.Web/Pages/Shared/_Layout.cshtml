@@ -23,6 +23,16 @@
     [
         ("/Selected/Index", "Selected"),
         ("/Torrents/Index", "Torrents"),
+        ("/Series/Index", "Series"),
+    ]);
+    // Only of use with a [follow] section; the page itself says so when there is none.
+    if (Settings.Follow is not null)
+    {
+        navItems.Add(("/Following/Index", "Following"));
+    }
+
+    navItems.AddRange(
+    [
         ("/Events/Index", "Events"),
         ("/Errors/Index", "Errors"),
         ("/Duplicates/Index", "Duplicates"),
@@ -75,6 +85,10 @@
                 <a asp-page="@navPage" aria-current="@(IsCurrent(navPage) ? "page" : null)">@label@if (navPage == "/Errors/Index")
                     {
                         @await Component.InvokeAsync("ErrorBadge")
+                    }
+                    else if (navPage == "/Following/Index")
+                    {
+                        @await Component.InvokeAsync("FollowBadge")
                     }</a>
             }
         </nav>

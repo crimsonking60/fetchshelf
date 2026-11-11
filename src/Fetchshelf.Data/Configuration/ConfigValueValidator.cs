@@ -85,6 +85,17 @@ internal static partial class ConfigValueValidator
             CheckInterval("search_interval", list.SearchInterval, Label("hardcover_list", list.Name, i));
         }
 
+        if (settings.Follow is { } follow)
+        {
+            const string label = "the [follow] section";
+            CheckInterval("search_interval", follow.SearchInterval, label);
+            CheckAtLeast("searches_per_run", follow.SearchesPerRun, 1, label);
+            if (follow.SearchAgainAfter is < 1 or > FollowSettings.MaxSearchAgainAfterHours)
+            {
+                throw Invalid($"'search_again_after' in {label} must be between 1 and {FollowSettings.MaxSearchAgainAfterHours} hours (30 days); got {follow.SearchAgainAfter}.");
+            }
+        }
+
         if (settings.Search.WedgeOver is { } wedgeOver)
         {
             settings.Search.WedgeOverBytes = TryParseSize(wedgeOver)
@@ -250,6 +261,11 @@ internal static partial class ConfigValueValidator
             {
                 ValidateFilter(list.Grab[g], $"grab block {g + 1} of {Label("hardcover_list", list.Name, i)}");
             }
+        }
+
+        for (var g = 0; g < (settings.Follow?.Grab.Count ?? 0); g++)
+        {
+            ValidateFilter(settings.Follow!.Grab[g], $"grab block {g + 1} of the [follow] section");
         }
 
         for (var i = 0; i < settings.Tag.Count; i++)

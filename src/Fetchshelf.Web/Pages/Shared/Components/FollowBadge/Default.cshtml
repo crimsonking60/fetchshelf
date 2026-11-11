@@ -1,0 +1,5 @@
+@model int
+@if (Model > 0)
+{
+    <span id="follow-badge" class="nav-badge" title="@Model @(Model == 1 ? "find" : "finds") to look at">@Model</span>
+}

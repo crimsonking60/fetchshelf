@@ -24,6 +24,7 @@ to `5-everything.toml`, which uses every option.
 - [Cost](#cost)
 - [`[[snatchlist]]`](#snatchlist)
 - [`[[hardcover_list]]`](#hardcover_list)
+- [`[follow]`](#follow)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [`[[notify]]`](#notify)
@@ -112,7 +113,9 @@ Fetchshelf has two halves that can be used independently.
                                                             ▲
 [[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
                                                             │
-[[hardcover_list]]  books you want, from Hardcover ─────────┘
+[[hardcover_list]]  books you want, from Hardcover ─────────┤
+                                                            │
+[follow]            followed series and authors ────────────┘
 ```
 
 - Every source decides **which** torrents qualify using the [shared torrent filter](#the-shared-torrent-filter)
@@ -169,7 +172,7 @@ These go at the top of the file, before any section.
 | `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
-| `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
+| `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]`, `[[hardcover_list.grab]]` and `[[follow.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
@@ -581,6 +584,55 @@ What each run does:
 - The **Lists** page shows every book and what was found for each format, and lets you mark a book done so
   it is no longer searched for.
 - Selected torrents go to the **Selected** page and are downloaded by the Download job, as autograbs' are.
+
+## `[follow]`
+
+Optional. Lets series and authors be followed: the Follow job searches MAM for them and selects the books the
+library is missing, or lists them on the **Following** page. Which series and authors are followed is chosen in
+the web UI (the **Series** page, a torrent's page, the Torrents page's author and series filters), not here.
+Without this section there is no Follow job and no follow buttons; the **Series** page still shows what is
+missing.
+
+| Setting | Default | Description |
+|---|---|---|
+| `search_interval` | global `search_interval` | Minutes between runs of the Follow job, `0` to 43200. `0` means it runs only from the Jobs page. |
+| `searches_per_run` | `10` | MAM searches one run makes at most: one per followed series or author. |
+| `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
+| `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
+| `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
+| `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. |
+| `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
+
+```toml
+[follow]
+searches_per_run = 10
+search_again_after = 24
+prefer_format = "audio"
+category = "audiobooks"
+
+[[follow.grab]]
+cost = "free"
+categories = { ebook = false }
+```
+
+What each run does:
+
+1. **Picks the follows that are due**: those not searched within `search_again_after` hours, the
+   longest-waiting first, up to `searches_per_run`. Ignored series are never searched.
+2. **Searches MAM** once for each, in the series (or author) field, newest first, in the languages and main
+   categories the `grab` blocks allow. MAM matches words, so a result only counts when its series (or author)
+   is the followed one, compared the way the library compares names.
+3. **Leaves out what the library has**: the same torrent, the same book (as selection judges a duplicate), a
+   series entry already owned in that format, and anything already on the **Selected** page.
+4. **Decides each book**, a series in entry order and an author's books newest first: the first `grab` block
+   whose filter and `cost` accept a torrent takes the one in the best format. A followed series or author has
+   it selected, through the usual rules and the unsatisfied-snatch budget; a watched one has it listed on the
+   **Following** page. A match no block's `cost` accepts is listed as *not free*.
+
+With the defaults, a run makes at most 10 MAM searches, and each followed series or author is searched once a
+day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
+doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
+on the next run.
 
 ## `[[tag]]`
 

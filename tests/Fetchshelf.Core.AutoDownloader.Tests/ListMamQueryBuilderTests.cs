@@ -78,4 +78,14 @@ public class ListMamQueryBuilderTests
 
         Assert.Equal("@title A Court of Thorns (and|&) Roses @author (\"Sarah (J|J.) Maas\")", query);
     }
+
+    [Theory]
+    [InlineData("Ender's Saga", "Ender s Saga")]
+    [InlineData("Spider-Man", "Spider Man")]
+    [InlineData("Who?/What", "Who What")]
+    [InlineData("A*B | \"C\" (D) @E", "A B C D E")]
+    [InlineData("James S. A. Corey", "James S. A. Corey")]
+    [InlineData("Мастер и Маргарита", "Мастер и Маргарита")]
+    public void PlainWords_TakesOutSearchSyntax(string name, string expected) =>
+        Assert.Equal(expected, ListMamQueryBuilder.PlainWords(name));
 }
