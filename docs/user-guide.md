@@ -1344,6 +1344,10 @@ reported, so they cannot be chosen by hand.
     from qBittorrent, torrents removed from MAM (found by an autograb with
     [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
+  - *Author*, *Narrator* and *Series*: click an author or series name in the list, or an author, narrator
+    or series on a torrent's page, to see only that author's, narrator's or series' torrents. The filter
+    shows above the list with the name; its **×** drops it. Names are matched the way duplicates are, so
+    "J.R.R. Tolkien" and "J. R. R. Tolkien" are one author, and "The Expanse" and "Expanse" one series.
 
   Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
   Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page* below the list. Your browser

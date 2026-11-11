@@ -81,7 +81,85 @@ public sealed class DataUpgradeTests : IDisposable
         Assert.Equal("hobbit", context.Torrents.Single(t => t.Id == "hash2").NormalizedTitleKey);
         Assert.Equal("анна каренина", context.SelectedTorrents.Single().NormalizedTitleKey);
         Assert.Equal(DatabaseMigrator.CurrentDataVersion, DatabaseMigrator.ReadDataVersion(context));
-        Assert.Equal(["Recomputed the title keys of 1 torrents and 1 selections for the new title rule"], messages);
+        Assert.Equal("Recomputed the title keys of 1 torrents and 1 selections for the new title rule", messages[0]);
+    }
+
+    /// <summary>A database as version 1 left it: torrents without author, series, language or media type rows and columns.</summary>
+    private void SeedVersion1Database()
+    {
+        SeedOldDatabase();
+        using var context = CreateContext();
+        context.Database.ExecuteSqlRaw("DELETE FROM TorrentPeople; DELETE FROM TorrentSeries; UPDATE Torrents SET Language = NULL, MediaType = NULL;");
+        context.Database.ExecuteSqlRaw("PRAGMA user_version = 1;");
+    }
+
+    [Fact]
+    public void Migrate_DatabaseAtDataVersion1_FillsInAuthorsSeriesLanguageAndMediaType()
+    {
+        SeedVersion1Database();
+        var messages = new List<string>();
+
+        using var context = CreateContext();
+        DatabaseMigrator.Migrate(context, log: messages.Add);
+
+        var people = context.TorrentPeople.OrderBy(p => p.TorrentId).ToList();
+        Assert.Equal(["hash1", "hash2"], people.Select(p => p.TorrentId));
+        Assert.All(people, p => Assert.Equal("Лев Толстой", p.Name));
+        Assert.All(context.Torrents.ToList(), t => Assert.Equal(("Russian", "Ebook"), (t.Language, t.MediaType)));
+        Assert.Equal(DatabaseMigrator.CurrentDataVersion, DatabaseMigrator.ReadDataVersion(context));
+        Assert.StartsWith("Filled in the authors, narrators and series of 2 torrents in ", Assert.Single(messages));
+    }
+
+    [Fact]
+    public void Migrate_DatabaseAtDataVersion1_ReadsTheMetadataJson_WithoutWritingItBack()
+    {
+        SeedVersion1Database();
+        var commands = new CommandRecorder();
+
+        using var context = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>()
+            .UseSqlite($"Data Source={_dbPath}").AddInterceptors(commands).Options);
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Contains(commands.Texts, text => text.Contains("UPDATE \"Torrents\"", StringComparison.Ordinal));
+        Assert.DoesNotContain(commands.Texts, text => text.Contains("UPDATE \"Torrents\"", StringComparison.Ordinal)
+            && text.Contains("\"MetadataJson\" = ", StringComparison.Ordinal));
+        Assert.Equal("Russian", context.Torrents.AsNoTracking().Single(t => t.Id == "hash1").Language);
+    }
+
+    private sealed class CommandRecorder : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public List<string> Texts { get; } = [];
+
+        public override int NonQueryExecuted(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandExecutedEventData eventData, int result)
+        {
+            Texts.Add(command.CommandText);
+            return result;
+        }
+
+        public override System.Data.Common.DbDataReader ReaderExecuted(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandExecutedEventData eventData,
+            System.Data.Common.DbDataReader result)
+        {
+            Texts.Add(command.CommandText);
+            return result;
+        }
+    }
+
+    [Fact]
+    public void Migrate_AuthorsAlreadyFilledIn_RunAgain_MakesNoSecondRows()
+    {
+        SeedVersion1Database();
+        using (var context = CreateContext())
+        {
+            DatabaseMigrator.Migrate(context);
+            context.Database.ExecuteSqlRaw("PRAGMA user_version = 1;");
+        }
+
+        using var reopened = CreateContext();
+        DatabaseMigrator.Migrate(reopened);
+
+        Assert.Equal(2, reopened.TorrentPeople.Count());
     }
 
     [Fact]

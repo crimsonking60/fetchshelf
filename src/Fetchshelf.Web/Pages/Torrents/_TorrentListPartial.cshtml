@@ -39,8 +39,8 @@ else
                             <span class="muted">(unlinked)</span>
                         }
                     </td>
-                    <td>@torrent.Authors</td>
-                    <td>@torrent.Series</td>
+                    <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Authors, nameof(IndexModel.Author), Model.Query)" /></td>
+                    <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Series, nameof(IndexModel.Series), Model.Query)" /></td>
                     <td class="nowrap"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a></td>
                     <td><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></td>
                     <td>@torrent.QBittorrentCategory</td>

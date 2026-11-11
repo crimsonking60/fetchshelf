@@ -26,6 +26,20 @@ public sealed record SeriesEntry
     /// <summary>The formatted display form: the number as written, "a-b" for a range, "NpM" for a part.</summary>
     public required string Display { get; init; }
 
+    /// <summary>
+    /// The last book number the entry covers: the second number of a range, else the entry's own number (a part counts
+    /// as its book). Derived from <see cref="Display"/> rather than stored, so metadata written before it existed
+    /// reads the same.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public decimal LastNumber =>
+        Kind == SeriesEntryKind.Range
+        && Display?.LastIndexOf('-') is int dash and > 0
+        && decimal.TryParse(Display[(dash + 1)..], System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var last)
+        && last >= FirstNumber
+            ? last
+            : FirstNumber;
+
     public static SeriesEntry ForNumber(decimal value, string display) =>
         new() { Kind = SeriesEntryKind.Number, FirstNumber = value, Display = display };
 

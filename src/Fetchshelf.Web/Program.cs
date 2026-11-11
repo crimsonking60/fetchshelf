@@ -154,6 +154,7 @@ builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 builder.Services.AddDbContextFactory<FetchshelfDbContext>(options => options.UseFetchshelfSqlite(dataFilePath));
 builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>().CreateDbContext());
 builder.Services.AddScoped<EventStore>();
+builder.Services.AddScoped<LibraryQueries>();
 builder.Services.AddScoped<ClientStatusChecker>();
 // MamClient is a singleton: one mam_id account => one rate-limited client instance.
 builder.Services.AddSingleton(sp => new MamClient(

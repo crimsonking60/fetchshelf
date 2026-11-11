@@ -2,10 +2,12 @@ namespace Fetchshelf.Web.Pages.Torrents;
 
 /// <summary>
 /// The Torrents list's search, filters and sort, so a link that changes one of them (a sort heading, a filter value)
-/// keeps the others. Paging is left out: any such change starts again at page 1.
+/// keeps the others. Paging is left out: any such change starts again at page 1. <see cref="Author"/>,
+/// <see cref="Narrator"/> and <see cref="Series"/> are name keys (<c>PersonNameKey</c>, <c>SeriesNameKey</c>), not names.
 /// </summary>
 public sealed record TorrentListQuery(
-    string? Q, string? Status, string? Library, string? QbCategory, string? Problem, string? Language, string? MediaType, string Sort, string Dir, int PageSize)
+    string? Q, string? Status, string? Library, string? QbCategory, string? Problem, string? Language, string? MediaType, string Sort, string Dir, int PageSize,
+    string? Author = null, string? Narrator = null, string? Series = null)
 {
     /// <summary>The query as route values for a link, leaving out empty values.</summary>
     public Dictionary<string, string> ToRouteValues()
@@ -19,6 +21,9 @@ public sealed record TorrentListQuery(
             [nameof(Problem)] = Problem ?? string.Empty,
             [nameof(Language)] = Language ?? string.Empty,
             [nameof(MediaType)] = MediaType ?? string.Empty,
+            [nameof(Author)] = Author ?? string.Empty,
+            [nameof(Narrator)] = Narrator ?? string.Empty,
+            [nameof(Series)] = Series ?? string.Empty,
             [nameof(Sort)] = Sort,
             [nameof(Dir)] = Dir,
             [nameof(PageSize)] = PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -29,7 +34,12 @@ public sealed record TorrentListQuery(
     /// <summary>Whether any filter is set, not counting the search text.</summary>
     public bool HasFilters =>
         !string.IsNullOrEmpty(Status) || !string.IsNullOrEmpty(Library) || !string.IsNullOrEmpty(QbCategory) || !string.IsNullOrEmpty(Problem)
-        || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType);
+        || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType)
+        || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series);
+
+    /// <summary>The query with every filter cleared, keeping the search text, sort and page size.</summary>
+    public TorrentListQuery WithoutFilters() =>
+        this with { Status = null, Library = null, QbCategory = null, Problem = null, Language = null, MediaType = null, Author = null, Narrator = null, Series = null };
 
     /// <summary>Sorted by title: ascending first, reversed when already sorted by title ascending.</summary>
     public TorrentListQuery ToggleTitleSort() =>
