@@ -23,7 +23,7 @@ public sealed record ErrorBadge(int FailingJobs, int NewErrors)
 /// <summary>
 /// The count on the navigation's Errors link: failing jobs, and error rows from the last day. Older rows stay on the
 /// Errors page but don't keep the badge lit; it is for what changed. Failing jobs come from the registry, which holds
-/// them in memory, so the only cost is one small query.
+/// them in memory, so the only cost is one count, as the badge is on every page.
 /// </summary>
 public sealed class ErrorBadgeViewComponent(IJobRegistry jobRegistry, FetchshelfDbContext dbContext, TimeProvider timeProvider) : ViewComponent
 {
@@ -32,10 +32,14 @@ public sealed class ErrorBadgeViewComponent(IJobRegistry jobRegistry, Fetchshelf
 
     public async Task<IViewComponentResult> InvokeAsync()
     {
-        var since = timeProvider.GetUtcNow() - NewFor;
-        // SQLite can't compare DateTimeOffset values in a query; the table holds one row per failing item, so it is small.
-        var occurred = await dbContext.ErroredTorrents.AsNoTracking().Select(e => e.OccurredAt).ToListAsync();
-        var badge = new ErrorBadge(jobRegistry.GetAll().Count(j => j.Failing is not null), occurred.Count(at => at > since));
+        var since = (timeProvider.GetUtcNow() - NewFor).ToUniversalTime();
+        // EF can't compare DateTimeOffset values in a SQLite query, but SQLite holds them as text that sorts as the times
+        // do while they share an offset. Error rows are always written in UTC (ErrorLog), so the cutoff, bound in UTC in
+        // the same form, is compared by SQLite, and the rows, one per book of a long list at worst, are never loaded.
+        var newErrors = await dbContext.Database
+            .SqlQuery<int>($"SELECT COUNT(*) AS \"Value\" FROM \"ErroredTorrents\" WHERE \"OccurredAt\" > {since}")
+            .SingleAsync();
+        var badge = new ErrorBadge(jobRegistry.GetAll().Count(j => j.Failing is not null), newErrors);
         return View(badge);
     }
 }

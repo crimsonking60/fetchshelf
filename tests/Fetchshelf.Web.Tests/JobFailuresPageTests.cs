@@ -152,6 +152,18 @@ public partial class JobFailuresPageTests
     }
 
     [Fact]
+    public async Task Badge_CountsRowsFromTheLastDayOnly_ComparedToTheHour()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        await AddErrorAsync(fixture, ErrorStage.Linker, "hash1", "A day ago, less an hour", DateTimeOffset.UtcNow.AddHours(-23));
+        await AddErrorAsync(fixture, ErrorStage.Linker, "hash2", "A day ago, and an hour", DateTimeOffset.UtcNow.AddHours(-25));
+
+        Assert.Contains("title=\"1 new error\">1</span>", await client.GetStringAsync("/Torrents"));
+    }
+
+    [Fact]
     public async Task Badge_NothingWrongOrOnlyOldRows_IsAbsent()
     {
         using var fixture = new FetchshelfWebAppFixture();
