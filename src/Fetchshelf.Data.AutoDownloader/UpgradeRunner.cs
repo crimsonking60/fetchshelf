@@ -271,7 +271,7 @@ public sealed class UpgradeRunner(
         {
             var outcome = await selectionRunner.ProcessCandidateAsync(
                 record, candidate, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
-                dryRun: settings.DryRun, cancellationToken: cancellationToken);
+                dryRun: settings.DryRun, formatList: preferred, cancellationToken: cancellationToken);
             Log(copy, $"MAM torrent {record.MamId} ({string.Join(", ", candidate.FileTypes)}): {outcome.Describe(settings.DryRun)}");
             if (outcome.IsSelected())
             {

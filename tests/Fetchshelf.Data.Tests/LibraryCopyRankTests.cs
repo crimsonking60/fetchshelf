@@ -73,6 +73,32 @@ public class LibraryCopyRankTests
     }
 
     [Fact]
+    public void RankerFor_CopiesRankedWithOneList_RanksThemByIt()
+    {
+        var mp3 = Copy("mp3");
+        mp3.LinkerName = "Mp3 First";
+        var m4b = Copy("m4b");
+        m4b.LinkerName = "Mp3 First";
+
+        var rank = LibraryCopyRank.RankerFor([mp3, m4b], Lists);
+
+        Assert.Equal((0, 1), (rank(mp3), rank(m4b)));
+    }
+
+    [Fact]
+    public void RankerFor_CopiesInLibrariesWithDifferentLists_RanksThemWithTheGlobalList()
+    {
+        // Each is first in its own list, so only the global one can tell them apart.
+        var mp3 = Copy("mp3");
+        mp3.LinkerName = "Mp3 First";
+        var m4b = Copy("m4b");
+
+        var rank = LibraryCopyRank.RankerFor([mp3, m4b], Lists);
+
+        Assert.Equal((1, 0), (rank(mp3), rank(m4b)));
+    }
+
+    [Fact]
     public void BestFormat_IsTheFirstInTheCopysList() =>
         Assert.Equal(("m4b", "epub", null), (LibraryCopyRank.BestFormat(Copy("mp3"), Lists), LibraryCopyRank.BestFormat(Copy(ebook: "pdf"), Lists), LibraryCopyRank.BestFormat(Copy(), Lists)));
 }

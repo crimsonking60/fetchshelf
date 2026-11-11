@@ -167,9 +167,7 @@ public sealed class Cleaner(
     }
 
     private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) =>
-        DuplicateCopies.PickKeeper(group, Rank, TotalLinkedSize);
-
-    private int Rank(TorrentEntity torrent) => LibraryCopyRank.Of(torrent, formatPreferenceLists);
+        DuplicateCopies.PickKeeper(group, LibraryCopyRank.RankerFor(group, formatPreferenceLists), TotalLinkedSize);
 
     private static long TotalLinkedSize(TorrentEntity torrent) =>
         DeserializeLinkedFiles(torrent.LinkedFilesJson).Sum(f => f.SizeBytes);

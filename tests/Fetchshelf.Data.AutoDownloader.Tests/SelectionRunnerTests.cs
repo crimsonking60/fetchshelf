@@ -253,6 +253,44 @@ public sealed class SelectionRunnerTests : IDisposable
         Assert.Equal(2, Assert.Single(context.SelectedTorrents).MamId);
     }
 
+    [Theory]
+    [InlineData(new[] { "mp3", "m4b" }, false, SelectionOutcome.SelectedAsUpgrade)]
+    [InlineData(new[] { "mp3" }, false, SelectionOutcome.NoPreferredFormat)]
+    [InlineData(new[] { "mp3" }, true, SelectionOutcome.SelectedAsUpgrade)]
+    public async Task ProcessCandidateAsync_ACopyInALibraryWithItsOwnList_IsComparedWithThatList(string[] globalAudio, bool passTheCopysList, SelectionOutcome expected)
+    {
+        // The library prefers m4b, the global list mp3: the m4b candidate is better than the library's mp3 copy.
+        var libraryList = new[] { "m4b", "mp3" };
+        var lists = SelectionTestSupport.PreferenceLists with
+        {
+            AudioTypes = globalAudio,
+            Libraries = new Dictionary<string, LibraryFormatLists> { ["M4b First"] = new(libraryList, null) },
+        };
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var libraryMetadata = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["mp3"]));
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 1,
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(libraryMetadata.Title),
+            Title = libraryMetadata.Title,
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(libraryMetadata),
+            MediaType = libraryMetadata.MediaType.ToString(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            LibraryPath = "/library/The Way of Kings",
+            LinkerName = "M4b First",
+            ChosenAudioExtension = "mp3",
+        });
+        await context.SaveChangesAsync();
+        var runner = new SelectionRunner(context, new EventStore(context), [], lists);
+        var record = SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["m4b"]);
+
+        var outcome = await runner.ProcessCandidateAsync(
+            record, MamTorrentMapper.Map(record), [], ConfiguredCost.Ratio, null, "test-grabber", formatList: passTheCopysList ? libraryList : null);
+
+        Assert.Equal(expected, outcome);
+    }
+
     [Fact]
     public async Task ProcessCandidateAsync_DuplicateOfLibrary_IsSkipped()
     {

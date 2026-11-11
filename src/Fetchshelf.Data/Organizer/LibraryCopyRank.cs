@@ -6,8 +6,9 @@ namespace Fetchshelf.Data.Organizer;
 
 /// <summary>
 /// How good a library copy's format is: the rank of the format the Link job chose for it in the format preference
-/// list it chose it from, its library's own or the global one (lower is better). The Clean job keeps the best copy of a book by it, and a copy "could be upgraded" when its
-/// rank is above the best, so the two never disagree.
+/// list it chose it from, its library's own or the global one (lower is better). The Clean job keeps the best copy of a
+/// book by it, and a copy "could be upgraded" when its rank is above the best. The Upgrade job puts the better copy in
+/// the old copy's library when it can, so the two are ranked with the same list and the Clean job keeps the better one.
 /// </summary>
 public static class LibraryCopyRank
 {
@@ -19,6 +20,24 @@ public static class LibraryCopyRank
         PreferenceList(torrent, preferenceLists) is { } list
             ? FormatRanker.Rank(list, [ChosenFormat(torrent)!])
             : FormatRanker.NotPresent;
+
+    /// <summary>
+    /// How to rank copies of one book against each other, for the Clean job's pick of the best. Copies whose formats were
+    /// chosen from one list are ranked by <see cref="Of"/>. Copies in libraries with different lists of their own are all
+    /// ranked with the global list instead, as a rank in one list says nothing against a rank in another.
+    /// </summary>
+    public static Func<TorrentEntity, int> RankerFor(IReadOnlyList<TorrentEntity> copies, FormatPreferenceLists preferenceLists)
+    {
+        var lists = copies.Select(c => PreferenceList(c, preferenceLists)).OfType<IReadOnlyList<string>>().ToList();
+        if (lists.Skip(1).All(list => list.SequenceEqual(lists[0], StringComparer.OrdinalIgnoreCase)))
+        {
+            return copy => Of(copy, preferenceLists);
+        }
+
+        return copy => GlobalPreferenceList(copy, preferenceLists) is { } list
+            ? FormatRanker.Rank(list, [ChosenFormat(copy)!])
+            : FormatRanker.NotPresent;
+    }
 
     /// <summary>The format the Link job chose: the audio one when there is one, else the ebook one.</summary>
     public static string? ChosenFormat(TorrentEntity torrent) => torrent.ChosenAudioExtension ?? torrent.ChosenEbookExtension;
@@ -43,14 +62,21 @@ public static class LibraryCopyRank
     /// </summary>
     public static IReadOnlyList<string>? PreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists)
     {
+        if (ChosenFormat(torrent) is null)
+        {
+            return null;
+        }
+
         var library = torrent.LinkerName is { } name ? preferenceLists.Libraries.GetValueOrDefault(name) : null;
+        return (torrent.ChosenAudioExtension is not null ? library?.AudioTypes : library?.EbookTypes)
+            ?? GlobalPreferenceList(torrent, preferenceLists);
+    }
+
+    /// <summary>The global list for the copy's chosen format, leaving its library's own out; null without a chosen format.</summary>
+    private static IReadOnlyList<string>? GlobalPreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists)
+    {
         if (torrent.ChosenAudioExtension is not null)
         {
-            if (library?.AudioTypes is { } libraryAudio)
-            {
-                return libraryAudio;
-            }
-
             // The media type column saves reading the metadata; music and radio have lists of their own.
             var mediaType = Enum.TryParse<Core.Metadata.MediaType>(torrent.MediaType, out var parsed)
                 ? parsed
@@ -58,6 +84,6 @@ public static class LibraryCopyRank
             return preferenceLists.AudioSideFor(mediaType);
         }
 
-        return torrent.ChosenEbookExtension is not null ? library?.EbookTypes ?? preferenceLists.EbookTypes : null;
+        return torrent.ChosenEbookExtension is not null ? preferenceLists.EbookTypes : null;
     }
 }

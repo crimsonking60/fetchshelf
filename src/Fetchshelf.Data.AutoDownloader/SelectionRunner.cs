@@ -26,6 +26,10 @@ public sealed class SelectionRunner(
 {
     private readonly List<DryRunSelection> _dryRunSelections = [];
 
+    /// <param name="formatList">
+    /// The format preference list to rank the candidate with, instead of the global one for its media type: the Upgrade
+    /// job passes the list of the copy it upgrades, which the Link job will choose the better copy's format from.
+    /// </param>
     public async Task<SelectionOutcome> ProcessCandidateAsync(
         MamTorrentRecord record,
         TorrentMetadata metadata,
@@ -34,6 +38,7 @@ public sealed class SelectionRunner(
         string? autograbCategory,
         string? grabberName,
         bool dryRun = false,
+        IReadOnlyList<string>? formatList = null,
         CancellationToken cancellationToken = default)
     {
         if (ignoreTorrents.Contains(record.MamId))
@@ -82,7 +87,7 @@ public sealed class SelectionRunner(
             return SelectionOutcome.MetadataOnlyStop;
         }
 
-        var preferenceList = preferenceLists.For(metadata.MediaType);
+        var preferenceList = formatList ?? preferenceLists.For(metadata.MediaType);
         var candidateRank = FormatRanker.Rank(preferenceList, metadata.FileTypes);
         if (candidateRank == FormatRanker.NotPresent)
         {
@@ -92,7 +97,7 @@ public sealed class SelectionRunner(
         var normalizedTitle = TitleNormalizer.Normalize(metadata.Title);
 
         var duplicateAgainstSelected = await CheckDuplicateAgainstSelectedAsync(
-            record.MamId, metadata, normalizedTitle, candidateRank, dryRun, cancellationToken);
+            record.MamId, metadata, normalizedTitle, preferenceList, candidateRank, dryRun, cancellationToken);
         if (duplicateAgainstSelected)
         {
             if (!dryRun)
@@ -104,7 +109,7 @@ public sealed class SelectionRunner(
         }
 
         var (duplicateAgainstLibrary, betterThanLibrary) = await CheckDuplicateAgainstLibraryAsync(
-            record.MamId, metadata, normalizedTitle, candidateRank, dryRun, cancellationToken);
+            record.MamId, metadata, normalizedTitle, preferenceList, candidateRank, dryRun, cancellationToken);
         if (duplicateAgainstLibrary)
         {
             if (!dryRun)
@@ -189,8 +194,13 @@ public sealed class SelectionRunner(
         });
     }
 
+    /// <summary>
+    /// Whether an equal or better copy is selected already. Selections not yet linked have no format chosen, so they are
+    /// ranked by what MAM lists, with the candidate's list: the same book has the same media type, so the same list.
+    /// </summary>
     private async Task<bool> CheckDuplicateAgainstSelectedAsync(
-        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
+        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, IReadOnlyList<string> candidateList, int candidateRank,
+        bool dryRun, CancellationToken cancellationToken)
     {
         if (normalizedTitle.Length == 0)
         {
@@ -209,7 +219,7 @@ public sealed class SelectionRunner(
                 continue;
             }
 
-            var otherRank = FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
+            var otherRank = FormatRanker.Rank(candidateList, otherMeta.FileTypes);
             if (otherRank <= candidateRank)
             {
                 if (!dryRun)
@@ -236,7 +246,7 @@ public sealed class SelectionRunner(
                     continue;
                 }
 
-                if (FormatRanker.Rank(preferenceLists.For(other.Metadata.MediaType), other.Metadata.FileTypes) <= candidateRank)
+                if (FormatRanker.Rank(candidateList, other.Metadata.FileTypes) <= candidateRank)
                 {
                     return true;
                 }
@@ -253,7 +263,8 @@ public sealed class SelectionRunner(
     /// ones, so the candidate is an upgrade.
     /// </returns>
     private async Task<(bool Duplicate, bool BetterThanLibrary)> CheckDuplicateAgainstLibraryAsync(
-        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, int candidateRank, bool dryRun, CancellationToken cancellationToken)
+        long candidateMamId, TorrentMetadata candidateMeta, string normalizedTitle, IReadOnlyList<string> candidateList, int candidateRank,
+        bool dryRun, CancellationToken cancellationToken)
     {
         if (normalizedTitle.Length == 0)
         {
@@ -275,11 +286,12 @@ public sealed class SelectionRunner(
             }
 
             // A copy the Link job chose a format for is ranked by that format, as the Clean job and the Upgrade job rank
-            // it: its MAM listing may name more file types than it has. Others by what MAM lists.
-            var otherRank = LibraryCopyRank.ChosenFormat(other) is not null
-                ? LibraryCopyRank.Of(other, preferenceLists)
-                : FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
-            if (otherRank <= candidateRank)
+            // it: its MAM listing may name more file types than it has. The candidate is then ranked with the same list,
+            // the one the copy's format was chosen from, which may be its library's own. Others by what MAM lists.
+            var (otherRank, rankAgainstOther) = LibraryCopyRank.PreferenceList(other, preferenceLists) is { } otherList
+                ? (LibraryCopyRank.Of(other, preferenceLists), FormatRanker.Rank(otherList, candidateMeta.FileTypes))
+                : (FormatRanker.Rank(candidateList, otherMeta.FileTypes), candidateRank);
+            if (otherRank <= rankAgainstOther)
             {
                 if (!dryRun)
                 {
