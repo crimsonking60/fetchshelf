@@ -1266,7 +1266,8 @@ selected** on the **Torrents** page.
 
 Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
 preference. If two copies of the same book are linked, the one whose format comes earlier in the list is
-kept, and ties go to the larger one. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
+kept, and ties go to the larger one. A copy is ranked by the format it was linked in, with its library's own
+`audio_types` or `ebook_types` when the library sets them. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
 same book.
 
 Two torrents count as **the same book** when their titles match, they have the same media type (ebooks and
@@ -1292,10 +1293,10 @@ A better copy is found by any search: an autograb, a Hardcover list, the Follow 
 download is logged as *selected as a better copy than the library's*. To look for better copies on purpose:
 
 - **Could be upgraded**, under *Problems* on the **Torrents** page, lists the linked books whose format isn't
-  the first in its list, such as an mp3 audiobook when `audio_types` starts with m4b. Each shows its format and
+  the first in its list (the library's own list when it sets one), such as an mp3 audiobook when `audio_types` starts with m4b. Each shows its format and
   the preferred one: *(mp3; m4b preferred)*. *Any problem* leaves them out; a worse format is no problem.
 - A book's own page shows the same, with **Look for a better copy**: a Search page search for its title and
-  first author.
+  first author, in the book's language.
 - The **Upgrade** job, with an [`[upgrade]`](configuration.md#upgrade) section, searches MAM for each such book
   in turn and selects a better copy of the same book when one is there:
 

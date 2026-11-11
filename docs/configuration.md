@@ -638,8 +638,8 @@ on the next run.
 ## `[upgrade]`
 
 Optional. The Upgrade job searches MAM for better formats of books in the library: a book whose linked copy is in
-a format that isn't the first in its format list (`audio_types`, `ebook_types`, `music_types`, `radio_types`),
-such as an mp3 audiobook with `audio_types = ["m4b", "mp3"]`. A better copy goes through the usual selection
+a format that isn't the first in its format list (`audio_types`, `ebook_types`, `music_types`, `radio_types`, or
+its library's own `audio_types`/`ebook_types`), such as an mp3 audiobook with `audio_types = ["m4b", "mp3"]`. A better copy goes through the usual selection
 rules, and the Clean job retires the old one once the new one is linked. Without this section there is no
 Upgrade job; better copies other searches happen to find are still taken.
 
@@ -653,9 +653,10 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
 
 What each run does: it picks the books that could be better, never-searched first and then the longest ago,
-searches MAM for each by its title and first author in its language and media type, and keeps the results that
+searches MAM for each by its title and authors (as a Hardcover list searches) in its language and media type, and keeps the results that
 are the same book (as for duplicates) in a better format. The best of them that a `grab` block accepts is
-selected, with the old copy's qBittorrent category when that is a library's. A run stops selecting at the
+selected; when selection turns it down, the next is tried. A torrent already known to Fetchshelf, queued, or in
+`ignore_torrents` is left out. It is selected with the old copy's qBittorrent category when that is a library's. A run stops selecting at the
 unsatisfied-snatch budget.
 
 ```toml

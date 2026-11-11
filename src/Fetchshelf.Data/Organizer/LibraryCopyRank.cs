@@ -6,12 +6,15 @@ namespace Fetchshelf.Data.Organizer;
 
 /// <summary>
 /// How good a library copy's format is: the rank of the format the Link job chose for it in the format preference
-/// list (lower is better). The Clean job keeps the best copy of a book by it, and a copy "could be upgraded" when its
+/// list it chose it from, its library's own or the global one (lower is better). The Clean job keeps the best copy of a book by it, and a copy "could be upgraded" when its
 /// rank is above the best, so the two never disagree.
 /// </summary>
 public static class LibraryCopyRank
 {
-    /// <summary>The audio format's rank when one was chosen, else the ebook format's; <see cref="FormatRanker.NotPresent"/> without either.</summary>
+    /// <summary>
+    /// The audio format's rank when one was chosen, else the ebook format's; <see cref="FormatRanker.NotPresent"/>
+    /// without either. Selection ranks a library copy by this too, so what the Upgrade job finds better, selection does.
+    /// </summary>
     public static int Of(TorrentEntity torrent, FormatPreferenceLists preferenceLists) =>
         PreferenceList(torrent, preferenceLists) is { } list
             ? FormatRanker.Rank(list, [ChosenFormat(torrent)!])
@@ -34,10 +37,20 @@ public static class LibraryCopyRank
         && ChosenFormat(torrent) is not null
         && Of(torrent, preferenceLists) > 0;
 
-    private static IReadOnlyList<string>? PreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists)
+    /// <summary>
+    /// The list the copy's format was chosen from, as the Link job chose it: the library's own `audio_types` or
+    /// `ebook_types` when it sets one, else the global list for its media type.
+    /// </summary>
+    public static IReadOnlyList<string>? PreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists)
     {
+        var library = torrent.LinkerName is { } name ? preferenceLists.Libraries.GetValueOrDefault(name) : null;
         if (torrent.ChosenAudioExtension is not null)
         {
+            if (library?.AudioTypes is { } libraryAudio)
+            {
+                return libraryAudio;
+            }
+
             // The media type column saves reading the metadata; music and radio have lists of their own.
             var mediaType = Enum.TryParse<Core.Metadata.MediaType>(torrent.MediaType, out var parsed)
                 ? parsed
@@ -45,6 +58,6 @@ public static class LibraryCopyRank
             return preferenceLists.AudioSideFor(mediaType);
         }
 
-        return torrent.ChosenEbookExtension is not null ? preferenceLists.EbookTypes : null;
+        return torrent.ChosenEbookExtension is not null ? library?.EbookTypes ?? preferenceLists.EbookTypes : null;
     }
 }

@@ -383,7 +383,7 @@ public class TorrentsIndexPageTests
         var best = await client.GetStringAsync("/torrents/hash2");
 
         Assert.Contains("mp3; m4b preferred.", worse);
-        Assert.Contains("href=\"/?Q=Mp3%20Book%20Brandon%20Sanderson\"", worse);
+        Assert.Contains("href=\"/?Q=Mp3%20Book%20Brandon%20Sanderson&Lang=English\"", worse);
         Assert.DoesNotContain("id=\"upgrade-note\"", best);
     }
 

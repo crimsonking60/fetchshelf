@@ -191,6 +191,9 @@ var formatPreferenceLists = new FormatPreferenceLists
     EbookTypes = settings.EbookTypes,
     MusicTypes = settings.MusicTypes,
     RadioTypes = settings.RadioTypes,
+    Libraries = settings.Library
+        .Where(library => library.Name is not null && (library.AudioTypes is not null || library.EbookTypes is not null))
+        .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes), StringComparer.Ordinal),
 };
 builder.Services.AddSingleton(formatPreferenceLists);
 builder.Services.AddScoped(sp => new LinkRunner(

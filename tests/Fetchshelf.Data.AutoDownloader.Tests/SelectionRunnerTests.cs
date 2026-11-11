@@ -224,9 +224,11 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false, SelectionOutcome.SelectedAsUpgrade)]
-    [InlineData(true, SelectionOutcome.Selected)]
-    public async Task ProcessCandidateAsync_BetterThanTheLibrarysCopy_IsSelectedAsAnUpgrade(bool libraryCopyReplaced, SelectionOutcome expected)
+    [InlineData("linked", SelectionOutcome.SelectedAsUpgrade)]
+    [InlineData("replaced", SelectionOutcome.Selected)]
+    [InlineData("unlinked", SelectionOutcome.Selected)]
+    [InlineData("not linked", SelectionOutcome.Selected)]
+    public async Task ProcessCandidateAsync_BetterThanTheLibrarysCopy_IsSelectedAsAnUpgrade_OnlyOfACopyInTheLibrary(string state, SelectionOutcome expected)
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         var libraryMetadata = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["mp3"]));
@@ -238,7 +240,9 @@ public sealed class SelectionRunnerTests : IDisposable
             Title = libraryMetadata.Title,
             MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(libraryMetadata),
             CreatedAt = DateTimeOffset.UtcNow,
-            ReplacedWithTorrentId = libraryCopyReplaced ? "hash0" : null,
+            LibraryPath = state is "linked" or "replaced" ? "/library/The Way of Kings" : null,
+            UnlinkedAt = state == "unlinked" ? DateTimeOffset.UtcNow : null,
+            ReplacedWithTorrentId = state == "replaced" ? "hash0" : null,
         });
         await context.SaveChangesAsync();
 

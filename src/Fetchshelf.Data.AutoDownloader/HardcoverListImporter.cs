@@ -382,9 +382,7 @@ public sealed class HardcoverListImporter(
 
     private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
 
-    /// <summary>Whether a grab block with <paramref name="cost"/> may take <paramref name="record"/>: the rule selection applies.</summary>
-    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) =>
-        CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, cost) is not null;
+    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) => GrabMatching.Accepts(cost, record);
 
     private static LogLevel Detail(HardcoverListEntry entry) => entry.DryRun ? LogLevel.Information : LogLevel.Debug;
 
@@ -449,14 +447,8 @@ public sealed class HardcoverListImporter(
         return group.Allowed is null || group.Allowed.Count > 0;
     }
 
-    private static TorrentFilterCandidate ToFilterCandidate(MamTorrentRecord record, TorrentMetadata? metadata) => new()
-    {
-        Metadata = metadata!,
-        UploaderName = record.UploaderName,
-        Seeders = record.Seeders,
-        Leechers = record.Leechers,
-        TimesCompleted = record.TimesCompleted,
-    };
+    private static TorrentFilterCandidate ToFilterCandidate(MamTorrentRecord record, TorrentMetadata? metadata) =>
+        GrabMatching.ToFilterCandidate(record, metadata!);
 
     private static string StatusName(HardcoverListStatus status) => status switch
     {

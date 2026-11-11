@@ -13,6 +13,7 @@ public class LibraryCopyRankTests
         EbookTypes = ["epub", "pdf"],
         MusicTypes = ["flac", "mp3"],
         RadioTypes = ["mp3"],
+        Libraries = new Dictionary<string, LibraryFormatLists> { ["Mp3 First"] = new(["mp3", "m4b"], null) },
     };
 
     private static TorrentEntity Copy(string? audio = null, string? ebook = null, string mediaType = "Audiobook", bool linked = true) => new()
@@ -54,6 +55,21 @@ public class LibraryCopyRankTests
         var replaced = Copy("mp3");
         replaced.ReplacedWithTorrentId = "other";
         Assert.False(LibraryCopyRank.CouldBeUpgraded(replaced, Lists));
+    }
+
+    [Fact]
+    public void ACopyInALibraryWithItsOwnList_IsRankedByThatList()
+    {
+        var mp3 = Copy("mp3");
+        mp3.LinkerName = "Mp3 First";
+        var ebook = Copy(ebook: "pdf", mediaType: "Ebook");
+        ebook.LinkerName = "Mp3 First";
+
+        Assert.Equal(0, LibraryCopyRank.Of(mp3, Lists));
+        Assert.False(LibraryCopyRank.CouldBeUpgraded(mp3, Lists));
+        Assert.Equal("mp3", LibraryCopyRank.BestFormat(mp3, Lists));
+        // The library sets no ebook list, so the global one ranks its ebooks.
+        Assert.True(LibraryCopyRank.CouldBeUpgraded(ebook, Lists));
     }
 
     [Fact]

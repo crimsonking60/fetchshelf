@@ -40,8 +40,8 @@ public static class TorrentListFilters
     ];
 
     /// <summary>
-    /// The Problems choice for copies a better format is possible for. Not a problem as such, so "any problem" leaves
-    /// it out; the page applies it, as it needs the format lists.
+    /// The Problems choice for copies a better format is possible for (<see cref="LibraryCopyRank.CouldBeUpgraded"/>).
+    /// Not a problem as such, so "any problem" leaves it out.
     /// </summary>
     public const string Upgradable = "upgradable";
 
@@ -67,8 +67,10 @@ public static class TorrentListFilters
         _ => true,
     };
 
-    public static bool MatchesProblem(TorrentEntity torrent, string? problem) => problem switch
+    /// <param name="preferenceLists">The format lists, which "could be upgraded" ranks copies by.</param>
+    public static bool MatchesProblem(TorrentEntity torrent, string? problem, FormatPreferenceLists preferenceLists) => problem switch
     {
+        Upgradable => LibraryCopyRank.CouldBeUpgraded(torrent, preferenceLists),
         "any" => HasMismatch(torrent) || IsNotInClient(torrent) || IsRemovedFromMam(torrent),
         "mismatch" => HasMismatch(torrent),
         "not-in-client" => IsNotInClient(torrent),

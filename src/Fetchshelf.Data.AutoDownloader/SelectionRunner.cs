@@ -274,7 +274,11 @@ public sealed class SelectionRunner(
                 continue;
             }
 
-            var otherRank = FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
+            // A copy the Link job chose a format for is ranked by that format, as the Clean job and the Upgrade job rank
+            // it: its MAM listing may name more file types than it has. Others by what MAM lists.
+            var otherRank = LibraryCopyRank.ChosenFormat(other) is not null
+                ? LibraryCopyRank.Of(other, preferenceLists)
+                : FormatRanker.Rank(preferenceLists.For(otherMeta.MediaType), otherMeta.FileTypes);
             if (otherRank <= candidateRank)
             {
                 if (!dryRun)
@@ -287,7 +291,9 @@ public sealed class SelectionRunner(
 
             // Candidate is better; proceed without touching the library entry - the cleaner
             // (library-organizer) retires it later.
-            betterThanLibrary |= other.ReplacedWithTorrentId is null;
+            // An upgrade only of a copy in the library, which the Clean job retires once the better one is linked: not
+            // of a metadata-only record, a copy unlinked by hand or one still waiting to be linked.
+            betterThanLibrary |= other.LibraryPath is not null && other.ReplacedWithTorrentId is null && other.UnlinkedAt is null;
         }
 
         return (false, betterThanLibrary);

@@ -59,8 +59,8 @@ public sealed class UpgradeRunnerTests : IDisposable
 
         public List<string> Searches => searches;
 
-        public Task<UpgradeRunSummary> RunAsync(UpgradeSettings? settings = null) =>
-            create(settings ?? Settings()).RunAsync(unsatBuffer: 0, ignoreTorrents: []);
+        public Task<UpgradeRunSummary> RunAsync(UpgradeSettings? settings = null, IReadOnlyList<long>? ignoreTorrents = null) =>
+            create(settings ?? Settings()).RunAsync(unsatBuffer: 0, ignoreTorrents: ignoreTorrents ?? []);
     }
 
     private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20)
@@ -105,7 +105,7 @@ public sealed class UpgradeRunnerTests : IDisposable
     /// <summary>A linked mp3 copy in the Audiobooks library, which an m4b would beat.</summary>
     private static TorrentEntity Copy(
         string id, string title = "Dune", string format = "mp3", string library = "Audiobooks", string category = "audiobooks",
-        DateTimeOffset? searchedAt = null)
+        DateTimeOffset? searchedAt = null, string[]? listedFileTypes = null)
     {
         var metadata = new TorrentMetadata
         {
@@ -116,7 +116,7 @@ public sealed class UpgradeRunnerTests : IDisposable
             Language = Language.English,
             Title = title,
             Authors = ["Frank Herbert"],
-            FileTypes = [format],
+            FileTypes = listedFileTypes ?? [format],
             MetadataSource = MetadataSource.Mam,
             UploadTime = DateTimeOffset.UnixEpoch,
         };
@@ -157,7 +157,9 @@ public sealed class UpgradeRunnerTests : IDisposable
         Assert.Equal((2L, "audiobooks", "Upgrade"), (selected.MamId, selected.Category, selected.GrabberName));
         Assert.Equal(Now, Stored(harness, "hash1").UpgradeSearchedAt);
         var search = Assert.Single(harness.Searches);
-        Assert.Contains("\"text\":\"Dune Frank Herbert\"", search);
+        // The title and authors as a Hardcover list searches them, field by field.
+        Assert.Contains("\"text\":\"@title Dune @author (", search);
+        Assert.Contains("Frank Herbert", search);
         Assert.Contains("\"srchIn\":[\"title\",\"author\"]", search);
         Assert.Contains("\"browse_lang\":[1]", search);
     }
@@ -176,6 +178,63 @@ public sealed class UpgradeRunnerTests : IDisposable
         Assert.Equal((1, 0), (summary.Searched, summary.Selected));
         Assert.Empty(harness.Context.SelectedTorrents.AsNoTracking());
         Assert.Equal(Now, Stored(harness, "hash1").UpgradeSearchedAt);
+    }
+
+    [Fact]
+    public async Task ACopyWhoseListingNamesTheBetterFormatToo_IsRankedByTheFormatItWasLinkedIn()
+    {
+        // MAM lists "m4b mp3", but the copy was linked as mp3: selection must agree with the Upgrade job that an m4b is better.
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")));
+        Add(harness, Copy("hash1", listedFileTypes: ["m4b", "mp3"]));
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(1, summary.Selected);
+        Assert.Empty(harness.Context.DuplicateTorrents.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task ABetterCopyThatCantBeSelected_LeavesTheNextOneToTry()
+    {
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b"), Record(3, filetype: "m4b")));
+        Add(harness, Copy("hash1"));
+
+        await harness.RunAsync(ignoreTorrents: [2]);
+
+        Assert.Equal(3L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+    }
+
+    [Fact]
+    public async Task ACopyWhoseLibraryPrefersItsFormat_IsNotSearched()
+    {
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")));
+        Add(harness, Copy("hash1", library: "Mp3 First"));
+        var lists = SelectionTestSupport.PreferenceLists with
+        {
+            Libraries = new Dictionary<string, LibraryFormatLists> { ["Mp3 First"] = new(["mp3", "m4b"], null) },
+        };
+
+        var summary = await new UpgradeRunner(
+            harness.Context, new MamClient(new HttpClient(new FakeHttpMessageHandler(_ => throw new InvalidOperationException("no MAM call expected"))), new MamClientOptions { MamId = "cookie" }),
+            new MamAccessGate(), new SelectionRunner(harness.Context, new EventStore(harness.Context), [], lists),
+            Settings(), Libraries, lists, new Clock(Now), delay: (_, _) => Task.CompletedTask).RunAsync(0, []);
+
+        Assert.Equal(0, summary.Searched);
+    }
+
+    [Fact]
+    public async Task TheErrorOfACopyNoLongerSearched_IsCleared()
+    {
+        var harness = CreateHarness(Results());
+        var copy = Copy("hash1");
+        copy.ReplacedWithTorrentId = "hash0";
+        Add(harness, copy);
+        await ErrorLog.RecordAsync(harness.Context, ErrorStage.Upgrade, "hash1", "Dune", "boom");
+        await harness.Context.SaveChangesAsync();
+
+        await harness.RunAsync();
+
+        Assert.Empty(harness.Context.ErroredTorrents.AsNoTracking());
     }
 
     [Fact]

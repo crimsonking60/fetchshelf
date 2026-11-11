@@ -338,9 +338,7 @@ public class IndexModel(
         var metadataById = new Dictionary<string, TorrentMetadata>();
         var matched = (await torrents.ToListAsync())
             .Where(t => TorrentListFilters.MatchesStatus(t, Status))
-            .Where(t => Problem == TorrentListFilters.Upgradable
-                ? LibraryCopyRank.CouldBeUpgraded(t, formatPreferenceLists)
-                : TorrentListFilters.MatchesProblem(t, Problem))
+            .Where(t => TorrentListFilters.MatchesProblem(t, Problem, formatPreferenceLists))
             .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(metadataById[t.Id] = TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
             .ToList();
 

@@ -57,7 +57,12 @@ public sealed class UpgradeRunner(
             _logger.LogInformation("Upgrade: dry run, nothing will be selected or written");
         }
 
-        var due = await DueAsync(cancellationToken);
+        var (due, upgradable) = await DueAsync(cancellationToken);
+        if (!settings.DryRun)
+        {
+            await ClearErrorsOfCopiesNoLongerSearchedAsync(upgradable, cancellationToken);
+        }
+
         if (due.Count == 0)
         {
             _logger.LogInformation("Upgrade: no book in the library is due a search for a better copy");
@@ -139,25 +144,76 @@ public sealed class UpgradeRunner(
     /// <summary>
     /// The copies due a search: those that could be better, in the configured libraries, not searched within
     /// <see cref="UpgradeSettings.SearchAgainAfter"/> days; never-searched first, then the longest ago, up to
-    /// <see cref="UpgradeSettings.SearchesPerRun"/>.
+    /// <see cref="UpgradeSettings.SearchesPerRun"/>. Also returns the ids of every copy that could be better, due or
+    /// not. Only the columns that decide this are read for the whole library; the chosen copies are then loaded whole.
     /// </summary>
-    private async Task<List<TorrentEntity>> DueAsync(CancellationToken cancellationToken)
+    private async Task<(List<TorrentEntity> Due, HashSet<string> Upgradable)> DueAsync(CancellationToken cancellationToken)
     {
-        var query = dbContext.Torrents.Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null
+        var query = dbContext.Torrents.AsNoTracking().Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null
             && (t.ChosenAudioExtension != null || t.ChosenEbookExtension != null));
         if (settings.Libraries.Count > 0)
         {
             query = query.Where(t => t.LinkerName != null && settings.Libraries.Contains(t.LinkerName));
         }
 
-        // SQLite can't compare DateTimeOffset values, so the dates are compared here, on the linked copies only.
+        var rows = await query
+            .Select(t => new TorrentEntity
+            {
+                Id = t.Id,
+                MamId = t.MamId,
+                Title = string.Empty,
+                NormalizedTitleKey = string.Empty,
+                // Only needed for the media type of a copy whose column is empty, which happens when its metadata can't be read.
+                MetadataJson = t.MediaType == null ? t.MetadataJson : string.Empty,
+                MediaType = t.MediaType,
+                CreatedAt = t.CreatedAt,
+                LibraryPath = t.LibraryPath,
+                LinkerName = t.LinkerName,
+                ChosenAudioExtension = t.ChosenAudioExtension,
+                ChosenEbookExtension = t.ChosenEbookExtension,
+                UpgradeSearchedAt = t.UpgradeSearchedAt,
+            })
+            .ToListAsync(cancellationToken);
+        var upgradable = rows.Where(t => CouldBeUpgraded(t)).ToList();
+
+        // SQLite can't compare DateTimeOffset values, so the dates are compared here.
         var dueBefore = _time.GetUtcNow() - TimeSpan.FromDays(settings.SearchAgainAfter);
-        return (await query.ToListAsync(cancellationToken))
-            .Where(t => (t.UpgradeSearchedAt is null || t.UpgradeSearchedAt <= dueBefore) && LibraryCopyRank.CouldBeUpgraded(t, preferenceLists))
+        var dueIds = upgradable
+            .Where(t => t.UpgradeSearchedAt is null || t.UpgradeSearchedAt <= dueBefore)
             .OrderBy(t => t.UpgradeSearchedAt ?? DateTimeOffset.MinValue)
             .ThenBy(t => t.CreatedAt)
             .Take(settings.SearchesPerRun)
+            .Select(t => t.Id)
             .ToList();
+        var due = (await dbContext.Torrents.Where(t => dueIds.Contains(t.Id)).ToListAsync(cancellationToken))
+            .OrderBy(t => dueIds.IndexOf(t.Id))
+            .ToList();
+        return (due, upgradable.Select(t => t.Id).ToHashSet(StringComparer.Ordinal));
+    }
+
+    private bool CouldBeUpgraded(TorrentEntity torrent)
+    {
+        try
+        {
+            return LibraryCopyRank.CouldBeUpgraded(torrent, preferenceLists);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return false; // unreadable metadata and no media type: nothing to search for
+        }
+    }
+
+    /// <summary>
+    /// An error of a copy that is no longer searched (replaced, unlinked, or in the best format by now) would never be
+    /// cleared by a search, so it is cleared here.
+    /// </summary>
+    private async Task ClearErrorsOfCopiesNoLongerSearchedAsync(HashSet<string> upgradable, CancellationToken cancellationToken)
+    {
+        var stale = (await ErrorLog.KeysAsync(dbContext, ErrorStage.Upgrade, cancellationToken)).Where(key => !upgradable.Contains(key)).ToList();
+        if (stale.Count > 0)
+        {
+            await dbContext.ErroredTorrents.Where(e => e.Stage == ErrorStage.Upgrade && stale.Contains(e.Key)).ExecuteDeleteAsync(cancellationToken);
+        }
     }
 
     /// <returns>Whether a better copy was selected.</returns>
@@ -167,15 +223,20 @@ public sealed class UpgradeRunner(
     {
         var metadata = TorrentMetadataSerializer.Deserialize(copy.MetadataJson);
         var copyRank = LibraryCopyRank.Of(copy, preferenceLists);
-        var side = copy.ChosenAudioExtension is not null ? FilterMainType.Audio : FilterMainType.Ebook;
 
         var result = await mamClient.SearchAsync(ToSearchQuery(metadata), cancellationToken);
         await _delay(PolitenessDelay, cancellationToken);
 
-        // The same book in a better format: ranked with the list the copy's own format is ranked with.
-        var preferred = side == FilterMainType.Audio ? preferenceLists.AudioSideFor(metadata.MediaType) : preferenceLists.EbookTypes;
+        // The same book in a better format, ranked with the list the copy's own format was chosen from. Torrents
+        // ignore_torrents names, and those Fetchshelf already has or has queued, can't be selected, so they are left out.
+        var preferred = LibraryCopyRank.PreferenceList(copy, preferenceLists)!;
+        var mamIds = result.Data.Select(r => r.MamId).ToList();
+        var known = (await dbContext.Torrents.Where(t => mamIds.Contains(t.MamId)).Select(t => t.MamId).ToListAsync(cancellationToken))
+            .Concat(await dbContext.SelectedTorrents.Where(s => s.RemovedAt == null && mamIds.Contains(s.MamId)).Select(s => s.MamId).ToListAsync(cancellationToken))
+            .Concat(ignoreTorrents)
+            .ToHashSet();
         var better = result.Data
-            .Where(record => record.MamId != copy.MamId)
+            .Where(record => !known.Contains(record.MamId))
             .Select(record => (Record: record, Metadata: TryMap(record)))
             // The same book as selection judges it: the same title key, then the same-book test, which leaves titles out.
             .Where(c => c.Metadata is not null && TitleNormalizer.Normalize(c.Metadata.Title) == copy.NormalizedTitleKey
@@ -191,35 +252,52 @@ public sealed class UpgradeRunner(
             return false;
         }
 
-        // The first block whose filter and cost accept one takes the best of those it accepts.
-        for (var i = 0; i < settings.Grab.Count; i++)
+        // Each block in turn, with the copies its filter and cost accept, best first: one that selection turns down
+        // (such as a better copy selected meanwhile) leaves the next one to try.
+        var tries = settings.Grab
+            .SelectMany((grab, i) => better
+                .Where(c => TorrentFilterMatcher.Matches(grabFilters[i], GrabMatching.ToFilterCandidate(c.Record, c.Metadata)) && GrabMatching.Accepts(grab.Cost, c.Record))
+                .Select(c => (c.Record, c.Metadata, Grab: grab)))
+            .DistinctBy(c => c.Record.MamId)
+            .ToList();
+        if (tries.Count == 0)
         {
-            var grab = settings.Grab[i];
-            var taken = better.FirstOrDefault(c => TorrentFilterMatcher.Matches(grabFilters[i], ToFilterCandidate(c.Record, c.Metadata)) && Accepts(grab.Cost, c.Record));
-            if (taken.Record is null)
-            {
-                continue;
-            }
-
-            var category = copy.QBittorrentCategory is { } own && libraryCategories.Contains(own) ? own : null;
-            var outcome = await selectionRunner.ProcessCandidateAsync(
-                taken.Record, taken.Metadata, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
-                dryRun: settings.DryRun, cancellationToken: cancellationToken);
-            Log(copy, $"MAM torrent {taken.Record.MamId} ({string.Join(", ", taken.Metadata.FileTypes)}): {outcome.Describe(settings.DryRun)}");
-            return outcome.IsSelected();
+            Log(copy, $"a better copy is on MAM (torrent {better[0].Record.MamId}), but no grab block's cost accepts it");
+            return false;
         }
 
-        Log(copy, $"a better copy is on MAM (torrent {better[0].Record.MamId}), but no grab block's cost accepts it");
+        var category = copy.QBittorrentCategory is { } own && libraryCategories.Contains(own) ? own : null;
+        foreach (var (record, candidate, grab) in tries)
+        {
+            var outcome = await selectionRunner.ProcessCandidateAsync(
+                record, candidate, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
+                dryRun: settings.DryRun, cancellationToken: cancellationToken);
+            Log(copy, $"MAM torrent {record.MamId} ({string.Join(", ", candidate.FileTypes)}): {outcome.Describe(settings.DryRun)}");
+            if (outcome.IsSelected())
+            {
+                return true;
+            }
+
+            if (outcome is SelectionOutcome.DuplicateOfLibrary or SelectionOutcome.DuplicateOfSelected)
+            {
+                // An equal or better copy is in the library or the queue already: the rest are no better than this one.
+                return false;
+            }
+        }
+
         return false;
     }
 
     private void Log(TorrentEntity copy, string what) =>
         _logger.Log(settings.DryRun ? LogLevel.Information : LogLevel.Debug, "Upgrade \"{Title}\": {What}", copy.Title, what);
 
-    /// <summary>The title with the first author, in the copy's language and media side, searched in titles and authors.</summary>
+    /// <summary>
+    /// The title and authors as a Hardcover list searches them (<see cref="ListMamQueryBuilder.Build"/>), in the copy's
+    /// language and, for audiobooks and ebooks, its main category.
+    /// </summary>
     private static MamSearchQuery ToSearchQuery(TorrentMetadata metadata) => new()
     {
-        Text = ListMamQueryBuilder.PlainWords(string.Join(' ', new[] { metadata.Title, metadata.Authors.FirstOrDefault() ?? string.Empty })),
+        Text = ListMamQueryBuilder.Build(metadata.Title, metadata.Authors),
         SearchFields = [MamSearchField.Title, MamSearchField.Author],
         Target = MamSearchTarget.New,
         LanguageIds = [(int)metadata.Language],
@@ -246,16 +324,4 @@ public sealed class UpgradeRunner(
         }
     }
 
-    /// <summary>Whether a grab block with <paramref name="cost"/> may take <paramref name="record"/>: the rule selection applies.</summary>
-    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) =>
-        CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, cost) is not null;
-
-    private static TorrentFilterCandidate ToFilterCandidate(MamTorrentRecord record, TorrentMetadata metadata) => new()
-    {
-        Metadata = metadata,
-        UploaderName = record.UploaderName,
-        Seeders = record.Seeders,
-        Leechers = record.Leechers,
-        TimesCompleted = record.TimesCompleted,
-    };
 }

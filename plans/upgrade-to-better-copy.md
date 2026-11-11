@@ -116,9 +116,22 @@ same book exists and ranks worse. Callers that count selections treat both alike
 - Added: a "Could be upgraded" filter on the Torrents page, and "Look for a better copy" on a book's page.
 - Upgrading: nothing to do. The Upgrade job needs an `[upgrade]` table in the config; without one, nothing changes.
 
+## Changes after review
+
+- Selection counts a candidate as an upgrade only against a copy in the library (linked, not replaced, not
+  unlinked), not a metadata-only record or a copy still waiting.
+- The Upgrade job leaves out torrents already known, queued or ignored, and tries the next better copy when
+  selection turns one down; it stops at a duplicate of the library or the queue.
+- It searches with `ListMamQueryBuilder.Build`, as the Hardcover lists do, and reads only the deciding columns of
+  the library before loading the chosen copies whole.
+- Errors of copies no longer searched (replaced, unlinked, or in the best format by now) are cleared each run.
+- The "Look for a better copy" link searches in the book's language, as plain words.
+
 ## Out of scope
 
 - A per-autograb `upgrades = false` to stop autograbs paying for upgrades they happen to find.
 - Upgrading by something other than format (bitrate, an abridged copy, a better narrator).
-- A library's own `audio_types`/`ebook_types`: the rank is the one selection and the Clean job use, from
-  `FormatPreferenceLists`.
+- (Done after review, no longer out of scope:) a library's own `audio_types`/`ebook_types`.
+  `FormatPreferenceLists.Libraries` carries them, so a copy is ranked by the list the Link job chose its format
+  from, by the Clean job, selection, the Torrents page and the Upgrade job alike. Selection also ranks a linked
+  library copy by its chosen format rather than its MAM listing, so the two agree on what is better.
