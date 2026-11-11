@@ -21,10 +21,12 @@ public sealed class AbsMatcherTests : IDisposable
         List<string> calledPaths,
         IReadOnlyList<(string Id, string FullPath)> libraryFolders,
         IReadOnlyDictionary<string, (string Id, string Name)> authorByQuery,
-        IReadOnlyDictionary<string, (string Id, string Path)> itemByAuthorId)
+        IReadOnlyDictionary<string, (string Id, string Path)> itemByAuthorId,
+        Action<HttpRequestMessage>? onRequest = null)
     {
         var handler = new FakeHttpMessageHandler(request =>
         {
+            onRequest?.Invoke(request);
             calledPaths.Add(request.RequestUri!.AbsolutePath + request.RequestUri.Query);
             var path = request.RequestUri.AbsolutePath;
 
@@ -84,6 +86,71 @@ public sealed class AbsMatcherTests : IDisposable
         context.Torrents.Add(entity);
         await context.SaveChangesAsync();
         return entity;
+    }
+
+    [Fact]
+    public async Task RunAsync_CancelledPartWayThrough_KeepsTheMatchesFoundSoFar()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/One", ["Brandon Sanderson"], id: "hash1");
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Two", ["Brandon Sanderson"], id: "hash2");
+        using var cancellation = new CancellationTokenSource();
+        var matcher = new AbsMatcher(context, CancellingAbsClient(cancellation, cancelOnAuthorLookup: 2), new ListLogger<AbsMatcher>());
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => matcher.RunAsync(cancellation.Token));
+
+        using var check = OrganizerTestSupport.CreateContext(DbPath);
+        Assert.Equal("item1", check.Torrents.Single(t => t.Id == "hash1").AbsId);
+        Assert.Null(check.Torrents.Single(t => t.Id == "hash2").AbsId);
+    }
+
+    [Fact]
+    public async Task RunAsync_StoppedAndTheMatchesCannotBeSaved_ReportsWhatStoppedTheRun()
+    {
+        OrganizerTestSupport.CreateContext(DbPath).Dispose(); // creates the database
+        var failingSave = new FailingSaveInterceptor();
+        using var context = new FetchshelfDbContext(
+            new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite($"Data Source={DbPath}").AddInterceptors(failingSave).Options);
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/One", ["Brandon Sanderson"], id: "hash1");
+        await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Two", ["Brandon Sanderson"], id: "hash2");
+        failingSave.Fail = true;
+        using var cancellation = new CancellationTokenSource();
+        var logger = new ListLogger<AbsMatcher>();
+        var matcher = new AbsMatcher(context, CancellingAbsClient(cancellation, cancelOnAuthorLookup: 2), logger);
+
+        var exception = await Record.ExceptionAsync(() => matcher.RunAsync(cancellation.Token));
+
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        Assert.Contains(logger.Messages(LogLevel.Warning), m => m.Contains("disk full", StringComparison.Ordinal));
+    }
+
+    /// <summary>Finds the books' author, and cancels the run on the given author lookup, as the Cancel button would.</summary>
+    private static AbsClient CancellingAbsClient(CancellationTokenSource cancellation, int cancelOnAuthorLookup)
+    {
+        var lookups = 0;
+        return CreateAbsClient(
+            [],
+            [("f1", "/data/audiobooks")],
+            new Dictionary<string, (string, string)> { ["Brandon Sanderson"] = ("a1", "Brandon Sanderson") },
+            new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/data/audiobooks/Sanderson/One") },
+            request =>
+            {
+                if (request.RequestUri!.AbsolutePath.StartsWith("/api/authors/", StringComparison.Ordinal) && ++lookups == cancelOnAuthorLookup)
+                {
+                    cancellation.Cancel();
+                }
+            });
+    }
+
+    private sealed class FailingSaveInterceptor : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        public bool Fail { get; set; }
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default) =>
+            Fail ? throw new InvalidOperationException("disk full") : base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
     [Fact]

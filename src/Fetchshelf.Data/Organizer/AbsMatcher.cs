@@ -97,11 +97,26 @@ public sealed class AbsMatcher(
                 matched++;
                 _logger.LogInformation("Matched {Title} to Audiobookshelf item {AbsId}", torrent.Title, matchedId);
             }
-        }
-        finally
-        {
-            // Also when the run is cancelled between books: the matches found so far are kept.
+
+            // Every book was gone through: what was matched is saved even if the run was cancelled meanwhile.
             await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // The matches found before the run was cancelled, or stopped by an error, are kept if they can be. If even
+            // that fails, the error that stopped the run is the one reported.
+            try
+            {
+                await dbContext.SaveChangesAsync(CancellationToken.None);
+            }
+            catch (Exception saveException)
+            {
+                _logger.LogWarning(
+                    "Could not keep the Audiobookshelf matches found before the run stopped ({Reason}): {Error}",
+                    ex.Message, saveException.Message);
+            }
+
+            throw;
         }
 
         return new AbsMatchSummary(matched, notFoundYet, failed);
