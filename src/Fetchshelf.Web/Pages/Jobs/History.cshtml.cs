@@ -55,11 +55,12 @@ public class HistoryModel(FetchshelfDbContext dbContext) : PageModel
             query = query.Where(r => r.Result != JobRunResult.Success && r.Result != JobRunResult.Running);
         }
 
-        // Ids grow with every run, so the highest id is the newest run; SQLite can't sort on the DateTimeOffset column.
-        var runs = await query.OrderByDescending(r => r.Id).ToListAsync();
-        TotalCount = runs.Count;
-        (var page, PageNumber, TotalPages) = Paging.Slice(runs, TotalCount, PageNumber, PageSize);
-        Runs = page;
+        // Paged in the database, which can sort on the id: ids grow with every run, so the highest is the newest. (It
+        // can't sort on the DateTimeOffset start time.)
+        TotalCount = await query.CountAsync();
+        var window = Paging.Window(TotalCount, PageNumber, PageSize);
+        (PageNumber, TotalPages) = (window.PageNumber, window.TotalPages);
+        Runs = await query.OrderByDescending(r => r.Id).Skip(window.Skip).Take(window.Take).ToListAsync();
     }
 
     public static string? Duration(JobRunEntity run) =>

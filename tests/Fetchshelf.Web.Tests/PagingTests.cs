@@ -56,4 +56,13 @@ public class PagingTests
         Assert.Equal(1, pageNumber);
         Assert.Equal(1, totalPages);
     }
+
+    [Theory]
+    [InlineData(7, 2, 3, 3, 3, 2, 3)]
+    [InlineData(7, 9, 3, 6, 3, 3, 3)]
+    [InlineData(7, 0, 3, 0, 3, 1, 3)]
+    [InlineData(7, 2, Paging.All, 0, 7, 1, 1)]
+    [InlineData(0, 1, 3, 0, 3, 1, 1)]
+    public void Window_PicksTheSamePageAsSlice(int total, int page, int size, int skip, int take, int pageNumber, int totalPages) =>
+        Assert.Equal(new PageWindow(skip, take, pageNumber, totalPages), Paging.Window(total, page, size));
 }

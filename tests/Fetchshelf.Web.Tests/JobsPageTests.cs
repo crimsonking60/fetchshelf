@@ -321,6 +321,26 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task HistoryPage_MoreRunsThanFitOnAPage_PagesThemNewestFirst()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        AddRuns(fixture, Enumerable.Range(1, 55).Select(i => Run("Link", JobRunResult.Success, $"run number {i}.", JobTrigger.Schedule)).ToArray());
+
+        var first = await client.GetStringAsync("/Jobs/History?job=Link");
+        var second = await client.GetStringAsync("/Jobs/History?job=Link&PageNumber=2");
+
+        Assert.Contains("run number 55.", first);
+        Assert.Contains("run number 6.", first);
+        Assert.DoesNotContain("run number 5.", first);
+        Assert.Contains("Page 1 of 2", first);
+        Assert.Contains("run number 5.", second);
+        Assert.Contains("run number 1.", second);
+        Assert.DoesNotContain("run number 6.", second);
+    }
+
+    [Fact]
     public async Task HistoryPage_RunWhoseEndIsNotKnown_ShowsNoDuration()
     {
         using var fixture = new FetchshelfWebAppFixture();
