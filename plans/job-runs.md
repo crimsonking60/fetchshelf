@@ -74,7 +74,8 @@ and a run must be recorded even when the job's own scope failed). A failure to w
 never fails the job.
 
 - **At startup** the registry loads the last run of every job, so the Jobs page shows it straight away. A run
-  left `Running` from before the restart is marked `Interrupted` with the time of the restart as `FinishedAt`.
+  left `Running` from before the restart is marked `Interrupted`, with `FinishedAt` left empty: when it stopped is
+  not known, and the time of the restart would count the downtime as run time.
 - **Retention:** after each run, rows of that job beyond the newest 200 are deleted. That is days of history for
   a job every few minutes, and months for a daily one, at a few kilobytes per job.
 - `JobRunRecord` grows `FinishedAt`, `Trigger` and `Summary`. `JobRunResult` gains `Cancelled` and `Interrupted`.

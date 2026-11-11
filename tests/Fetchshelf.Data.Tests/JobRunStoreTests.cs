@@ -63,16 +63,18 @@ public sealed class JobRunStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task InterruptUnfinishedAsync_ARunStillRunning_IsMarkedInterruptedAtTheGivenTime()
+    public async Task InterruptUnfinishedAsync_ARunStillRunning_IsMarkedInterruptedWithoutAFinishTime()
     {
         await _store.StartedAsync("Download", Start, JobTrigger.Chained);
         var finished = await _store.StartedAsync("Link", Start, JobTrigger.Schedule);
         await _store.FinishedAsync(finished, Start.AddSeconds(5), JobRunResult.Success, null, null);
 
-        await _store.InterruptUnfinishedAsync(Start.AddHours(1), "stopped");
+        await _store.InterruptUnfinishedAsync("stopped");
 
         var lastRuns = await _store.LastRunsAsync();
-        Assert.Equal((JobRunResult.Interrupted, Start.AddHours(1), "stopped"), (lastRuns["Download"].Result, lastRuns["Download"].FinishedAt, lastRuns["Download"].Summary));
+        Assert.Equal(
+            (JobRunResult.Interrupted, (DateTimeOffset?)null, "stopped"),
+            (lastRuns["Download"].Result, lastRuns["Download"].FinishedAt, lastRuns["Download"].Summary));
         Assert.Equal(JobRunResult.Success, lastRuns["Link"].Result);
     }
 

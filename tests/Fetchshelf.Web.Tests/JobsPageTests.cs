@@ -320,6 +320,27 @@ public partial class JobsPageTests
         Assert.Contains(JobRegistry.InterruptedSummary, html);
     }
 
+    [Fact]
+    public async Task HistoryPage_RunWhoseEndIsNotKnown_ShowsNoDuration()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        AddRuns(fixture, Run("Link", JobRunResult.Interrupted, JobRegistry.InterruptedSummary, JobTrigger.Schedule));
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.JobRuns.Single().FinishedAt = null;
+            dbContext.SaveChanges();
+        }
+
+        var html = await client.GetStringAsync("/Jobs/History?job=Link");
+
+        var row = html[html.IndexOf("<tbody>", StringComparison.Ordinal)..html.IndexOf("</tbody>", StringComparison.Ordinal)];
+        Assert.Contains("Interrupted", row);
+        Assert.Matches(@"</time></td>\s*<td class=""nowrap""></td>", row);
+    }
+
     private static JobRunEntity Run(string jobName, JobRunResult result, string summary, JobTrigger trigger) => new()
     {
         JobName = jobName,

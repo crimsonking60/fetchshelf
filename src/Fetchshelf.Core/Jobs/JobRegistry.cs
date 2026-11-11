@@ -67,7 +67,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
 
         try
         {
-            await store.InterruptUnfinishedAsync(_timeProvider.GetUtcNow(), InterruptedSummary);
+            await store.InterruptUnfinishedAsync(InterruptedSummary);
             foreach (var (name, run) in await store.LastRunsAsync())
             {
                 _loadedRuns[name] = run;

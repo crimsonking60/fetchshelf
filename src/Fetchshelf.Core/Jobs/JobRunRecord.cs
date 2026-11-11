@@ -38,7 +38,7 @@ public enum JobTrigger
 /// <param name="StartedAt">When the run started.</param>
 /// <param name="Result">How the run ended.</param>
 /// <param name="Summary">One line on what the run did, or the error that ended it. Null if there is nothing to say.</param>
-/// <param name="FinishedAt">When the run ended; null for a run that never finished.</param>
+/// <param name="FinishedAt">When the run ended; null while it runs, and for a run whose end isn't known.</param>
 /// <param name="Trigger">What started the run.</param>
 /// <param name="Counts">The numbers behind <paramref name="Summary"/>, by name, such as <c>linked</c> and <c>failed</c>.</param>
 public sealed record JobRunRecord(

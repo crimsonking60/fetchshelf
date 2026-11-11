@@ -191,7 +191,7 @@ public class JobRegistryRunRecordTests
             await ReleaseFinish.Task;
         }
 
-        public Task InterruptUnfinishedAsync(DateTimeOffset at, string summary) => Task.CompletedTask;
+        public Task InterruptUnfinishedAsync(string summary) => Task.CompletedTask;
 
         public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() =>
             Task.FromResult<IReadOnlyDictionary<string, JobRunRecord>>(new Dictionary<string, JobRunRecord>());
@@ -266,7 +266,7 @@ public class JobRegistryRunRecordTests
 
         Assert.Equal((JobRunResult.Success, "3 torrents linked"), (registry.Get("Link")!.LastRun!.Result, registry.Get("Link")!.LastRun!.Summary));
         var download = registry.Get("Download")!.LastRun!;
-        Assert.Equal((JobRunResult.Interrupted, Now, Now.AddMinutes(-5)), (download.Result, download.FinishedAt, download.StartedAt));
+        Assert.Equal((JobRunResult.Interrupted, null, Now.AddMinutes(-5)), (download.Result, download.FinishedAt, download.StartedAt));
         Assert.Contains(registry.GetAll(), j => j.Name == "Download" && j.LastRun is not null);
     }
 
@@ -303,11 +303,11 @@ public class JobRegistryRunRecordTests
             return Task.CompletedTask;
         }
 
-        public Task InterruptUnfinishedAsync(DateTimeOffset at, string summary)
+        public Task InterruptUnfinishedAsync(string summary)
         {
             foreach (var run in Runs.Where(r => r.Result == JobRunResult.Running))
             {
-                (run.Result, run.FinishedAt, run.Summary) = (JobRunResult.Interrupted, at, summary);
+                (run.Result, run.Summary) = (JobRunResult.Interrupted, summary);
             }
 
             return Task.CompletedTask;
@@ -328,7 +328,7 @@ public class JobRegistryRunRecordTests
         public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
             throw new InvalidOperationException("database is locked");
 
-        public Task InterruptUnfinishedAsync(DateTimeOffset at, string summary) => throw new InvalidOperationException("database is locked");
+        public Task InterruptUnfinishedAsync(string summary) => throw new InvalidOperationException("database is locked");
 
         public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => throw new InvalidOperationException("database is locked");
     }

@@ -9,8 +9,11 @@ public interface IJobRunStore
     /// <summary>Records how a run ended, and drops that job's oldest runs beyond the ones kept.</summary>
     Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts);
 
-    /// <summary>Marks every run still recorded as running as interrupted at <paramref name="at"/>: Fetchshelf stopped before it ended.</summary>
-    Task InterruptUnfinishedAsync(DateTimeOffset at, string summary);
+    /// <summary>
+    /// Marks every run still recorded as running as interrupted: Fetchshelf stopped before it ended. Its finish time
+    /// stays empty, since when it stopped is not known; the time of the restart would count the downtime as run time.
+    /// </summary>
+    Task InterruptUnfinishedAsync(string summary);
 
     /// <summary>The newest run of every job that has one, by job name.</summary>
     Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync();

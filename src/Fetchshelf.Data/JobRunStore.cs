@@ -55,14 +55,13 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
         }
     }
 
-    public async Task InterruptUnfinishedAsync(DateTimeOffset at, string summary)
+    public async Task InterruptUnfinishedAsync(string summary)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         await context.JobRuns
             .Where(r => r.Result == JobRunResult.Running)
             .ExecuteUpdateAsync(set => set
                 .SetProperty(r => r.Result, JobRunResult.Interrupted)
-                .SetProperty(r => r.FinishedAt, at)
                 .SetProperty(r => r.Summary, summary));
     }
 

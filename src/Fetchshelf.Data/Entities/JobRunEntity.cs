@@ -12,7 +12,7 @@ public sealed class JobRunEntity
 
     public required DateTimeOffset StartedAt { get; set; }
 
-    /// <summary>Null while the run is going, and for a run Fetchshelf stopped during that hasn't been marked interrupted yet.</summary>
+    /// <summary>Null while the run is going, and for a run Fetchshelf stopped during without recording when.</summary>
     public DateTimeOffset? FinishedAt { get; set; }
 
     public required JobRunResult Result { get; set; }
