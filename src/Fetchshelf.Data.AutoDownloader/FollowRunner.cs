@@ -284,12 +284,7 @@ public sealed class FollowRunner(
     /// <summary>The result as a candidate when it really is a book of the followed series or author, as an audiobook or ebook.</summary>
     private static Candidate? ToCandidate(FollowEntity follow, MamTorrentRecord record)
     {
-        TorrentMetadata metadata;
-        try
-        {
-            metadata = MamTorrentMapper.Map(record);
-        }
-        catch (UnrecognizedReferenceDataException)
+        if (GrabMatching.TryMap(record) is not { } metadata)
         {
             return null;
         }
@@ -414,8 +409,8 @@ public sealed class FollowRunner(
             Candidate? tooExpensive = null;
             for (var i = 0; i < settings.Grab.Count && winner is null; i++)
             {
-                var matching = group.Where(c => TorrentFilterMatcher.Matches(grabFilters[i], ToFilterCandidate(c))).ToList();
-                var affordable = matching.Where(c => Accepts(settings.Grab[i].Cost, c.Record)).ToList();
+                var matching = group.Where(c => TorrentFilterMatcher.Matches(grabFilters[i], GrabMatching.ToFilterCandidate(c.Record, c.Metadata))).ToList();
+                var affordable = matching.Where(c => GrabMatching.Accepts(settings.Grab[i].Cost, c.Record)).ToList();
                 winner = Best(affordable, preferred);
                 grab = winner is null ? null : settings.Grab[i];
                 tooExpensive ??= Best(matching, preferred);
@@ -457,8 +452,4 @@ public sealed class FollowRunner(
             .OrderBy(c => FormatRanker.Rank(preferred, c.Metadata.FileTypes))
             .ThenByDescending(c => c.Record.Seeders)
             .FirstOrDefault();
-
-    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) => GrabMatching.Accepts(cost, record);
-
-    private static TorrentFilterCandidate ToFilterCandidate(Candidate candidate) => GrabMatching.ToFilterCandidate(candidate.Record, candidate.Metadata);
 }

@@ -11,6 +11,19 @@ internal static class GrabMatching
     public static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) =>
         CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, cost) is not null;
 
+    /// <summary>The result's metadata; null when it holds a category, language or other value Fetchshelf doesn't know.</summary>
+    public static TorrentMetadata? TryMap(MamTorrentRecord record)
+    {
+        try
+        {
+            return MamTorrentMapper.Map(record);
+        }
+        catch (UnrecognizedReferenceDataException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The result as the shared filter sees it.</summary>
     public static TorrentFilterCandidate ToFilterCandidate(MamTorrentRecord record, TorrentMetadata metadata) => new()
     {

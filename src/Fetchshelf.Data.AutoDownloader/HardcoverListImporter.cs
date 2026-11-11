@@ -259,15 +259,15 @@ public sealed class HardcoverListImporter(
             await _delay(PolitenessDelay, cancellationToken);
 
             var candidates = result.Data
-                .Select(record => (Record: record, Metadata: TryMap(record)))
-                .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, ToFilterCandidate(c.Record, c.Metadata)))
+                .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
+                .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata!)))
                 .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
                 .ToList();
 
             // A block only takes a torrent its own cost accepts. The search isn't limited by cost, so a free block also
             // sees uploads that aren't free; those are left for the later blocks, which may pay for them.
             var grab = entry.Grab[i];
-            var affordable = candidates.Where(c => Accepts(grab.Cost, c.Payload)).ToList();
+            var affordable = candidates.Where(c => GrabMatching.Accepts(grab.Cost, c.Payload)).ToList();
             if (needAudio && audioWinner is null)
             {
                 if (Best(affordable, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes) is { } audio)
@@ -363,7 +363,6 @@ public sealed class HardcoverListImporter(
 
     private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
 
-    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) => GrabMatching.Accepts(cost, record);
 
     private static LogLevel Detail(HardcoverListEntry entry) => entry.DryRun ? LogLevel.Information : LogLevel.Debug;
 
@@ -410,26 +409,11 @@ public sealed class HardcoverListImporter(
         }
     }
 
-    private static TorrentMetadata? TryMap(MamTorrentRecord record)
-    {
-        try
-        {
-            return MamTorrentMapper.Map(record);
-        }
-        catch (UnrecognizedReferenceDataException)
-        {
-            return null;
-        }
-    }
-
     private static bool AllowsSide(CategoryFilter categories, FilterMainType side)
     {
         var group = side == FilterMainType.Audio ? categories.Audio : categories.Ebook;
         return group.Allowed is null || group.Allowed.Count > 0;
     }
-
-    private static TorrentFilterCandidate ToFilterCandidate(MamTorrentRecord record, TorrentMetadata? metadata) =>
-        GrabMatching.ToFilterCandidate(record, metadata!);
 
     private static string StatusName(HardcoverListStatus status) => status switch
     {

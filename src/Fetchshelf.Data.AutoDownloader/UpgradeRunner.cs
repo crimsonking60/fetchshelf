@@ -220,7 +220,7 @@ public sealed class UpgradeRunner(
             .ToHashSet();
         var better = result.Data
             .Where(record => !known.Contains(record.MamId))
-            .Select(record => (Record: record, Metadata: TryMap(record)))
+            .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
             // The same book as selection judges it: the same title key, then the same-book test, which leaves titles out.
             .Where(c => c.Metadata is not null && TitleNormalizer.Normalize(c.Metadata.Title) == copy.NormalizedTitleKey
                 && SameBookComparer.AreSameBook(metadata, c.Metadata))
@@ -294,17 +294,4 @@ public sealed class UpgradeRunner(
         PerPage = 100,
         ReturnDownloadLink = true,
     };
-
-    private static TorrentMetadata? TryMap(MamTorrentRecord record)
-    {
-        try
-        {
-            return MamTorrentMapper.Map(record);
-        }
-        catch (UnrecognizedReferenceDataException)
-        {
-            return null;
-        }
-    }
-
 }
