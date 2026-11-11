@@ -49,6 +49,21 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void HardcoverList_DryRun_SaysWhatWouldHaveBeenSelected()
+    {
+        var outcome = JobOutcomes.HardcoverList(new HardcoverListRunSummary(5, 0, Books: 20, Searched: 12, DryRun: true));
+
+        Assert.Equal("Dry run: 20 books, 12 searched on MAM, 5 would have been selected", outcome.Summary);
+        Assert.Equal(5, outcome.Counts!["selected"]);
+    }
+
+    [Fact]
+    public void HardcoverList_Selections_SaysHowManyWereSelected() =>
+        Assert.Equal(
+            "20 books, 12 searched on MAM, 5 selected",
+            JobOutcomes.HardcoverList(new HardcoverListRunSummary(5, 0, Books: 20, Searched: 12)).Summary);
+
+    [Fact]
     public void Clean_NothingToRetire_SaysSo() =>
         Assert.Equal("No superseded copies to retire", JobOutcomes.Clean(new CleanRunSummary(0, 0)).Summary);
 

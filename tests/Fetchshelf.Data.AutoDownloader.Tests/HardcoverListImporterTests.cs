@@ -338,7 +338,7 @@ public sealed class HardcoverListImporterTests : IDisposable
 
         var summary = await harness.RunAsync(Entry(dryRun: true, grab: AudioOnly()));
 
-        Assert.Equal(0, summary.Selected);
+        Assert.Equal((1, 0, true), (summary.Selected, summary.SelectedForDownload, summary.DryRun));
         Assert.Single(harness.Searches);
         Assert.Empty(harness.Context.Lists.AsNoTracking());
         Assert.Empty(harness.Context.ListItems.AsNoTracking());

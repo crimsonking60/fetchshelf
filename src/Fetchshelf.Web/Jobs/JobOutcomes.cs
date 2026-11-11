@@ -70,8 +70,8 @@ public static class JobOutcomes
     public static JobOutcome HardcoverList(HardcoverListRunSummary summary) => Finish(
         DryRun(
             summary.DryRun,
-            $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM"
-                + (summary.DryRun ? "" : $", {summary.Selected} selected")),
+            $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "
+                + (summary.DryRun ? "would have been selected" : "selected")),
         summary.Failed,
         "could not be searched for; see the log",
         new() { ["books"] = summary.Books, ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
