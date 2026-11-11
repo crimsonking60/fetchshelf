@@ -29,6 +29,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
 - [Using the web interface](#using-the-web-interface)
 - [Background jobs](#background-jobs)
+- [Getting notified](#getting-notified)
 - [Common setups](#common-setups)
 - [Updating Fetchshelf](#updating-fetchshelf)
 - [Backups and moving to a new machine](#backups-and-moving-to-a-new-machine)
@@ -1276,7 +1277,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
-| **Config** | A read-only view of the active configuration, with secrets hidden. |
+| **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
 
 ### Account
 
@@ -1464,7 +1465,7 @@ books missing a format with the dropdown, and tick **Include books no longer on 
 
 Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
 runs that block once. For each `[[tag]]` rule there is **Apply to existing torrents**, which sets the rule's
-category and tags on torrents you already have.
+category and tags on torrents you already have. For each `[[notify]]` block there is **Send a test message**.
 
 ## Background jobs
 
@@ -1526,6 +1527,48 @@ A job that has never run, or is overdue, runs soon after start, one after anothe
 MAM at once: Link (and Audiobookshelf) after 30 seconds, then each autograb, snatchlist and Hardcover list in
 the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
 shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
+
+## Getting notified
+
+Fetchshelf runs in the background and is checked rarely, so a problem can sit unnoticed for days. It can send
+a message to a phone or a chat when something needs attention. Add a `[[notify]]` block to `config.toml` for
+each place to send to, and list the events wanted (see the
+[reference](configuration.md#notify) for every setting, and one example block for each of ntfy, Gotify,
+Discord, Apprise and a generic webhook):
+
+```toml
+web_url = "https://fetchshelf.example.net"      # optional: what messages link to
+
+[[notify]]
+name = "Phone"
+url = "https://ntfy.sh/fetchshelf-x7k2"
+format = "ntfy"
+events = ["mam_refused", "job_failing", "job_recovered", "grabbed"]
+```
+
+What is worth sending depends on how much attention is wanted. Starting with `mam_refused`, `job_failing` and
+`job_recovered` covers the cases where Fetchshelf stops working and nothing says so; `grabbed` and `linked`
+are for following along.
+
+- **Only changes are sent.** A job that fails every 10 minutes for a day sends one message when it starts
+  failing and one when it works again.
+- **A refused `mam_id` is one message,** not one per job it stopped: the message says until when MAM calls are
+  paused and what to do. A block that wants it doesn't also get a failure for each job.
+- **Bursts are merged.** Grabs and links within 30 seconds of each other are one message: "Grabbed 4
+  torrents: *A*, *B*, *C* and 1 more."
+- **Hit-and-runs.** `hit_and_run` is sent when MAM counts more hit-and-runs than the last count Fetchshelf saw.
+  The count is kept across restarts, so one that appears while Fetchshelf is stopped is still reported. The
+  first time a block asks for the event, a hit-and-run that already exists is reported once.
+- **Trying it.** The **Config** page lists each block, with the URL hidden, and **Send a test message**, which
+  sends to that block straight away and shows the HTTP status or what went wrong. `--check-config` lists the
+  blocks too, with the URLs hidden.
+- **When delivery fails,** the message is tried once more after 10 seconds, then dropped, with a warning in
+  the log. Nothing waits for the network: a service that is down never slows a job. Messages are not stored,
+  so one still waiting when Fetchshelf stops is sent first, within 5 seconds, and lost if that is not enough.
+  The **Events** page and each job's history on the **Jobs** page have the same facts.
+- **The URL is a secret.** A topic name or webhook id is all it takes to send to it, and for a public ntfy
+  topic also to read what is sent. Choose a topic that is hard to guess, or keep the URL in a file with
+  `url_file`.
 
 ## Common setups
 

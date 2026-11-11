@@ -57,5 +57,7 @@ public sealed class ExampleConfigTests
         Assert.NotEmpty(settings.Tag);
         Assert.NotNull(settings.Audiobookshelf);
         Assert.NotNull(settings.Search.WedgeOver);
+        Assert.Equal(2, settings.Notify.Count);
+        Assert.NotNull(settings.WebUrl);
     }
 }

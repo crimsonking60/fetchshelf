@@ -51,6 +51,9 @@ setup. If you use one, please report how it went, good or bad (see
 - `path_mapping` in `[audiobookshelf]`.
 - `mark_removed` in `[[autograb]]`.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
+- `[[notify]]`: the ntfy, Gotify, Discord and Apprise formats follow those services' documented APIs but have
+  not been tried against the services themselves. The `json` format and the messages' contents are covered by
+  tests.
 
 ## Latest release
 

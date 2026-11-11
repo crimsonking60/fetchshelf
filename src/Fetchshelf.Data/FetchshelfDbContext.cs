@@ -22,6 +22,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<JobRunEntity> JobRuns => Set<JobRunEntity>();
 
+    public DbSet<NotificationStateEntity> NotificationStates => Set<NotificationStateEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TorrentEntity>(entity =>
@@ -56,6 +58,11 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.HasKey(i => new { i.ListId, i.ExternalId });
             entity.HasIndex(i => i.ListId);
+        });
+
+        modelBuilder.Entity<NotificationStateEntity>(entity =>
+        {
+            entity.HasKey(s => s.Key);
         });
 
         modelBuilder.Entity<JobRunEntity>(entity =>

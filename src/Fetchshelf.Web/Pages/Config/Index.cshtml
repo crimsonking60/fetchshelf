@@ -35,6 +35,7 @@
             <tr><th>mam_id</th><td>@IndexModel.HiddenPlaceholder</td></tr>
             <tr><th>mam_id_file</th><td>@settings.MamIdFile</td></tr>
             <tr><th>web_host</th><td>@settings.WebHost</td></tr>
+            <tr><th>web_url</th><td>@settings.WebUrl</td></tr>
             <tr><th>web_port</th><td>@settings.WebPort</td></tr>
             <tr><th>min_ratio</th><td>@settings.MinRatio</td></tr>
             <tr><th>unsat_buffer</th><td>@settings.UnsatBuffer</td></tr>
@@ -206,6 +207,39 @@
                         <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
                         <td>@entry.Category</td>
                         <td>@(entry.DryRun ? "yes" : "no")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
+    <h3>Notifications</h3>
+    @if (Model.NotifyTargets.Count == 0)
+    {
+        <p class="empty">No [[notify]] entries configured.</p>
+    }
+    else
+    {
+        <table id="notify-blocks">
+            <thead><tr><th>Name</th><th>Format</th><th>Events</th><th>URL</th><th></th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < Model.NotifyTargets.Count; i++)
+                {
+                    var target = Model.NotifyTargets[i];
+                    <tr>
+                        <td>@target.Name</td>
+                        <td>@Fetchshelf.Core.Notifications.NotificationFormatNames.Name(target.Format)</td>
+                        <td>@IndexModel.DescribeEvents(target)</td>
+                        @* The address is a secret: topics and webhook URLs often are one. *@
+                        <td>@(IndexModel.HiddenPlaceholder)</td>
+                        <td>
+                            <form method="post" asp-page-handler="TestNotify" asp-route-index="@i">
+                                @Html.AntiForgeryToken()
+                                <button type="submit">Send a test message</button>
+                            </form>
+                        </td>
                     </tr>
                 }
             </tbody>

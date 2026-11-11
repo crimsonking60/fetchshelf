@@ -11,7 +11,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>What one download run did: torrents started in qBittorrent, torrents that failed, and how many were queued.</summary>
-public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0);
+/// <param name="Started">Torrents added to qBittorrent.</param>
+/// <param name="Failed">Torrents that couldn't be downloaded.</param>
+/// <param name="Queued">Selections waiting when the run began.</param>
+/// <param name="LeftQueued">Selections the run left queued because the ratio budget or the unsatisfied-snatch slots are spent.</param>
+/// <param name="LimitedBy">
+/// Which of those limits left them, and what it comes to, such as "the ratio budget is 0 B (ratio 2.01, min_ratio 2)";
+/// null when <paramref name="LeftQueued"/> is 0.
+/// </param>
+public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null);
 
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
@@ -68,6 +76,8 @@ public sealed class DownloadRunner(
             "{RatioBudget}", DownloadBudget.DescribeRatioBudget(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
 
         var (startedCount, failedCount) = (0, 0);
+        var (overRatio, noSlot) = (0, 0);
+        var slotBuffer = 0;
         foreach (var selected in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -108,6 +118,16 @@ public sealed class DownloadRunner(
                 failedCount++;
             }
 
+            if (outcome == DownloadOutcome.OverRatioBudget)
+            {
+                overRatio++;
+            }
+            else if (outcome == DownloadOutcome.NoUnsatSlot)
+            {
+                noSlot++;
+                slotBuffer = safetyBuffers.UnsatBufferFor(selected.GrabberName);
+            }
+
             if (wedgeSpent)
             {
                 budget.WedgeSpent();
@@ -122,7 +142,20 @@ public sealed class DownloadRunner(
             }
         }
 
-        return new DownloadRunSummary(startedCount, failedCount, pending.Count);
+        var limits = new List<string>();
+        if (overRatio > 0)
+        {
+            limits.Add(string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"the ratio budget is {DownloadBudget.FormatBytes(budget.RatioBudgetBytes)} (ratio {account.Ratio:0.##}, min_ratio {minRatio})"));
+        }
+
+        if (noSlot > 0)
+        {
+            limits.Add($"no unsatisfied-snatch slot is free ({budget.UnsatCount} of {budget.UnsatLimit} in use, unsat_buffer {slotBuffer})");
+        }
+
+        return new DownloadRunSummary(startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits));
     }
 
     private void LogOutcome(SelectedTorrentEntity selected, string name, DownloadOutcome outcome, bool wedgeSpent)

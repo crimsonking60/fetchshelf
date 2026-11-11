@@ -753,6 +753,64 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_OverRatioBudget_ReportsWhatItLeftQueuedAndWhichBudgetDidIt()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await Task.Delay(1);
+        context.SelectedTorrents.Add(BuildSelected(2, SelectedTorrentCost.Ratio, "dl2"));
+        await context.SaveChangesAsync();
+        const string accountJson = """
+            {"ratio":2.01,"uploaded_bytes":10,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+            """;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal((0, 2, 2), (summary.Started, summary.Queued, summary.LeftQueued));
+        Assert.Equal("the ratio budget is 5 B (ratio 2.01, min_ratio 2)", summary.LimitedBy);
+    }
+
+    [Fact]
+    public async Task RunAsync_NoFreeUnsatSlot_ReportsWhatItLeftQueuedAndTheSlotsInUse()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+        const string accountJson = """
+            {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":15,"limit":20}}}
+            """;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: new SafetyBuffers(10, 0, []));
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal((1, "no unsatisfied-snatch slot is free (15 of 20 in use, unsat_buffer 10)"), (summary.LeftQueued, summary.LimitedBy));
+    }
+
+    [Fact]
+    public async Task RunAsync_EverythingStarted_LeavesNothingQueued()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.Ratio));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal((1, 0, (string?)null), (summary.Started, summary.LeftQueued, summary.LimitedBy));
+    }
+
+    [Fact]
     public async Task RunAsync_ItsAutograbKeepsMoreSlotsFree_HoldsTheTorrentBack()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

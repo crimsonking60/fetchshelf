@@ -19,6 +19,7 @@ mam_id = "replace-with-your-mam-session-id" # required for any background job to
                                              # Set one or the other, not both.
 web_host = "0.0.0.0"                         # where the web UI listens
 web_port = 3157
+web_url = "https://fetchshelf.example.net"  # the address notifications link to; without it, messages carry no links
 
 min_ratio = 2        # never download anything that would take the account below this ratio
 unsat_buffer = 10    # unsatisfied-snatch slots always left free
@@ -304,3 +305,23 @@ name = "Everything else"
 download_dir = "/data/torrents/manual"   # match torrents saved under this folder instead
 library_dir = "/data/library/other"
 method = "symlink"
+
+# =====================================================================================================
+# [[notify]]: repeatable. Messages to a phone or a chat when something needs attention.
+# 'url' is a secret (topics and webhook URLs often are one); 'url_file' reads it from a file instead.
+# 'events': any of mam_refused, rate_limited, job_failing, job_recovered, job_errors, grabbed, linked,
+# removed_from_mam, hit_and_run, budget_spent, or ["all"].
+# 'format': json (default), ntfy, gotify, discord or apprise.
+# =====================================================================================================
+[[notify]]
+name = "Phone"
+url = "https://ntfy.sh/replace-with-a-hard-to-guess-topic"
+format = "ntfy"
+token = "replace-with-an-ntfy-access-token"   # sent as 'Authorization: Bearer ...'; leave out for an open topic
+events = ["mam_refused", "job_failing", "job_recovered", "hit_and_run", "grabbed"]
+
+[[notify]]
+name = "Home Assistant"
+url = "http://homeassistant:8123/api/webhook/replace-with-the-webhook-id"
+# url_file = "/run/secrets/notify_url"         # alternative to 'url': read the URL from this file. Set one or the other.
+events = ["all"]
