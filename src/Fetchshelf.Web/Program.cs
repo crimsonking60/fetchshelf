@@ -380,7 +380,7 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         {
             using var scope = scopeFactory.CreateScope();
             var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
-            return JobOutcomes.Snatchlist(await importer.RunAsync(entry, ct), entry.DryRun);
+            return JobOutcomes.Snatchlist(await importer.RunAsync(entry, ct));
         }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
     }
 

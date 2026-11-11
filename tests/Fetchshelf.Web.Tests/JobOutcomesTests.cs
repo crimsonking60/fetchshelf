@@ -64,6 +64,12 @@ public class JobOutcomesTests
             JobOutcomes.HardcoverList(new HardcoverListRunSummary(5, 0, Books: 20, Searched: 12)).Summary);
 
     [Fact]
+    public void Snatchlist_DryRun_IsLabelledFromTheSummaryItself() =>
+        Assert.Equal(
+            "Dry run: 120 rows read, 3 would have been recorded, 0 would have been updated",
+            JobOutcomes.Snatchlist(new SnatchlistRunSummary(120, 3, 0, 0, DryRun: true)).Summary);
+
+    [Fact]
     public void Clean_NothingToRetire_SaysSo() =>
         Assert.Equal("No superseded copies to retire", JobOutcomes.Clean(new CleanRunSummary(0, 0)).Summary);
 
