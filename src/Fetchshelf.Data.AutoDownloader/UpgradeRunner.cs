@@ -83,7 +83,7 @@ public sealed class UpgradeRunner(
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var libraryCategories = libraries.Select(l => l.Category).OfType<string>().Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal);
         var (searched, selected, failed) = (0, 0, 0);
-        var erroredKeys = settings.DryRun ? [] : await ErrorLog.KeysAsync(dbContext, ErrorStage.Upgrade, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Upgrade, settings.DryRun, cancellationToken);
         foreach (var copy in due)
         {
             if (selected >= budget)
@@ -92,40 +92,23 @@ public sealed class UpgradeRunner(
                 break;
             }
 
-            try
-            {
-                searched++;
-                selected += await ProcessCopyAsync(copy, grabFilters, libraryCategories, ignoreTorrents, cancellationToken) ? 1 : 0;
-                if (!settings.DryRun)
+            searched++;
+            var failure = await errors.RunAsync(
+                copy.Id, copy.Title,
+                async () =>
                 {
-                    copy.UpgradeSearchedAt = _time.GetUtcNow();
-                    if (erroredKeys.Remove(copy.Id))
+                    selected += await ProcessCopyAsync(copy, grabFilters, libraryCategories, ignoreTorrents, cancellationToken) ? 1 : 0;
+                    if (!settings.DryRun)
                     {
-                        await ErrorLog.ClearAsync(dbContext, ErrorStage.Upgrade, copy.Id, cancellationToken);
+                        copy.UpgradeSearchedAt = _time.GetUtcNow();
                     }
-
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-            catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
-            {
-                // Every later search would fail the same way: the run fails, and the copy has no error of its own.
-                dbContext.DiscardPendingChanges();
-                throw;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                },
+                markFailed: () => copy.UpgradeSearchedAt = _time.GetUtcNow(),
+                cancellationToken);
+            if (failure is not null)
             {
                 failed++;
-                _logger.LogWarning(ex, "Upgrade: searching for a better copy of \"{Title}\" failed: {Reason}", copy.Title, ex.Message);
-                dbContext.DiscardPendingChanges();
-                if (!settings.DryRun)
-                {
-                    // Counted as searched, so a copy that keeps failing waits its turn instead of taking a search from the others.
-                    copy.UpgradeSearchedAt = _time.GetUtcNow();
-                    await ErrorLog.RecordAsync(dbContext, ErrorStage.Upgrade, copy.Id, copy.Title, ex.Message, cancellationToken: cancellationToken);
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                    erroredKeys.Add(copy.Id);
-                }
+                _logger.LogWarning(failure, "Upgrade: searching for a better copy of \"{Title}\" failed: {Reason}", copy.Title, failure.Message);
             }
         }
 

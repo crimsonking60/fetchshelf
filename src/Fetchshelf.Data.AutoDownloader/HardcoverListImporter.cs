@@ -93,7 +93,7 @@ public sealed class HardcoverListImporter(
         var selected = 0;
         var failed = 0;
         var searched = 0;
-        var erroredKeys = entry.DryRun ? [] : await ErrorLog.KeysAsync(dbContext, ErrorStage.HardcoverList, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.HardcoverList, entry.DryRun, cancellationToken);
         foreach (var item in items.Where(i => i.RemovedAt is null && i.MarkedDoneAt is null).OrderBy(i => i.Position))
         {
             if (selected >= budget)
@@ -102,39 +102,20 @@ public sealed class HardcoverListImporter(
                 break;
             }
 
-            try
-            {
-                var outcome = await ProcessItemAsync(entry, name, grabFilters, item, ignoreTorrents, cancellationToken);
-                selected += outcome.Selected;
-                searched += outcome.Searched ? 1 : 0;
-                if (!entry.DryRun)
+            var failure = await errors.RunAsync(
+                ErrorKey(item), item.BookTitle,
+                async () =>
                 {
-                    if (erroredKeys.Remove(ErrorKey(item)))
-                    {
-                        await ErrorLog.ClearAsync(dbContext, ErrorStage.HardcoverList, ErrorKey(item), cancellationToken);
-                    }
-
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-            catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
-            {
-                // Every later book would fail the same way: the run fails, and the book has no error of its own.
-                dbContext.DiscardPendingChanges();
-                throw;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                    var outcome = await ProcessItemAsync(entry, name, grabFilters, item, ignoreTorrents, cancellationToken);
+                    selected += outcome.Selected;
+                    searched += outcome.Searched ? 1 : 0;
+                },
+                markFailed: null,
+                cancellationToken);
+            if (failure is not null)
             {
                 failed++;
-                _logger.LogWarning(ex, "Hardcover list {Name}: \"{Title}\" failed: {Reason}", name, item.BookTitle, ex.Message);
-                // What the failed book changed must not be saved along with the next one.
-                dbContext.DiscardPendingChanges();
-                if (!entry.DryRun)
-                {
-                    await ErrorLog.RecordAsync(dbContext, ErrorStage.HardcoverList, ErrorKey(item), item.BookTitle, ex.Message, cancellationToken: cancellationToken);
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                    erroredKeys.Add(ErrorKey(item));
-                }
+                _logger.LogWarning(failure, "Hardcover list {Name}: \"{Title}\" failed: {Reason}", name, item.BookTitle, failure.Message);
             }
         }
 

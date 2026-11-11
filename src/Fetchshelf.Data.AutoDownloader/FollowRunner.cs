@@ -89,7 +89,7 @@ public sealed class FollowRunner(
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var run = new RunState((int)Math.Clamp(budget, 0, int.MaxValue));
-        var erroredKeys = settings.DryRun ? [] : await ErrorLog.KeysAsync(dbContext, ErrorStage.Follow, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Follow, settings.DryRun, cancellationToken);
         foreach (var follow in due)
         {
             if (follow.Mode == FollowMode.Download && run.BudgetLeft <= 0)
@@ -98,41 +98,16 @@ public sealed class FollowRunner(
                 continue;
             }
 
-            var key = ErrorLog.FollowKey(follow.Id);
-            try
-            {
-                await ProcessFollowAsync(follow, grabFilters, ignoreTorrents, run, cancellationToken);
-                if (!settings.DryRun)
-                {
-                    if (erroredKeys.Remove(key))
-                    {
-                        await ErrorLog.ClearAsync(dbContext, ErrorStage.Follow, key, cancellationToken);
-                    }
-
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-            catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
-            {
-                // Every later search would fail the same way: the run fails, and the follow has no error of its own.
-                dbContext.DiscardPendingChanges();
-                throw;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            // A failed search counts as searched too; the Errors page shows it until a search succeeds.
+            var failure = await errors.RunAsync(
+                ErrorLog.FollowKey(follow.Id), follow.DisplayName,
+                () => ProcessFollowAsync(follow, grabFilters, ignoreTorrents, run, cancellationToken),
+                markFailed: () => follow.LastSearchedAt = _time.GetUtcNow(),
+                cancellationToken);
+            if (failure is not null)
             {
                 run.Failed++;
-                _logger.LogWarning(ex, "Follow: searching for {Name} failed: {Reason}", follow.DisplayName, ex.Message);
-                // What the failed follow changed must not be saved along with the next one.
-                dbContext.DiscardPendingChanges();
-                if (!settings.DryRun)
-                {
-                    // Counted as searched, so a follow that keeps failing waits its turn instead of taking a search
-                    // from the others on every run. The Errors page shows it until a search succeeds.
-                    follow.LastSearchedAt = _time.GetUtcNow();
-                    await ErrorLog.RecordAsync(dbContext, ErrorStage.Follow, key, follow.DisplayName, ex.Message, cancellationToken: cancellationToken);
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                    erroredKeys.Add(key);
-                }
+                _logger.LogWarning(failure, "Follow: searching for {Name} failed: {Reason}", follow.DisplayName, failure.Message);
             }
         }
 
