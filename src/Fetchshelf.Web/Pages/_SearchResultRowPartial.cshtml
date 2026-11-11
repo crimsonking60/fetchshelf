@@ -37,6 +37,10 @@
         {
             <span class="status-badge status-not-in-qbittorrent" title="Fetchshelf has this torrent, but qBittorrent no longer does">Not in qBittorrent</span>
         }
+        @if (result.IsSnatchedByMe)
+        {
+            <span class="status-badge status-snatched" title="MAM says this account has snatched this torrent before">Snatched</span>
+        }
     </td>
     <td class="nowrap">@result.SizeDisplay</td>
     <td class="nowrap">
@@ -52,6 +56,7 @@
                   hx-post="@Url.Page("/Index", "Import")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="mamId" value="@result.MamId" />
+                <partial name="_SearchStateInputs" />
                 <button type="submit" title="Record this torrent in Fetchshelf without downloading it again">Import</button>
             </form>
         }
@@ -63,15 +68,17 @@
         else if (result.InQBittorrent != true)
         {
             <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="mamId" value="@result.MamId" />
+                <partial name="_SearchStateInputs" />
                 <button type="submit">@(Settings.DownloadAfterSelection ? "Download" : "Select")</button>
             </form>
             <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button">
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="mamId" value="@result.MamId" />
+                <partial name="_SearchStateInputs" />
                 <input type="hidden" name="wedge" value="true" />
                 <button type="submit" class="@(result.WedgePreHighlighted ? "wedge-highlighted" : "")">@(Settings.DownloadAfterSelection ? "Wedge\u00a0download" : "Wedge\u00a0select")</button>
             </form>

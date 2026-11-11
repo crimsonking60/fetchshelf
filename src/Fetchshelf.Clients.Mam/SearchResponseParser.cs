@@ -91,6 +91,7 @@ internal static class SearchResponseParser
             IsPersonalFreeleech = element.TryGetProperty("personal_freeleech", out var pfEl) && MamJson.GetBool(pfEl),
             IsFreeleechVip = element.TryGetProperty("fl_vip", out var flVipEl) && MamJson.GetBool(flVipEl),
             IsVip = element.TryGetProperty("vip", out var vipEl) && MamJson.GetBool(vipEl),
+            IsSnatchedByMe = element.TryGetProperty("my_snatched", out var snatchedEl) && snatchedEl.ValueKind != JsonValueKind.Null && MamJson.GetBool(snatchedEl),
             VipExpireUnixSeconds = element.TryGetProperty("vip_expire", out var vipExpireEl) ? MamJson.GetInt64(vipExpireEl) : 0,
             DownloadHash = downloadHash,
             Thumbnail = GetOptionalString(element, "thumbnail"),

@@ -77,6 +77,9 @@ public sealed record MamTorrentRecord
 
     public required bool IsVip { get; init; }
 
+    /// <summary>Whether the account has snatched the torrent before; MAM's "my_snatched".</summary>
+    public bool IsSnatchedByMe { get; init; }
+
     /// <summary>Unix timestamp; 0 means permanent VIP.</summary>
     public required long VipExpireUnixSeconds { get; init; }
 

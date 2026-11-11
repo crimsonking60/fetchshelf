@@ -66,6 +66,10 @@ public sealed class AutograbConfigTests : IDisposable
     [InlineData("random")]
     [InlineData("low_seeders")]
     [InlineData("low_snatches")]
+    [InlineData("high_seeders")]
+    [InlineData("high_snatches")]
+    [InlineData("largest_first")]
+    [InlineData("title")]
     [InlineData("Oldest_First")]
     public void Load_KnownSortBy_Loads(string sortBy)
     {

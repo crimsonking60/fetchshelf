@@ -8,7 +8,8 @@ namespace Fetchshelf.Data.Configuration;
 /// </summary>
 public static class AutograbSearchOptions
 {
-    public const string SortByNames = "newest_first, oldest_first, random, low_seeders, low_snatches";
+    public const string SortByNames =
+        "newest_first, oldest_first, random, low_seeders, low_snatches, high_seeders, high_snatches, largest_first, title";
 
     public const string SearchInNames = "author, description, filenames, file_types, narrator, series, tags, title";
 
@@ -22,6 +23,10 @@ public static class AutograbSearchOptions
             "random" => MamSortOrder.Random,
             "low_seeders" => MamSortOrder.LowestSeeders,
             "low_snatches" => MamSortOrder.LowestSnatches,
+            "high_seeders" => MamSortOrder.MostSeeders,
+            "high_snatches" => MamSortOrder.MostSnatches,
+            "largest_first" => MamSortOrder.LargestFirst,
+            "title" => MamSortOrder.TitleAsc,
             _ => null,
         };
         sortOrder = parsed ?? default;

@@ -1,0 +1,27 @@
+@model Fetchshelf.Web.Pages.IndexModel
+@* Which results these are out of how many MAM found, and links to the pages either side, keeping the search. *@
+@{
+    var pageNumber = Model.Choices.PageNumber;
+    var shown = Model.Results.Count + Model.SnatchedLeftOut;
+}
+<nav class="search-pager" aria-label="Search result pages">
+    <span id="results-count">
+        @if (Model.Found is { } found && shown > 0)
+        {
+            @:Results @Model.FirstResultNumber.ToString("N0")–@((Model.FirstResultNumber + shown - 1).ToString("N0")) of @found.ToString("N0").
+        }
+        @if (Model.SnatchedLeftOut > 0 && Model.Results.Count > 0)
+        {
+            @: @Model.SnatchedLeftOut left out as snatched before.
+        }
+        <span id="results-hidden"></span>
+    </span>
+    @if (pageNumber > 1)
+    {
+        <a id="previous-page" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber - 1))">Previous</a>
+    }
+    @if (Model.HasNextPage)
+    {
+        <a id="next-page" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber + 1))">Next</a>
+    }
+</nav>

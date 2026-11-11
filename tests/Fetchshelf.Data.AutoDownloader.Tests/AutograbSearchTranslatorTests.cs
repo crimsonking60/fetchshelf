@@ -19,6 +19,10 @@ public class AutograbSearchTranslatorTests
     [InlineData("random", MamSortOrder.Random)]
     [InlineData("low_seeders", MamSortOrder.LowestSeeders)]
     [InlineData("low_snatches", MamSortOrder.LowestSnatches)]
+    [InlineData("high_seeders", MamSortOrder.MostSeeders)]
+    [InlineData("high_snatches", MamSortOrder.MostSnatches)]
+    [InlineData("largest_first", MamSortOrder.LargestFirst)]
+    [InlineData("title", MamSortOrder.TitleAsc)]
     public void ToSearchQuery_SortBy_MapsToSortOrder(string? sortBy, MamSortOrder expected)
     {
         var entry = Entry(AutograbType.New);
@@ -27,6 +31,31 @@ public class AutograbSearchTranslatorTests
         var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
 
         Assert.Equal(expected, query.SortOrder);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("newest_first")]
+    public void ToSearchQuery_NewestFirstWithAQuery_AsksForDateOrder_NotRelevance(string? sortBy)
+    {
+        var entry = Entry(AutograbType.New);
+        entry.SortBy = sortBy;
+        entry.Query = "sanderson";
+
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal(MamSortOrder.NewestByDate, query.SortOrder);
+    }
+
+    [Fact]
+    public void ToSearchQuery_BookmarksWithAQuery_KeepsMamsOwnOrder()
+    {
+        var entry = Entry(AutograbType.Bookmarks);
+        entry.Query = "sanderson";
+
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal(MamSortOrder.NewestFirst, query.SortOrder);
     }
 
     [Fact]

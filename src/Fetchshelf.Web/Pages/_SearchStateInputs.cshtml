@@ -1,0 +1,14 @@
+@* The search a result row belongs to, posted with its buttons, so that without htmx the redirect comes back to the same
+   search and page. Read from the request the row is rendered in: the results request, or the post it answers. *@
+@{
+    var values = Context.Request.HasFormContentType && HttpMethods.IsPost(Context.Request.Method)
+        ? Context.Request.Form.Select(pair => (pair.Key, pair.Value))
+        : Context.Request.Query.Select(pair => (pair.Key, pair.Value));
+}
+@foreach (var (key, value) in values.Where(pair => Fetchshelf.Web.Pages.IndexModel.SearchStateKeys.Contains(pair.Key)))
+{
+    @foreach (var single in value)
+    {
+        <input type="hidden" name="@key" value="@single" />
+    }
+}

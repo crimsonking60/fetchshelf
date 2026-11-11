@@ -22,6 +22,9 @@ public sealed record SearchResultViewModel(
     /// </summary>
     public string? CannotDownloadReason { get; init; }
 
+    /// <summary>Whether the account has snatched the torrent before, as MAM says.</summary>
+    public bool IsSnatchedByMe { get; init; }
+
     /// <summary>How complete the torrent's metadata on MAM is; null for rows built without the MAM record.</summary>
     public MetadataQualityRating? MetadataQuality { get; init; }
 
@@ -48,6 +51,7 @@ public sealed record SearchResultViewModel(
         MediaTypeLabel: MediaTypeLabelOf(record))
         {
             MetadataQuality = RateMetadata(record),
+            IsSnatchedByMe = record.IsSnatchedByMe,
             CannotDownloadReason = preferenceLists is null ? null : CannotDownloadReasonFor(record, preferenceLists),
         };
 

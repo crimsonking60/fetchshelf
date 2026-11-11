@@ -29,7 +29,7 @@ public static class AutograbSearchTranslator
             SearchFields = entry.SearchIn.Select(ParseSearchField).ToList(),
             Target = target,
             Kind = kind,
-            SortOrder = ToSortOrder(entry.SortBy),
+            SortOrder = ToSortOrder(entry),
             LanguageIds = filter.Languages?.Select(l => (int)l).ToList() ?? [],
             MainCategoryIds = ToMainCategoryIds(filter.Categories),
             CategoryIds = ToCategoryIds(filter.Categories),
@@ -68,11 +68,23 @@ public static class AutograbSearchTranslator
             ? field
             : throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown search_in field.");
 
-    // ConfigLoader rejects unknown values at startup, so these throws only guard entries built in code.
-    private static MamSortOrder ToSortOrder(string? sortBy) =>
-        AutograbSearchOptions.TryParseSortBy(sortBy, out var sortOrder)
-            ? sortOrder
-            : throw new ArgumentOutOfRangeException(nameof(sortBy), sortBy, "Unknown sort_by value.");
+    /// <summary>
+    /// Newest first (`newest_first`, or no `sort_by`) is MAM's own order, which with search text is by relevance; with a
+    /// `query` it is asked for by date, so the setting means what it says. A bookmarks block keeps MAM's own order,
+    /// which for bookmarks is the order they were bookmarked in.
+    /// </summary>
+    // ConfigLoader rejects unknown values at startup, so the throw only guards entries built in code.
+    private static MamSortOrder ToSortOrder(AutograbEntry entry)
+    {
+        if (!AutograbSearchOptions.TryParseSortBy(entry.SortBy, out var sortOrder))
+        {
+            throw new ArgumentOutOfRangeException(nameof(entry), entry.SortBy, "Unknown sort_by value.");
+        }
+
+        return sortOrder == MamSortOrder.NewestFirst && !string.IsNullOrWhiteSpace(entry.Query) && entry.Type?.Kind != "bookmarks"
+            ? MamSortOrder.NewestByDate
+            : sortOrder;
+    }
 
     internal static bool? ToShowFlags(IReadOnlyDictionary<BookFlags, bool>? flags)
     {

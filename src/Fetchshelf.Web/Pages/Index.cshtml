@@ -5,7 +5,7 @@
 }
 
 <h2>Search</h2>
-@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly for a title or author, or shows the newest torrents on MAM when you haven't typed anything. The language list starts at the languages set in your configuration. Download a result straight to qBittorrent, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
+@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly, by default in titles and authors, or shows the newest torrents on MAM when the search box is empty. Below the box: where to search in, which torrents to search (freeleech, VIP, the account's bookmarks, or those not snatched yet), and the order; results come 100 to a page. The language list starts at the languages set in the configuration. A result can be downloaded straight to qBittorrent, into a chosen category, or with a wedge applied; torrents already downloaded can be hidden, and the list limited to ebooks or audiobooks.")
 
 @* Stays below the sticky header while scrolling, so feedback from a download is visible wherever in the results it was clicked. *@
 <div id="download-message-area" class="download-feedback" aria-live="polite">
@@ -15,15 +15,37 @@
     }
 </div>
 
-<form method="get" class="toolbar">
-    <input type="text" name="Q" value="@Model.Q" placeholder="Search MAM" />
-    <select name="Lang" id="search-language" aria-label="Language" onchange="this.form.requestSubmit()">
-        @foreach (var (value, label) in Model.LanguageOptions)
+@* A changed choice searches again from the first page: the page number is not part of this form. *@
+<form method="get" class="toolbar-stack" id="search-form">
+    <div class="toolbar">
+        <input type="text" name="Q" value="@Model.Q" placeholder="Search MAM" />
+        <select name="Lang" id="search-language" aria-label="Language" onchange="this.form.requestSubmit()">
+            @foreach (var (value, label) in Model.LanguageOptions)
+            {
+                <option value="@value" selected="@(value == Model.SelectedLanguageOption)">@label</option>
+            }
+        </select>
+        <select name="Type" id="search-type" aria-label="Search type" onchange="this.form.requestSubmit()">
+            @foreach (var (value, label) in SearchQueryBuilder.TypeOptions)
+            {
+                <option value="@value" selected="@(value == Model.SearchType)">@label</option>
+            }
+        </select>
+        <select name="Sort" id="search-sort" aria-label="Sort" onchange="this.form.requestSubmit()">
+            @foreach (var (value, label, _) in SearchQueryBuilder.SortOptions)
+            {
+                <option value="@value" selected="@(value == Model.SearchSort)">@label</option>
+            }
+        </select>
+        <button type="submit">Search</button>
+    </div>
+    <details id="search-fields" class="search-fields">
+        <summary>Search in: @string.Join(", ", SearchQueryBuilder.FieldOptions.Where(o => Model.SearchFields.Contains(o.Value)).Select(o => o.Label.ToLowerInvariant()))</summary>
+        @foreach (var (value, label) in SearchQueryBuilder.FieldOptions)
         {
-            <option value="@value" selected="@(value == Model.SelectedLanguageOption)">@label</option>
+            <label><input type="checkbox" name="In" value="@value" checked="@Model.SearchFields.Contains(value)" /> @label</label>
         }
-    </select>
-    <button type="submit">Search</button>
+    </details>
 </form>
 
 <div id="search-filters">
@@ -63,16 +85,16 @@
 }
 @if (string.IsNullOrWhiteSpace(Model.Q))
 {
-    <h3>Newest on MAM@(languageSuffix)</h3>
+    <h3>@Model.BrowseHeading@(languageSuffix)</h3>
 }
 else
 {
-    <h3>Matches for '@Model.Q'@(languageSuffix)</h3>
+    <h3>Matches for '@Model.Q'@(languageSuffix)@(Model.SearchTypeLabel is { } typeLabel ? $" ({typeLabel})" : "")</h3>
 }
 
 <div class="results-wrap">
     @* hx-disinherit: the "Searching MAM" overlay is for this request only, not the buttons and status checks inside. *@
-    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", new { Model.Q, Model.Lang })" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading" hx-disinherit="hx-indicator">
+    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues())" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading" hx-disinherit="hx-indicator">
         @await Html.PartialAsync("_SearchResultsPartial", Model)
     </div>
     @* Starts visible (htmx-request) so the table is never shown empty before the first request begins; htmx clears it when the request ends. *@
@@ -106,6 +128,11 @@ else
                     const matchesStatus = !hideDownloaded || (row.dataset.status === 'none' && row.dataset.inQbittorrent !== 'true');
                     row.hidden = !(matchesMedia && matchesStatus);
                 });
+                const hiddenNote = document.getElementById('results-hidden');
+                if (hiddenNote != null) {
+                    const hidden = document.querySelectorAll('#search-results tbody tr[hidden]').length;
+                    hiddenNote.textContent = hidden === 0 ? '' : ' ' + hidden + ' hidden by the filters above.';
+                }
                 document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {
                     const isActive = button.dataset.mediaFilter === currentMediaFilter;
                     button.classList.toggle('show-filter-active', isActive);
@@ -142,6 +169,8 @@ else
                 }
             });
 
+            // A download swaps its row in out of band: it may now be hidden by "Hide downloaded torrents", and the count changes.
+            document.body.addEventListener('htmx:oobAfterSwap', applyFilters);
             // The table arrives after page load, so filters must be re-applied to each new set of rows.
             document.body.addEventListener('htmx:afterSwap', function (event) {
                 if (event.target.id === 'search-results-panel') {
