@@ -5,6 +5,15 @@ namespace Fetchshelf.Web.Pages.Jobs;
 /// <summary>Display model for one job row on the Jobs page.</summary>
 public sealed record JobStatusViewModel(string Name, string? Description, DateTimeOffset? LastStartedAt, string LastResultText, bool IsRunning, DateTimeOffset? NextScheduledRun)
 {
+    /// <summary>When the current run started; null while idle.</summary>
+    public DateTimeOffset? RunningSince { get; init; }
+
+    /// <summary>How long the last run took; null if it never finished.</summary>
+    public TimeSpan? LastDuration { get; init; }
+
+    /// <summary>The last run's counts, shown on hover over its result.</summary>
+    public string? CountsText { get; init; }
+
     /// <summary>"4m 12s" for a timed job that is idle, else null.</summary>
     public string? NextRunText(DateTimeOffset now)
     {
@@ -18,17 +27,26 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
         return seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m {seconds % 60}s";
     }
 
-    public static JobStatusViewModel From(RegisteredJob job)
-    {
-        var lastResultText = job.LastRun switch
-        {
-            null => "Never run",
-            { Result: JobRunResult.Success } => "Success",
-            { Result: JobRunResult.Failure, ErrorMessage: var error } => $"Error: {error}",
-            { Result: JobRunResult.CompletedWithErrors, ErrorMessage: var error } => $"Finished with errors: {error}",
-            _ => "Unknown",
-        };
+    /// <summary>"Running for 2m 10s" while the job runs, else null.</summary>
+    public string? RunningText(DateTimeOffset now) =>
+        !IsRunning ? null
+        : RunningSince is { } since ? $"Running for {JobRunLabels.Duration(now - since)}"
+        : "Running";
 
-        return new JobStatusViewModel(job.Name, job.Description, job.LastRun?.StartedAt, lastResultText, job.IsRunning, job.NextScheduledRun);
-    }
+    /// <summary>"Success: 3 torrents linked", or the result alone when the run said nothing more.</summary>
+    public static string ResultText(JobRunRecord? run) => run switch
+    {
+        null => "Never run",
+        { Result: JobRunResult.Cancelled } => JobRunLabels.Result(JobRunResult.Cancelled),
+        { Summary: { Length: > 0 } summary } => $"{JobRunLabels.Result(run.Result)}: {summary}",
+        _ => JobRunLabels.Result(run.Result),
+    };
+
+    public static JobStatusViewModel From(RegisteredJob job) =>
+        new(job.Name, job.Description, job.LastRun?.StartedAt, ResultText(job.LastRun), job.IsRunning, job.NextScheduledRun)
+        {
+            RunningSince = job.RunningSince,
+            LastDuration = job.LastRun is { FinishedAt: { } finishedAt } run ? finishedAt - run.StartedAt : null,
+            CountsText = JobRunLabels.Counts(job.LastRun?.Counts),
+        };
 }

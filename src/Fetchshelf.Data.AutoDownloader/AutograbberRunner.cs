@@ -10,6 +10,23 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
+/// <summary>What one autograb run did.</summary>
+/// <param name="ResultCount">Search results read from MAM.</param>
+/// <param name="Selected">Torrents selected; in a dry run, those that would have been.</param>
+/// <param name="DryRun">Whether the run was a dry run, which selects and writes nothing.</param>
+/// <param name="Note">
+/// Why the run stopped short, such as reaching this run's limit of selections; null if it didn't. When the limit was 0
+/// from the start, nothing was searched.
+/// </param>
+/// <param name="CheckedForRemoval">Stored torrents `mark_removed` asked MAM about.</param>
+/// <param name="MarkedRemoved">Of those, the ones MAM no longer has, marked (or in a dry run, that would have been).</param>
+public sealed record AutograbRunSummary(
+    int ResultCount, int Selected, bool DryRun, string? Note = null, int CheckedForRemoval = 0, int MarkedRemoved = 0)
+{
+    /// <summary>The selections now waiting to be downloaded: none in a dry run.</summary>
+    public int SelectedForDownload => DryRun ? 0 : Selected;
+}
+
 /// <summary>Runs one `[[autograb]]` entry's periodic search-and-select cycle.</summary>
 public sealed class AutograbberRunner(
     MamClient mamClient,
@@ -22,10 +39,10 @@ public sealed class AutograbberRunner(
     private readonly EventStore _eventStore = new(dbContext);
 
     /// <summary>
-    /// Returns the number of torrents selected during this run. A dry run selects nothing and returns 0; what it
-    /// would have selected is only logged.
+    /// Searches, and selects what passes the filter. A dry run selects nothing; what it would have selected is logged
+    /// and counted in the summary.
     /// </summary>
-    public async Task<int> RunAsync(
+    public async Task<AutograbRunSummary> RunAsync(
         AutograbEntry entry,
         int globalUnsatBuffer,
         IReadOnlyList<long> ignoreTorrents,
@@ -50,7 +67,7 @@ public sealed class AutograbberRunner(
         {
             _logger.LogInformation(
                 "Autograb {Name}: nothing to do, this run's limit is 0 selections ({BudgetExplanation})", name, budgetExplanation);
-            return 0;
+            return new AutograbRunSummary(0, 0, entry.DryRun, $"this run's limit is 0 selections ({budgetExplanation})");
         }
 
         if (entry.DryRun)
@@ -63,6 +80,7 @@ public sealed class AutograbberRunner(
         var selectedCount = 0;
         var resultCount = 0;
         var budgetReachedNote = string.Empty;
+        string? limitNote = null;
         var returnedMamIds = new HashSet<long>();
 
         for (var page = 0; page < entry.EffectiveMaxPages && budgetReachedNote.Length == 0; page++)
@@ -116,7 +134,8 @@ public sealed class AutograbberRunner(
                     selectedCount++;
                     if (!isMetadataOnlyCost && selectedCount >= budget)
                     {
-                        budgetReachedNote = $"; stopped at this run's limit of {budget} selections ({budgetExplanation})";
+                        limitNote = $"stopped at this run's limit of {budget} selections ({budgetExplanation})";
+                        budgetReachedNote = $"; {limitNote}";
                         break;
                     }
                 }
@@ -128,12 +147,16 @@ public sealed class AutograbberRunner(
             }
         }
 
+        var (checkedForRemoval, markedRemoved) = (0, 0);
         if (entry.MarkRemoved && returnedMamIds.Count > 0 && entry.Type?.Kind != AutograbType.Bookmarks.Kind)
         {
-            await MarkRemovedAsync(name, entry.DryRun, returnedMamIds, cancellationToken);
+            (checkedForRemoval, markedRemoved) = await MarkRemovedAsync(name, entry.DryRun, returnedMamIds, cancellationToken);
         }
 
-        return Finish(name, entry.DryRun, resultCount, selectedCount, budgetReachedNote);
+        _logger.LogInformation(
+            "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
+            name, resultCount, selectedCount, entry.DryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
+        return new AutograbRunSummary(resultCount, selectedCount, entry.DryRun, limitNote, checkedForRemoval, markedRemoved);
     }
 
     /// <summary>The most stored torrents one run asks MAM about for `mark_removed`.</summary>
@@ -146,9 +169,10 @@ public sealed class AutograbberRunner(
     /// Asks MAM about stored torrents whose MAM id lies within the ids the search returned but which it didn't return,
     /// and marks those MAM no longer has as removed from MAM. A gap is usually a torrent that simply doesn't match the
     /// search, so each torrent is asked about at most once per <see cref="RemovalRecheckAfter"/>, and at most
-    /// <see cref="MaxRemovalChecksPerRun"/> per run, those asked about longest ago first.
+    /// <see cref="MaxRemovalChecksPerRun"/> per run, those asked about longest ago first. Returns how many were asked
+    /// about, and how many of those MAM no longer has.
     /// </summary>
-    private async Task MarkRemovedAsync(string name, bool dryRun, HashSet<long> returnedMamIds, CancellationToken cancellationToken)
+    private async Task<(int Checked, int Removed)> MarkRemovedAsync(string name, bool dryRun, HashSet<long> returnedMamIds, CancellationToken cancellationToken)
     {
         var (lowest, highest) = (returnedMamIds.Min(), returnedMamIds.Max());
         var now = DateTimeOffset.UtcNow;
@@ -170,7 +194,7 @@ public sealed class AutograbberRunner(
             .ToList();
         if (toCheck.Count == 0)
         {
-            return;
+            return (0, 0);
         }
 
         var removed = 0;
@@ -213,19 +237,12 @@ public sealed class AutograbberRunner(
         _logger.LogInformation(
             "Autograb {Name}: asked MAM about {Checked} stored {Torrents} missing from the results; {Removed} {Verb} removed",
             name, toCheck.Count, toCheck.Count == 1 ? "torrent" : "torrents", removed, dryRun ? "would have been marked (dry run)" : "marked");
+        return (toCheck.Count, removed);
     }
 
     private static string Describe(TorrentEntity torrent)
     {
         var authors = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).Authors;
         return authors.Count == 0 ? torrent.Title : $"{torrent.Title} by {string.Join(", ", authors)}";
-    }
-
-    private int Finish(string name, bool dryRun, int resultCount, int selectedCount, string budgetReachedNote)
-    {
-        _logger.LogInformation(
-            "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
-            name, resultCount, selectedCount, dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
-        return dryRun ? 0 : selectedCount;
     }
 }

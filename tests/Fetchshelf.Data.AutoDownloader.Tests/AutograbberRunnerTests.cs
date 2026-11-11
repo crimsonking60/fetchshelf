@@ -102,9 +102,9 @@ public sealed class AutograbberRunnerTests : IDisposable
         var runner = new AutograbberRunner(
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context);
 
-        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
+        var summary = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
 
-        Assert.Equal(1, selectedCount);
+        Assert.Equal(1, summary.SelectedForDownload);
         var selected = Assert.Single(context.SelectedTorrents);
         Assert.Equal(1, selected.MamId);
     }
@@ -118,9 +118,9 @@ public sealed class AutograbberRunnerTests : IDisposable
         var runner = new AutograbberRunner(
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context);
 
-        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 20, ignoreTorrents: []);
+        var summary = await runner.RunAsync(Entry(), globalUnsatBuffer: 20, ignoreTorrents: []);
 
-        Assert.Equal(0, selectedCount);
+        Assert.Equal(0, summary.SelectedForDownload);
         Assert.Empty(searchRequestPaths);
     }
 
@@ -135,9 +135,9 @@ public sealed class AutograbberRunnerTests : IDisposable
             logger);
 
         // Unsat limit 20, none in use, buffer 19 => a limit of 1.
-        var selectedCount = await runner.RunAsync(Entry(), globalUnsatBuffer: 19, ignoreTorrents: []);
+        var summary = await runner.RunAsync(Entry(), globalUnsatBuffer: 19, ignoreTorrents: []);
 
-        Assert.Equal(1, selectedCount);
+        Assert.Equal(1, summary.SelectedForDownload);
         Assert.Contains(
             logger.Messages(LogLevel.Information),
             m => m.EndsWith(
@@ -159,9 +159,10 @@ public sealed class AutograbberRunnerTests : IDisposable
         entry.Name = "Bookmarks";
         entry.DryRun = true;
 
-        var selectedCount = await runner.RunAsync(entry, globalUnsatBuffer: 0, ignoreTorrents: []);
+        var summary = await runner.RunAsync(entry, globalUnsatBuffer: 0, ignoreTorrents: []);
 
-        Assert.Equal(0, selectedCount);
+        Assert.Equal(0, summary.SelectedForDownload);
+        Assert.Equal((2, 2, true), (summary.ResultCount, summary.Selected, summary.DryRun));
         Assert.Empty(context.SelectedTorrents);
         var messages = logger.Messages(LogLevel.Information);
         Assert.Contains(messages, m => m.Contains("Autograb Bookmarks: dry run"));
@@ -180,9 +181,9 @@ public sealed class AutograbberRunnerTests : IDisposable
             client, new MamAccessGate(), new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists), context,
             logger);
 
-        var selectedCount = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
+        var summary = await runner.RunAsync(Entry(minSeeders: 8), globalUnsatBuffer: 0, ignoreTorrents: []);
 
-        Assert.Equal(1, selectedCount);
+        Assert.Equal(1, summary.SelectedForDownload);
         Assert.Contains(logger.Messages(LogLevel.Information), m => m.Contains("2 search results, 1 selected"));
         Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 1 \"High Seeders\": selected"));
         Assert.Contains(logger.Messages(LogLevel.Debug), m => m.Contains("MAM torrent 2 \"Low Seeders\" does not pass the filter"));

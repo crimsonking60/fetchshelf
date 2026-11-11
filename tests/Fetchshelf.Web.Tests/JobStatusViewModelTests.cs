@@ -36,4 +36,24 @@ public class JobStatusViewModelTests
             "Finished with errors: 1 torrent could not be linked; see the Errors page.",
             JobStatusViewModel.From(registry.Get("Link")!).LastResultText);
     }
+
+    [Theory]
+    [InlineData(JobRunResult.Success, "3 torrents linked", "Success: 3 torrents linked")]
+    [InlineData(JobRunResult.Success, null, "Success")]
+    [InlineData(JobRunResult.Failure, "boom", "Error: boom")]
+    [InlineData(JobRunResult.Cancelled, JobRegistry.CancelledSummary, "Cancelled")]
+    [InlineData(JobRunResult.Interrupted, JobRegistry.InterruptedSummary, "Interrupted: Fetchshelf stopped during this run")]
+    public void ResultText_ShowsTheResultAndSummary(JobRunResult result, string? summary, string expected) =>
+        Assert.Equal(expected, JobStatusViewModel.ResultText(new JobRunRecord(Now, result, summary)));
+
+    [Fact]
+    public void RunningText_RunningJob_ShowsHowLongItHasRun() =>
+        Assert.Equal("Running for 2m 10s", (Job(null, isRunning: true) with { RunningSince = Now.AddSeconds(-130) }).RunningText(Now));
+
+    [Theory]
+    [InlineData(45, "45s")]
+    [InlineData(130, "2m 10s")]
+    [InlineData(3900, "1h 5m")]
+    public void Duration_ReadsInTheLargestUsefulUnits(int seconds, string expected) =>
+        Assert.Equal(expected, JobRunLabels.Duration(TimeSpan.FromSeconds(seconds)));
 }

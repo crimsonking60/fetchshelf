@@ -164,8 +164,8 @@ These go at the top of the file, before any section.
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
-| `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). |
-| `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, as for `search_interval`. |
+| `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
+| `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
 | `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |

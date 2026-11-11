@@ -88,6 +88,49 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_CancelledPartWayThrough_KeepsWhatItLinkedAndRecordsNoErrorForTheRest()
+    {
+        WriteSourceFile("first/book.m4b");
+        WriteSourceFile("second/book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        using var cancellation = new CancellationTokenSource();
+        var lookup = new CancellingLookup(OrganizerTestSupport.BuildMetadata(), cancelOnLookup: 2, cancellation);
+        var runner = CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", Path.Combine(DownloadsDir, "first")), FinishedTorrent("hash2", Path.Combine(DownloadsDir, "second"))],
+            new Dictionary<string, List<QBittorrentFile>>
+            {
+                ["hash1"] = [new() { Name = "book.m4b", Size = 4 }],
+                ["hash2"] = [new() { Name = "book.m4b", Size = 4 }],
+            });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.RunAsync(new QBittorrentConnection(), client, cancellation.Token));
+
+        context.ChangeTracker.Clear();
+        var linked = await context.Torrents.SingleAsync();
+        Assert.Equal("hash1", linked.Id);
+        Assert.NotNull(linked.LibraryPath);
+        Assert.Equal(EventKind.Linked, (await context.Events.SingleAsync()).Kind);
+        Assert.Empty(context.ErroredTorrents);
+    }
+
+    /// <summary>Finds the metadata, and on the given lookup cancels the run too, as the Cancel button would.</summary>
+    private sealed class CancellingLookup(TorrentMetadata metadata, int cancelOnLookup, CancellationTokenSource cancellation) : IMetadataLookup
+    {
+        private int _lookups;
+
+        public Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)
+        {
+            if (++_lookups == cancelOnLookup)
+            {
+                cancellation.Cancel();
+            }
+
+            return Task.FromResult<TorrentMetadata?>(metadata);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_SameFileNameInTwoSubFolders_LinksAndRecordsBoth()
     {
         WriteSourceFile("Book/Part 1/01.mp3", "part one");

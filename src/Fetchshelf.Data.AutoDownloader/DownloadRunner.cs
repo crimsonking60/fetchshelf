@@ -10,8 +10,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
-/// <summary>What one download run did: torrents started in qBittorrent, and torrents that failed.</summary>
-public sealed record DownloadRunSummary(int Started, int Failed);
+/// <summary>What one download run did: torrents started in qBittorrent, torrents that failed, and how many were queued.</summary>
+public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0);
 
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
@@ -33,6 +33,8 @@ public sealed class DownloadRunner(
     /// <summary>
     /// Starts queued selections within the account's limits. A failure on one torrent is logged and the run
     /// continues; MAM refusing the account (rate limit, block, 403) ends the run, since every later request would fail too.
+    /// Cancellation lands only between torrents: a torrent whose file was fetched, possibly with a wedge, is always
+    /// added to qBittorrent and recorded before the run stops.
     /// </summary>
     public async Task<DownloadRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
@@ -62,12 +64,13 @@ public sealed class DownloadRunner(
         var (startedCount, failedCount) = (0, 0);
         foreach (var selected in pending)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var name = TorrentMetadataSerializer.Deserialize(selected.MetadataJson).DisplayName();
             DownloadOutcome outcome;
             bool wedgeSpent;
             try
             {
-                (outcome, wedgeSpent) = await ProcessOneAsync(selected, budget, cancellationToken);
+                (outcome, wedgeSpent) = await ProcessOneAsync(selected, budget, CancellationToken.None);
             }
             catch (Exception ex) when (ex is MamAccountBlockedException or MamRateLimitedException or MamForbiddenException)
             {
@@ -75,7 +78,7 @@ public sealed class DownloadRunner(
                 failedCount++;
                 break;
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            catch (Exception ex)
             {
                 _logger.LogError("Could not download {Torrent}: {Error} It stays queued for the next run", name, ex.Message);
                 failedCount++;
@@ -108,7 +111,7 @@ public sealed class DownloadRunner(
             }
         }
 
-        return new DownloadRunSummary(startedCount, failedCount);
+        return new DownloadRunSummary(startedCount, failedCount, pending.Count);
     }
 
     private void LogOutcome(SelectedTorrentEntity selected, string name, DownloadOutcome outcome, bool wedgeSpent)

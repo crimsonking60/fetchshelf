@@ -1,0 +1,50 @@
+@page
+@model Fetchshelf.Web.Pages.Jobs.HistoryModel
+@{
+    ViewData["Title"] = $"{Model.Job} runs";
+}
+
+<h2>@Model.Job runs</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lists the runs of one background job, newest first. Hover over a run's summary to see its counts.")
+
+<p><a asp-page="/Jobs/Index">Back to Jobs</a></p>
+
+<form method="get" class="toolbar">
+    <input type="hidden" name="Job" value="@Model.Job" />
+    <label><input type="checkbox" name="Unsuccessful" value="true" checked="@Model.Unsuccessful" /> Only runs that didn't succeed</label>
+    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+    <button type="submit">Filter</button>
+</form>
+
+@if (Model.Runs.Count == 0)
+{
+    <p id="no-runs-message" class="empty">No runs.</p>
+}
+else
+{
+    <table id="job-runs">
+        <thead>
+            <tr>
+                <th>Started</th>
+                <th>Took</th>
+                <th>Trigger</th>
+                <th>Result</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var run in Model.Runs)
+            {
+                <tr>
+                    <td><local-time value="run.StartedAt" /></td>
+                    <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.HistoryModel.Duration(run)</td>
+                    <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.JobRunLabels.Trigger(run.Trigger)</td>
+                    <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.JobRunLabels.Result(run.Result)</td>
+                    <td><span title="@Fetchshelf.Web.Pages.Jobs.HistoryModel.Counts(run)">@run.Summary</span></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @await Html.PartialAsync("_Pager", Model.Pager)
+}

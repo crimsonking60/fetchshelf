@@ -92,6 +92,7 @@ public sealed class LinkRunner(
         {
             foreach (var torrent in finished)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _batch ??= await dbContext.Database.BeginTransactionAsync(cancellationToken);
                 try
                 {
@@ -289,6 +290,8 @@ public sealed class LinkRunner(
 
         var placement = PlaceFiles(library, metadata, files, mappedSavePath, bestAudioExtension, bestEbookExtension);
 
+        // The files are in the library now: recording them must not be cut short by a cancellation.
+        cancellationToken = CancellationToken.None;
         if (existing is null)
         {
             existing = new TorrentEntity

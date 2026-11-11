@@ -138,7 +138,7 @@ public sealed class SelectionRunner(
         }
 
         CreateSelected(record, metadata, cost.Value, category, tags, grabberName);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(CancellationToken.None); // a selection being written is written, even if the run is cancelled
         return SelectionOutcome.Selected;
     }
 

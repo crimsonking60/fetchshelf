@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.AutoDownloader;
 
 /// <summary>What one run of a `[[hardcover_list]]` did.</summary>
-public sealed record HardcoverListRunSummary(int Selected, int Failed);
+public sealed record HardcoverListRunSummary(int Selected, int Failed, int Books = 0, int Searched = 0, bool DryRun = false);
 
 /// <summary>
 /// Runs one `[[hardcover_list]]`: reads its books from Hardcover, keeps one <see cref="ListItemEntity"/> per book, and
@@ -78,7 +78,7 @@ public sealed class HardcoverListImporter(
             _logger.LogInformation(
                 "Hardcover list {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
                 name, Books(books.Count), explanation);
-            return new HardcoverListRunSummary(0, 0);
+            return new HardcoverListRunSummary(0, 0, books.Count, 0, entry.DryRun);
         }
 
         var selected = 0;
@@ -115,7 +115,7 @@ public sealed class HardcoverListImporter(
             "Hardcover list {Name}: {Books}, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
             name, Books(books.Count), searched, selected, entry.DryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
-        return new HardcoverListRunSummary(entry.DryRun ? 0 : selected, failed);
+        return new HardcoverListRunSummary(entry.DryRun ? 0 : selected, failed, books.Count, searched, entry.DryRun);
     }
 
     /// <summary>
