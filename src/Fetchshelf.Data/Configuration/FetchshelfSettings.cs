@@ -119,6 +119,9 @@ public sealed class FetchshelfSettings
     /// <summary>Repeatable `[[hardcover_list]]` entries.</summary>
     public List<HardcoverListEntry> HardcoverList { get; set; } = [];
 
+    /// <summary>Optional `[follow]` section. Null when not configured, and then series and authors can't be followed.</summary>
+    public FollowSettings? Follow { get; set; }
+
     /// <summary>Repeatable `[[notify]]` entries: where to send messages about what Fetchshelf does.</summary>
     public List<NotifyEntry> Notify { get; set; } = [];
 

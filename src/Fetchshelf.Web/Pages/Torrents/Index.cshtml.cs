@@ -68,6 +68,9 @@ public class IndexModel(
     /// <summary>The author, narrator and series filters in use, with the names they stand for.</summary>
     public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
 
+    /// <summary>What is followed, for the follow buttons by the author and series filters; empty without a `[follow]` section.</summary>
+    public IReadOnlyDictionary<(FollowKind, string), FollowMode> Followed { get; private set; } = new Dictionary<(FollowKind, string), FollowMode>();
+
     /// <summary>The choices for the Library, Language and Media type filters: the values among all tracked torrents.</summary>
     public IReadOnlyList<string> LibraryOptions { get; private set; } = [];
 
@@ -287,6 +290,10 @@ public class IndexModel(
         LanguageOptions = Distinct((await torrents.Select(t => t.Language).Distinct().ToListAsync()).Append(Language));
         MediaTypeOptions = Distinct((await torrents.Select(t => t.MediaType).Distinct().ToListAsync()).Append(MediaType));
         NameFilters = await LoadNameFiltersAsync();
+        if (settings.Follow is not null && NameFilters.Any(f => f.Parameter != nameof(Narrator)))
+        {
+            Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext);
+        }
 
         if (!string.IsNullOrEmpty(Library))
         {

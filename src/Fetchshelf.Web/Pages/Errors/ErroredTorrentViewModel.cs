@@ -37,6 +37,8 @@ public sealed record ErroredTorrentViewModel(
                 {
                     ListId = split < 0 ? null : entity.Key[..split],
                 };
+            case ErrorStage.Follow:
+                return Plain(entity, "Follow", entity.Title ?? entity.Key, null);
             case ErrorStage.Audiobookshelf:
                 var title = trackedTitles.GetValueOrDefault(entity.Key);
                 return Plain(entity, "Info-hash", entity.Key, title is null ? null : entity.Key) with { Title = entity.Title ?? title };
@@ -76,6 +78,7 @@ public sealed record ErroredTorrentViewModel(
         ErrorStage.Snatchlist => "Snatchlist",
         ErrorStage.HardcoverList => "Hardcover list",
         ErrorStage.Audiobookshelf => "Audiobookshelf",
+        ErrorStage.Follow => "Follow",
         _ => stage.ToString(),
     };
 }

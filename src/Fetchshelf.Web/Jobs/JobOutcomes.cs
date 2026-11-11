@@ -80,6 +80,16 @@ public static class JobOutcomes
         "could not be searched for; see the Errors page",
         new() { ["books"] = summary.Books, ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
 
+    public static JobOutcome Follow(FollowRunSummary summary) => Finish(
+        DryRun(
+            summary.DryRun,
+            $"{summary.Searched} followed searched, {summary.Selected} "
+                + (summary.DryRun ? "would have been selected" : "selected")
+                + $", {summary.NewFinds} new to look at"),
+        summary.Failed,
+        "could not be searched for; see the Errors page",
+        new() { ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["new"] = summary.NewFinds, ["failed"] = summary.Failed });
+
     public static JobOutcome Download(DownloadRunSummary summary) => Finish(
         summary.Queued == 0
             ? "No selected torrents waiting to be downloaded"

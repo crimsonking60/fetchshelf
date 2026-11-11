@@ -1,0 +1,54 @@
+@page
+@model Fetchshelf.Web.Pages.Series.IndexModel
+@{
+    ViewData["Title"] = "Series";
+}
+
+<h2>Series</h2>
+@await Html.PartialAsync("_PageExplanation", Model.CanFollow
+    ? "This page lists every series in the library, with the books it has and those missing between them. Follow a series to have the Follow job download its missing and future books, watch it to have them listed on the Following page instead, or ignore it to leave it out of the series with missing books."
+    : "This page lists every series in the library, with the books it has and those missing between them. With a [follow] section in the configuration, series can be followed here, so their missing and future books are downloaded or listed.")
+
+<form method="get" class="toolbar">
+    <input type="text" name="Q" value="@Model.Q" placeholder="Search series and authors" aria-label="Search" />
+    <select name="Show" aria-label="Show" onchange="this.form.requestSubmit()">
+        <option value="">Every series</option>
+        @foreach (var (value, label) in Fetchshelf.Web.Pages.Series.IndexModel.ShowOptions)
+        {
+            <option value="@value" selected="@(Model.Show == value)">@label</option>
+        }
+    </select>
+    <input type="hidden" name="PageSize" value="@Model.PageSize" />
+    <button type="submit">Search</button>
+</form>
+
+@if (Model.Rows.Count == 0)
+{
+    <p id="no-series-message" class="empty">No series found.</p>
+}
+else
+{
+    <table id="series">
+        <thead>
+            <tr>
+                <th>Series</th>
+                <th>Authors</th>
+                <th>In the library</th>
+                <th>Missing</th>
+                <th>Media types</th>
+                <th>Following</th>
+                @if (Model.CanFollow)
+                {
+                    <th></th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <partial name="_SeriesRowPartial" model="new Fetchshelf.Web.Pages.Series.SeriesRowPartialModel(row, Model.CanFollow)" />
+            }
+        </tbody>
+    </table>
+    @await Html.PartialAsync("_Pager", Model.Pager)
+}

@@ -60,6 +60,34 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
         return rows.Count == 0 ? null : ToSummary(rows.GroupBy(r => r.NameKey).Single());
     }
 
+    /// <summary>
+    /// The authors of each series' books not replaced, by series key: each author once, spelled as most of the series'
+    /// books spell them, the one with the most books first.
+    /// </summary>
+    public async Task<Dictionary<string, IReadOnlyList<string>>> SeriesAuthorsAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await (
+                from series in dbContext.TorrentSeries
+                join torrent in dbContext.Torrents on series.TorrentId equals torrent.Id
+                join person in dbContext.TorrentPeople on series.TorrentId equals person.TorrentId
+                where torrent.ReplacedWithTorrentId == null && person.Role == PersonRole.Author
+                select new { SeriesKey = series.NameKey, series.TorrentId, person.NameKey, person.Name })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(r => r.SeriesKey)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g
+                    .GroupBy(r => r.NameKey)
+                    .OrderByDescending(a => a.Select(r => r.TorrentId).Distinct().Count())
+                    .ThenBy(a => a.Key, StringComparer.Ordinal)
+                    .Select(a => MostUsed(a.GroupBy(r => r.Name).Select(n => (n.Key, n.Select(r => r.TorrentId).Distinct().Count()))))
+                    .ToList(),
+                StringComparer.Ordinal);
+    }
+
     /// <summary>The numbered entries of one series the library has as audiobooks, or as ebooks.</summary>
     public async Task<IReadOnlyList<OwnedSeriesEntry>> OwnedEntriesAsync(
         string seriesNameKey, FilterMainType side, CancellationToken cancellationToken = default)

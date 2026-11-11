@@ -15,6 +15,9 @@ public enum ErrorStage
 
     /// <summary>A linked torrent the Audiobookshelf matcher couldn't match; keyed by info-hash.</summary>
     Audiobookshelf,
+
+    /// <summary>A followed series or author the Follow job couldn't search for; keyed by <see cref="ErrorLog.FollowKey"/>.</summary>
+    Follow,
 }
 
 /// <summary>One row per (stage, torrent) error; a successful run of the stage clears it.</summary>

@@ -89,6 +89,7 @@ public static class ConfigLoader
         ValidateAutograbs(settings);
         ValidateSnatchlists(settings);
         ValidateHardcover(settings);
+        ValidateFollow(settings);
         ValidateOpds(settings);
         ValidateAudiobookshelf(settings);
         ConfigValueValidator.ValidateNotify(settings);
@@ -476,8 +477,8 @@ public static class ConfigLoader
     }
 
     /// <summary>
-    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c> and <c>[[hardcover_list.grab]]</c>
-    /// block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
+    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c>, <c>[[hardcover_list.grab]]</c>
+    /// and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
     /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
     /// <c>[[snatchlist]]</c> blocks don't take <c>languages</c> at all. Runs after environment overrides, so
     /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
@@ -490,7 +491,9 @@ public static class ConfigLoader
             throw new ConfigurationException($"Invalid configuration: unrecognized language '{unknown}' in the top-level 'languages'.");
         }
 
-        var blocks = settings.Autograb.Cast<SharedFilterConfig>().Concat(settings.HardcoverList.SelectMany(list => list.Grab));
+        var blocks = settings.Autograb.Cast<SharedFilterConfig>()
+            .Concat(settings.HardcoverList.SelectMany(list => list.Grab))
+            .Concat(settings.Follow?.Grab ?? []);
         foreach (var block in blocks.Where(block => block.Languages is null))
         {
             block.Languages = [.. settings.Languages];
@@ -561,6 +564,31 @@ public static class ConfigLoader
                 "Invalid configuration: [audiobookshelf.path_mapping] looks like it is written Fetchshelf's path = "
                 + "Audiobookshelf's path. It is the other way round, like [qbittorrent.path_mapping]: Audiobookshelf's "
                 + "path = Fetchshelf's path. Swap the two sides of each line.");
+        }
+    }
+
+    private static void ValidateFollow(FetchshelfSettings settings)
+    {
+        if (settings.Follow is not { } follow)
+        {
+            return;
+        }
+
+        if (follow.Grab.Count == 0)
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: the [follow] section must have at least one [[follow.grab]] block, which says what the Follow job may take and pay.");
+        }
+
+        if (follow.PreferFormat is not (null or Core.Metadata.FilterMainType.Audio or Core.Metadata.FilterMainType.Ebook))
+        {
+            throw new ConfigurationException("Invalid configuration: the [follow] section has a 'prefer_format' that is not 'audio' or 'ebook'.");
+        }
+
+        if (follow.Grab.Any(g => g.Cost is Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: the [follow] section has a 'grab' block with a metadata-only 'cost'; the Follow job downloads books.");
         }
     }
 

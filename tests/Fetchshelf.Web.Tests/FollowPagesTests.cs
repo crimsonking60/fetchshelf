@@ -1,0 +1,221 @@
+using System.Net;
+using System.Text.RegularExpressions;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Data;
+using Fetchshelf.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Fetchshelf.Web.Tests;
+
+/// <summary>The Series and Following pages, and the follow buttons on a torrent's page.</summary>
+public partial class FollowPagesTests
+{
+    private const string ConfigWithFollow = """
+        mam_id = ""
+
+        [follow]
+        category = "audiobooks"
+
+        [[follow.grab]]
+        cost = "free"
+        """;
+
+    private static TorrentMetadata Book(string title, string series, string number, string author = "James S. A. Corey") =>
+        OrganizerTestSupport.BuildMetadata(title, [author]) with { Series = [SeriesParser.Parse(series, number)] };
+
+    private static async Task SeedExpanseAsync(FetchshelfWebAppFixture fixture)
+    {
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", Book("Leviathan Wakes", "The Expanse", "1"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", Book("Caliban's War", "The Expanse", "2"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash4", Book("Cibola Burn", "The Expanse", "4"));
+    }
+
+    private static async Task<int> SeedFindAsync(FetchshelfWebAppFixture fixture, FollowFindStatus status = FollowFindStatus.New)
+    {
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        var follow = new FollowEntity
+        {
+            Kind = FollowKind.Author,
+            NameKey = "jamessacorey",
+            DisplayName = "James S. A. Corey",
+            Mode = FollowMode.Watch,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        dbContext.Follows.Add(follow);
+        dbContext.SaveChanges();
+        var find = new FollowFindEntity
+        {
+            FollowId = follow.Id,
+            MamId = 1,
+            Title = "The Way of Kings",
+            MediaSide = "Audio",
+            Status = status,
+            FoundAt = DateTimeOffset.UtcNow,
+            StatusAt = DateTimeOffset.UtcNow,
+        };
+        dbContext.FollowFinds.Add(find);
+        dbContext.SaveChanges();
+        return find.Id;
+    }
+
+    private static FollowEntity? FollowOf(FetchshelfWebAppFixture fixture, FollowKind kind, string key)
+    {
+        using var scope = fixture.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Follows.AsNoTracking().SingleOrDefault(f => f.Kind == kind && f.NameKey == key);
+    }
+
+    private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string pageUrl, string handlerUrl, Dictionary<string, string> fields, bool htmx = false)
+    {
+        var html = await client.GetStringAsync(pageUrl);
+        fields["__RequestVerificationToken"] = TokenPattern().Match(html).Groups[1].Value;
+        using var request = new HttpRequestMessage(HttpMethod.Post, handlerUrl) { Content = new FormUrlEncodedContent(fields) };
+        if (htmx)
+        {
+            request.Headers.Add("HX-Request", "true");
+        }
+
+        return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task SeriesPage_ShowsWhatIsOwnedAndMissing_WithoutFollowButtonsWithoutAFollowSection()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Series"));
+
+        Assert.Contains(">The Expanse</a>", html);
+        Assert.Contains("<td>1, 2, 4</td>", html);
+        Assert.Contains("<td>3</td>", html);
+        Assert.DoesNotContain("handler=Mode", html);
+        Assert.DoesNotContain(">Following</a>", html);
+    }
+
+    [Fact]
+    public async Task SeriesPage_Follow_SwapsTheRow_AndTheFilterFindsIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var response = await PostAsync(client, "/Series", "/Series?handler=Mode",
+            new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Download" }, htmx: true);
+        var row = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.StartsWith("<tr id=\"series-", row.Trim());
+        Assert.Contains(">Followed</span>", row);
+        Assert.Equal(FollowMode.Download, FollowOf(fixture, FollowKind.Series, "expanse")!.Mode);
+        Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=followed"));
+        Assert.Contains(">Following</a>", await client.GetStringAsync("/Series"));
+    }
+
+    [Fact]
+    public async Task SeriesPage_Ignore_LeavesTheSeriesOutOfThoseWithMissingBooks_AndStopUndoesIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateClient();
+        Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=missing"));
+
+        await PostAsync(client, "/Series", "/Series?handler=Mode", new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Ignore" }, htmx: true);
+
+        Assert.DoesNotContain("The Expanse", await client.GetStringAsync("/Series?Show=missing"));
+        Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=ignored"));
+
+        await PostAsync(client, "/Series", "/Series?handler=Mode", new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Stop" }, htmx: true);
+
+        Assert.Null(FollowOf(fixture, FollowKind.Series, "expanse"));
+    }
+
+    [Fact]
+    public async Task TorrentPage_FollowAnAuthor_ComesBack_AndShowsItFollowed()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateNoRedirectClient();
+
+        var before = WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
+        Assert.Contains(">Follow The Expanse</button>", before);
+        Assert.Contains(">Follow James S. A. Corey</button>", before);
+
+        var response = await PostAsync(client, "/torrents/hash1", "/Following?handler=Follow", new()
+        {
+            ["kind"] = "Author",
+            ["key"] = "jamessacorey",
+            ["name"] = "James S. A. Corey",
+            ["returnUrl"] = "/torrents/hash1",
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/torrents/hash1", response.Headers.Location!.ToString());
+        Assert.Equal(FollowMode.Watch, FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Mode);
+        var after = WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
+        Assert.Contains(">Following James S. A. Corey</a>", after);
+    }
+
+    [Fact]
+    public async Task FollowingPage_ListsFinds_AndCountsThemInTheMenu_AndDismissHidesOne()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        var findId = await SeedFindAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Following");
+        Assert.Contains("The Way of Kings", html);
+        Assert.Contains("id=\"follow-badge\"", html);
+
+        await PostAsync(client, "/Following", "/Following?handler=Dismiss", new() { ["findId"] = findId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+
+        var after = await client.GetStringAsync("/Following");
+        Assert.DoesNotContain("The Way of Kings", after);
+        Assert.DoesNotContain("id=\"follow-badge\"", after);
+    }
+
+    [Fact]
+    public async Task FollowingPage_DownloadAFind_SelectsIt_WithTheFollowsCategory()
+    {
+        const string SearchJson = """
+            {
+                "perpage": 100, "start": 0, "total": 1, "found": 1,
+                "data": [{
+                    "id": 1, "title": "The Way of Kings", "author_info": "{\"1\":\"Brandon Sanderson\"}",
+                    "narrator_info": "{}", "series_info": "{}", "isbn": null, "description": null,
+                    "mediatype": 1, "main_cat": 13, "maincat": 1, "category": 39, "categories": "[13]",
+                    "language": 1, "browseflags": 0, "filetype": "m4b", "numfiles": 1, "size": "10 MiB",
+                    "tags": "", "owner": 1, "owner_name": "uploader", "added": "2026-01-01 00:00:00",
+                    "seeders": 5, "leechers": 1, "times_completed": 1,
+                    "free": true, "personal_freeleech": false, "fl_vip": false, "vip": false, "vip_expire": 0, "dl": "dlhash1"
+                }]
+            }
+            """;
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow, mamHandler: _ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(SearchJson) });
+        var findId = await SeedFindAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var response = await PostAsync(client, "/Following", "/Following?handler=Download", new() { ["findId"] = findId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+
+        Assert.Contains("Selected \"The Way of Kings\"", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        var selected = Assert.Single(dbContext.SelectedTorrents);
+        Assert.Equal(("audiobooks", "Follow: James S. A. Corey"), (selected.Category, selected.GrabberName));
+        Assert.Equal(FollowFindStatus.Selected, dbContext.FollowFinds.Single().Status);
+    }
+
+    [Fact]
+    public async Task FollowingPage_WithoutAFollowSection_SaysWhatIsNeeded()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using var client = fixture.CreateClient();
+
+        Assert.Contains("id=\"follow-not-configured\"", await client.GetStringAsync("/Following"));
+    }
+
+    [GeneratedRegex(@"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]*)""")]
+    private static partial Regex TokenPattern();
+}

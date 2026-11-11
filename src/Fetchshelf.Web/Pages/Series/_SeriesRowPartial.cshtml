@@ -1,0 +1,45 @@
+@model Fetchshelf.Web.Pages.Series.SeriesRowPartialModel
+@using Fetchshelf.Data.Entities
+@{
+    var row = Model.Row;
+    var mode = row.Follow?.Mode;
+}
+<tr id="@row.RowId">
+    <td><a asp-page="/Torrents/Index" asp-route-Series="@row.Key">@row.Name</a></td>
+    @* Comics and anthologies list many people; the first few, by number of books, say whose series it is. *@
+    <td title="@(row.Authors.Count > 3 ? string.Join(", ", row.Authors) : null)">@string.Join(", ", row.Authors.Take(3))@(row.Authors.Count > 3 ? $" and {row.Authors.Count - 3} more" : "")</td>
+    <td>@(row.Owned.Length > 0 ? row.Owned : $"{row.Books} without a number")</td>
+    <td>@(mode == FollowMode.Ignore ? "" : row.Missing)</td>
+    <td>@string.Join(", ", row.MediaTypes)</td>
+    <td class="nowrap">
+        @switch (mode)
+        {
+            case FollowMode.Download: <span class="status-badge status-linked">Followed</span> break;
+            case FollowMode.Watch: <span class="status-badge status-selected">Watched</span> break;
+            case FollowMode.Ignore: <span class="muted">Ignored</span> break;
+        }
+    </td>
+    @if (Model.CanFollow)
+    {
+        <td class="nowrap">
+            @* Each button sets one mode; the one in use is left out, and "Stop" undoes any. *@
+            @foreach (var (value, label, title) in new[]
+            {
+                ("Download", "Follow", "Download its missing and future books automatically"),
+                ("Watch", "Watch", "List its missing and future books on the Following page"),
+                ("Ignore", "Ignore", "Leave it out of the series with missing books"),
+                ("Stop", "Stop", "Stop following or ignoring it"),
+            }.Where(b => b.Item1 != mode?.ToString() && (b.Item1 != "Stop" || mode is not null)))
+            {
+                <form method="post" asp-page="/Series/Index" asp-page-handler="Mode" class="inline"
+                      hx-post="@Url.Page("/Series/Index", "Mode")" hx-target="#@row.RowId" hx-swap="outerHTML" hx-disabled-elt="find button">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="key" value="@row.Key" />
+                    <input type="hidden" name="name" value="@row.Name" />
+                    <input type="hidden" name="mode" value="@value" />
+                    <button type="submit" title="@title">@label</button>
+                </form>
+            }
+        </td>
+    }
+</tr>

@@ -215,6 +215,31 @@
 </section>
 
 <section>
+    <h3>Following</h3>
+    @if (settings.Follow is not { } follow)
+    {
+        <p class="empty">No [follow] section configured.</p>
+    }
+    else
+    {
+        <table id="follow-settings">
+            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th><th>Dry run</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@follow.SearchesPerRun</td>
+                    <td>@follow.SearchAgainAfter hours</td>
+                    <td>@(follow.SearchInterval is { } interval ? $"{interval} minutes" : "global")</td>
+                    <td>@(follow.PreferFormat?.ToString() ?? "-")</td>
+                    <td>@string.Join(", ", follow.Grab.Select(g => g.Cost))</td>
+                    <td>@follow.Category</td>
+                    <td>@(follow.DryRun ? "yes" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Notifications</h3>
     @if (Model.NotifyTargets.Count == 0)
     {

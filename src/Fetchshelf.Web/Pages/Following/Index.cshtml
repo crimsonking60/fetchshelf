@@ -1,0 +1,135 @@
+@page
+@model Fetchshelf.Web.Pages.Following.IndexModel
+@using Fetchshelf.Data.Entities
+@{
+    ViewData["Title"] = "Following";
+}
+
+<h2>Following</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lists the followed series and authors and what the Follow job found for each: books the library is missing. A followed series or author has what is found downloaded automatically; a watched one has it listed here, to download or dismiss. A find marked not free matched, but no grab block in the [follow] section pays for it; it can still be downloaded here. Series are followed on the Series page, authors and series from a torrent's page or the Torrents page.")
+
+@if (Model.Message is { } message)
+{
+    <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
+}
+
+@if (!Model.CanFollow)
+{
+    <p id="follow-not-configured" class="empty">Following needs a [follow] section in the configuration; see the user guide.</p>
+}
+else if (Model.Follows.Count == 0)
+{
+    <p id="no-follows-message" class="empty">Nothing is followed yet. Follow a series on the <a asp-page="/Series/Index">Series</a> page, or an author or series from a torrent's page.</p>
+}
+else
+{
+    @foreach (var item in Model.Follows)
+    {
+        var follow = item.Follow;
+        var kind = follow.Kind == FollowKind.Series ? "Series" : "Author";
+        <section class="follow" id="follow-@follow.Id">
+            <h3>
+                <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
+                   asp-route-Author="@(follow.Kind == FollowKind.Author ? follow.NameKey : null)">@follow.DisplayName</a>
+                <span class="muted">@kind, @Fetchshelf.Web.Pages.Following.IndexModel.ModeLabel(follow.Mode).ToLowerInvariant()</span>
+            </h3>
+            <p class="muted">
+                @if (follow.LastSearchedAt is { } searched)
+                {
+                    @:Last searched <local-time value="searched" />.
+                }
+                else
+                {
+                    @:Not searched yet.
+                }
+            </p>
+            <div class="actions">
+                @{
+                    var otherMode = follow.Mode == FollowMode.Download ? FollowMode.Watch : FollowMode.Download;
+                }
+                <form method="post" asp-page-handler="Mode" class="inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="kind" value="@follow.Kind" />
+                    <input type="hidden" name="key" value="@follow.NameKey" />
+                    <input type="hidden" name="name" value="@follow.DisplayName" />
+                    <input type="hidden" name="mode" value="@otherMode" />
+                    <button type="submit">@(otherMode == FollowMode.Download ? "Download automatically" : "Only list what is found")</button>
+                </form>
+                <form method="post" asp-page-handler="SearchNow" class="inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="followId" value="@follow.Id" />
+                    <input type="hidden" name="name" value="@follow.DisplayName" />
+                    <button type="submit">Search now</button>
+                </form>
+                <form method="post" asp-page-handler="Stop" class="inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="followId" value="@follow.Id" />
+                    <input type="hidden" name="name" value="@follow.DisplayName" />
+                    <button type="submit" class="danger">Stop following</button>
+                </form>
+            </div>
+            @{
+                var shown = item.Finds.Where(f => f.Status != FollowFindStatus.Dismissed).ToList();
+            }
+            @if (shown.Count == 0)
+            {
+                <p class="empty">Nothing found yet.</p>
+            }
+            else
+            {
+                <table class="follow-finds">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            @if (follow.Kind == FollowKind.Series)
+                            {
+                                <th>Book</th>
+                            }
+                            <th>Format</th>
+                            <th>Status</th>
+                            <th>Found</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var find in shown)
+                        {
+                            var waiting = find.Status is FollowFindStatus.New or FollowFindStatus.Wanted;
+                            <tr class="@(waiting ? null : "muted")">
+                                <td><a href="/search/@find.MamId">@find.Title</a></td>
+                                @if (follow.Kind == FollowKind.Series)
+                                {
+                                    <td>@find.SeriesDisplay</td>
+                                }
+                                <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                                <td>@Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(find.Status)</td>
+                                <td><local-time value="find.FoundAt" /></td>
+                                <td class="nowrap">
+                                    @if (waiting)
+                                    {
+                                        <form method="post" asp-page-handler="Download" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="findId" value="@find.Id" />
+                                            <button type="submit">Download</button>
+                                        </form>
+                                        <form method="post" asp-page-handler="Download" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="findId" value="@find.Id" />
+                                            <input type="hidden" name="wedge" value="true" />
+                                            <button type="submit">Wedge&nbsp;download</button>
+                                        </form>
+                                        <form method="post" asp-page-handler="Dismiss" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="findId" value="@find.Id" />
+                                            <button type="submit">Dismiss</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+}

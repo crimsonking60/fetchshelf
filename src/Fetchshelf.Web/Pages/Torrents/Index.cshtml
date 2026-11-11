@@ -94,6 +94,19 @@
     </form>
 </div>
 
+@* Outside the filter form: a form can't hold another. *@
+@if (Settings.Follow is not null && Model.NameFilters.Any(f => f.Parameter != nameof(Model.Narrator)))
+{
+    var returnUrl = Model.Request.Path + Model.Request.QueryString;
+    <div class="toolbar" id="follow-buttons">
+        @foreach (var filter in Model.NameFilters.Where(f => f.Parameter != nameof(Model.Narrator)))
+        {
+            var kind = filter.Parameter == nameof(Model.Series) ? Fetchshelf.Data.Entities.FollowKind.Series : Fetchshelf.Data.Entities.FollowKind.Author;
+            <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(kind, [new NameLink(filter.Name, filter.Key)], Model.Followed, returnUrl)" />
+        }
+    </div>
+}
+
 <form method="post" asp-page-handler="Bulk">
     @Html.AntiForgeryToken()
     @* So the list comes back with the same search, filters, sort and page after a bulk action. *@

@@ -17,6 +17,14 @@
         <p><span class="label">Authors</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Authors(torrent.Metadata), nameof(IndexModel.Author))" /></span></p>
         <p><span class="label">Narrators</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Narrators(torrent.Metadata), nameof(IndexModel.Narrator))" /></span></p>
         <p><span class="label">Series</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Series(torrent.Metadata), nameof(IndexModel.Series))" /></span></p>
+        @if (Settings.Follow is not null)
+        {
+            var returnUrl = Model.Request.Path + Model.Request.QueryString;
+            <p id="follow-buttons"><span class="label">Follow</span><span class="value">
+                <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Series, NameLink.Series(torrent.Metadata), Model.Followed, returnUrl)" />
+                <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Author, NameLink.Authors(torrent.Metadata), Model.Followed, returnUrl)" />
+            </span></p>
+        }
         <p><span class="label">Language</span><span class="value">@torrent.Metadata.Language</span></p>
         <p><span class="label">Media type</span><span class="value">@torrent.Metadata.MediaType</span></p>
         <p><span class="label">Metadata source</span><span class="value">@torrent.Metadata.MetadataSource</span></p>
