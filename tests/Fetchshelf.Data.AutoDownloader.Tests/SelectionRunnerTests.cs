@@ -223,6 +223,36 @@ public sealed class SelectionRunnerTests : IDisposable
         Assert.Empty(context.DuplicateTorrents);
     }
 
+    [Theory]
+    [InlineData("linked", SelectionOutcome.SelectedAsUpgrade)]
+    [InlineData("replaced", SelectionOutcome.Selected)]
+    [InlineData("unlinked", SelectionOutcome.Selected)]
+    [InlineData("not linked", SelectionOutcome.Selected)]
+    public async Task ProcessCandidateAsync_BetterThanTheLibrarysCopy_IsSelectedAsAnUpgrade_OnlyOfACopyInTheLibrary(string state, SelectionOutcome expected)
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var libraryMetadata = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 1, fileTypes: ["mp3"]));
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 1,
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(libraryMetadata.Title),
+            Title = libraryMetadata.Title,
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(libraryMetadata),
+            CreatedAt = DateTimeOffset.UtcNow,
+            LibraryPath = state is "linked" or "replaced" ? "/library/The Way of Kings" : null,
+            UnlinkedAt = state == "unlinked" ? DateTimeOffset.UtcNow : null,
+            ReplacedWithTorrentId = state == "replaced" ? "hash0" : null,
+        });
+        await context.SaveChangesAsync();
+
+        var outcome = await Process(CreateRunner(context), SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["m4b"]), cost: ConfiguredCost.Ratio);
+
+        Assert.Equal(expected, outcome);
+        Assert.True(outcome.IsSelected());
+        Assert.Equal(2, Assert.Single(context.SelectedTorrents).MamId);
+    }
+
     [Fact]
     public async Task ProcessCandidateAsync_DuplicateOfLibrary_IsSkipped()
     {

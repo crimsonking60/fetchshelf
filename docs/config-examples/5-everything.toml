@@ -273,6 +273,18 @@ cost = "free"
 categories = { audio = true, ebook = false }
 
 # =====================================================================================================
+# [upgrade]: optional. Searches MAM for better formats of books in the library (an m4b for an mp3 copy,
+# by the order of the format lists) and selects them; the Clean job then retires the old copy.
+# =====================================================================================================
+[upgrade]
+search_interval = 360       # overrides the global search_interval
+searches_per_run = 20       # MAM searches per run at most, one per book
+search_again_after = 30     # days before the same book is searched again
+libraries = ["Audiobooks"]  # only books in these [[library]] names; unset = every library
+dry_run = false
+# Without [[upgrade.grab]] blocks, only free copies are taken.
+
+# =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
 # Category: first matching rule that sets one. Tags: union over all matching rules.
 # Tag rules do NOT use the top-level 'languages': a rule without its own 'languages' matches every

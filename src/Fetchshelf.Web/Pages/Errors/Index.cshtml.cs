@@ -27,7 +27,7 @@ public class IndexModel(FetchshelfDbContext dbContext, IJobRegistry jobRegistry)
     /// <summary>Whether there are rows at all, filtered out or not.</summary>
     public bool HasAnyRows { get; private set; }
 
-    private static readonly ErrorStage[] HashKeyedStages = [ErrorStage.Linker, ErrorStage.Cleaner, ErrorStage.Audiobookshelf];
+    private static readonly ErrorStage[] HashKeyedStages = [ErrorStage.Linker, ErrorStage.Cleaner, ErrorStage.Audiobookshelf, ErrorStage.Upgrade];
 
     public async Task OnGetAsync()
     {

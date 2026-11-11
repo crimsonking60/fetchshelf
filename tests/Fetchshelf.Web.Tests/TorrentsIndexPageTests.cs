@@ -352,6 +352,41 @@ public class TorrentsIndexPageTests
         await SeedAsync(fixture, "mam:5", "Metadata Book", _ => { });
     }
 
+    [Fact]
+    public async Task Get_CouldBeUpgraded_ListsLinkedCopiesInAWorseFormat_AndAnyProblemLeavesThemOut()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Mp3 Book", t => { t.LibraryPath = "/library/a"; t.ChosenAudioExtension = "mp3"; });
+        await SeedAsync(fixture, "hash2", "M4b Book", t => { t.LibraryPath = "/library/b"; t.ChosenAudioExtension = "m4b"; });
+        await SeedAsync(fixture, "hash3", "Replaced Book", t => { t.LibraryPath = "/library/c"; t.ChosenAudioExtension = "mp3"; t.ReplacedWithTorrentId = "hash2"; });
+        using var client = fixture.CreateClient();
+
+        var upgradable = await client.GetStringAsync("/torrents?Problem=upgradable");
+        var anyProblem = await client.GetStringAsync("/torrents?Problem=any");
+
+        Assert.Contains("Mp3 Book", upgradable);
+        Assert.Contains("(mp3; m4b preferred)", upgradable);
+        Assert.DoesNotContain("M4b Book", upgradable);
+        Assert.DoesNotContain("Replaced Book", upgradable);
+        Assert.DoesNotContain("Mp3 Book", anyProblem);
+    }
+
+    [Fact]
+    public async Task Detail_ACopyThatCouldBeBetter_SaysSo_AndLinksToASearch()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Mp3 Book", t => { t.LibraryPath = "/library/a"; t.ChosenAudioExtension = "mp3"; });
+        await SeedAsync(fixture, "hash2", "M4b Book", t => { t.LibraryPath = "/library/b"; t.ChosenAudioExtension = "m4b"; });
+        using var client = fixture.CreateClient();
+
+        var worse = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
+        var best = await client.GetStringAsync("/torrents/hash2");
+
+        Assert.Contains("mp3; m4b preferred.", worse);
+        Assert.Contains("href=\"/?Q=Mp3%20Book%20Brandon%20Sanderson&Lang=English\"", worse);
+        Assert.DoesNotContain("id=\"upgrade-note\"", best);
+    }
+
     private static async Task SeedAsync(FetchshelfWebAppFixture fixture, string id, string title, Action<TorrentEntity> configure)
     {
         await OrganizerTestSupport.SeedTorrentAsync(fixture, id, OrganizerTestSupport.BuildMetadata(title));

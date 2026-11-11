@@ -191,6 +191,9 @@ var formatPreferenceLists = new FormatPreferenceLists
     EbookTypes = settings.EbookTypes,
     MusicTypes = settings.MusicTypes,
     RadioTypes = settings.RadioTypes,
+    Libraries = settings.Library
+        .Where(library => library.Name is not null && (library.AudioTypes is not null || library.EbookTypes is not null))
+        .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes), StringComparer.Ordinal),
 };
 builder.Services.AddSingleton(formatPreferenceLists);
 builder.Services.AddScoped(sp => new LinkRunner(
@@ -255,6 +258,20 @@ if (settings.Follow is { } followSettings)
         sp.GetRequiredService<TimeProvider>()));
 }
 
+if (settings.Upgrade is { } upgradeSettings)
+{
+    builder.Services.AddScoped(sp => new UpgradeRunner(
+        sp.GetRequiredService<FetchshelfDbContext>(),
+        sp.GetRequiredService<MamClient>(),
+        sp.GetRequiredService<MamAccessGate>(),
+        sp.GetRequiredService<SelectionRunner>(),
+        upgradeSettings,
+        settings.Library,
+        formatPreferenceLists,
+        sp.GetRequiredService<TimeProvider>(),
+        logger: sp.GetRequiredService<ILogger<UpgradeRunner>>()));
+}
+
 // The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
 builder.Services.AddSingleton(new SafetyBuffers(
     settings.UnsatBuffer, settings.WedgeBuffer,
@@ -300,7 +317,8 @@ if (settings.BackgroundJobsEnabled)
     var mamJobs = settings.Autograb.Select((entry, i) => (AutoDownloaderJobNames.Autograb(entry, i), entry.SearchInterval))
         .Concat(settings.Snatchlist.Select((entry, i) => (AutoDownloaderJobNames.Snatchlist(entry, i), entry.SearchInterval)))
         .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)))
-        .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : []);
+        .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : [])
+        .Concat(settings.Upgrade is { } scheduledUpgrade ? [(JobNames.Upgrade, scheduledUpgrade.SearchInterval)] : []);
     foreach (var (jobName, searchInterval) in mamJobs)
     {
         var intervalMinutes = searchInterval ?? settings.SearchInterval;
@@ -498,6 +516,22 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
 
             return JobOutcomes.Follow(summary);
         }, "Searches MAM for the followed series and authors, and selects or lists the books the library is missing.");
+    }
+
+    if (settings.Upgrade is not null)
+    {
+        jobRegistry.Register(JobNames.Upgrade, async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var runner = scope.ServiceProvider.GetRequiredService<UpgradeRunner>();
+            var summary = await runner.RunAsync(settings.UnsatBuffer, ignoreTorrents, ct);
+            if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
+            {
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
+            }
+
+            return JobOutcomes.Upgrade(summary);
+        }, "Searches MAM for better formats of books in the library, such as m4b for an mp3 copy, and selects them when a grab block's cost allows.");
     }
 
     var budgetSpent = services.GetRequiredService<BudgetSpentWatcher>();

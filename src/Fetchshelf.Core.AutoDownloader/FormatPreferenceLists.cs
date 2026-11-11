@@ -2,7 +2,10 @@ using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Core.AutoDownloader;
 
-/// <summary>The four per-media-type format preference lists.</summary>
+/// <summary>A library's own format lists, which replace the global ones for the copies linked into it; null keeps the global one.</summary>
+public sealed record LibraryFormatLists(IReadOnlyList<string>? AudioTypes, IReadOnlyList<string>? EbookTypes);
+
+/// <summary>The four per-media-type format preference lists, and the libraries' own lists where they set them.</summary>
 public sealed record FormatPreferenceLists
 {
     public required IReadOnlyList<string> AudioTypes { get; init; }
@@ -12,6 +15,12 @@ public sealed record FormatPreferenceLists
     public required IReadOnlyList<string> MusicTypes { get; init; }
 
     public required IReadOnlyList<string> RadioTypes { get; init; }
+
+    /// <summary>
+    /// The `audio_types`/`ebook_types` of each `[[library]]` that sets them, by library name. The Link job chooses a
+    /// copy's format with these, so a copy in the library is ranked with them too.
+    /// </summary>
+    public IReadOnlyDictionary<string, LibraryFormatLists> Libraries { get; init; } = new Dictionary<string, LibraryFormatLists>();
 
     public IReadOnlyList<string> For(MediaType mediaType) => mediaType switch
     {

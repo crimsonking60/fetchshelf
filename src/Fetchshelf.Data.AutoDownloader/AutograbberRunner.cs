@@ -128,7 +128,7 @@ public sealed class AutograbberRunner(
                     detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",
                     name, record.MamId, metadata.Title, outcome.Describe(entry.DryRun));
 
-                if (outcome == SelectionOutcome.Selected)
+                if (outcome.IsSelected())
                 {
                     selectedCount++;
                     if (!isMetadataOnlyCost && selectedCount >= budget)

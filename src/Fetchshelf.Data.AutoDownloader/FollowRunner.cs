@@ -229,7 +229,7 @@ public sealed class FollowRunner(
             Log(follow, shown, outcome.Describe(settings.DryRun));
             switch (outcome)
             {
-                case SelectionOutcome.Selected:
+                case SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade:
                     Record(follow, shown, FollowFindStatus.Selected, finds, now);
                     run.Selected++;
                     run.BudgetLeft--;
@@ -483,16 +483,7 @@ public sealed class FollowRunner(
             .ThenByDescending(c => c.Record.Seeders)
             .FirstOrDefault();
 
-    /// <summary>Whether a grab block with <paramref name="cost"/> may take <paramref name="record"/>: the rule selection applies.</summary>
-    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) =>
-        CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, cost) is not null;
+    private static bool Accepts(ConfiguredCost cost, MamTorrentRecord record) => GrabMatching.Accepts(cost, record);
 
-    private static TorrentFilterCandidate ToFilterCandidate(Candidate candidate) => new()
-    {
-        Metadata = candidate.Metadata,
-        UploaderName = candidate.Record.UploaderName,
-        Seeders = candidate.Record.Seeders,
-        Leechers = candidate.Record.Leechers,
-        TimesCompleted = candidate.Record.TimesCompleted,
-    };
+    private static TorrentFilterCandidate ToFilterCandidate(Candidate candidate) => GrabMatching.ToFilterCandidate(candidate.Record, candidate.Metadata);
 }

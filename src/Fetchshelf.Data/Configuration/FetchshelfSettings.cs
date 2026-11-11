@@ -122,6 +122,9 @@ public sealed class FetchshelfSettings
     /// <summary>Optional `[follow]` section. Null when not configured, and then series and authors can't be followed.</summary>
     public FollowSettings? Follow { get; set; }
 
+    /// <summary>Optional `[upgrade]` section. Null when not configured, and then no Upgrade job looks for better copies.</summary>
+    public UpgradeSettings? Upgrade { get; set; }
+
     /// <summary>Repeatable `[[notify]]` entries: where to send messages about what Fetchshelf does.</summary>
     public List<NotifyEntry> Notify { get; set; } = [];
 

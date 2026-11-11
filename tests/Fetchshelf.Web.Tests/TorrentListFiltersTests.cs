@@ -1,3 +1,4 @@
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Pages.Torrents;
@@ -6,6 +7,15 @@ namespace Fetchshelf.Web.Tests;
 
 public class TorrentListFiltersTests
 {
+    private static readonly FormatPreferenceLists Formats = new()
+    {
+        AudioTypes = ["m4b", "mp3"],
+        EbookTypes = ["epub", "pdf"],
+        MusicTypes = ["mp3"],
+        RadioTypes = ["mp3"],
+        Libraries = new Dictionary<string, LibraryFormatLists> { ["Mp3 First"] = new(["mp3", "m4b"], null) },
+    };
+
     private static TorrentEntity Torrent(string id = "hash1") => new()
     {
         Id = id,
@@ -69,13 +79,13 @@ public class TorrentListFiltersTests
         var fine = Torrent();
         fine.ClientStatus = "uploading";
 
-        Assert.True(TorrentListFilters.MatchesProblem(mismatched, "mismatch"));
-        Assert.False(TorrentListFilters.MatchesProblem(mismatched, "not-in-client"));
-        Assert.True(TorrentListFilters.MatchesProblem(missing, "not-in-client"));
-        Assert.True(TorrentListFilters.MatchesProblem(missing, "any"));
-        Assert.True(TorrentListFilters.MatchesProblem(mismatched, "any"));
-        Assert.False(TorrentListFilters.MatchesProblem(fine, "any"));
-        Assert.True(TorrentListFilters.MatchesProblem(fine, null));
+        Assert.True(TorrentListFilters.MatchesProblem(mismatched, "mismatch", Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(mismatched, "not-in-client", Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(missing, "not-in-client", Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(missing, "any", Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(mismatched, "any", Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(fine, "any", Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(fine, null, Formats));
     }
 
     [Fact]
@@ -87,9 +97,26 @@ public class TorrentListFiltersTests
         var fine = Torrent();
         fine.ClientStatus = "uploading";
 
-        Assert.True(TorrentListFilters.MatchesProblem(removed, "removed-from-mam"));
-        Assert.True(TorrentListFilters.MatchesProblem(removed, "any"));
-        Assert.False(TorrentListFilters.MatchesProblem(removed, "not-in-client"));
-        Assert.False(TorrentListFilters.MatchesProblem(fine, "removed-from-mam"));
+        Assert.True(TorrentListFilters.MatchesProblem(removed, "removed-from-mam", Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(removed, "any", Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(removed, "not-in-client", Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(fine, "removed-from-mam", Formats));
+    }
+
+    [Fact]
+    public void MatchesProblem_Upgradable_ByTheFormatListTheCopysLibraryUses_AndNotAProblemForAny()
+    {
+        static TorrentEntity Linked(string format, string? library = null)
+        {
+            var torrent = Torrent();
+            (torrent.LibraryPath, torrent.ChosenAudioExtension, torrent.MediaType, torrent.LinkerName) = ("/library/Book", format, "Audiobook", library);
+            return torrent;
+        }
+
+        Assert.True(TorrentListFilters.MatchesProblem(Linked("mp3"), TorrentListFilters.Upgradable, Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(Linked("m4b"), TorrentListFilters.Upgradable, Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(Linked("mp3", "Mp3 First"), TorrentListFilters.Upgradable, Formats));
+        Assert.True(TorrentListFilters.MatchesProblem(Linked("m4b", "Mp3 First"), TorrentListFilters.Upgradable, Formats));
+        Assert.False(TorrentListFilters.MatchesProblem(Linked("mp3"), "any", Formats));
     }
 }

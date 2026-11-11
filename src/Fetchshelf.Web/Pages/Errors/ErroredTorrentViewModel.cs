@@ -39,7 +39,7 @@ public sealed record ErroredTorrentViewModel(
                 };
             case ErrorStage.Follow:
                 return Plain(entity, "Follow", entity.Title ?? entity.Key, null);
-            case ErrorStage.Audiobookshelf:
+            case ErrorStage.Audiobookshelf or ErrorStage.Upgrade:
                 var title = trackedTitles.GetValueOrDefault(entity.Key);
                 return Plain(entity, "Info-hash", entity.Key, title is null ? null : entity.Key) with { Title = entity.Title ?? title };
         }
@@ -79,6 +79,7 @@ public sealed record ErroredTorrentViewModel(
         ErrorStage.HardcoverList => "Hardcover list",
         ErrorStage.Audiobookshelf => "Audiobookshelf",
         ErrorStage.Follow => "Follow",
+        ErrorStage.Upgrade => "Upgrade",
         _ => stage.ToString(),
     };
 }

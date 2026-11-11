@@ -25,6 +25,15 @@
                 <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Author, NameLink.Authors(torrent.Metadata), Model.Followed, returnUrl)" />
             </span></p>
         }
+        @if (Model.UpgradeNote is { } upgradeNote)
+        {
+            @* The Search page, which looks in titles and authors by default, for the title and first author as plain words,
+               in the book's own language. *@
+            var searchText = Fetchshelf.Core.AutoDownloader.ListMamQueryBuilder.PlainWords(
+                string.Join(' ', new[] { torrent.Metadata.Title, torrent.Metadata.Authors.FirstOrDefault() }.OfType<string>()));
+            <p id="upgrade-note"><span class="label">Format</span><span class="value">@upgradeNote.
+                <a asp-page="/Index" asp-route-Q="@searchText" asp-route-Lang="@torrent.Metadata.Language">Look for a better copy</a></span></p>
+        }
         <p><span class="label">Language</span><span class="value">@torrent.Metadata.Language</span></p>
         <p><span class="label">Media type</span><span class="value">@torrent.Metadata.MediaType</span></p>
         <p><span class="label">Metadata source</span><span class="value">@torrent.Metadata.MetadataSource</span></p>

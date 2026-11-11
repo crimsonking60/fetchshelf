@@ -221,4 +221,29 @@ public partial class ErrorsIndexPageTests
         var valueMatch = ValueAttributePattern().Match(inputMatch.Value);
         return valueMatch.Groups[1].Value;
     }
+
+    [Fact]
+    public async Task OnGet_AnUpgradeError_LinksToTheTorrentAndNamesIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "abc123", OrganizerTestSupport.BuildMetadata("Mistborn"));
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.ErroredTorrents.Add(new ErroredTorrentEntity
+            {
+                Stage = ErrorStage.Upgrade,
+                Key = "abc123",
+                ErrorText = "MAM did not answer.",
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/errors");
+
+        Assert.Contains("Upgrade", html);
+        Assert.Contains("href=\"/torrents/abc123\"", html);
+        Assert.Contains("Mistborn", html);
+    }
 }
