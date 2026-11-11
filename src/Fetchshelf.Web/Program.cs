@@ -547,8 +547,13 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
         var downloadRunner = scope.ServiceProvider.GetRequiredService<DownloadRunner>();
         var summary = await downloadRunner.RunAsync(ct);
 
-        // Told once when selections start waiting for budget, not on every run they keep waiting.
-        await budgetSpent.CheckAsync(summary.LeftQueued, summary.LimitedBy);
+        // Told once when selections start waiting for budget, not on every run they keep waiting. A run MAM stopped
+        // didn't try them all, so it says nothing about how many wait.
+        if (!summary.StoppedByMam)
+        {
+            await budgetSpent.CheckAsync(summary.LeftQueued, summary.LimitedBy);
+        }
+
         return JobOutcomes.Download(summary);
     }, "Sends queued, selected torrents to qBittorrent.");
 }

@@ -168,6 +168,53 @@ public class NotificationWiringTests
         Assert.Contains("1 stay queued", registry.Get("Download")!.LastRun!.Summary);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task ADownloadRunMamStops_BetweenRunsThatLeaveSelectionsWaiting_DoesNotMakeTheWaitLookNew()
+    {
+        var service = new Service();
+        var unsatInUse = 20; // of 20 allowed: no slot is free, so the queued selection waits
+        using var fixture = Fixture(service, request => request.RequestUri!.AbsolutePath switch
+        {
+            var path when path.Contains("jsonLoad.php") => Account(MamAccountFixture.Json.Replace(
+                "\"unsat\": {\"count\": 14,", $"\"unsat\": {{\"count\": {unsatInUse},", StringComparison.Ordinal)),
+            var path when path.Contains("download.php") => new HttpResponseMessage(HttpStatusCode.Forbidden),
+            _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") },
+        });
+        await StartAsync(fixture);
+        using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            db.SelectedTorrents.Add(new SelectedTorrentEntity
+            {
+                MamId = 5,
+                DownloadLink = "dl5",
+                CostDecision = "Ratio",
+                MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata()),
+                NormalizedTitleKey = "the way of kings",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var registry = fixture.CreateScope().ServiceProvider.GetRequiredService<IJobRegistry>();
+        var mam = fixture.CreateScope().ServiceProvider.GetRequiredService<MamClient>();
+        await registry.TriggerAsync("Download");
+        await service.WaitForAsync(1);
+
+        // A slot frees up, and MAM refuses the torrent file: the run stops before the budget says anything.
+        unsatInUse = 5;
+        await mam.RefreshAccountStateAsync();
+        await registry.TriggerAsync("Download");
+        Assert.Contains("1 could not be downloaded", registry.Get("Download")!.LastRun!.Summary ?? string.Empty, StringComparison.Ordinal);
+
+        unsatInUse = 20;
+        await mam.RefreshAccountStateAsync();
+        await registry.TriggerAsync("Download");
+        await Task.Delay(300);
+
+        Assert.Equal(["budget_spent"], service.Events.Where(e => e == "budget_spent"));
+    }
+
     private sealed class RecordingSink : INotificationSink
     {
         public List<Notification> Published { get; } = [];

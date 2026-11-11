@@ -820,8 +820,8 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 
 - **Only changes are sent,** not states. A job that fails every 10 minutes for a day sends `job_failing`
   once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once. How many
-  the last Download run left waiting is kept in the database, so neither a restart nor a run that failed in
-  between sends it again.
+  the last Download run left waiting is kept in the database, so neither a restart nor a run that failed, or
+  that MAM stopped, in between sends it again.
 - **One MAM refusal is one message.** When MAM refuses `mam_id`, every job that talks to MAM fails. A block
   that wants `mam_refused` gets that message and not a `job_failing` for each job it stopped; a block that
   doesn't want it still gets the `job_failing` messages. The same goes for a 429 and `rate_limited`.

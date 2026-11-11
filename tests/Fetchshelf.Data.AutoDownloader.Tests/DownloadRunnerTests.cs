@@ -612,7 +612,7 @@ public sealed class DownloadRunnerTests : IDisposable
 
         var summary = await RunnerFor(context, mam).RunAsync();
 
-        Assert.Equal((0, 1), (summary.Started, summary.Failed));
+        Assert.Equal((0, 1, true), (summary.Started, summary.Failed, summary.StoppedByMam));
         Assert.Equal(1, downloads);
         Assert.All(context.SelectedTorrents, s => Assert.Null(s.RemovedAt));
         Assert.Empty(context.ErroredTorrents);

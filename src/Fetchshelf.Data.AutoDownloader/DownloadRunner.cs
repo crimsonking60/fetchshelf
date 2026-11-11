@@ -19,7 +19,11 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// Which of those limits left them, and what it comes to, such as "the ratio budget is 0 B (ratio 2.01, min_ratio 2)";
 /// null when <paramref name="LeftQueued"/> is 0.
 /// </param>
-public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null);
+/// <param name="StoppedByMam">
+/// Whether MAM refused a request and ended the run before every selection was tried, so how many are left waiting for
+/// budget isn't known: <paramref name="LeftQueued"/> counts only those tried before.
+/// </param>
+public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null, bool StoppedByMam = false);
 
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
@@ -77,6 +81,7 @@ public sealed class DownloadRunner(
 
         var (startedCount, failedCount) = (0, 0);
         var (overRatio, noSlot) = (0, 0);
+        var stoppedByMam = false;
         // Why selections wait, as it stood when the first of each kind was held back: later torrents change the budget.
         string? ratioLimit = null, slotLimit = null;
         foreach (var selected in pending)
@@ -93,6 +98,7 @@ public sealed class DownloadRunner(
             {
                 _logger.LogError("Stopped downloading at {Torrent}: {Error} The rest stay queued for the next run", name, ex.Message);
                 failedCount++;
+                stoppedByMam = true;
                 break;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -149,7 +155,8 @@ public sealed class DownloadRunner(
         }
 
         var limits = new[] { ratioLimit, slotLimit }.OfType<string>().ToList();
-        return new DownloadRunSummary(startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits));
+        return new DownloadRunSummary(
+            startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits), stoppedByMam);
     }
 
     private void LogOutcome(SelectedTorrentEntity selected, string name, DownloadOutcome outcome, bool wedgeSpent)
