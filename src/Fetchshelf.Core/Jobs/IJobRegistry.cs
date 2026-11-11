@@ -42,4 +42,10 @@ public interface IJobRegistry
 
     /// <summary>Stops every running job because Fetchshelf is shutting down; those runs are recorded as interrupted.</summary>
     void InterruptAll();
+
+    /// <summary>
+    /// Completes once every run so far has been written to the store, or given up on. Runs are written in the background,
+    /// so a busy database never holds up or fails a job.
+    /// </summary>
+    Task RunRecordsWrittenAsync();
 }

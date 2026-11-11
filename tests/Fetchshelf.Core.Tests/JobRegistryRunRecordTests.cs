@@ -1,4 +1,6 @@
 using Fetchshelf.Core.Jobs;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Fetchshelf.Core.Tests;
 
@@ -16,6 +18,7 @@ public class JobRegistryRunRecordTests
         registry.Register("Link", _ => Task.FromResult<JobOutcome?>(new JobOutcome("3 torrents linked", counts)));
 
         await registry.TriggerAsync("Link", JobTrigger.Schedule);
+        await registry.RunRecordsWrittenAsync();
 
         var run = Assert.Single(store.Runs);
         Assert.Equal(("Link", JobRunResult.Success, "3 torrents linked", JobTrigger.Schedule), (run.JobName, run.Result, run.Summary, run.Trigger));
@@ -35,6 +38,7 @@ public class JobRegistryRunRecordTests
             "2 torrents linked; 1 could not be linked", new Dictionary<string, long> { ["failed"] = 1 }));
 
         await registry.TriggerAsync("Link");
+        await registry.RunRecordsWrittenAsync();
 
         var run = Assert.Single(store.Runs);
         Assert.Equal((JobRunResult.CompletedWithErrors, "2 torrents linked; 1 could not be linked"), (run.Result, run.Summary));
@@ -49,6 +53,7 @@ public class JobRegistryRunRecordTests
         registry.Register("Link", _ => throw new InvalidOperationException("boom"));
 
         await registry.TriggerAsync("Link");
+        await registry.RunRecordsWrittenAsync();
 
         Assert.Equal((JobRunResult.Failure, "boom"), (store.Runs[0].Result, store.Runs[0].Summary));
     }
@@ -86,6 +91,7 @@ public class JobRegistryRunRecordTests
         await started.Task;
         Assert.True(registry.Cancel("Hardcover"));
         await run;
+        await registry.RunRecordsWrittenAsync();
 
         var lastRun = registry.Get("Hardcover")!.LastRun!;
         Assert.Equal((JobRunResult.Cancelled, JobRegistry.CancelledSummary), (lastRun.Result, lastRun.Summary));
@@ -152,10 +158,11 @@ public class JobRegistryRunRecordTests
     [Fact(Timeout = 10_000)]
     public async Task Cancel_BetweenARunAndTheRunQueuedAfterIt_DropsTheQueuedRun()
     {
-        var store = new BlockingFinishStore();
-        var registry = new JobRegistry(store: store);
+        var logger = new PausingLogger("finished");
+        var registry = new JobRegistry(logger);
         var runs = 0;
-        var releaseRun = new TaskCompletionSource();
+        // Continued on a thread of its own: the logger holds the run's thread, which must not be the test's.
+        var releaseRun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         registry.Register("Download", async _ =>
         {
             runs++;
@@ -165,36 +172,145 @@ public class JobRegistryRunRecordTests
         var first = registry.TriggerAsync("Download");
         var queued = registry.TriggerOrQueueAsync("Download", JobTrigger.Chained);
         releaseRun.SetResult();
-        await store.FinishStarted.Task; // the first run is over, and its record is being written
+        Assert.True(logger.Paused.Wait(TimeSpan.FromSeconds(5))); // the first run is over, and the queued one not started yet
 
         Assert.True(registry.Get("Download")!.IsRunning);
         Assert.True(registry.Cancel("Download"));
-        store.ReleaseFinish.SetResult();
+        logger.Resume.Set();
         await Task.WhenAll(first, queued);
 
         Assert.Equal(1, runs);
         Assert.False(registry.Get("Download")!.IsRunning);
     }
 
-    /// <summary>Holds the first run's "finished" write until released, keeping the registry between two runs.</summary>
-    private sealed class BlockingFinishStore : IJobRunStore
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerAsync_StoreSlowToWrite_TheJobDoesNotWaitForIt()
     {
-        public TaskCompletionSource FinishStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource ReleaseFinish { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public Task<long> StartedAsync(string jobName, DateTimeOffset startedAt, JobTrigger trigger) => Task.FromResult(1L);
-
-        public async Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts)
+        var store = new HeldStore();
+        var registry = new JobRegistry(store: store);
+        var ran = false;
+        registry.Register("Link", _ =>
         {
-            FinishStarted.TrySetResult();
-            await ReleaseFinish.Task;
+            ran = true;
+            return Task.CompletedTask;
+        });
+
+        await registry.TriggerAsync("Link"); // while the database is still busy with the run's first write
+
+        Assert.True(ran);
+        Assert.False(registry.Get("Link")!.IsRunning);
+        store.Release.SetResult();
+        await registry.RunRecordsWrittenAsync();
+        Assert.Equal(JobRunResult.Success, Assert.Single(store.Inner.Runs).Result);
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerAsync_StoreFailsAFewTimes_TheRunIsStillRecorded()
+    {
+        var time = new FakeTimeProvider(Now);
+        var store = new FlakyStore(failures: 2);
+        var registry = new JobRegistry(timeProvider: time, store: store);
+        registry.Register("Link", _ => Task.FromResult<JobOutcome?>(new JobOutcome("3 torrents linked")));
+
+        await registry.TriggerAsync("Link");
+        await AdvanceUntilAsync(time, registry.RunRecordsWrittenAsync());
+
+        var run = Assert.Single(store.Inner.Runs);
+        Assert.Equal((JobRunResult.Success, "3 torrents linked"), (run.Result, run.Summary));
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task TriggerAsync_StartNeverRecorded_TheFinishCreatesTheRun()
+    {
+        var time = new FakeTimeProvider(Now);
+        var store = new FlakyStore(failures: JobRunWriterRetries + 1); // every try at the start fails
+        var registry = new JobRegistry(timeProvider: time, store: store);
+        registry.Register("Link", _ => Task.FromResult<JobOutcome?>(new JobOutcome("done")));
+
+        await registry.TriggerAsync("Link", JobTrigger.Startup);
+        await AdvanceUntilAsync(time, registry.RunRecordsWrittenAsync());
+
+        var run = Assert.Single(store.Inner.Runs);
+        Assert.Equal((JobRunResult.Success, "done", JobTrigger.Startup, Now), (run.Result, run.Summary, run.Trigger, run.StartedAt));
+    }
+
+    /// <summary>How many times a failed write is tried again before it is given up on.</summary>
+    private const int JobRunWriterRetries = 4;
+
+    private static async Task AdvanceUntilAsync(FakeTimeProvider time, Task task)
+    {
+        while (!task.IsCompleted)
+        {
+            time.Advance(TimeSpan.FromSeconds(30));
+            await Task.Delay(5);
         }
 
-        public Task InterruptUnfinishedAsync(string summary) => Task.CompletedTask;
+        await task;
+    }
 
-        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() =>
-            Task.FromResult<IReadOnlyDictionary<string, JobRunRecord>>(new Dictionary<string, JobRunRecord>());
+    /// <summary>Holds the logging thread at the first message containing <paramref name="text"/> until resumed.</summary>
+    private sealed class PausingLogger(string text) : ILogger<JobRegistry>
+    {
+        private int _paused;
+
+        public ManualResetEventSlim Paused { get; } = new();
+
+        public ManualResetEventSlim Resume { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (formatter(state, exception).Contains(text, StringComparison.Ordinal) && Interlocked.Exchange(ref _paused, 1) == 0)
+            {
+                Paused.Set();
+                Resume.Wait();
+            }
+        }
+    }
+
+    /// <summary>A store whose first write waits until released, like a database another job holds locked.</summary>
+    private sealed class HeldStore : IJobRunStore
+    {
+        public InMemoryJobRunStore Inner { get; } = new();
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<long> StartedAsync(string jobName, DateTimeOffset startedAt, JobTrigger trigger)
+        {
+            await Release.Task;
+            return await Inner.StartedAsync(jobName, startedAt, trigger);
+        }
+
+        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
+            Inner.FinishedAsync(runId, finishedAt, result, summary, counts);
+
+        public Task InterruptUnfinishedAsync(string summary) => Inner.InterruptUnfinishedAsync(summary);
+
+        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => Inner.LastRunsAsync();
+    }
+
+    /// <summary>A store whose first <c>failures</c> attempts to record a run's start fail, as with "database is locked".</summary>
+    private sealed class FlakyStore(int failures) : IJobRunStore
+    {
+        private int _failuresLeft = failures;
+
+        public InMemoryJobRunStore Inner { get; } = new();
+
+        public Task<long> StartedAsync(string jobName, DateTimeOffset startedAt, JobTrigger trigger) =>
+            _failuresLeft-- > 0
+                ? throw new InvalidOperationException("database is locked")
+                : Inner.StartedAsync(jobName, startedAt, trigger);
+
+        public Task FinishedAsync(long runId, DateTimeOffset finishedAt, JobRunResult result, string? summary, IReadOnlyDictionary<string, long>? counts) =>
+            Inner.FinishedAsync(runId, finishedAt, result, summary, counts);
+
+        public Task InterruptUnfinishedAsync(string summary) => Inner.InterruptUnfinishedAsync(summary);
+
+        public Task<IReadOnlyDictionary<string, JobRunRecord>> LastRunsAsync() => Inner.LastRunsAsync();
     }
 
     [Fact]

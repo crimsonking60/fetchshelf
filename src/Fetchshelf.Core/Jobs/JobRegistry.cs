@@ -18,6 +18,9 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
     private readonly CancellationTokenSource _stopping = new();
     private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly JobRunWriter? _writer = store is null
+        ? null
+        : new JobRunWriter(store, logger ?? (ILogger)NullLogger<JobRegistry>.Instance, timeProvider ?? TimeProvider.System);
 
     /// <summary>
     /// Registers a job under <paramref name="name"/>. A name can only be registered once: replacing a job would leave its
@@ -162,6 +165,8 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
 
     public void InterruptAll() => _stopping.Cancel();
 
+    public Task RunRecordsWrittenAsync() => _writer?.FlushAsync() ?? Task.CompletedTask;
+
     /// <summary>
     /// Marks the job as running, with the cancellation source of its next run. Called under the job's lock, so the job
     /// is never running without a source <see cref="Cancel"/> can reach, not even between a run and the one queued after it.
@@ -233,7 +238,7 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
         }
 
         _logger.LogInformation("Job {JobName} started", name);
-        var runId = await RecordAsync(name, () => store!.StartedAsync(name, startedAt, trigger));
+        var row = _writer?.Started(name, startedAt, trigger);
 
         JobRunResult result;
         string? summary;
@@ -277,34 +282,11 @@ public sealed class JobRegistry(ILogger<JobRegistry>? logger = null, TimeProvide
 
         var finishedAt = _timeProvider.GetUtcNow();
         job.LastRun = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts);
-        if (runId is { } id)
+        if (row is not null)
         {
-            await RecordAsync(name, async () =>
-            {
-                await store!.FinishedAsync(id, finishedAt, result, summary, counts);
-                return id;
-            });
+            _writer!.Finished(row, name, startedAt, trigger, finishedAt, result, summary, counts);
         }
     }
 
     private double Elapsed(DateTimeOffset startedAt) => (_timeProvider.GetUtcNow() - startedAt).TotalSeconds;
-
-    /// <summary>Writes to the store, if there is one. A failure is logged and returns null: the job runs on regardless.</summary>
-    private async Task<long?> RecordAsync(string name, Func<Task<long>> write)
-    {
-        if (store is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await write();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not record a run of job {JobName} in the database: {Error}", name, ex.Message);
-            return null;
-        }
-    }
 }

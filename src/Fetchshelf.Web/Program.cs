@@ -294,7 +294,18 @@ if (settings.Opds is not null)
     app.MapOpdsEndpoints();
 }
 
-app.Run();
+await app.RunAsync();
+
+// The runs the shutdown stopped are written in the background; give them a moment to reach the database. Any that
+// don't are marked interrupted at the next start.
+try
+{
+    await jobRegistry.RunRecordsWrittenAsync().WaitAsync(TimeSpan.FromSeconds(5));
+}
+catch (TimeoutException)
+{
+    Log.Warning("Some job runs could not be recorded before Fetchshelf stopped");
+}
 
 static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings settings)
 {
