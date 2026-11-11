@@ -13,6 +13,12 @@ public sealed class RegisteredJob
     /// <summary>The last run that ended, or that a restart interrupted. Null if the job has never run.</summary>
     public JobRunRecord? LastRun { get; internal set; }
 
+    /// <summary>
+    /// The last run that ran to its end: it succeeded, finished with errors or failed. Runs that were cancelled or that
+    /// Fetchshelf stopped during are left out. Null if there is none.
+    /// </summary>
+    internal JobRunRecord? LastRunToTheEnd { get; set; }
+
     /// <summary>Since when the job's runs keep failing; null while it isn't failing. See <see cref="JobFailureState"/>.</summary>
     public JobFailure? Failing { get; internal set; }
 

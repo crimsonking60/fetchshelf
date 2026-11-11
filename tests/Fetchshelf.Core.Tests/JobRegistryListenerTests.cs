@@ -99,6 +99,42 @@ public class JobRegistryListenerTests
     }
 
     [Fact]
+    public async Task PreviousRun_LeavesOutRunsThatDidNotRunToTheEnd_RestoredOrNot()
+    {
+        // Finished with errors, then a run a restart interrupted: the restored previous run is the one with errors.
+        var withErrors = new JobRunRecord(Now.AddHours(-2), JobRunResult.CompletedWithErrors, "1 could not be linked", Now.AddHours(-2));
+        var interrupted = new JobRunRecord(Now.AddHours(-1), JobRunResult.Interrupted, JobRegistry.InterruptedSummary, null);
+        var recorder = new Recorder();
+        var registry = new JobRegistry(store: new RestoredStore("Link", withErrors, interrupted), listeners: [recorder]);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hang = false;
+        registry.Register("Link", async ct =>
+        {
+            if (hang)
+            {
+                started.TrySetResult();
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+
+            throw new JobCompletedWithErrorsException("1 could not be linked");
+        });
+        await registry.LoadLastRunsAsync();
+
+        await registry.TriggerAsync("Link");
+        hang = true;
+        var cancelled = registry.TriggerAsync("Link");
+        await started.Task;
+        registry.Cancel("Link");
+        await cancelled;
+        hang = false;
+        await registry.TriggerAsync("Link");
+
+        Assert.Equal(withErrors, recorder.Runs[0].PreviousRun);
+        Assert.Equal(JobRunResult.Cancelled, recorder.Runs[1].Run.Result);
+        Assert.Equal(recorder.Runs[0].Run, recorder.Runs[2].PreviousRun);
+    }
+
+    [Fact]
     public async Task TriggerAsync_ListenerThrows_IsLoggedTheNextListenerIsStillToldAndTheRunIsRecorded()
     {
         var recorder = new Recorder();

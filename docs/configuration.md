@@ -811,7 +811,7 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 | `rate_limited` | MAM answers HTTP 429. At most once an hour. | "MAM asked Fetchshelf to slow down (HTTP 429); MAM calls are paused for a minute." |
 | `job_failing` | A job's run fails after a run that didn't fail. | "Job Link failed: the connection to qBittorrent failed." |
 | `job_recovered` | A job's run succeeds, or finishes with errors, after failed ones. | "Job Link works again, after 6 failed runs since 08:30 UTC." |
-| `job_errors` | A run finishes with errors that the previous run didn't have. | "Link: 3 torrents linked; 2 could not be linked; see the Errors page" |
+| `job_errors` | A run finishes with errors after a run that finished without them. Runs that were cancelled, or that Fetchshelf stopped during, don't count. | "Link: 3 torrents linked; 2 could not be linked; see the Errors page" |
 | `grabbed` | A torrent is sent to qBittorrent. | "Grabbed The Way of Kings by Brandon Sanderson (Autograb Freeleech, freeleech)." |
 | `linked` | A torrent is linked into a library. | "Linked The Way of Kings by Brandon Sanderson into Audiobooks." |
 | `removed_from_mam` | [`mark_removed`](#mark_removed) finds that MAM no longer has a stored torrent. | "MAM no longer has The Way of Kings by Brandon Sanderson." |

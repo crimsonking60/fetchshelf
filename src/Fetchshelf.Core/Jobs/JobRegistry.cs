@@ -113,6 +113,7 @@ public sealed class JobRegistry(
     private static void Restore(RegisteredJob job, IReadOnlyList<JobRunRecord> runs)
     {
         job.LastRun = runs.Count == 0 ? null : runs[^1];
+        job.LastRunToTheEnd = runs.LastOrDefault(RanToTheEnd);
         job.Failing = JobFailureState.From(runs);
     }
 
@@ -326,8 +327,13 @@ public sealed class JobRegistry(
 
         var finishedAt = _timeProvider.GetUtcNow();
         var run = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts, failureKind);
-        var (previousRun, failingBefore) = (job.LastRun, job.Failing);
+        var (previousRun, failingBefore) = (job.LastRunToTheEnd, job.Failing);
         job.LastRun = run;
+        if (RanToTheEnd(run))
+        {
+            job.LastRunToTheEnd = run;
+        }
+
         job.Failing = JobFailureState.Next(failingBefore, run);
         if (row is not null)
         {
@@ -336,6 +342,9 @@ public sealed class JobRegistry(
 
         Notify(new JobRunFinished(name, run, previousRun, failingBefore, job.Failing));
     }
+
+    private static bool RanToTheEnd(JobRunRecord run) =>
+        run.Result is JobRunResult.Success or JobRunResult.CompletedWithErrors or JobRunResult.Failure;
 
     /// <summary>Tells every listener; one that throws is logged, and the others are still told.</summary>
     private void Notify(JobRunFinished finished)
