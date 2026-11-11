@@ -417,6 +417,39 @@ public class JobRegistryRunRecordTests
     }
 
     [Fact(Timeout = 10_000)]
+    public async Task RunsEndedAsync_AfterInterruptAll_WaitsForARunStillEnding_SoItsRecordIsQueuedBeforeTheFlush()
+    {
+        var store = new InMemoryJobRunStore();
+        var registry = new JobRegistry(store: store);
+        var started = new TaskCompletionSource();
+        var ending = new TaskCompletionSource();
+        registry.Register("Link", async ct =>
+        {
+            started.SetResult();
+            try
+            {
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+            finally
+            {
+                await ending.Task; // a run that takes a moment to stop, as one finishing a call does
+            }
+        });
+
+        _ = registry.TriggerAsync("Link");
+        await started.Task;
+        registry.InterruptAll();
+        var ended = registry.RunsEndedAsync();
+
+        Assert.False(ended.IsCompleted);
+        ending.SetResult();
+        await ended;
+        await registry.RunRecordsWrittenAsync();
+
+        Assert.Equal(JobRunResult.Interrupted, Assert.Single(store.Runs).Result);
+    }
+
+    [Fact(Timeout = 10_000)]
     public async Task Cancel_JobWaitingForAJobItStarted_LeavesThatJobRunning()
     {
         var registry = new JobRegistry();

@@ -34,6 +34,7 @@ public sealed class JobRegistry(
     private readonly ConcurrentDictionary<string, RegisteredJob> _jobs = new();
     private readonly ConcurrentDictionary<string, IReadOnlyList<JobRunRecord>> _loadedRuns = new();
     private readonly CancellationTokenSource _stopping = new();
+    private readonly ConcurrentDictionary<Task, byte> _runsGoing = new();
     private readonly ILogger<JobRegistry> _logger = logger ?? NullLogger<JobRegistry>.Instance;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly JobRunWriter? _writer = store is null
@@ -128,7 +129,7 @@ public sealed class JobRegistry(
             Claim(job, cancellationToken);
         }
 
-        return RunUntilNothingQueuedAsync(job, trigger, cancellationToken);
+        return Track(RunUntilNothingQueuedAsync(job, trigger, cancellationToken));
     }
 
     public Task TriggerOrQueueAsync(string name, JobTrigger trigger = JobTrigger.Manual, CancellationToken cancellationToken = default)
@@ -151,7 +152,7 @@ public sealed class JobRegistry(
             Claim(job, cancellationToken);
         }
 
-        return RunUntilNothingQueuedAsync(job, trigger, cancellationToken);
+        return Track(RunUntilNothingQueuedAsync(job, trigger, cancellationToken));
     }
 
     public bool Cancel(string name, long? runNumber = null)
@@ -194,6 +195,10 @@ public sealed class JobRegistry(
 
     public void InterruptAll() => _stopping.Cancel();
 
+    public Task RunsEndedAsync() =>
+        // A run that fails has already been recorded as failed: only its end matters here.
+        Task.WhenAll(_runsGoing.Keys).ContinueWith(_ => { }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+
     public Task RunRecordsWrittenAsync() => _writer?.FlushAsync() ?? Task.CompletedTask;
 
     /// <summary>
@@ -206,6 +211,14 @@ public sealed class JobRegistry(
         job.RunNumber++;
         job.RunCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopping.Token);
         job.CancelRequested = false;
+    }
+
+    /// <summary>Keeps the runs going, for <see cref="RunsEndedAsync"/>, until they end.</summary>
+    private Task Track(Task runs)
+    {
+        _runsGoing.TryAdd(runs, 0);
+        runs.ContinueWith(ended => _runsGoing.TryRemove(ended, out _), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        return runs;
     }
 
     private RegisteredJob Find(string name) =>

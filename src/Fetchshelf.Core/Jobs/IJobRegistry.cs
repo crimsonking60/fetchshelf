@@ -49,6 +49,12 @@ public interface IJobRegistry
     void InterruptAll();
 
     /// <summary>
+    /// Completes once every run going has ended, such as the runs <see cref="InterruptAll"/> stopped: a run is only
+    /// recorded once it has ended, so this comes before <see cref="RunRecordsWrittenAsync"/> at shutdown.
+    /// </summary>
+    Task RunsEndedAsync();
+
+    /// <summary>
     /// Completes once every run so far has been written to the store, or given up on. Runs are written in the background,
     /// so a busy database never holds up or fails a job.
     /// </summary>

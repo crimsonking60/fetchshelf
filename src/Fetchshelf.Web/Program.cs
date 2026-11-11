@@ -377,6 +377,23 @@ var jobRegistry = app.Services.GetRequiredService<IJobRegistry>();
 await jobRegistry.LoadLastRunsAsync();
 app.Lifetime.ApplicationStopping.Register(jobRegistry.InterruptAll);
 
+// The runs the shutdown stopped are written in the background once they have ended; give them a moment to end and reach
+// the database. This waits once the hosted services have stopped but before the host is disposed, as the writes need its
+// services. Any run that isn't written by then is marked interrupted at the next start.
+app.Lifetime.ApplicationStopped.Register(() =>
+{
+    async Task RecordedAsync()
+    {
+        await jobRegistry.RunsEndedAsync();
+        await jobRegistry.RunRecordsWrittenAsync();
+    }
+
+    if (!RecordedAsync().Wait(TimeSpan.FromSeconds(5)))
+    {
+        Log.Warning("Some job runs could not be recorded before Fetchshelf stopped");
+    }
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -395,17 +412,6 @@ if (settings.Opds is not null)
 }
 
 await app.RunAsync();
-
-// The runs the shutdown stopped are written in the background; give them a moment to reach the database. Any that
-// don't are marked interrupted at the next start.
-try
-{
-    await jobRegistry.RunRecordsWrittenAsync().WaitAsync(TimeSpan.FromSeconds(5));
-}
-catch (TimeoutException)
-{
-    Log.Warning("Some job runs could not be recorded before Fetchshelf stopped");
-}
 
 static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings settings)
 {
