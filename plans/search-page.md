@@ -34,7 +34,7 @@ button works. Each defaults to today's behavior, so a plain search is unchanged.
 
 ### 1. Paging
 
-- New parameter `PageNumber` (1-based, default 1; not `Page`, which Razor Pages keeps for itself, and the name
+- New parameter `PageNumber` (1-based, default 1, at most 10,000; not `Page`, which Razor Pages keeps for itself, and the name
   the Torrents page uses). The query sets `PageOffset = (PageNumber - 1) * 100`.
 - Below the results: "Results 101–200 of 1,234" from `MamSearchResult.Found`, and Previous / Next links that
   keep every other parameter. Next is left out on the last page; Previous on the first.
@@ -64,14 +64,15 @@ button works. Each defaults to today's behavior, so a plain search is unchanged.
   which MAM sorts by date only when there is no search text; with text it sorts by relevance. So:
   - the page's `relevance` uses `NewestFirst` as today (no `sortType`);
   - the page's `newest` uses a new `NewestByDate`, sent as `dateDesc`;
-  - `sort_by = "newest_first"` in an autograb is left as it is. An autograb with a `query` and no `sort_by` is
-    therefore sorted by relevance, not date, as it always has been; `docs/configuration.md` says so, and a later
-    change can decide whether it should send `dateDesc`.
+  - `sort_by = "newest_first"` (or no `sort_by`) in an autograb with a `query` now sends `dateDesc` too, so it
+    gets the newest uploads, as the name says, rather than the most relevant ones. A `bookmarks` block keeps
+    MAM's own order, newest bookmark first.
 - A dropdown next to the language one, submitting on change like it does.
 
 ### 4. Search type
 
-- New parameter `Type`: `all` (default), `freeleech`, `free_or_vip`, `vip`, `bookmarks`, `not_snatched`.
+- New parameter `Type`: `all` (default), `freeleech`, `free_or_vip`, `vip`, `bookmarks` (shown as "Bookmarked on
+  MAM"), `not_snatched` (shown as "Not snatched yet").
   - `freeleech`, `free_or_vip` and `vip` set `Kind`.
   - `bookmarks` sets `Target = Bookmarks`, the same as the bookmarks autograb type.
   - `not_snatched` has no MAM search parameter. MAM's results carry `my_snatched`; `MamTorrentRecord` gains
@@ -91,7 +92,11 @@ button works. Each defaults to today's behavior, so a plain search is unchanged.
   qBittorrent knows (from `QBittorrentPresenceCache`, when loaded).
 - The chosen value is sent with every Download and "Download with wedge" click on the page (`hx-include`), and
   passed to `ProcessCandidateAsync` as `autograbCategory`. Tags still come from the `[[tag]]` rules.
-- The choice is remembered in a cookie for the page, as people usually download into one library at a time.
+- The choice is remembered in a cookie for the page, as people usually download into one library at a time. A
+  remembered category no longer offered is not preselected, and a post without the field (no htmx) uses the
+  remembered one rather than forgetting it.
+- Without htmx, Download and Import post the search with them, and the redirect comes back to the same search
+  and page.
 - A value that is neither a library category nor known to qBittorrent is refused with a message, so a stale
   cookie or a hand-made POST can't create categories.
 - The download feedback line names the category used.
@@ -120,7 +125,10 @@ button works. Each defaults to today's behavior, so a plain search is unchanged.
   names, sorts by seeders, snatches, size or title, limits a search to freeleech, VIP, bookmarks or books not
   snatched yet, and downloads into a chosen category.
 - Added: `sort_by` accepts `high_seeders`, `high_snatches`, `largest_first` and `title`.
-- Upgrading: nothing to do.
+- Changed: an autograb with a `query` and `newest_first` (or no `sort_by`) gets the newest uploads, not MAM's
+  most relevant matches.
+- Upgrading: an autograb with a `query` and no `sort_by` may now select different torrents: the newest matches
+  rather than the most relevant ones. Set `sort_by` to keep another order.
 
 ## Out of scope
 

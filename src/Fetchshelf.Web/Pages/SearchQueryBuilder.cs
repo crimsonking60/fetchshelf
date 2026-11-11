@@ -5,6 +5,21 @@ using Fetchshelf.Data.Configuration;
 namespace Fetchshelf.Web.Pages;
 
 /// <summary>
+/// The Search page's choices, each made known and in range once (<see cref="SearchQueryBuilder.Choices"/>): the links,
+/// the heading and the MAM query all read these, so they can't disagree.
+/// </summary>
+public sealed record SearchChoices(string? Text, IReadOnlyList<string> Fields, string Sort, string Type, int PageNumber)
+{
+    public bool HasText => !string.IsNullOrWhiteSpace(Text);
+
+    /// <summary>The number of the first result on the page, from 1.</summary>
+    public long FirstResultNumber => (PageNumber - 1L) * SearchQueryBuilder.PageSize + 1;
+
+    /// <summary>Whether MAM found more than the pages up to and including this one hold.</summary>
+    public bool HasPageAfter(int found) => (long)PageNumber * SearchQueryBuilder.PageSize < found;
+}
+
+/// <summary>
 /// What the Search page asks MAM, from its query-string choices. Every choice has a default that gives the search the
 /// page has always made, and a value it doesn't know (from a hand-made or old link) counts as the default.
 /// </summary>
@@ -51,8 +66,8 @@ public static class SearchQueryBuilder
         ("freeleech", "Freeleech"),
         ("free_or_vip", "Freeleech or VIP"),
         ("vip", "VIP"),
-        ("bookmarks", "My bookmarks"),
-        (NotSnatchedType, "Not snatched by me"),
+        ("bookmarks", "Bookmarked on MAM"),
+        (NotSnatchedType, "Not snatched yet"),
     ];
 
     /// <summary>The known `In` values among <paramref name="names"/>, in the page's order; the default when there are none.</summary>
@@ -64,35 +79,40 @@ public static class SearchQueryBuilder
     }
 
     /// <summary>The sort's own value when it is a known one, else <see cref="DefaultSort"/>.</summary>
-    public static string Sort(string? sort) =>
-        SortOptions.Any(o => o.Value == sort?.ToLowerInvariant()) ? sort!.ToLowerInvariant() : DefaultSort;
+    public static string Sort(string? sort) => Known(SortOptions.Select(o => o.Value), sort, DefaultSort);
 
     /// <summary>The type's own value when it is a known one, else <see cref="DefaultType"/>.</summary>
-    public static string Type(string? type) =>
-        TypeOptions.Any(o => o.Value == type?.ToLowerInvariant()) ? type!.ToLowerInvariant() : DefaultType;
+    public static string Type(string? type) => Known(TypeOptions.Select(o => o.Value), type, DefaultType);
 
-    /// <summary>A page number of at least 1.</summary>
-    public static int PageNumber(int page) => Math.Max(1, page);
+    private static string Known(IEnumerable<string> values, string? value, string fallback) =>
+        value?.Trim().ToLowerInvariant() is { } lower && values.Contains(lower) ? lower : fallback;
 
-    public static MamSearchQuery Build(
-        string? text, IEnumerable<string?>? fields, string? sort, string? type, int page, IReadOnlyList<Language> languages)
+    /// <summary>The last page a link can ask for: a million results in, far past any real search.</summary>
+    public const int MaxPageNumber = 10_000;
+
+    /// <summary>A page number from 1 to <see cref="MaxPageNumber"/>.</summary>
+    public static int PageNumber(int page) => Math.Clamp(page, 1, MaxPageNumber);
+
+    /// <summary>The page's choices as they came in the address, each made known and in range.</summary>
+    public static SearchChoices Choices(string? text, IEnumerable<string?>? fields, string? sort, string? type, int page) =>
+        new(text, Fields(fields), Sort(sort), Type(type), PageNumber(page));
+
+    public static MamSearchQuery Build(SearchChoices choices, IReadOnlyList<Language> languages)
     {
-        var hasText = !string.IsNullOrWhiteSpace(text);
-        var chosenType = Type(type);
         return new MamSearchQuery
         {
-            Text = hasText ? text : null,
-            SearchFields = hasText ? Fields(fields).Select(ToField).ToList() : [],
-            Target = chosenType == "bookmarks" ? MamSearchTarget.Bookmarks : MamSearchTarget.New,
-            Kind = chosenType switch
+            Text = choices.HasText ? choices.Text : null,
+            SearchFields = choices.HasText ? choices.Fields.Select(ToField).ToList() : [],
+            Target = choices.Type == "bookmarks" ? MamSearchTarget.Bookmarks : MamSearchTarget.New,
+            Kind = choices.Type switch
             {
                 "freeleech" => MamSearchKind.Freeleech,
                 "free_or_vip" => MamSearchKind.FreeOrVip,
                 "vip" => MamSearchKind.Vip,
                 _ => null,
             },
-            SortOrder = SortOptions.First(o => o.Value == Sort(sort)).Order,
-            PageOffset = (PageNumber(page) - 1) * (long)PageSize,
+            SortOrder = SortOptions.First(o => o.Value == choices.Sort).Order,
+            PageOffset = (choices.PageNumber - 1L) * PageSize,
             PerPage = PageSize,
             ReturnDownloadLink = true,
             LanguageIds = languages.Select(language => (int)language).ToList(),

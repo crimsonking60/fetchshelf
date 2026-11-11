@@ -4,7 +4,7 @@
 {
     <p id="search-error" class="notice error">
         Search failed: @Model.SearchError
-        <button type="button" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues(Model.PageNumber))" hx-target="#search-results-panel" hx-swap="innerHTML" hx-indicator="#search-loading">Try again</button>
+        <button type="button" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues())" hx-target="#search-results-panel" hx-swap="innerHTML" hx-indicator="#search-loading">Try again</button>
     </p>
 }
 else if (Model.ResultsLoaded && Model.Results.Count == 0)
@@ -24,10 +24,6 @@ else
                     @foreach (var (value, label) in Model.CategoryOptions)
                     {
                         <option value="@value" selected="@(value == Model.ChosenCategory)">@label</option>
-                    }
-                    @if (Model.ChosenCategory.Length > 0 && Model.CategoryOptions.All(o => o.Value != Model.ChosenCategory))
-                    {
-                        <option value="@Model.ChosenCategory" selected="selected">@Model.ChosenCategory</option>
                     }
                 </select>
             </label>

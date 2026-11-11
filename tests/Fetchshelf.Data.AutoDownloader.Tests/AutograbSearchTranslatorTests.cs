@@ -33,6 +33,31 @@ public class AutograbSearchTranslatorTests
         Assert.Equal(expected, query.SortOrder);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("newest_first")]
+    public void ToSearchQuery_NewestFirstWithAQuery_AsksForDateOrder_NotRelevance(string? sortBy)
+    {
+        var entry = Entry(AutograbType.New);
+        entry.SortBy = sortBy;
+        entry.Query = "sanderson";
+
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal(MamSortOrder.NewestByDate, query.SortOrder);
+    }
+
+    [Fact]
+    public void ToSearchQuery_BookmarksWithAQuery_KeepsMamsOwnOrder()
+    {
+        var entry = Entry(AutograbType.Bookmarks);
+        entry.Query = "sanderson";
+
+        var query = AutograbSearchTranslator.ToSearchQuery(entry, new TorrentFilter(), 0);
+
+        Assert.Equal(MamSortOrder.NewestFirst, query.SortOrder);
+    }
+
     [Fact]
     public void ToSearchQuery_SearchIn_MapsToSearchFields()
     {

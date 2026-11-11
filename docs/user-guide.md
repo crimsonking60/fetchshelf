@@ -678,13 +678,14 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   page shows the newest torrents on MAM instead.
 - **Search in**, below the box, opens a row of checkboxes: title, author, series, narrator, description,
   tags and file names. Tick the ones to look in; with none ticked, title and author are used.
-- **The type list** limits what is searched: *All torrents*, *Freeleech*, *Freeleech or VIP*, *VIP*, *My
-  bookmarks* (the torrents bookmarked on MAM), or *Not snatched by me*. MAM can't be asked for torrents you
-  haven't snatched, so that last one searches everything and leaves out, on each page, the ones you have; the
-  line below the results says how many. A result you have snatched before is marked **Snatched** whatever
-  the type.
-- **The sort list** sets the order: *Best match* (MAM's own order: by how well a result matches your text, or
-  newest first with the box empty), *Newest*, *Oldest*, *Most seeders*, *Most snatched*, *Largest* or *Title*.
+- **The type list** limits what is searched: *All torrents*, *Freeleech*, *Freeleech or VIP*, *VIP*,
+  *Bookmarked on MAM* (the account's bookmarks), or *Not snatched yet*. MAM can't be asked for torrents the
+  account hasn't snatched, so that last one searches everything and leaves out, on each page, the ones it has;
+  the line below the results says how many. A result the account has snatched before is marked **Snatched**
+  whatever the type.
+- **The sort list** sets the order: *Best match*, *Newest*, *Oldest*, *Most seeders*, *Most snatched*,
+  *Largest* or *Title*. *Best match* is MAM's own order: by how well a result matches the search text; with
+  the box empty, newest first, and for *Bookmarked on MAM* the newest bookmarks first.
 - **Pages.** A page holds 100 results. The line below them says which results these are out of how many MAM
   found, with **Previous** and **Next** to move between pages. Changing the search, the type, the sort or
   where to search in starts again at the first page. The address holds all of it, so a search can be
@@ -707,7 +708,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 
   These two filters only hide rows in the results already on the page, and the line below the results says
   how many they hide. They do not change what is asked of MAM, so they cannot bring in more results, and they
-  are reset when you run a new search or change page.
+  are reset by a new search or a change of page.
 - Click a result's title for everything MAM returns for it: cover, narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
@@ -742,9 +743,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download into**, above the results, chooses the qBittorrent category a download gets, and with it the
   library it ends up in. It offers each library's category, then every other category qBittorrent has
-  torrents in. Left at *the category the tag rules give*, your `[[tag]]` rules decide, as for automatic
-  downloads. Tags always come from the `[[tag]]` rules. Your browser remembers the choice, and the message
-  after a download names the category used.
+  torrents in. Left at *the category the tag rules give*, the `[[tag]]` rules decide, as for automatic
+  downloads. Tags always come from the `[[tag]]` rules. The browser remembers the choice, and the message
+  after a download names the category used. A remembered category that is no longer offered, for example
+  while qBittorrent doesn't answer, falls back to the tag rules.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library. A selected torrent's status then follows it into the
@@ -770,7 +772,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 A manual download goes through the same steps as an automatic one. It becomes a **selection**, which the
 downloader processes with the ratio, unsatisfied-slot and wedge checks (see
 [Protecting your account](#protecting-your-account)) and then adds to qBittorrent with the category and tags
-from your `[[tag]]` rules, or the category chosen under **Download into**. The download starts straight away, unless `download_after_selection = false`
+from the `[[tag]]` rules, or the category chosen under **Download into**. The download starts straight away,
+unless `download_after_selection = false`
 makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
 
 If qBittorrent already has the torrent, in any category, Fetchshelf doesn't add it again and spends no
@@ -842,7 +845,7 @@ snatch list page holds, and has been seen sending 1000, so one page can already 
 
 | `sort_by` | Order |
 |---|---|
-| `"newest_first"` (default) | Newest uploads first. With a `query`, MAM sorts by how well each result matches instead. |
+| `"newest_first"` (default) | Newest uploads first; for `bookmarks`, the newest bookmarks first. |
 | `"oldest_first"` | Oldest uploads first. Together with a higher `max_pages`, good for a one-off backfill. |
 | `"random"` | A different random selection on every run. |
 | `"low_seeders"` | Fewest seeders first: torrents that need seeding most. |

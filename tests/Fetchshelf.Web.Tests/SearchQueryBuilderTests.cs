@@ -9,7 +9,7 @@ public class SearchQueryBuilderTests
     [Fact]
     public void Build_Defaults_AskWhatThePageAlwaysAsked()
     {
-        var query = SearchQueryBuilder.Build("kings", null, null, null, 1, [Language.English]);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices("kings", null, null, null, 1), [Language.English]);
 
         Assert.Equal("kings", query.Text);
         Assert.Equal([MamSearchField.Title, MamSearchField.Author], query.SearchFields);
@@ -25,7 +25,7 @@ public class SearchQueryBuilderTests
     [Fact]
     public void Build_NoText_SearchesNoFields()
     {
-        var query = SearchQueryBuilder.Build("  ", ["series"], null, null, 1, []);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices("  ", ["series"], null, null, 1), []);
 
         Assert.Null(query.Text);
         Assert.Empty(query.SearchFields);
@@ -34,7 +34,7 @@ public class SearchQueryBuilderTests
     [Fact]
     public void Build_Fields_InThePagesOrder_UnknownOnesIgnored()
     {
-        var query = SearchQueryBuilder.Build("x", ["filenames", "Narrator", "nonsense", "series", "description", "tags"], null, null, 1, []);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices("x", ["filenames", "Narrator", "nonsense", "series", "description", "tags"], null, null, 1), []);
 
         Assert.Equal(
             [MamSearchField.Series, MamSearchField.Narrator, MamSearchField.Description, MamSearchField.Tags, MamSearchField.Filenames],
@@ -46,7 +46,7 @@ public class SearchQueryBuilderTests
     [InlineData("nonsense")]
     public void Build_NoKnownField_SearchesTitleAndAuthor(string? field)
     {
-        var query = SearchQueryBuilder.Build("x", field is null ? [] : [field], null, null, 1, []);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices("x", field is null ? [] : [field], null, null, 1), []);
 
         Assert.Equal([MamSearchField.Title, MamSearchField.Author], query.SearchFields);
     }
@@ -61,7 +61,7 @@ public class SearchQueryBuilderTests
     [InlineData("title", MamSortOrder.TitleAsc)]
     [InlineData("nonsense", MamSortOrder.NewestFirst)]
     public void Build_Sort(string sort, MamSortOrder expected) =>
-        Assert.Equal(expected, SearchQueryBuilder.Build("x", null, sort, null, 1, []).SortOrder);
+        Assert.Equal(expected, SearchQueryBuilder.Build(SearchQueryBuilder.Choices("x", null, sort, null, 1), []).SortOrder);
 
     [Theory]
     [InlineData("all", false, null)]
@@ -73,7 +73,7 @@ public class SearchQueryBuilderTests
     [InlineData("nonsense", false, null)]
     public void Build_Type(string type, bool bookmarks, string? kind)
     {
-        var query = SearchQueryBuilder.Build("x", null, null, type, 1, []);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices("x", null, null, type, 1), []);
 
         Assert.Equal(bookmarks ? MamSearchTarget.Bookmarks : MamSearchTarget.New, query.Target);
         Assert.Equal(kind, query.Kind?.ToString());
@@ -85,5 +85,24 @@ public class SearchQueryBuilderTests
     [InlineData(0, 0)]
     [InlineData(-4, 0)]
     public void Build_Page_SetsTheOffset(int page, long offset) =>
-        Assert.Equal(offset, SearchQueryBuilder.Build("x", null, null, null, page, []).PageOffset);
+        Assert.Equal(offset, SearchQueryBuilder.Build(SearchQueryBuilder.Choices("x", null, null, null, page), []).PageOffset);
+
+    [Fact]
+    public void Choices_APageFarPastAnySearch_IsKeptInRange_WithoutOverflowing()
+    {
+        var choices = SearchQueryBuilder.Choices("x", null, null, null, int.MaxValue);
+
+        Assert.Equal(SearchQueryBuilder.MaxPageNumber, choices.PageNumber);
+        Assert.Equal(999_901, choices.FirstResultNumber);
+        Assert.False(choices.HasPageAfter(250));
+        Assert.Equal(999_900, SearchQueryBuilder.Build(choices, []).PageOffset);
+    }
+
+    [Fact]
+    public void Choices_SortAndType_IgnoreCaseAndSpaces()
+    {
+        var choices = SearchQueryBuilder.Choices("x", null, " Seeders ", "VIP", 1);
+
+        Assert.Equal(("seeders", "vip"), (choices.Sort, choices.Type));
+    }
 }

@@ -5,7 +5,7 @@
 }
 
 <h2>Search</h2>
-@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly, by default in titles and authors, or shows the newest torrents on MAM when you haven't typed anything. Choose where to search in, what kind of torrents to search (freeleech, VIP, your bookmarks, or those you haven't snatched), and the order; results come 100 to a page. The language list starts at the languages set in your configuration. Download a result straight to qBittorrent, into the category of your choice, download it with a wedge applied, hide torrents you already have, or show only ebooks/audiobooks.")
+@await Html.PartialAsync("_PageExplanation", "This page searches MAM directly, by default in titles and authors, or shows the newest torrents on MAM when the search box is empty. Below the box: where to search in, which torrents to search (freeleech, VIP, the account's bookmarks, or those not snatched yet), and the order; results come 100 to a page. The language list starts at the languages set in the configuration. A result can be downloaded straight to qBittorrent, into a chosen category, or with a wedge applied; torrents already downloaded can be hidden, and the list limited to ebooks or audiobooks.")
 
 @* Stays below the sticky header while scrolling, so feedback from a download is visible wherever in the results it was clicked. *@
 <div id="download-message-area" class="download-feedback" aria-live="polite">
@@ -94,7 +94,7 @@ else
 
 <div class="results-wrap">
     @* hx-disinherit: the "Searching MAM" overlay is for this request only, not the buttons and status checks inside. *@
-    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues(Model.PageNumber))" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading" hx-disinherit="hx-indicator">
+    <div id="search-results-panel" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues())" hx-trigger="load" hx-swap="innerHTML" hx-indicator="#search-loading" hx-disinherit="hx-indicator">
         @await Html.PartialAsync("_SearchResultsPartial", Model)
     </div>
     @* Starts visible (htmx-request) so the table is never shown empty before the first request begins; htmx clears it when the request ends. *@
@@ -169,6 +169,8 @@ else
                 }
             });
 
+            // A download swaps its row in out of band: it may now be hidden by "Hide downloaded torrents", and the count changes.
+            document.body.addEventListener('htmx:oobAfterSwap', applyFilters);
             // The table arrives after page load, so filters must be re-applied to each new set of rows.
             document.body.addEventListener('htmx:afterSwap', function (event) {
                 if (event.target.id === 'search-results-panel') {

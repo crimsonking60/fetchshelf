@@ -1,7 +1,7 @@
 @model Fetchshelf.Web.Pages.IndexModel
 @* Which results these are out of how many MAM found, and links to the pages either side, keeping the search. *@
 @{
-    var pageNumber = SearchQueryBuilder.PageNumber(Model.PageNumber);
+    var pageNumber = Model.Choices.PageNumber;
     var shown = Model.Results.Count + Model.SnatchedLeftOut;
 }
 <nav class="search-pager" aria-label="Search result pages">

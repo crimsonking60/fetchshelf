@@ -75,10 +75,10 @@ public partial class SearchPageChoicesTests
         var html = WebUtility.HtmlDecode(await client.GetStringAsync("/?Q=expanse&In=narrator&In=series&Sort=title&Type=bookmarks"));
 
         Assert.Contains("<option value=\"title\" selected=\"selected\">Title</option>", html);
-        Assert.Contains("<option value=\"bookmarks\" selected=\"selected\">My bookmarks</option>", html);
+        Assert.Contains("<option value=\"bookmarks\" selected=\"selected\">Bookmarked on MAM</option>", html);
         Assert.Contains("name=\"In\" value=\"series\" checked=\"checked\"", html);
         Assert.Contains("Search in: series, narrator", html);
-        Assert.Contains("Matches for 'expanse' (My bookmarks)", html);
+        Assert.Contains("Matches for 'expanse' (Bookmarked on MAM)", html);
         var resultsUrl = ResultsUrlPattern().Match(html).Groups[1].Value;
         Assert.Contains("In=series&In=narrator", resultsUrl);
         Assert.Contains("Sort=title", resultsUrl);
@@ -183,22 +183,83 @@ public partial class SearchPageChoicesTests
 
         using var scope = fixture.CreateScope();
         Assert.Empty(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents);
-        Assert.Contains("Not downloaded: made-up is neither a library's category nor one qBittorrent has.", body);
+        Assert.Contains("Not downloaded: made-up is neither a library's category nor one qBittorrent has now.", body);
     }
 
-    private static async Task<(string Body, HttpResponseMessage Response)> DownloadAsync(HttpClient client, string category)
+    [Fact]
+    public async Task Download_WithoutHtmx_ComesBackToTheSameSearchAndPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(SearchJson(250, (1, false))).Handler);
+        using var client = fixture.CreateNoRedirectClient();
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/?handler=Results&Q=kings&Lang=any&In=series&Sort=seeders&Type=freeleech&PageNumber=3"));
+
+        // The form as the browser posts it: every field in the row's Download form.
+        var form = DownloadFormPattern().Match(html).Value;
+        var fields = HiddenInputPattern().Matches(form)
+            .Select(m => new KeyValuePair<string, string>(NamePattern().Match(m.Value).Groups[1].Value, ValuePattern().Match(m.Value).Groups[1].Value))
+            .ToList();
+        var response = await client.PostAsync("/?handler=Download", new FormUrlEncodedContent(fields));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = WebUtility.UrlDecode(response.Headers.Location!.ToString());
+        foreach (var part in new[] { "Q=kings", "Lang=any", "In=series", "Sort=seeders", "Type=freeleech", "PageNumber=3" })
+        {
+            Assert.Contains(part, location);
+        }
+    }
+
+    [Fact]
+    public async Task Download_WithoutTheCategoryField_UsesTheRememberedCategory_AndKeepsIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithLibrary, mamHandler: Mam(SearchJson(1, (1, false))).Handler);
+        using var client = fixture.CreateNoRedirectClient();
+        client.DefaultRequestHeaders.Add("Cookie", "fs-search-category=audiobooks");
+
+        var (_, response) = await DownloadAsync(client, category: null);
+
+        using var scope = fixture.CreateScope();
+        Assert.Equal("audiobooks", Assert.Single(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents).Category);
+        Assert.False(response.Headers.Contains("Set-Cookie") && response.Headers.GetValues("Set-Cookie").Any(c => c.StartsWith("fs-search-category", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Results_ARememberedCategoryNoLongerOffered_IsNotPreselected()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithLibrary, mamHandler: Mam(SearchJson(1, (1, false))).Handler);
+        using var client = fixture.CreateClient();
+        client.DefaultRequestHeaders.Add("Cookie", "fs-search-category=gone");
+
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.DoesNotContain("value=\"gone\"", html);
+        Assert.DoesNotContain("selected=\"selected\"", DownloadCategoryPattern().Match(html).Value);
+    }
+
+    [Fact]
+    public async Task Results_APageFarPastAnySearch_ShowsNoNextPageAndNoNegativeNumbers()
+    {
+        var (handler, searches) = Mam(SearchJson(250, (1, false)));
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: handler);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/?handler=Results&Q=kings&PageNumber=21474837"));
+
+        Assert.Contains("\"startNumber\":999900", Assert.Single(searches));
+        Assert.DoesNotContain("id=\"next-page\"", html);
+        Assert.Contains("Results 999,901–999,901 of 250.", html);
+    }
+
+    private static async Task<(string Body, HttpResponseMessage Response)> DownloadAsync(HttpClient client, string? category)
     {
         var html = await client.GetStringAsync("/?handler=Results&Q=kings");
         var token = TokenPattern().Match(html).Groups[1].Value;
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        var fields = new Dictionary<string, string> { ["mamId"] = "1", ["__RequestVerificationToken"] = token };
+        if (category is not null)
         {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["mamId"] = "1",
-                ["category"] = category,
-                ["__RequestVerificationToken"] = token,
-            }),
-        };
+            fields["category"] = category;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download") { Content = new FormUrlEncodedContent(fields) };
         request.Headers.Add("HX-Request", "true");
         var response = await client.SendAsync(request);
         return (WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()), response);
@@ -212,4 +273,19 @@ public partial class SearchPageChoicesTests
 
     [GeneratedRegex(@"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]*)""")]
     private static partial Regex TokenPattern();
+
+    [GeneratedRegex(@"<form[^>]*handler=Download[^>]*>.*?</form>", RegexOptions.Singleline)]
+    private static partial Regex DownloadFormPattern();
+
+    [GeneratedRegex(@"<input[^>]*type=""hidden""[^>]*>")]
+    private static partial Regex HiddenInputPattern();
+
+    [GeneratedRegex(@"name=""([^""]*)""")]
+    private static partial Regex NamePattern();
+
+    [GeneratedRegex(@"value=""([^""]*)""")]
+    private static partial Regex ValuePattern();
+
+    [GeneratedRegex(@"<select id=""download-category"".*?</select>", RegexOptions.Singleline)]
+    private static partial Regex DownloadCategoryPattern();
 }
