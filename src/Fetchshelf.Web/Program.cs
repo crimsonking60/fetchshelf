@@ -107,7 +107,7 @@ builder.Services.AddHttpClient("mam").ConfigureHttpClient((sp, client) =>
 // A single AddDbContextFactory registration backs both the scoped FetchshelfDbContext (for
 // EventStore/LinkRunner/Cleaner) and the short-lived contexts DatabaseHealthCheck creates itself -
 // registering AddDbContext separately as well would conflict over DbContextOptions' lifetime.
-builder.Services.AddDbContextFactory<FetchshelfDbContext>(options => options.UseSqlite($"Data Source={dataFilePath}"));
+builder.Services.AddDbContextFactory<FetchshelfDbContext>(options => options.UseFetchshelfSqlite(dataFilePath));
 builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>().CreateDbContext());
 builder.Services.AddScoped<EventStore>();
 builder.Services.AddScoped<ClientStatusChecker>();
