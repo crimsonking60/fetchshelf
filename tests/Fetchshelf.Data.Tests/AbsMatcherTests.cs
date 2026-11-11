@@ -293,6 +293,24 @@ public sealed class AbsMatcherTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BookThatFailedBeforeAndIsNoLongerLinked_HasItsErrorCleared()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrent = await SeedTorrentAsync(context, "/data/audiobooks/Sanderson/Book", ["Brandon Sanderson"]);
+        var unreachable = CreateAbsClient(
+            [], [("f1", "/elsewhere")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
+        await new AbsMatcher(context, unreachable).RunAsync();
+        Assert.Single(context.ErroredTorrents.AsNoTracking());
+
+        torrent.LibraryPath = null; // unlinked by hand, or retired for a better copy
+        torrent.UnlinkedAt = DateTimeOffset.UtcNow;
+        await context.SaveChangesAsync();
+        await new AbsMatcher(context, unreachable).RunAsync();
+
+        Assert.Empty(context.ErroredTorrents.AsNoTracking());
+    }
+
+    [Fact]
     public async Task RunAsync_TorrentAlreadyMatched_SkippedWithoutAnyAbsCall()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

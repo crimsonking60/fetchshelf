@@ -32,6 +32,8 @@ public sealed class AbsMatcher(
         var candidates = await dbContext.Torrents
             .Where(t => t.LibraryPath != null && t.AbsId == null)
             .ToListAsync(cancellationToken);
+        var erroredKeys = await ErrorLog.KeysAsync(dbContext, ErrorStage.Audiobookshelf, cancellationToken);
+        await ClearErrorsOfBooksNoLongerMatchedAsync(erroredKeys, candidates, cancellationToken);
 
         if (candidates.Count == 0)
         {
@@ -41,7 +43,6 @@ public sealed class AbsMatcher(
 
         IReadOnlyList<AbsLibrary>? libraries = null;
         var (matched, notFoundYet, failed) = (0, 0, 0);
-        var erroredKeys = await ErrorLog.KeysAsync(dbContext, ErrorStage.Audiobookshelf, cancellationToken);
 
         // A book's error row says why it couldn't be matched, until a run matches it or finds it not scanned yet.
         async Task FailAsync(TorrentEntity torrent, string error)
@@ -142,6 +143,20 @@ public sealed class AbsMatcher(
         }
 
         return new AbsMatchSummary(matched, notFoundYet, failed);
+    }
+
+    /// <summary>
+    /// The error of a book that is no longer waiting to be matched (unlinked, retired for a better copy, or matched some
+    /// other way) would never be cleared by a run, so it is cleared here.
+    /// </summary>
+    private async Task ClearErrorsOfBooksNoLongerMatchedAsync(HashSet<string> erroredKeys, List<TorrentEntity> candidates, CancellationToken cancellationToken)
+    {
+        var stale = erroredKeys.Except(candidates.Select(t => t.Id)).ToList();
+        if (stale.Count > 0)
+        {
+            await dbContext.ErroredTorrents.Where(e => e.Stage == ErrorStage.Audiobookshelf && stale.Contains(e.Key)).ExecuteDeleteAsync(cancellationToken);
+            erroredKeys.ExceptWith(stale);
+        }
     }
 
     private async Task<IReadOnlyList<AbsLibrary>> ListLibrariesAsync(CancellationToken cancellationToken)
