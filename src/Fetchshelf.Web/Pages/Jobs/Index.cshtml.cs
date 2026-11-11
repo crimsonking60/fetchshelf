@@ -5,17 +5,21 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Jobs;
 
-public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings) : PageModel
+public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings, Account.AccountSummaryBuilder accountSummaryBuilder) : PageModel
 {
     public IReadOnlyList<JobStatusViewModel> Jobs { get; private set; } = [];
 
     /// <summary>Kinds of optional job with nothing configured, listed below the jobs.</summary>
     public IReadOnlyList<string> Unconfigured { get; private set; } = [];
 
-    public void OnGet()
+    /// <summary>The account numbers above the job list; null without a `mam_id`, when there is no account to show.</summary>
+    public Account.AccountSummary? Account { get; private set; }
+
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Jobs = BuildJobViewModels();
         Unconfigured = UnconfiguredJobs.For(settings);
+        Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildAsync(cancellationToken) : null;
     }
 
     /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>

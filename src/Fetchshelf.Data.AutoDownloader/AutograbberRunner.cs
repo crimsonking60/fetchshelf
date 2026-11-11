@@ -48,9 +48,9 @@ public sealed class AutograbberRunner(
         IReadOnlyList<long> ignoreTorrents,
         CancellationToken cancellationToken = default)
     {
-        using var _ = await accessGate.AcquireAsync(cancellationToken);
-
         var name = entry.Name ?? entry.Type?.Kind ?? "autograb";
+        using var _ = await accessGate.AcquireAsync($"Autograb {name}", cancellationToken);
+
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
         var unsatBuffer = entry.UnsatBuffer ?? globalUnsatBuffer;
 

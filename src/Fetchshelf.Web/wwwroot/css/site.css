@@ -428,3 +428,10 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     * { transition: none !important; animation: none !important; }
     button:active:not(:disabled) { transform: none; }
 }
+
+/* ---- account ------------------------------------------------------------- */
+.key-values { width: auto; }
+.key-values th { width: 14rem; vertical-align: top; font-weight: 600; }
+.key-values td { vertical-align: top; }
+.account-strip { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0 0 1rem; }
+.account-strip .notice { flex-basis: 100%; margin: 0; }

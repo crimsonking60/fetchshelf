@@ -220,7 +220,7 @@ public sealed class DownloadRunnerTests : IDisposable
         var gate = new MamAccessGate();
         var runner = new DownloadRunner(
             context, new EventStore(context), mam, gate, [DownloadTestSupport.CreateQBittorrentClient([], [])], minRatio: 2, addTorrentsStopped: false, safetyBuffers: NoBuffers);
-        var otherJob = await gate.AcquireAsync();
+        var otherJob = await gate.AcquireAsync("another job");
 
         var runTask = runner.RunAsync();
 

@@ -12,12 +12,21 @@
     {
         ("/Index", "Search"),
         ("/Jobs/Index", "Jobs"),
+    };
+    // Only of use with a MAM account to read; the page itself stays reachable either way.
+    if (Settings.BackgroundJobsEnabled)
+    {
+        navItems.Add(("/Account/Index", "Account"));
+    }
+
+    navItems.AddRange(
+    [
         ("/Selected/Index", "Selected"),
         ("/Torrents/Index", "Torrents"),
         ("/Events/Index", "Events"),
         ("/Errors/Index", "Errors"),
         ("/Duplicates/Index", "Duplicates"),
-    };
+    ]);
     // Only of use to those who follow Hardcover lists; the page itself stays reachable either way.
     if (Settings.HardcoverList.Count > 0)
     {

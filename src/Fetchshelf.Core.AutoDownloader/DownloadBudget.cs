@@ -47,7 +47,8 @@ public static class DownloadBudget
             $"{FormatBytes(bytesInFlight)} in flight, min_ratio {minRatio})");
     }
 
-    private static string FormatBytes(double bytes)
+    /// <summary>A byte count as the UI and the log show it: "436.0 GiB", or "unlimited".</summary>
+    public static string FormatBytes(double bytes)
     {
         if (bytes >= long.MaxValue)
         {

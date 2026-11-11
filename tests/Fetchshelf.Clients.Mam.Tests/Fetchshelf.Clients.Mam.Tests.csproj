@@ -20,4 +20,8 @@
     <ProjectReference Include="..\..\src\Fetchshelf.Clients.Mam\Fetchshelf.Clients.Mam.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\Mam\*.cs" Link="Shared\Mam\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

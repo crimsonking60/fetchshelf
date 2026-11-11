@@ -1268,7 +1268,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MAM and download books by hand. |
-| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Below them, the kinds of job you have not configured. |
+| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job you have not configured. |
+| **Account** | Your MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
@@ -1276,6 +1277,45 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden. |
+
+### Account
+
+The numbers every safety rule works from, and what Fetchshelf works out from them. When nothing is being
+downloaded, the answer is usually here.
+
+The page shows what MAM said at its last read, with the time of that read. The autograb, Hardcover list,
+snatchlist and Download jobs read the account on every run, so the page itself doesn't call MAM. **Refresh
+from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
+and then says which job it is, leaving the numbers as they were. Until something has read the account after
+a restart, the page only offers **Refresh from MAM**.
+
+**From MAM:** the account's name and class, ratio, uploaded and downloaded, unsatisfied snatches in use out
+of the limit, wedges, and bonus points. Below them, **Snatches** lists every kind of snatch MAM counts, with
+MAM's own labels, the count and the size. Three kinds are shown first as warnings when there are any, with a
+link to your snatch lists on MAM: *Not Seeding - H&R - Not Yet Satisfied* (hit-and-runs), *Not Seeding - Not
+Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*.
+
+**What Fetchshelf works out from it**, each with its formula:
+
+- **Ratio budget:** how much more ratio-cost downloading `min_ratio` allows: uploaded / `min_ratio` −
+  downloaded − torrents started but not finished at a cost that spends ratio, which MAM doesn't count as
+  downloaded yet. At 0, the ratio is at or below `min_ratio`, and only free torrents start.
+- **Selection slots:** how many more torrents an autograb or Hardcover list may select: the unsatisfied-snatch
+  limit − those in use − `unsat_buffer`. An autograb with its own `unsat_buffer` or `max_active_downloads`
+  gets a line of its own.
+- **Wedges to spend:** wedges − `wedge_buffer`, and a line for each autograb with its own `wedge_buffer`.
+- **Queue:** how many torrents wait on the **Selected** page, and how many of them these numbers would let
+  the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
+  or no longer free.
+
+**Connection to MAM:** when MAM last answered, whether MAM can reach your client, and the last time MAM
+refused the session (HTTP 403) or the account (HTTP 406). After a 403, Fetchshelf stops calling MAM for 30
+minutes, and after a 429 for a minute; the page says until when, and why. A 403 usually means `mam_id` was
+invalidated or is locked to another IP address: fix `mam_id` and restart Fetchshelf to resume sooner. A 429
+needs nothing: the calls resume by themselves.
+
+The **Jobs** page shows the ratio, the unsatisfied snatches, the wedges and the ratio budget above the job
+list, with the pause notice when MAM calls are paused, and a link here.
 
 ### Selected
 
@@ -1645,7 +1685,8 @@ The usual reasons, in order:
 2. The filter is too narrow, or the search returns nothing. Run the block with `dry_run = true` and read the
    log.
 3. The budget is used up: no unsatisfied slots, not enough ratio budget, or the wedge reserve. The
-   torrents stay on the **Selected** page.
+   torrents stay on the **Selected** page. The **Account** page shows each budget and what it is worked out
+   from, and whether MAM calls are paused.
 4. The book is already in your library, or a duplicate of one, in an equal or better format. Skipped
    torrents are listed on the **Duplicates** page.
 5. The torrent has none of your wanted file types.

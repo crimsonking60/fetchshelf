@@ -17,7 +17,7 @@ public class MamMetadataLookupTests
             new MamClientOptions { MamId = "configured-mam-id" });
         var gate = new MamAccessGate();
         var lookup = new MamMetadataLookup(client, gate);
-        var otherJob = await gate.AcquireAsync();
+        var otherJob = await gate.AcquireAsync("another job");
 
         var lookupTask = lookup.TryLookupByInfoHashAsync("hash1");
 

@@ -182,6 +182,11 @@ if (settings.Hardcover is not null)
         logger: sp.GetRequiredService<ILogger<HardcoverListImporter>>()));
 }
 
+// The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
+builder.Services.AddSingleton(new SafetyBuffers(
+    settings.UnsatBuffer, settings.WedgeBuffer,
+    settings.Autograb.Where(a => a.Name is not null).Select(a => new AutograbBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer)).ToList()));
+builder.Services.AddScoped<Fetchshelf.Web.Pages.Account.AccountSummaryBuilder>();
 builder.Services.AddScoped(sp => new DownloadRunner(
     sp.GetRequiredService<FetchshelfDbContext>(),
     sp.GetRequiredService<EventStore>(),
@@ -190,9 +195,7 @@ builder.Services.AddScoped(sp => new DownloadRunner(
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     settings.MinRatio,
     settings.AddTorrentsStopped,
-    new SafetyBuffers(
-        settings.UnsatBuffer, settings.WedgeBuffer,
-        settings.Autograb.Where(a => a.Name is not null).Select(a => new AutograbBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer)).ToList()),
+    sp.GetRequiredService<SafetyBuffers>(),
     sp.GetRequiredService<ILogger<DownloadRunner>>()));
 builder.Services.AddScoped(sp => new RetroactiveTagApplier(
     sp.GetRequiredService<FetchshelfDbContext>(),
