@@ -1268,8 +1268,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MAM and download books by hand. |
-| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job you have not configured. |
-| **Account** | Your MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
+| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job that are not configured. |
+| **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
@@ -1292,7 +1292,7 @@ a restart, the page only offers **Refresh from MAM**.
 **From MAM:** the account's name and class, ratio, uploaded and downloaded, unsatisfied snatches in use out
 of the limit, wedges, and bonus points. Below them, **Snatches** lists every kind of snatch MAM counts, with
 MAM's own labels, the count and the size. Three kinds are shown first as warnings when there are any, with a
-link to your snatch lists on MAM: *Not Seeding - H&R - Not Yet Satisfied* (hit-and-runs), *Not Seeding - Not
+link to the account's snatch lists on MAM: *Not Seeding - H&R - Not Yet Satisfied* (hit-and-runs), *Not Seeding - Not
 Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*.
 
 **What Fetchshelf works out from it**, each with its formula:
@@ -1308,7 +1308,7 @@ Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Err
   the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
   or no longer free.
 
-**Connection to MAM:** when MAM last answered, whether MAM can reach your client, and the last time MAM
+**Connection to MAM:** when MAM last answered, whether MAM can reach the torrent client, and the last time MAM
 refused the session (HTTP 403) or the account (HTTP 406). After a 403, Fetchshelf stops calling MAM for 30
 minutes, and after a 429 for a minute; the page says until when, and why. A 403 usually means `mam_id` was
 invalidated or is locked to another IP address: fix `mam_id` and restart Fetchshelf to resume sooner. A 429

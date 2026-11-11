@@ -8,11 +8,11 @@
 }
 
 <h2>Account</h2>
-@await Html.PartialAsync("_PageExplanation", "This page shows your MAM account's numbers as Fetchshelf last read them, and what Fetchshelf works out from them: how much it may still download, how many torrents it may still select, and how many wedges it may spend. When nothing is downloaded, the answer is usually here.")
+@await Html.PartialAsync("_PageExplanation", "This page shows the MAM account's numbers as Fetchshelf last read them, and what Fetchshelf works out from them: how much it may still download, how many torrents it may still select, and how many wedges it may spend. When nothing is downloaded, the answer is usually here.")
 
 @if (!Model.Configured)
 {
-    <p id="account-not-configured" class="empty">The auto-downloader isn't configured: set <code>mam_id</code> in config.toml to read your MAM account.</p>
+    <p id="account-not-configured" class="empty">The auto-downloader isn't configured: with <code>mam_id</code> set in config.toml, this page shows the MAM account.</p>
     return;
 }
 
@@ -44,14 +44,14 @@
 
 @if (account is null)
 {
-    <p id="no-account-read" class="empty">Nothing has been read from MAM since Fetchshelf started. Use <strong>Refresh from MAM</strong>, or wait for the next autograb or Download run.</p>
+    <p id="no-account-read" class="empty">Nothing has been read from MAM since Fetchshelf started. <strong>Refresh from MAM</strong> reads it now; the next autograb or Download run reads it too.</p>
 }
 else
 {
     @foreach (var warning in summary.Warnings)
     {
         <p class="notice error snatch-warning" role="alert">
-            @warning.Label: @warning.Count. See your <a href="@summary.MamProfileUrl" rel="noreferrer">snatch lists on MAM</a>.
+            @warning.Label: @warning.Count. See the <a href="@summary.MamProfileUrl" rel="noreferrer">snatch lists on MAM</a>.
         </p>
     }
 
@@ -95,6 +95,10 @@ else
     }
 
     <h3>What Fetchshelf works out from it</h3>
+    @if (summary.DerivedError is { } derivedError)
+    {
+        <p id="derived-error" class="notice error" role="alert">These numbers could not be worked out from the queue: @derivedError</p>
+    }
     <table id="derived-numbers" class="key-values">
         <tbody>
             @if (summary.RatioBudget is { } ratioBudget)

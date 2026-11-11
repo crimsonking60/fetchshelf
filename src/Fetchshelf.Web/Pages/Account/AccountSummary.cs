@@ -6,7 +6,6 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
-using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Account;
 
@@ -53,52 +52,128 @@ public sealed record AccountSummary
     public PauseNotice? Pause { get; init; }
 
     public MamRefusal? LastRefusal { get; init; }
+
+    /// <summary>Why the numbers Fetchshelf works out couldn't be, such as a queued selection that can't be read; null when they were.</summary>
+    public string? DerivedError { get; init; }
 }
 
 /// <summary>Builds the <see cref="AccountSummary"/> without calling MAM: from what the jobs last read, the settings and the queue.</summary>
 public sealed partial class AccountSummaryBuilder(
-    MamClient mamClient, MamClientOptions mamOptions, FetchshelfSettings settings, SafetyBuffers safetyBuffers, FetchshelfDbContext dbContext)
+    MamClient mamClient,
+    MamClientOptions mamOptions,
+    FetchshelfSettings settings,
+    SafetyBuffers safetyBuffers,
+    FetchshelfDbContext dbContext,
+    ILogger<AccountSummaryBuilder> logger)
 {
     /// <summary>The kinds of snatch that need attention when there are any. Decided by key, so a reworded label doesn't silence one.</summary>
     public static readonly IReadOnlyList<string> AttentionKeys = ["inactHnr", "inactUnsat", "ite"];
 
+    /// <summary>Everything the Account page shows.</summary>
     public async Task<AccountSummary> BuildAsync(CancellationToken cancellationToken = default)
     {
-        var connection = new AccountSummary
+        var summary = BuildFromMam();
+        if (summary.Snapshot?.State is not { } account)
         {
-            LastSuccessAt = mamClient.LastSuccessAt,
-            Pause = DescribePause(mamClient.PausedUntil, mamClient.PauseReason),
-            LastRefusal = mamClient.LastRefusal,
-        };
-        if (mamClient.LastAccountState is not { } snapshot)
-        {
-            return connection;
+            return summary;
         }
 
-        var account = snapshot.State;
-        var inFlight = await SelectionQueue.InFlightBytesAsync(dbContext, cancellationToken);
-        var ratioBudgetBytes = DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, inFlight, settings.MinRatio);
-        var pending = await SelectionQueue.PendingAsync(dbContext, cancellationToken);
-        var queue = pending.Select(s => new QueuedTorrent(
-            Enum.Parse<SelectedTorrentCost>(s.CostDecision), TorrentMetadataSerializer.Deserialize(s.MetadataJson).TotalSizeBytes, s.GrabberName));
-        var startable = DownloadQueueForecast.CountStartable(
-            queue, new DownloadRunBudget(account.UnsatLimit, account.UnsatCount, account.Wedges, ratioBudgetBytes), safetyBuffers);
         var snatches = account.SnatchKinds
             .Select(k => new SnatchRow(k.Key, CollapseSpaces(k.Name), k.Count, k.SizeBytes is { } size ? DownloadBudget.FormatBytes(size) : "-"))
             .ToList();
-
-        return connection with
+        summary = summary with
         {
-            Snapshot = snapshot,
             MamProfileUrl = $"{mamOptions.BaseUrl.TrimEnd('/')}/u/{account.Uid.ToString(CultureInfo.InvariantCulture)}",
             Snatches = snatches,
             Warnings = AttentionKeys.Select(key => snatches.FirstOrDefault(s => s.Key == key)).OfType<SnatchRow>().Where(s => s.Count > 0).ToList(),
-            RatioBudget = DescribeRatioBudget(account, inFlight, ratioBudgetBytes),
-            SelectionSlots = await DescribeSelectionSlotsAsync(account, cancellationToken),
-            Wedges = DescribeWedges(account),
-            Queued = pending.Count,
-            Startable = startable,
         };
+
+        return await WithDerivedAsync(summary, async () =>
+        {
+            var inFlight = await SelectionQueue.InFlightBytesAsync(dbContext, cancellationToken);
+            var ratioBudgetBytes = DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, inFlight, settings.MinRatio);
+            var pending = await SelectionQueue.PendingAsync(dbContext, cancellationToken);
+            var startable = DownloadQueueForecast.CountStartable(
+                ReadableQueue(pending), new DownloadRunBudget(account.UnsatLimit, account.UnsatCount, account.Wedges, ratioBudgetBytes), safetyBuffers);
+            return summary with
+            {
+                RatioBudget = DescribeRatioBudget(account, inFlight, ratioBudgetBytes),
+                SelectionSlots = await DescribeSelectionSlotsAsync(account, cancellationToken),
+                Wedges = DescribeWedges(account),
+                Queued = pending.Count,
+                Startable = startable,
+            };
+        });
+    }
+
+    /// <summary>
+    /// What the Jobs page's strip shows: the last read, the pause and the ratio budget. It leaves out the snatches, the
+    /// slots and the queue, so a Jobs page load reads only the selections in flight.
+    /// </summary>
+    public async Task<AccountSummary> BuildStripAsync(CancellationToken cancellationToken = default)
+    {
+        var summary = BuildFromMam();
+        if (summary.Snapshot?.State is not { } account)
+        {
+            return summary;
+        }
+
+        return await WithDerivedAsync(summary, async () =>
+        {
+            var inFlight = await SelectionQueue.InFlightBytesAsync(dbContext, cancellationToken);
+            var ratioBudgetBytes = DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, inFlight, settings.MinRatio);
+            return summary with { RatioBudget = DescribeRatioBudget(account, inFlight, ratioBudgetBytes) };
+        });
+    }
+
+    /// <summary>What <see cref="MamClient"/> knows, without calling MAM.</summary>
+    private AccountSummary BuildFromMam() => new()
+    {
+        Snapshot = mamClient.LastAccountState,
+        LastSuccessAt = mamClient.LastSuccessAt,
+        Pause = DescribePause(mamClient.PausedUntil, mamClient.PauseReason),
+        LastRefusal = mamClient.LastRefusal,
+    };
+
+    /// <summary>
+    /// The summary with the numbers Fetchshelf works out from the queue. Those come from stored selections, and a row
+    /// that can't be read must not take the page with it: the numbers are then left out and the page says why.
+    /// </summary>
+    private async Task<AccountSummary> WithDerivedAsync(AccountSummary summary, Func<Task<AccountSummary>> derive)
+    {
+        try
+        {
+            return await derive();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not work out the account's budgets from the queue: {Error}", ex.Message);
+            return summary with { DerivedError = ex.Message };
+        }
+    }
+
+    /// <summary>The queue as the forecast needs it. A selection whose cost or details can't be read is left out, as the Download job would fail it.</summary>
+    private static IEnumerable<QueuedTorrent> ReadableQueue(IEnumerable<Data.Entities.SelectedTorrentEntity> pending)
+    {
+        foreach (var selection in pending)
+        {
+            if (!Enum.TryParse<SelectedTorrentCost>(selection.CostDecision, out var cost))
+            {
+                continue;
+            }
+
+            long size;
+            try
+            {
+                size = TorrentMetadataSerializer.Deserialize(selection.MetadataJson).TotalSizeBytes;
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or NotSupportedException or InvalidOperationException)
+            {
+                continue;
+            }
+
+            yield return new QueuedTorrent(cost, size, selection.GrabberName);
+        }
     }
 
     private DerivedNumber DescribeRatioBudget(MamAccountState account, long inFlight, long budget)
@@ -114,20 +189,17 @@ public sealed partial class AccountSummaryBuilder(
     private async Task<List<DerivedNumber>> DescribeSelectionSlotsAsync(MamAccountState account, CancellationToken cancellationToken)
     {
         var lines = new List<DerivedNumber> { SelectionSlots("Everything else", settings.UnsatBuffer, maxActive: null, active: 0) };
-        for (var i = 0; i < settings.Autograb.Count; i++)
+        // Only a named autograb can have buffers or a cap of its own: the configuration requires the name, which is how
+        // its selections are told apart.
+        foreach (var entry in settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
         {
-            var entry = settings.Autograb[i];
             if (entry.UnsatBuffer is null && entry.MaxActiveDownloads is null)
             {
                 continue;
             }
 
-            var active = entry.MaxActiveDownloads is null
-                ? 0
-                : await dbContext.SelectedTorrents.CountAsync(
-                    s => s.GrabberName == entry.Name && s.RemovedAt == null && s.StartedAt == null, cancellationToken);
-            lines.Add(SelectionSlots(
-                $"Autograb {AutoDownloaderJobNames.Autograb(entry, i)}", entry.UnsatBuffer ?? settings.UnsatBuffer, entry.MaxActiveDownloads, active));
+            var active = await SelectionQueue.ActiveForAutograbAsync(dbContext, entry, cancellationToken);
+            lines.Add(SelectionSlots($"Autograb {entry.Name}", entry.UnsatBuffer ?? settings.UnsatBuffer, entry.MaxActiveDownloads, active));
         }
 
         return lines;
@@ -141,11 +213,11 @@ public sealed partial class AccountSummaryBuilder(
     private List<DerivedNumber> DescribeWedges(MamAccountState account)
     {
         var lines = new List<DerivedNumber> { Wedges("Everything else", settings.WedgeBuffer) };
-        for (var i = 0; i < settings.Autograb.Count; i++)
+        foreach (var entry in settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
         {
-            if (settings.Autograb[i].WedgeBuffer is { } buffer)
+            if (entry.WedgeBuffer is { } buffer)
             {
-                lines.Add(Wedges($"Autograb {AutoDownloaderJobNames.Autograb(settings.Autograb[i], i)}", buffer));
+                lines.Add(Wedges($"Autograb {entry.Name}", buffer));
             }
         }
 

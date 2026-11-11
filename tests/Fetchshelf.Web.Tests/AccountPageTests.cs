@@ -98,7 +98,7 @@ public partial class AccountPageTests
 
         var html = await client.GetStringAsync("/Account");
 
-        var warning = html.IndexOf($"{label}: 2. See your <a href=\"https://www.myanonamouse.net/u/123456\"", StringComparison.Ordinal);
+        var warning = html.IndexOf($"{label}: 2. See the <a href=\"https://www.myanonamouse.net/u/123456\"", StringComparison.Ordinal);
         Assert.True(warning >= 0);
         Assert.True(warning < html.IndexOf("<h3>From MAM</h3>", StringComparison.Ordinal));
     }
@@ -196,7 +196,71 @@ public partial class AccountPageTests
         Assert.Contains("href=\"/Account\"", strip);
     }
 
-    private static async Task AddSelectionAsync(FetchshelfWebAppFixture fixture, long mamId, string cost, long sizeBytes, bool started)
+    [Fact]
+    public async Task AccountAndJobsPages_SelectionInFlightThatCantBeRead_StillShowAndSayWhy()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+        await AddSelectionAsync(fixture, mamId: 1, cost: "Ratio", sizeBytes: 1, started: true, metadataJson: "{ not json");
+
+        var jobs = await client.GetAsync("/Jobs");
+        var account = await client.GetStringAsync("/Account");
+
+        Assert.Equal(HttpStatusCode.OK, jobs.StatusCode);
+        Assert.Contains("Wedges 37", await jobs.Content.ReadAsStringAsync());
+        Assert.Contains("id=\"derived-error\"", account);
+        Assert.Contains("14 of 20", account); // what MAM said is still shown
+    }
+
+    [Fact]
+    public async Task AccountPage_QueuedSelectionWithAnUnknownCost_IsLeftOutOfTheForecast()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+        await AddSelectionAsync(fixture, mamId: 1, cost: "NoLongerACost", sizeBytes: 1, started: false);
+        await AddSelectionAsync(fixture, mamId: 2, cost: "Vip", sizeBytes: 1, started: false);
+
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Contains("2 waiting on the", html);
+        Assert.Contains("would let the Download job start 1 of them", html);
+    }
+
+    [Fact]
+    public async Task Refresh_AnswerThatIsNotTheAccount_SaysItCouldNotBeRead()
+    {
+        using var fixture = Fixture("<html>Please log in</html>");
+        var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/Account");
+
+        var html = await PostRefreshAsync(client, page);
+
+        Assert.Contains("id=\"refresh-error\"", html);
+        Assert.Contains("MAM&#x27;s answer could not be read", html);
+    }
+
+    [Fact]
+    public async Task Refresh_RedirectsToThePage_SoReloadingDoesntAskMamAgain()
+    {
+        var reads = 0;
+        using var fixture = Fixture(MamAccountFixture.Json, () => reads++);
+        var client = fixture.CreateNoRedirectClient();
+        var page = await client.GetStringAsync("/Account");
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = AntiforgeryToken().Match(page).Groups[1].Value,
+        });
+
+        var response = await client.PostAsync("/Account?handler=Refresh", form);
+        await client.GetStringAsync(response.Headers.Location!.OriginalString);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account", response.Headers.Location.OriginalString);
+        Assert.Equal(1, reads);
+    }
+
+    private static async Task AddSelectionAsync(
+        FetchshelfWebAppFixture fixture, long mamId, string cost, long sizeBytes, bool started, string? metadataJson = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -206,7 +270,7 @@ public partial class AccountPageTests
             MamId = mamId,
             DownloadLink = $"dl{mamId}",
             CostDecision = cost,
-            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(metadata),
+            MetadataJson = metadataJson ?? Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(metadata),
             NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(metadata.Title),
             CreatedAt = DateTimeOffset.UtcNow,
             StartedAt = started ? DateTimeOffset.UtcNow : null,

@@ -54,10 +54,7 @@ public sealed class AutograbberRunner(
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
         var unsatBuffer = entry.UnsatBuffer ?? globalUnsatBuffer;
 
-        var currentActive = entry.MaxActiveDownloads is null
-            ? 0
-            : await dbContext.SelectedTorrents.CountAsync(
-                s => s.GrabberName == entry.Name && s.RemovedAt == null && s.StartedAt == null, cancellationToken);
+        var currentActive = await SelectionQueue.ActiveForAutograbAsync(dbContext, entry, cancellationToken);
 
         var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
         var budgetExplanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);

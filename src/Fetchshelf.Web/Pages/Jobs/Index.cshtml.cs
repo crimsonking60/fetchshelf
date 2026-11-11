@@ -19,7 +19,7 @@ public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings, A
     {
         Jobs = BuildJobViewModels();
         Unconfigured = UnconfiguredJobs.For(settings);
-        Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildAsync(cancellationToken) : null;
+        Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildStripAsync(cancellationToken) : null;
     }
 
     /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>

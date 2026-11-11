@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Data.Configuration;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Account;
@@ -15,41 +17,53 @@ public class IndexModel(AccountSummaryBuilder summaryBuilder, MamClient mamClien
     public AccountSummary Summary { get; private set; } = new();
 
     /// <summary>Who held the gate when Refresh gave up waiting for it; null unless that happened.</summary>
-    public string? BusyWith { get; private set; }
+    [TempData]
+    public string? BusyWith { get; set; }
 
     /// <summary>Why Refresh couldn't read the account; null unless it failed.</summary>
-    public string? RefreshError { get; private set; }
+    [TempData]
+    public string? RefreshError { get; set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken) =>
         Summary = await summaryBuilder.BuildAsync(cancellationToken);
 
     /// <summary>
     /// Reads the account from MAM again. Like every MAM call it takes the access gate, but waits at most
-    /// <see cref="RefreshWait"/> for a job holding it, and then says which job is busy rather than waiting it out.
+    /// <see cref="RefreshWait"/> for a job holding it, and then says which job is busy rather than waiting it out. It
+    /// redirects to the page afterwards, so reloading the page shows the numbers again instead of asking MAM again.
     /// </summary>
-    public async Task OnPostRefreshAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostRefreshAsync(CancellationToken cancellationToken)
     {
-        if (Configured)
+        if (!Configured)
         {
-            using var gate = await accessGate.TryAcquireAsync("Account page", RefreshWait, cancellationToken);
-            if (gate is null)
-            {
-                BusyWith = accessGate.Owner ?? "another job";
-            }
-            else
-            {
-                try
-                {
-                    await mamClient.RefreshAccountStateAsync(cancellationToken);
-                }
-                catch (Exception ex) when (ex is MamForbiddenException or MamRateLimitedException or MamAccountBlockedException or HttpRequestException
-                    || MamClient.IsNoAnswer(ex, cancellationToken))
-                {
-                    RefreshError = ex is HttpRequestException or TaskCanceledException ? MamClient.DescribeNoAnswer(ex) : ex.Message;
-                }
-            }
+            return RedirectToPage();
         }
 
-        Summary = await summaryBuilder.BuildAsync(cancellationToken);
+        using var gate = await accessGate.TryAcquireAsync("Account page", RefreshWait, cancellationToken);
+        if (gate is null)
+        {
+            BusyWith = accessGate.Owner ?? "another job";
+            return RedirectToPage();
+        }
+
+        try
+        {
+            await mamClient.RefreshAccountStateAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is MamForbiddenException or MamRateLimitedException or MamAccountBlockedException)
+        {
+            RefreshError = ex.Message;
+        }
+        catch (Exception ex) when (ex is HttpRequestException || MamClient.IsNoAnswer(ex, cancellationToken))
+        {
+            RefreshError = ex is HttpRequestException { StatusCode: { } status } ? $"MAM answered HTTP {(int)status}." : $"{MamClient.DescribeNoAnswer(ex)}.";
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or FormatException or InvalidOperationException)
+        {
+            // Not the account's numbers: a login page, say, or a changed answer.
+            RefreshError = $"MAM's answer could not be read ({ex.Message}).";
+        }
+
+        return RedirectToPage();
     }
 }

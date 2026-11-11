@@ -1,5 +1,6 @@
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Configuration;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.AutoDownloader;
@@ -22,6 +23,16 @@ public static class SelectionQueue
 
         return startedNonFree.Sum(json => TorrentMetadataSerializer.Deserialize(json).TotalSizeBytes);
     }
+
+    /// <summary>
+    /// The selections an autograb has waiting, which its `max_active_downloads` caps; 0 when it sets no cap. Selections
+    /// are matched to an autograb by its name, which the configuration requires along with the cap.
+    /// </summary>
+    public static async Task<int> ActiveForAutograbAsync(FetchshelfDbContext dbContext, AutograbEntry entry, CancellationToken cancellationToken = default) =>
+        entry.MaxActiveDownloads is null || string.IsNullOrWhiteSpace(entry.Name)
+            ? 0
+            : await dbContext.SelectedTorrents.CountAsync(
+                s => s.GrabberName == entry.Name && s.RemovedAt == null && s.StartedAt == null, cancellationToken);
 
     /// <summary>The selections waiting to be downloaded, oldest first, as the Download job takes them.</summary>
     public static async Task<List<Entities.SelectedTorrentEntity>> PendingAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default) =>
