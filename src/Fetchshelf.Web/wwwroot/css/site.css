@@ -69,7 +69,15 @@ code, kbd, samp, .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia M
 main {
     max-width: 90rem;
     margin: 0 auto;
-    padding: 1.25rem 1.25rem 3rem;
+    padding: 1.25rem 1.25rem 2rem;
+}
+
+/* The footer lines up with the page's content: the line spans the content's width, not the window's. */
+.site-footer { max-width: 90rem; margin: 0 auto; padding: 0 1.25rem 1.5rem; }
+.site-footer-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; flex-wrap: wrap;
+    padding-top: 0.75rem; border-top: 1px solid var(--border);
+    color: var(--text-muted); font-size: 0.8125rem;
 }
 
 /* ---- type ---------------------------------------------------------------- */
@@ -418,12 +426,12 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 /* ---- responsive ---------------------------------------------------------- */
 
 @media (max-width: 52rem) {
-    main { padding: 1rem 1rem 2.5rem; }
+    main { padding: 1rem 1rem 2rem; }
+    .site-footer { padding: 0 1rem 1.25rem; }
     .site-header { padding: 0 1rem; position: static; }
     .download-feedback, .app-error { top: 0.5rem; }
     .site-nav { order: 3; flex-basis: 100%; overflow-x: auto; flex-wrap: nowrap; }
     .site-nav a { white-space: nowrap; }
-    .theme-switcher { margin-left: auto; }
     main table { display: block; overflow-x: auto; }
     tbody th { width: auto; }
     .list_item { grid-template-columns: 3.5rem 1fr; }

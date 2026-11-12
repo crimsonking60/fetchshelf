@@ -313,7 +313,8 @@ you set `mam_id`. That is intentional: you can look around before anything happe
 
 1. Open `http://<your-host>:3157`.
 2. The top bar has the pages **Search**, **Jobs**, **Selected**, **Torrents**, **Events**, **Errors**,
-   **Duplicates** and **Config**. There is also a theme selector. See
+   **Duplicates** and **Config**. At the bottom of every page are the Fetchshelf version and a theme
+   selector. See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
 4. Edit `config.toml` in the config folder you mounted, check it with `--check-config` (see

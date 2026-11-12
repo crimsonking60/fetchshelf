@@ -92,21 +92,27 @@
                     }</a>
             }
         </nav>
-        <form class="theme-switcher" method="get" action="/theme">
-            <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
-            <label for="theme-select">Theme</label>
-            <select id="theme-select" name="name" data-theme-select>
-                @foreach (var (id, themeLabel) in Themes.All)
-                {
-                    <option value="@id" selected="@(id == theme)">@themeLabel</option>
-                }
-            </select>
-            <noscript><button type="submit">Apply</button></noscript>
-        </form>
     </header>
     <main>
         @RenderBody()
     </main>
+    @* At the end of every page: the version on the left, which bug reports quote, and the theme on the right. *@
+    <footer class="site-footer">
+        <div class="site-footer-row">
+            <span id="site-version">Fetchshelf version @AppVersion.Current</span>
+            <form class="theme-switcher" method="get" action="/theme">
+                <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                <label for="theme-select">Theme</label>
+                <select id="theme-select" name="name" data-theme-select>
+                    @foreach (var (id, themeLabel) in Themes.All)
+                    {
+                        <option value="@id" selected="@(id == theme)">@themeLabel</option>
+                    }
+                </select>
+                <noscript><button type="submit">Apply</button></noscript>
+            </form>
+        </div>
+    </footer>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
