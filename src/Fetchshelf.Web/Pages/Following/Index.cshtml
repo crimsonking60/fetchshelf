@@ -8,6 +8,34 @@
 <h2>Following</h2>
 @await Html.PartialAsync("_PageExplanation", "This page lists the followed series and authors and what the Follow job found for each: books the library is missing. A followed series or author has what is found downloaded automatically; a watched one has it listed here, to download or dismiss. A find marked not free matched, but no grab block in the [follow] section pays for it; it can still be downloaded here. Series are followed on the Series page, authors and series from a torrent's page or the Torrents page.")
 
+@if (Model.CanFollow)
+{
+    @* Why a followed book isn't downloaded is usually its cost: the grab blocks say what is taken by itself. *@
+    <section id="follow-rules" class="notice">
+        <strong>What is downloaded automatically.</strong>
+        @if (Model.DryRun)
+        {
+            <p>Nothing for now: <code>dry_run</code> is on in <code>[follow]</code>, so the Follow job only logs what it would download.</p>
+        }
+        @if (Model.GrabRules.Count == 1)
+        {
+            <p>For a followed series or author: @Model.GrabRules[0]</p>
+        }
+        else
+        {
+            <p>For a followed series or author, the first of these that allows a book decides how it is downloaded:</p>
+            <ol>
+                @foreach (var rule in Model.GrabRules)
+                {
+                    <li>@rule</li>
+                }
+            </ol>
+        }
+        <p>A book found that costs more is listed as <em>Not free</em>; <strong>Download</strong> or <strong>Wedge download</strong> takes it anyway. A watched series or author only has what is found listed.</p>
+        <p>These rules are configured with <code>[[follow.grab]]</code> blocks in the configuration.</p>
+    </section>
+}
+
 @if (Model.Message is { } message)
 {
     <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>

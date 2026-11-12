@@ -1090,6 +1090,10 @@ categories = { ebook = false }
   page, **Change to Followed** and **Change to Watched** switch a follow between downloading automatically
   and only listing; each series or author's heading says which it is.
 
+At the top, the **Following** page says in plain words what the `[[follow.grab]]` blocks let the Follow job
+download by itself, such as "Only books that are free (freeleech, VIP or personal freeleech), ebooks only, in
+English." A followed book that isn't downloaded usually costs more than that.
+
 The **Following** page lists every followed or watched series and author with what was found for it, with
 each torrent's format and size; the count on its menu link is what is waiting to be looked at. A torrent's
 title opens its details from MAM over the page, as on the **Search** page; **Close** goes back to the list. A find marked *not free* matched, but none of the

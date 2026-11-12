@@ -26,6 +26,12 @@ public class IndexModel(
 
     public bool CanFollow => settings.Follow is not null;
 
+    /// <summary>What the Follow job downloads by itself for a followed series or author, one line per grab block.</summary>
+    public IReadOnlyList<string> GrabRules => settings.Follow is { } follow ? FollowGrabSummary.Describe(follow.Grab) : [];
+
+    /// <summary>Whether `dry_run` is on in `[follow]`, so nothing is downloaded by itself.</summary>
+    public bool DryRun => settings.Follow?.DryRun == true;
+
     /// <summary>
     /// When the Follow job searches a series or author again, at the earliest: `search_again_after` hours after its last
     /// search, as the job decides what is due. A later run, or Search now, does it.

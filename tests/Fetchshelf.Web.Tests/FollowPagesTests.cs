@@ -122,6 +122,41 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_SaysWhatIsDownloadedAutomatically()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+
+        var html = WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/Following"));
+
+        Assert.Contains("<section id=\"follow-rules\"", html);
+        Assert.Contains("<p>For a followed series or author: Only books that are free (freeleech, VIP or personal freeleech).</p>", html);
+        Assert.Contains("listed as <em>Not free</em>", html);
+        Assert.DoesNotContain("dry_run</code> is on", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_SeveralGrabBlocks_AreListedInOrder_AndADryRunSaysNothingIsDownloaded()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithFollow.Replace("[follow]", "[follow]\ndry_run = true", StringComparison.Ordinal) + "\n\n[[follow.grab]]\ncost = \"wedge\"\n");
+
+        var html = WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/Following"));
+
+        Assert.Matches(
+            "<ol>\\s*<li>Only books that are free \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*<li>Free books, and others with a freeleech wedge\\.</li>\\s*</ol>",
+            html);
+        Assert.Contains("<code>dry_run</code> is on", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_WithoutAFollowSection_HasNoRules()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+
+        Assert.DoesNotContain("follow-rules", await fixture.CreateClient().GetStringAsync("/Following"));
+    }
+
+    [Fact]
     public async Task FollowingPage_AFindsTitle_OpensItsDetailsInADialog_AsOnTheSearchPage()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
