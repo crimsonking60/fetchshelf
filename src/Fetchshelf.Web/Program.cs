@@ -99,6 +99,9 @@ builder.Services.AddSingleton(sp => new NotificationDelivery(
     sp.GetRequiredService<ILogger<NotificationDelivery>>(),
     timeProvider: sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<IJobRunListener>(sp => new JobRunNotifier(sp.GetRequiredService<INotificationSink>()));
+// Each Download run wakes the watcher that follows downloads into the library (see DownloadProgressWatcher below).
+builder.Services.AddSingleton<DownloadWatchSignal>();
+builder.Services.AddSingleton<IJobRunListener>(sp => new DownloadWatchWaker(sp.GetRequiredService<DownloadWatchSignal>()));
 builder.Services.AddSingleton(sp => new NotificationStateStore(
     sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(), sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton(sp => new HitAndRunWatcher(
@@ -205,6 +208,10 @@ builder.Services.AddScoped(sp => new LinkRunner(
     settings.ExcludeNarratorInLibraryDir,
     sp.GetService<AbsClient>(),
     sp.GetRequiredService<ILogger<LinkRunner>>()));
+builder.Services.AddScoped(sp => new DownloadProgressChecker(
+    sp.GetRequiredService<FetchshelfDbContext>(),
+    QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
+    sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddScoped(sp => new Cleaner(
     sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
     sp.GetService<AbsClient>(), sp.GetRequiredService<ILogger<Cleaner>>()));
@@ -331,6 +338,15 @@ if (settings.BackgroundJobsEnabled)
     if (settings.SearchInterval > 0)
     {
         AddScheduler(JobNames.Download, settings.SearchInterval, ++startupPosition);
+    }
+
+    // Follows what is downloading into the library, so it is linked minutes after it finishes, whether a page is open
+    // or not, rather than at the Link job's next interval.
+    if (settings.QBittorrent.Count > 0)
+    {
+        builder.Services.AddSingleton<IHostedService>(sp => new DownloadProgressWatcher(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<IJobRegistry>(), sp.GetRequiredService<DownloadWatchSignal>(),
+            sp.GetRequiredService<ILogger<DownloadProgressWatcher>>(), sp.GetRequiredService<TimeProvider>()));
     }
 }
 

@@ -179,6 +179,25 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
     public async Task<bool> HashExistsAsync(string hash, CancellationToken cancellationToken = default) =>
         await GetTorrentAsync(hash, cancellationToken) is not null;
 
+    /// <summary>
+    /// The torrents with these info-hashes that this client has, in one request (not the whole list); the others are
+    /// left out.
+    /// </summary>
+    public async Task<IReadOnlyList<QBittorrentTorrent>> GetTorrentsAsync(IReadOnlyCollection<string> hashes, CancellationToken cancellationToken = default)
+    {
+        if (hashes.Count == 0)
+        {
+            return [];
+        }
+
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, BuildUrl($"/api/v2/torrents/info?hashes={Uri.EscapeDataString(string.Join('|', hashes))}")),
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var torrents = await response.Content.ReadFromJsonAsync<List<QBittorrentTorrent>>(cancellationToken) ?? [];
+        return torrents.Where(t => hashes.Contains(t.Hash, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
     /// <summary>The torrent with this info-hash, or null if this client doesn't have it. Asks for that torrent alone, not the whole list.</summary>
     public async Task<QBittorrentTorrent?> GetTorrentAsync(string hash, CancellationToken cancellationToken = default)
     {

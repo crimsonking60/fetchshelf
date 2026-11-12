@@ -724,10 +724,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   finished yet), **Downloaded** (finished, or owned through a snatchlist, but not in your library) or
   **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
   **Linked**, its status checks again by itself, every 10 seconds for the first minute and then every
-  minute, so it moves on without a reload. It stops checking after about an hour. While a torrent is
-  **Downloading**, each check asks qBittorrent about it; once qBittorrent has finished it, the Link job
-  starts straight away rather than at its next interval, so **Linked** follows within seconds. A finished
-  torrent shows **Downloaded** when no library accepts it.
+  30 seconds, so it moves on without a reload; it stops checking after about two hours. The download itself
+  is followed by Fetchshelf, not by the page (see [How finished downloads are organized](#how-finished-downloads-are-organized)),
+  so it is linked whether the page stays open or not. A finished torrent shows **Downloaded** when no
+  library accepts it.
 - **Quality** rates the torrent's formats and how complete its information on MAM is, which together decide
   how well Fetchshelf can download, name, file and describe the book. Point at the pill to see why: a line
   about the formats when something is wrong with them, then what the information is missing.
@@ -1122,7 +1122,7 @@ details from MAM over the page, as on the **Search** page; **Close** goes back t
 to **Download**, **Wedge download** or **Dismiss** them at once.
 
 Once a find is downloaded, its status moves on by itself as on the **Search** page, *Selected*, *Downloading*,
-*Downloaded*, *Linked*, and the Link job starts as soon as qBittorrent has finished it. A find marked *not free* matched, but none of the
+*Downloaded*, *Linked*, and it is linked as soon as qBittorrent has finished it, whether the page stays open or not. A find marked *not free* matched, but none of the
 `[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. Only a block with
 `cost = "free"` turns a torrent down for its cost, so without one nothing is ever not free, and the pages leave
 *not free* out. A find waiting in a
@@ -1188,6 +1188,13 @@ Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` o
 
 Every `link_interval` minutes (default 10), Fetchshelf looks for torrents in
 qBittorrent that are 100% complete, finds the matching library and links the wanted files in.
+
+A torrent the Download job added doesn't wait for that. For 24 hours after it was added, Fetchshelf asks
+qBittorrent how it is doing, every 10 seconds for a minute after a Download run and then every 30 seconds,
+and starts the Link job as soon as it has finished, so it is in the library within a minute of finishing,
+whether any page is open or not. This is one request to each qBittorrent for all such torrents together, and
+it stops while nothing is downloading. A torrent that takes longer than 24 hours is linked by the Link job's
+next scheduled run after it finishes. It needs the background jobs, so it doesn't run without a `mam_id`.
 
 - **Which files.** From each torrent Fetchshelf links the files of at most two formats: the best audio
   format and the best ebook format it contains, where best means earliest in your format lists. The audio

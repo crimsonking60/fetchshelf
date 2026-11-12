@@ -52,7 +52,7 @@ public static class MamResultStatuses
             var clientStatus = liveStates?.GetValueOrDefault(torrent.Id) ?? torrent.ClientStatus;
             var status = torrent.LibraryPath is not null ? MamResultStatus.Linked
                 : !MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id)
-                    && (clientStatus is null || QBittorrentStateLabel.IsDownloadStage(clientStatus)) ? MamResultStatus.Downloading
+                    && Fetchshelf.Data.Organizer.ClientStatuses.IsUnfinished(clientStatus) ? MamResultStatus.Downloading
                 : MamResultStatus.Downloaded;
             if (status > statuses.GetValueOrDefault(torrent.MamId))
             {

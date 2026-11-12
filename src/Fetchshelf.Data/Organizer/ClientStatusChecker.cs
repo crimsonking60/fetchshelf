@@ -12,6 +12,14 @@ public static class ClientStatuses
     public const string NotInClient = "not in client";
 
     /// <summary>
+    /// Whether a stored client status is of a torrent not known to have finished: none yet (just added), or a state of
+    /// qBittorrent's other than a finished one (<see cref="QBittorrentStateLabel.IsFinishedStage"/>), such as checking,
+    /// downloading or in error. A torrent no qBittorrent has isn't.
+    /// </summary>
+    public static bool IsUnfinished(string? clientStatus) =>
+        clientStatus is null || (clientStatus != NotInClient && !QBittorrentStateLabel.IsFinishedStage(clientStatus));
+
+    /// <summary>
     /// Stores <paramref name="state"/> as the torrent's client status, unless it is the stage already stored. A seeding
     /// torrent flips between uploading and stalledUP all the time; writing each flip would cost a database write and
     /// change nothing anyone sees.

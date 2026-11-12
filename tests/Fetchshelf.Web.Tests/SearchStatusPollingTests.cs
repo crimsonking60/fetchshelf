@@ -1,6 +1,7 @@
 using System.Net;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
@@ -28,7 +29,7 @@ public class SearchStatusPollingTests
     }
 
     [Fact]
-    public async Task Status_Downloaded_ShowsItAndAsksAgainInAMinute()
+    public async Task Status_Downloaded_ShowsItAndAsksAgainInHalfAMinute()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedTorrentAsync(fixture, libraryPath: null);
@@ -38,7 +39,7 @@ public class SearchStatusPollingTests
 
         Assert.Contains("status-downloaded", html);
         Assert.Contains("hx-get=\"/?mamId=1&amp;round=11&amp;handler=Status\"", html);
-        Assert.Contains("hx-trigger=\"load delay:60s\"", html);
+        Assert.Contains("hx-trigger=\"load delay:30s\"", html);
     }
 
     [Fact]
@@ -87,7 +88,32 @@ public class SearchStatusPollingTests
     };
 
     [Fact]
-    public async Task Status_DownloadingThatQBittorrentHasFinished_ShowsDownloaded_StoresIt_AndStartsTheLinkJob()
+    public async Task Status_OnlyReadsTheStoredStatus_LeavingQBittorrentAndTheLinkJobToTheServer()
+    {
+        var asked = 0;
+        var qbittorrent = QBittorrentWithHash1("stalledUP", 1.0);
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: request =>
+        {
+            Interlocked.Increment(ref asked);
+            return qbittorrent(request);
+        });
+        var linkRuns = 0;
+        fixture.JobRegistry.Register("Link", _ =>
+        {
+            Interlocked.Increment(ref linkRuns);
+            return Task.CompletedTask;
+        });
+        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=1");
+
+        Assert.Contains("status-downloading", html);
+        Assert.Equal((0, 0), (asked, linkRuns));
+    }
+
+    [Fact]
+    public async Task TheWatcher_FollowsADownloadWithoutAPageOpen_StoresItsState_AndStartsTheLinkJob()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1("stalledUP", 1.0));
         var linkStarted = new TaskCompletionSource();
@@ -97,46 +123,34 @@ public class SearchStatusPollingTests
             return Task.CompletedTask;
         });
         await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
-        using var client = fixture.CreateClient();
-
-        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=1");
-
-        Assert.Contains("status-downloaded", html);
-        Assert.Same(linkStarted.Task, await Task.WhenAny(linkStarted.Task, Task.Delay(TimeSpan.FromSeconds(10))));
         using var scope = fixture.CreateScope();
-        Assert.Equal("stalledUP", scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.Single().ClientStatus);
+        using var watcher = new Jobs.DownloadProgressWatcher(
+            scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(), fixture.JobRegistry, new Jobs.DownloadWatchSignal(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Jobs.DownloadProgressWatcher>.Instance);
+
+        await watcher.StartAsync(CancellationToken.None);
+        var started = await Task.WhenAny(linkStarted.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        await watcher.StopAsync(CancellationToken.None);
+
+        Assert.Same(linkStarted.Task, started);
+        Assert.Equal("stalledUP", scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.AsNoTracking().Single().ClientStatus);
+        Assert.Contains("status-downloaded", await fixture.CreateClient().GetStringAsync("/?handler=Status&mamId=1&round=1"));
     }
 
     [Fact]
-    public async Task Status_StillDownloadingInQBittorrent_StaysDownloading_AndLeavesTheLinkJobAlone()
+    public async Task ADownloadRunEnding_WakesTheWatcher_OtherJobsDoNot()
     {
-        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1("downloading", 0.4));
-        var linkRuns = 0;
-        fixture.JobRegistry.Register("Link", _ =>
-        {
-            linkRuns++;
-            return Task.CompletedTask;
-        });
-        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
-        using var client = fixture.CreateClient();
+        var signal = new Jobs.DownloadWatchSignal();
+        var waker = new Jobs.DownloadWatchWaker(signal);
+        var run = new Fetchshelf.Core.Jobs.JobRunRecord(DateTimeOffset.UnixEpoch, Fetchshelf.Core.Jobs.JobRunResult.Success, null);
 
-        var html = await client.GetStringAsync("/?handler=Status&mamId=1&round=1");
+        waker.RunFinished(new Fetchshelf.Core.Jobs.JobRunFinished("Link", run, null, null, null));
+        Assert.False(await signal.WaitAsync(TimeSpan.Zero, CancellationToken.None));
 
-        Assert.Contains("status-downloading", html);
-        Assert.Equal(0, linkRuns);
-    }
-
-    [Fact]
-    public async Task Status_QBittorrentUnreachable_KeepsTheStoredStatus()
-    {
-        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: QBittorrentWithHash1(null, 0));
-        await SeedTorrentAsync(fixture, libraryPath: null, clientStatus: null);
-        using var client = fixture.CreateClient();
-
-        using var response = await client.GetAsync("/?handler=Status&mamId=1&round=1");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("status-downloading", await response.Content.ReadAsStringAsync());
+        waker.RunFinished(new Fetchshelf.Core.Jobs.JobRunFinished("Download", run, null, null, null));
+        waker.RunFinished(new Fetchshelf.Core.Jobs.JobRunFinished("Download", run, null, null, null));
+        Assert.True(await signal.WaitAsync(TimeSpan.Zero, CancellationToken.None));
+        Assert.False(await signal.WaitAsync(TimeSpan.Zero, CancellationToken.None)); // two wake-ups count as one
     }
 
     [Fact]
@@ -179,7 +193,7 @@ public class SearchStatusPollingTests
     }
 
     [Fact]
-    public async Task Status_AfterAnHourOfAsking_Stops()
+    public async Task Status_AfterTwoHoursOfAsking_Stops()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedTorrentAsync(fixture, libraryPath: null);

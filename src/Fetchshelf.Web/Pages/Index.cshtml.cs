@@ -25,7 +25,7 @@ namespace Fetchshelf.Web.Pages;
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
     FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
-    QBittorrentPresenceCache qbittorrentPresence, QBittorrentClientFactory qbittorrentFactory,
+    QBittorrentPresenceCache qbittorrentPresence,
     ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
@@ -279,59 +279,13 @@ public class IndexModel(
 
     /// <summary>
     /// A result's status badge, asked for again by the badge itself while the torrent is on its way into the library.
-    /// Reads Fetchshelf's database only: no MAM request, and no qBittorrent request either.
+    /// Reads Fetchshelf's database only: the <c>DownloadProgressWatcher</c> asks qBittorrent and starts the Link job,
+    /// whether a page is open or not.
     /// </summary>
     public async Task<PartialViewResult> OnGetStatusAsync(long mamId, int round)
     {
-        await RefreshDownloadingAsync(mamId);
         var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);
         return Partial("_SearchResultStatusPartial", new SearchResultStatusViewModel(mamId, status, round));
-    }
-
-    /// <summary>
-    /// Asks qBittorrent about this MAM id's torrents that Fetchshelf still has as downloading, one torrent at a time (not
-    /// the whole list), and stores their state. When one has finished, the Link job starts straight away instead of at
-    /// its next interval, so the status moves on to Linked within seconds. If qBittorrent can't be asked, the stored
-    /// status stands.
-    /// </summary>
-    private async Task RefreshDownloadingAsync(long mamId)
-    {
-        var downloading = (await dbContext.Torrents.Where(t => t.MamId == mamId && t.LibraryPath == null).ToListAsync())
-            .Where(t => !MetadataOnlyTorrentId.IsMetadataOnly(t.Id) && (t.ClientStatus is null || QBittorrentStateLabel.IsDownloadStage(t.ClientStatus)))
-            .ToList();
-        if (downloading.Count == 0 || settings.QBittorrent.Count == 0)
-        {
-            return;
-        }
-
-        var finished = false;
-        try
-        {
-            var clients = QBittorrentConnections.Build(settings, qbittorrentFactory).Select(c => c.Client).ToList();
-            foreach (var torrent in downloading)
-            {
-                foreach (var client in clients)
-                {
-                    if (await client.GetTorrentAsync(torrent.Id, HttpContext.RequestAborted) is { } live)
-                    {
-                        ClientStatuses.Update(torrent, live.State);
-                        finished |= live.IsFinished;
-                        break;
-                    }
-                }
-            }
-
-            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
-        }
-        catch (Exception ex) when (!IsRequestAborted(ex))
-        {
-            logger.LogDebug("Could not ask qBittorrent about MAM torrent {MamId}: {Error}", mamId, ex.Message);
-        }
-
-        if (finished && jobRegistry.Get(JobNames.Link) is not null)
-        {
-            _ = jobRegistry.TriggerAsync(JobNames.Link, JobTrigger.Manual, CancellationToken.None);
-        }
     }
 
     /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>

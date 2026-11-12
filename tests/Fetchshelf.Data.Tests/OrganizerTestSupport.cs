@@ -44,7 +44,7 @@ internal static class OrganizerTestSupport
             if (path.Contains("torrents/info"))
             {
                 var hashesParam = ExtractQueryParam(request.RequestUri.Query, "hashes");
-                var result = hashesParam is null ? torrents : torrents.Where(t => t.Hash == hashesParam).ToList();
+                var result = hashesParam is null ? torrents : torrents.Where(t => hashesParam.Split('|').Contains(t.Hash)).ToList();
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(result) };
             }
 

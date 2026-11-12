@@ -26,10 +26,19 @@ public static class QBittorrentStateLabel
         _ => state,
     };
 
-    /// <summary>Whether <paramref name="state"/> is a stage of a torrent that hasn't finished downloading.</summary>
-    public static bool IsDownloadStage(string? state) => state is
-        "downloading" or "stalledDL" or "queuedDL" or "forcedDL" or "metaDL" or "forcedMetaDL"
-        or "pausedDL" or "stoppedDL" or "checkingDL" or "allocating";
+    /// <summary>
+    /// The states of a torrent that has finished downloading: seeding, queued or stopped after it finished, or checked
+    /// as a finished one. For a database query.
+    /// </summary>
+    public static readonly IReadOnlyList<string> FinishedStages =
+        ["uploading", "stalledUP", "forcedUP", "queuedUP", "pausedUP", "stoppedUP", "checkingUP"];
+
+    /// <summary>
+    /// Whether <paramref name="state"/> is a stage of a torrent that has finished downloading. The others are not all
+    /// downloading: a torrent just added is checked first (checkingResumeData), one can be moving, missing files or in
+    /// error, and none of those says it has finished.
+    /// </summary>
+    public static bool IsFinishedStage(string? state) => state is not null && FinishedStages.Contains(state);
 
     /// <summary>Whether two states are the same stage, i.e. show the same label.</summary>
     public static bool SameStage(string? a, string? b) => For(a) == For(b);

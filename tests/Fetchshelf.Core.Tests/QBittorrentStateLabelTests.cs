@@ -39,15 +39,18 @@ public class QBittorrentStateLabelTests
         Assert.False(QBittorrentStateLabel.SameStage(a, b));
 
     [Theory]
-    [InlineData("downloading", true)]
-    [InlineData("stalledDL", true)]
-    [InlineData("metaDL", true)]
-    [InlineData("stoppedDL", true)]
-    [InlineData("uploading", false)]
-    [InlineData("stalledUP", false)]
-    [InlineData("stoppedUP", false)]
+    [InlineData("uploading", true)]
+    [InlineData("stalledUP", true)]
+    [InlineData("stoppedUP", true)]
+    [InlineData("checkingUP", true)]
+    [InlineData("downloading", false)]
+    [InlineData("stalledDL", false)]
+    [InlineData("stoppedDL", false)]
+    [InlineData("checkingResumeData", false)]
+    [InlineData("moving", false)]
+    [InlineData("error", false)]
     [InlineData("not in client", false)]
     [InlineData(null, false)]
-    public void IsDownloadStage_OnlyForTorrentsStillDownloading(string? state, bool expected) =>
-        Assert.Equal(expected, QBittorrentStateLabel.IsDownloadStage(state));
+    public void IsFinishedStage_OnlyForTorrentsThatHaveFinished(string? state, bool expected) =>
+        Assert.Equal(expected, QBittorrentStateLabel.IsFinishedStage(state));
 }
