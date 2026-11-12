@@ -5,8 +5,9 @@ namespace Fetchshelf.Web.Pages.Following;
 
 /// <summary>
 /// The `[[follow.grab]]` blocks in plain words, for the top of the Following page: what the Follow job downloads by
-/// itself for a followed series or author, so a book left as *Not free* is no surprise. Names the cost, whether a block
-/// takes only ebooks or only audiobooks, and its languages; any other filter is mentioned, not spelled out.
+/// itself for a followed series or author, so a book left as *Not free* is no surprise. Every block reads the same way,
+/// which books and then how they are paid for: "Ebooks in English: free ones, and others paid with ratio." Any filter
+/// other than ebooks or audiobooks and the languages is mentioned, not spelled out.
 /// </summary>
 public static class FollowGrabSummary
 {
@@ -15,44 +16,42 @@ public static class FollowGrabSummary
 
     public static string Describe(GrabEntry block)
     {
-        var parts = new List<string> { Cost(block.Cost) };
-        if (Formats(block.Categories) is { } formats)
-        {
-            parts.Add(formats);
-        }
-
+        var books = Books(block.Categories);
         if (block.Languages is { Count: > 0 } languages)
         {
-            parts.Add("in " + JoinWithOr(languages.Select(Capitalize).ToList()));
+            books += " in " + JoinWithOr(languages.Select(Capitalize).ToList());
         }
 
         if (HasOtherFilters(block))
         {
-            parts.Add("if the block's other filters allow it");
+            books += " that pass the block's other filters";
         }
 
-        return string.Join(", ", parts) + ".";
+        return $"{books}: {Cost(block.Cost)}.";
     }
 
+    /// <summary>
+    /// How the books are paid for. Free uploads come first in every rule: they are always taken free, whatever the cost.
+    /// </summary>
     private static string Cost(ConfiguredCost cost) => cost switch
     {
-        ConfiguredCost.Free => "Only books that are free (freeleech, VIP or personal freeleech)",
-        ConfiguredCost.Wedge => "Free books, and others with a freeleech wedge",
-        ConfiguredCost.TryWedge => "Free books, others with a freeleech wedge while there are wedges to spare, and otherwise paid with ratio",
-        ConfiguredCost.Ratio => "Any book: free ones cost nothing, others are paid with ratio",
+        ConfiguredCost.Free => "only free ones (freeleech, VIP or personal freeleech)",
+        ConfiguredCost.Wedge => "free ones, and others with a freeleech wedge",
+        ConfiguredCost.TryWedge => "free ones, and others with a freeleech wedge while there are wedges to spare, otherwise paid with ratio",
+        ConfiguredCost.Ratio => "free ones, and others paid with ratio",
         _ => cost.ToString(),
     };
 
-    /// <summary>"ebooks only" or "audiobooks only" when a block leaves out the other main type; null when it takes both.</summary>
-    private static string? Formats(CategoriesConfig categories)
+    /// <summary>Which of the two main types a block takes: ebooks, audiobooks, or both.</summary>
+    private static string Books(CategoriesConfig categories)
     {
         var audio = categories.Audio.Names is not { Count: 0 };
         var ebook = categories.Ebook.Names is not { Count: 0 };
         return (audio, ebook) switch
         {
-            (false, true) => "ebooks only",
-            (true, false) => "audiobooks only",
-            _ => null,
+            (false, true) => "Ebooks",
+            (true, false) => "Audiobooks",
+            _ => "Ebooks and audiobooks",
         };
     }
 

@@ -17,9 +17,13 @@
         {
             <p>Nothing for now: <code>dry_run</code> is on in <code>[follow]</code>, so the Follow job only logs what it would download.</p>
         }
+        @* One rule or several, each on its own line, so a rule's own colon never follows the intro's. *@
         @if (Model.GrabRules.Count == 1)
         {
-            <p>For a followed series or author: @Model.GrabRules[0]</p>
+            <p>For a followed series or author, this decides what is downloaded:</p>
+            <ul>
+                <li>@Model.GrabRules[0]</li>
+            </ul>
         }
         else
         {

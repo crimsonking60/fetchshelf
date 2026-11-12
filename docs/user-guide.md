@@ -1091,8 +1091,8 @@ categories = { ebook = false }
   and only listing; each series or author's heading says which it is.
 
 At the top, the **Following** page says in plain words what the `[[follow.grab]]` blocks let the Follow job
-download by itself, such as "Only books that are free (freeleech, VIP or personal freeleech), ebooks only, in
-English." A followed book that isn't downloaded usually costs more than that.
+download by itself, one line per block, such as "Ebooks in English: free ones, and others paid with ratio."
+A followed book that isn't downloaded usually costs more than that.
 
 The **Following** page lists every followed or watched series and author with what was found for it, with
 each torrent's format and size; the count on its menu link is what is waiting to be looked at. A torrent's
