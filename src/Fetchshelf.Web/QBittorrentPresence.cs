@@ -20,6 +20,12 @@ public sealed record QBittorrentPresence(
     /// <summary>Each torrent's state in qBittorrent, by info hash, such as <c>downloading</c> or <c>stalledUP</c>.</summary>
     public IReadOnlyDictionary<string, string> StateByHash { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// When qBittorrent was asked for the list. A torrent added after this can be missing from it, so its absence only
+    /// says something about torrents Fetchshelf recorded before. Null for a list without a time.
+    /// </summary>
+    public DateTimeOffset? AskedAt { get; init; }
+
     public static QBittorrentPresence From(IEnumerable<QBittorrentTorrent> torrents)
     {
         var byMamId = new Dictionary<long, string>();
@@ -38,6 +44,26 @@ public sealed record QBittorrentPresence(
         }
 
         return new QBittorrentPresence(byMamId, byHash, Loaded: true) { HashByMamId = hashByMamId, StateByHash = stateByHash };
+    }
+
+    /// <summary>
+    /// Whether qBittorrent has the torrent, and its category ("" for none) when it does. Null when the list can't tell:
+    /// it couldn't be read, or it was asked for before Fetchshelf recorded the torrent at <paramref name="recordedAt"/>,
+    /// so a torrent that just went to qBittorrent isn't called missing.
+    /// </summary>
+    public (bool? Has, string? Category) Find(long mamId, IEnumerable<string> knownHashes, DateTimeOffset? recordedAt)
+    {
+        if (!Loaded)
+        {
+            return (null, null);
+        }
+
+        if (CategoryOf(mamId, knownHashes) is { } category)
+        {
+            return (true, category);
+        }
+
+        return recordedAt is { } recorded && (AskedAt is null || recorded >= AskedAt) ? (null, null) : (false, null);
     }
 
     /// <summary>The torrent's category if qBittorrent has it ("" for none), found by MAM id or else by info hash.</summary>
@@ -64,6 +90,21 @@ public sealed class QBittorrentPresenceCache(
     private QBittorrentPresence? _current;
     private DateTimeOffset _readAt;
     private Task? _refresh;
+
+    /// <summary>
+    /// Starts reading qBittorrent's list again in the background if the one kept was asked for before
+    /// <paramref name="time"/>, such as when Fetchshelf has added a torrent since: the next search then has it.
+    /// </summary>
+    public void RefreshIfAskedBefore(DateTimeOffset time)
+    {
+        lock (_lock)
+        {
+            if (_current is { AskedAt: { } askedAt } && askedAt <= time && _refresh is null)
+            {
+                _refresh = Task.Run(RefreshAsync);
+            }
+        }
+    }
 
     /// <summary>Starts reading qBittorrent's list in the background if it is missing or old, without waiting for it.</summary>
     public void Warm()
@@ -115,6 +156,7 @@ public sealed class QBittorrentPresenceCache(
 
     private async Task RefreshAsync()
     {
+        var askedAt = _time.GetUtcNow();
         QBittorrentPresence presence;
         try
         {
@@ -129,7 +171,7 @@ public sealed class QBittorrentPresenceCache(
                 torrents.AddRange(await client.ListTorrentsAsync());
             }
 
-            presence = QBittorrentPresence.From(torrents);
+            presence = QBittorrentPresence.From(torrents) with { AskedAt = askedAt };
         }
         catch (Exception ex)
         {

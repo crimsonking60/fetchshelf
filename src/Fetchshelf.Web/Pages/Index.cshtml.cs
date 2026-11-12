@@ -247,7 +247,7 @@ public class IndexModel(
             var presence = await presenceTask;
             CategoryOptions = CategoriesFor(settings, presence);
             var statusByMamId = await LoadStatusesAsync(mamIds, presence.Loaded ? presence.StateByHash : null);
-            var hashesByMamId = await KnownHashesAsync(mamIds);
+            var knownByMamId = await KnownTorrentsAsync(mamIds);
             Found = result.Found;
 
             // MAM can't be asked for torrents the account hasn't snatched, so those it has are left out of this page.
@@ -262,8 +262,9 @@ public class IndexModel(
                     SearchResultViewModel.From(
                         record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
                         statusByMamId.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists),
-                    presence, hashesByMamId.GetValueOrDefault(record.MamId) ?? []))
+                    presence, knownByMamId.GetValueOrDefault(record.MamId)))
                 .ToList();
+            RefreshPresenceIfOlderThan(knownByMamId.Values);
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
         {
@@ -334,21 +335,31 @@ public class IndexModel(
     }
 
     /// <summary>Whether qBittorrent has the torrent, and in which category: by MAM id, or by a known info hash.</summary>
-    private static SearchResultViewModel WithQBittorrent(SearchResultViewModel row, QBittorrentPresence presence, IEnumerable<string> knownHashes)
+    private static SearchResultViewModel WithQBittorrent(SearchResultViewModel row, QBittorrentPresence presence, KnownTorrents? known)
     {
-        if (!presence.Loaded)
-        {
-            return row;
-        }
-
-        var category = presence.CategoryOf(row.MamId, knownHashes);
-        return row with { InQBittorrent = category is not null, QBittorrentCategory = category };
+        var (has, category) = presence.Find(row.MamId, known?.Hashes ?? [], known?.LastRecordedAt);
+        return row with { InQBittorrent = has, QBittorrentCategory = category };
     }
 
-    private async Task<Dictionary<long, List<string>>> KnownHashesAsync(List<long> mamIds) =>
-        (await dbContext.Torrents.Where(t => mamIds.Contains(t.MamId)).Select(t => new { t.MamId, t.Id }).ToListAsync())
+    /// <summary>
+    /// When a result was recorded after qBittorrent's list was asked for, the list can't tell about it: reading it again
+    /// now means the next search can.
+    /// </summary>
+    private void RefreshPresenceIfOlderThan(IEnumerable<KnownTorrents> known)
+    {
+        if (known.Select(k => (DateTimeOffset?)k.LastRecordedAt).Max() is { } newest)
+        {
+            qbittorrentPresence.RefreshIfAskedBefore(newest);
+        }
+    }
+
+    /// <summary>The info hashes Fetchshelf has recorded for a MAM id, and when it recorded the latest of them.</summary>
+    private sealed record KnownTorrents(List<string> Hashes, DateTimeOffset LastRecordedAt);
+
+    private async Task<Dictionary<long, KnownTorrents>> KnownTorrentsAsync(List<long> mamIds) =>
+        (await dbContext.Torrents.Where(t => mamIds.Contains(t.MamId)).Select(t => new { t.MamId, t.Id, t.CreatedAt }).ToListAsync())
             .GroupBy(t => t.MamId)
-            .ToDictionary(g => g.Key, g => g.Select(t => t.Id).ToList());
+            .ToDictionary(g => g.Key, g => new KnownTorrents(g.Select(t => t.Id).ToList(), g.Max(t => t.CreatedAt)));
 
     /// <summary>
     /// Resolves each given MAM id to where it stands in Fetchshelf's pipeline: linked into the
@@ -584,7 +595,7 @@ public class IndexModel(
             record, MamSizeParser.ParseBytes(record.SizeRaw), wedgeOverBytes,
             statuses.GetValueOrDefault(record.MamId, MamResultStatus.None), formatPreferenceLists);
         return withQBittorrent
-            ? WithQBittorrent(row, await qbittorrentPresence.GetAsync(), (await KnownHashesAsync([record.MamId])).GetValueOrDefault(record.MamId) ?? [])
+            ? WithQBittorrent(row, await qbittorrentPresence.GetAsync(), (await KnownTorrentsAsync([record.MamId])).GetValueOrDefault(record.MamId))
             : row;
     }
 

@@ -171,6 +171,44 @@ public partial class IndexPageTests
         Assert.Contains("Not in qBittorrent", html);
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task GetResults_TorrentRecordedAfterQBittorrentWasLastAsked_ShowsNoQBittorrentStateUntilAskedAgain()
+    {
+        // qBittorrent's list is kept for a while: one read before the download can't know about the torrent.
+        var torrents = Array.Empty<QBittorrentTorrent>();
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: request => QBittorrentWith(torrents)(request));
+        var client = fixture.CreateClient();
+        await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        // Then the book is downloaded and linked.
+        torrents = [InClient("hash1", "MID=1", "audiobooks")];
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata() with { MamId = 1 }, libraryPath: "/library/x");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Single().MamId = 1;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Contains("status-linked", html);
+        Assert.DoesNotContain("Not in qBittorrent", html);
+        Assert.DoesNotContain("qBittorrent: ", html);
+
+        // That search asked for the list again, so a later one shows where the torrent is.
+        for (var i = 0; i < 250 && !html.Contains("qBittorrent: audiobooks", StringComparison.Ordinal); i++)
+        {
+            await Task.Delay(20);
+            html = await client.GetStringAsync("/?handler=Results&Q=kings");
+        }
+
+        Assert.Contains("qBittorrent: audiobooks", html);
+        Assert.DoesNotContain("Not in qBittorrent", html);
+    }
+
     [Theory]
     [InlineData(true, ">Download</button>", "Wedge&#xA0;download</button>")]
     [InlineData(false, ">Select</button>", "Wedge&#xA0;select</button>")]

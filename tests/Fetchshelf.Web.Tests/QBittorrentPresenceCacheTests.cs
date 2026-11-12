@@ -100,6 +100,48 @@ public class QBittorrentPresenceCacheTests
     }
 
     [Fact]
+    public async Task RefreshIfAskedBefore_ReadsAgainOnlyForSomethingRecordedSinceTheListWasAskedFor()
+    {
+        var (cache, clock, reads, _) = Create();
+        var first = await cache.GetAsync();
+
+        cache.RefreshIfAskedBefore(first.AskedAt!.Value - TimeSpan.FromSeconds(1));
+        await Task.Delay(100);
+        Assert.Equal(1, reads());
+
+        clock.Now += TimeSpan.FromSeconds(10);
+        cache.RefreshIfAskedBefore(clock.Now);
+        var waited = 0;
+        while (reads() < 2 && ++waited < 250)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.Equal(2, reads());
+    }
+
+    private static readonly DateTimeOffset AskedAt = new(2026, 11, 12, 10, 0, 0, TimeSpan.Zero);
+
+    private static QBittorrentPresence ListWith(params QBittorrentTorrent[] torrents) => QBittorrentPresence.From(torrents) with { AskedAt = AskedAt };
+
+    [Fact]
+    public void Find_ATorrentInTheList_IsThereWithItsCategory() =>
+        Assert.Equal(((bool?)true, "books"), ListWith(new QBittorrentTorrent { Hash = "h1", Name = "T", SavePath = "/d", State = "uploading", Comment = "MID=5", Category = "books" })
+            .Find(5, [], AskedAt.AddMinutes(1)));
+
+    [Fact]
+    public void Find_ATorrentMissingFromAListAskedForAfterItWasRecorded_IsNotThere() =>
+        Assert.Equal(((bool?)false, (string?)null), ListWith().Find(5, ["h1"], AskedAt.AddMinutes(-1)));
+
+    [Fact]
+    public void Find_ATorrentRecordedAfterTheListWasAskedFor_IsUnknown() =>
+        Assert.Equal(((bool?)null, (string?)null), ListWith().Find(5, ["h1"], AskedAt.AddSeconds(1)));
+
+    [Fact]
+    public void Find_WithoutAList_IsUnknown() =>
+        Assert.Equal(((bool?)null, (string?)null), QBittorrentPresence.Unknown.Find(5, ["h1"], AskedAt.AddMinutes(-1)));
+
+    [Fact]
     public void CategoryOf_FallsBackToAKnownHash()
     {
         var presence = QBittorrentPresence.From([

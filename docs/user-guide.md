@@ -751,7 +751,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
   `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded
   or linked that qBittorrent no longer has. Fetchshelf reads qBittorrent's torrent list at most every two
-  minutes, in the background, so a torrent added a moment ago can take that long to show.
+  minutes, in the background. A torrent Fetchshelf added after the last read shows neither mark until the
+  next one, which that search starts, so the following search shows where it is.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download into**, above the results, chooses the qBittorrent category a download gets, and with it the
   library it ends up in. It offers each library's category, then every other category qBittorrent has
