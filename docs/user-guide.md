@@ -1066,7 +1066,10 @@ books, are shown when owned but never counted as missing. It can be limited to s
 followed series or ignored ones, and searched by series or author name. Each series name leads to its books
 on the **Torrents** page.
 
-With a [`[follow]`](configuration.md#follow) section, series and authors can be followed:
+Following needs a [`[follow]`](configuration.md#follow) section in the configuration. Without one, the
+**Series** page only lists series, without its **Follow**, **Watch** and **Ignore** buttons; there is no
+**Follow author** button on a torrent's page or next to an author filter on the **Torrents** page; and the
+**Following** page isn't in the menu. A minimal section:
 
 ```toml
 [follow]
