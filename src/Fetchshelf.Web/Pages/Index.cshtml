@@ -39,13 +39,14 @@
         </select>
         <button type="submit">Search</button>
     </div>
-    <details id="search-fields" class="search-fields">
-        <summary>Search in: @string.Join(", ", SearchQueryBuilder.FieldOptions.Where(o => Model.SearchFields.Contains(o.Value)).Select(o => o.Label.ToLowerInvariant()))</summary>
+    @* Always shown, so what a search looks in is never hidden behind a toggle. *@
+    <div id="search-fields" class="search-fields">
+        <span class="search-fields-label">Search in:</span>
         @foreach (var (value, label) in SearchQueryBuilder.FieldOptions)
         {
             <label><input type="checkbox" name="In" value="@value" checked="@Model.SearchFields.Contains(value)" /> @label</label>
         }
-    </details>
+    </div>
 </form>
 
 

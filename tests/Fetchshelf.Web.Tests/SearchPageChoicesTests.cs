@@ -77,7 +77,9 @@ public partial class SearchPageChoicesTests
         Assert.Contains("<option value=\"title\" selected=\"selected\">Title</option>", html);
         Assert.Contains("<option value=\"bookmarks\" selected=\"selected\">Bookmarked on MAM</option>", html);
         Assert.Contains("name=\"In\" value=\"series\" checked=\"checked\"", html);
-        Assert.Contains("Search in: series, narrator", html);
+        Assert.Contains("<div id=\"search-fields\" class=\"search-fields\">", html);
+        Assert.Contains("<span class=\"search-fields-label\">Search in:</span>", html);
+        Assert.DoesNotContain("<details id=\"search-fields\"", html);
         Assert.Contains("Matches for 'expanse' (Bookmarked on MAM)", html);
         var resultsUrl = ResultsUrlPattern().Match(html).Groups[1].Value;
         Assert.Contains("In=series&In=narrator", resultsUrl);

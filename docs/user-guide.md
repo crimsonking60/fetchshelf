@@ -678,8 +678,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead.
-- **Search in**, below the box, opens a row of checkboxes: title, author, series, narrator, description,
-  tags and file names. Tick the ones to look in; with none ticked, title and author are used.
+- **Search in**, the row of checkboxes below the box: title, author, series, narrator, description, tags
+  and file names. Tick the ones to look in; with none ticked, title and author are used.
 - **The type list** limits what is searched: *All torrents*, *Freeleech*, *Freeleech or VIP*, *VIP*,
   *Bookmarked on MAM* (the account's bookmarks), or *Not snatched yet*. MAM can't be asked for torrents the
   account hasn't snatched, so that last one searches everything and leaves out, on each page, the ones it has;

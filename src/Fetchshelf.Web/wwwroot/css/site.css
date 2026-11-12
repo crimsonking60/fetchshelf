@@ -463,7 +463,8 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .failing-jobs form { display: inline; }
 
 /* ---- search page: fields to search in, result pages ---------------------- */
-.search-fields summary { cursor: pointer; color: var(--text-muted); }
-.search-fields label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0.3rem 1rem 0 0; }
+.search-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; }
+.search-fields-label { color: var(--text-muted); }
+.search-fields label { display: inline-flex; align-items: center; gap: 0.3rem; }
 .search-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.8rem 0; }
 .search-pager #results-count { color: var(--text-muted); }
