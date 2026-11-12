@@ -25,7 +25,7 @@ Decisions made:
   KyBook and others. OPDS 2.0 (JSON) is out of scope.
 - **Built into Fetchshelf**, as minimal-API endpoints under `/opds` in `Fetchshelf.Web`. It is not a
   standalone server.
-- **No login** (ADR-0004). Use it on a trusted network, or behind a reverse proxy with authentication: OPDS
+- **No login**, like the rest of Fetchshelf. Use it on a trusted network, or behind a reverse proxy with authentication: OPDS
   readers send HTTP Basic credentials.
 - **Ebooks only.** Audiobook files are never served.
 - **No new dependencies.** The Atom XML is built with `System.Xml.Linq`, and EPUB and CBZ covers are read with

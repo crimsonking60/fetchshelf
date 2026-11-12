@@ -16,7 +16,7 @@ OPDS catalog does. It helps you find the book, then hands it to the app that pla
 
 Fetchshelf won't play or display books itself. A real audiobook player needs resume position, speed,
 chapters, multi-file books played as one, and background playback on phones. An ebook reader needs a reader
-library and progress tracking. Both need per-user progress, and Fetchshelf has no users or login (ADR-0004).
+library and progress tracking. Both need per-user progress, and Fetchshelf has no users or login.
 Audiobookshelf does all of that, with progress sync and native apps, and Fetchshelf already integrates with
 it; OPDS readers cover ebooks. The explorer links to those apps and offers downloads.
 
@@ -76,7 +76,7 @@ Generalise the OPDS catalog rather than write a second one:
 
 ### 2. The Library page: `src/Fetchshelf.Web/Pages/Library/`
 
-Server-rendered Razor Pages with htmx, like the rest of the UI (ADR-0002):
+Server-rendered Razor Pages with htmx, like the rest of the UI:
 
 - **Views:** Recently added, Authors, Series (in series order, with each book's number) and Libraries, plus a
   search box using the shared search matcher. A filter for **Audiobooks / Ebooks / All**.
