@@ -154,6 +154,21 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPages_WithoutAFreeGrabBlock_LeaveNotFreeOut()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow.Replace("cost = \"free\"", "cost = \"ratio\"", StringComparison.Ordinal));
+        await SeedFindAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var pages = new[] { "/Following", FollowPage(fixture), "/following/to-look-at" };
+        foreach (var page in pages)
+        {
+            var html = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+            Assert.DoesNotContain("not free", html, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public async Task FollowingPage_FiltersAndSearch_NarrowTheList_AndClearFiltersKeepsTheSearch()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);

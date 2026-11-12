@@ -53,7 +53,7 @@ public class DetailModel(FetchshelfSettings settings, FetchshelfDbContext dbCont
         List = await FindListViewModel.LoadAsync(
             dbContext, "/Following/Detail", new Dictionary<string, string> { ["id"] = id.ToString(CultureInfo.InvariantCulture) }, id,
             ReadQuery(), PageNumber, wantedSides, showsFollow: false, showsBook: Follow.Kind == FollowKind.Series, showsShowFilter: true,
-            ReturnUrl, HttpContext.RequestAborted);
+            FollowQueries.CanBeNotFree(followSettings.Grab), ReturnUrl, HttpContext.RequestAborted);
         return Page();
     }
 }

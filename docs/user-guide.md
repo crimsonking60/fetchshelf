@@ -1123,7 +1123,9 @@ to **Download**, **Wedge download** or **Dismiss** them at once.
 
 Once a find is downloaded, its status moves on by itself as on the **Search** page, *Selected*, *Downloading*,
 *Downloaded*, *Linked*, and the Link job starts as soon as qBittorrent has finished it. A find marked *not free* matched, but none of the
-`[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. A find waiting in a
+`[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. Only a block with
+`cost = "free"` turns a torrent down for its cost, so without one nothing is ever not free, and the pages leave
+*not free* out. A find waiting in a
 format no `[[follow.grab]]` block takes any more, such as an audiobook found before the blocks were limited to
 ebooks, is no longer listed or counted; it shows again if a block takes its format again. **Search now** puts a
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it

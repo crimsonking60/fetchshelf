@@ -51,7 +51,7 @@
                     (FindShow.NotFree, "Not free", summary.NotFree),
                     (FindShow.Selected, "Selected", summary.Selected),
                     (FindShow.InLibrary, "In the library", summary.InLibrary),
-                })
+                }.Where(c => c.Item1 != FindShow.NotFree || Model.List!.ShowsNotFree))
                 {
                     <a asp-page="/Following/Detail" asp-all-route-data="Model.RouteValuesFor(show)"
                        aria-current="@(Model.List!.Query.Show == show ? "true" : null)">@label: @count</a>

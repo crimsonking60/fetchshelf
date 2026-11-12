@@ -62,6 +62,12 @@ public static class FollowQueries
             .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
+    /// Whether a find can be left as not free: only a block with `cost = "free"` turns a torrent down for its cost, so
+    /// with none, every match a block's filter takes is one it pays for.
+    /// </summary>
+    public static bool CanBeNotFree(IReadOnlyList<GrabEntry> blocks) => blocks.Any(block => block.Cost == ConfiguredCost.Free);
+
+    /// <summary>
     /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost, in a
     /// format a grab block takes (<see cref="WantedSides"/>). Finds of an ignored series are left out: the Following page
     /// doesn't list those.

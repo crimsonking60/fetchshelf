@@ -34,6 +34,9 @@ public sealed class FindListViewModel
     /// <summary>Whether the Show dropdown is offered; the To look at page only lists what is to look at.</summary>
     public required bool ShowsShowFilter { get; init; }
 
+    /// <summary>Whether a find can be not free (<see cref="FollowQueries.CanBeNotFree"/>), so that is a choice under Show.</summary>
+    public required bool ShowsNotFree { get; init; }
+
     /// <summary>Where a button on the list comes back to: this page, with its filters, sort and page.</summary>
     public required string ReturnUrl { get; init; }
 
@@ -62,7 +65,7 @@ public sealed class FindListViewModel
     public static async Task<FindListViewModel> LoadAsync(
         FetchshelfDbContext dbContext, string page, IReadOnlyDictionary<string, string> pageRouteValues, int? followId,
         FindListQuery query, int pageNumber, IReadOnlySet<string> wantedSides, bool showsFollow, bool showsBook, bool showsShowFilter,
-        string returnUrl, CancellationToken cancellationToken)
+        bool showsNotFree, string returnUrl, CancellationToken cancellationToken)
     {
         var rows = await FollowQueries.FindsAsync(dbContext, followId, query.Show, query.Format, wantedSides, cancellationToken);
         if (query.Show == FindShow.ToLookAt)
@@ -84,6 +87,7 @@ public sealed class FindListViewModel
             ShowsFollow = showsFollow,
             ShowsBook = showsBook,
             ShowsShowFilter = showsShowFilter,
+            ShowsNotFree = showsNotFree,
             ReturnUrl = returnUrl,
         };
     }

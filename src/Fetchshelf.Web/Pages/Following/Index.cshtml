@@ -6,7 +6,9 @@
 }
 
 <h2>Following</h2>
-@await Html.PartialAsync("_PageExplanation", "This page lists the followed series and authors, with how many books the Follow job found for each: books the library is missing. A series or author on Auto has what is found downloaded automatically; a followed one has it listed, to download or dismiss, on its own page and on the To look at page. A find marked not free matched, but no grab block in the [follow] section pays for it; it can still be downloaded. Series are followed on the Series page, authors and series from a torrent's page or the Torrents page.")
+@await Html.PartialAsync("_PageExplanation", "This page lists the followed series and authors, with how many books the Follow job found for each: books the library is missing. A series or author on Auto has what is found downloaded automatically; a followed one has it listed, to download or dismiss, on its own page and on the To look at page."
+    + (Model.ShowsNotFree ? " A find marked not free matched, but no grab block in the [follow] section pays for it; it can still be downloaded." : "")
+    + " Series are followed on the Series page, authors and series from a torrent's page or the Torrents page.")
 
 @if (Model.CanFollow)
 {
@@ -35,7 +37,13 @@
                 }
             </ol>
         }
-        <p>A book found that costs more is listed as <em>Not free</em>; <strong>Download</strong> or <strong>Wedge download</strong> takes it anyway. A followed series or author only has what is found listed.</p>
+        <p>
+            @if (Model.ShowsNotFree)
+            {
+                <text>A book found that costs more is listed as <em>Not free</em>; <strong>Download</strong> or <strong>Wedge download</strong> takes it anyway.</text>
+            }
+            A followed series or author only has what is found listed.
+        </p>
         <p>These rules are configured with <code>[[follow.grab]]</code> blocks in the configuration.</p>
     </section>
 }
@@ -95,7 +103,10 @@ else
                     <th>Kind</th>
                     <th>Mode</th>
                     <th><a asp-page="/Following/Index" asp-all-route-data='query.SortedBy("ToLookAt").ToRouteValues()'>To look at</a></th>
-                    <th>Not free</th>
+                    @if (Model.ShowsNotFree)
+                    {
+                        <th>Not free</th>
+                    }
                     <th>Selected</th>
                     <th>In the library</th>
                     <th><a asp-page="/Following/Index" asp-all-route-data='query.SortedBy("Searched").ToRouteValues()'>Last searched</a></th>
@@ -121,7 +132,10 @@ else
                             }
                         </td>
                         <td>@(summary.ToLookAt > 0 ? summary.ToLookAt : "")</td>
-                        <td>@(summary.NotFree > 0 ? summary.NotFree : "")</td>
+                        @if (Model.ShowsNotFree)
+                        {
+                            <td>@(summary.NotFree > 0 ? summary.NotFree : "")</td>
+                        }
                         <td>@(summary.Selected > 0 ? summary.Selected : "")</td>
                         <td>@(summary.InLibrary > 0 ? summary.InLibrary : "")</td>
                         @if (follow.LastSearchedAt is { } searched)

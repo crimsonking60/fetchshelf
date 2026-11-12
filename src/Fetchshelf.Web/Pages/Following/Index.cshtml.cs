@@ -31,6 +31,9 @@ public class IndexModel(
     /// <summary>What the Follow job downloads by itself for a followed series or author, one line per grab block.</summary>
     public IReadOnlyList<string> GrabRules => settings.Follow is { } follow ? FollowGrabSummary.Describe(follow.Grab) : [];
 
+    /// <summary>Whether a find can be not free, so the page has a place for those: only with a `cost = "free"` block.</summary>
+    public bool ShowsNotFree => settings.Follow is { } follow && FollowQueries.CanBeNotFree(follow.Grab);
+
     /// <summary>Whether `dry_run` is on in `[follow]`, so nothing is downloaded by itself.</summary>
     public bool DryRun => settings.Follow?.DryRun == true;
 

@@ -11,7 +11,7 @@
     @if (Model.ShowsShowFilter)
     {
         <select name="Show" aria-label="Show" onchange="this.form.requestSubmit()">
-            @foreach (var (value, label) in FindListQuery.ShowOptions)
+            @foreach (var (value, label) in FindListQuery.ShowOptions.Where(o => o.Value != FindShow.NotFree || Model.ShowsNotFree))
             {
                 <option value="@value" selected="@(query.Show == value)">@label</option>
             }

@@ -23,7 +23,7 @@ public class ToLookAtModel(FetchshelfSettings settings, FetchshelfDbContext dbCo
         List = await FindListViewModel.LoadAsync(
             dbContext, "/Following/ToLookAt", new Dictionary<string, string>(), followId: null, query, PageNumber,
             FollowQueries.WantedSides(followSettings.Grab), showsFollow: true, showsBook: true, showsShowFilter: false,
-            ReturnUrl, HttpContext.RequestAborted);
+            FollowQueries.CanBeNotFree(followSettings.Grab), ReturnUrl, HttpContext.RequestAborted);
         return Page();
     }
 }

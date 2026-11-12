@@ -1,3 +1,4 @@
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 
@@ -72,6 +73,13 @@ public sealed class FollowQueriesTests : IDisposable
         Assert.Equal(["Ebook"], FollowQueries.WantedSides([Block(audio: false)]).Order());
         Assert.Equal(["Audio", "Ebook"], FollowQueries.WantedSides([Block(audio: false), Block(ebook: false)]).Order());
         Assert.Equal(["Audio"], FollowQueries.WantedSides([new GrabEntry { Categories = new CategoriesConfig { Audio = CategoryListOrBool.Of(["Fantasy"]), Ebook = CategoryListOrBool.None } }]).Order());
+    }
+
+    [Fact]
+    public void CanBeNotFree_OnlyWithAFreeBlock()
+    {
+        Assert.True(FollowQueries.CanBeNotFree([new GrabEntry { Cost = ConfiguredCost.Ratio }, new GrabEntry { Cost = ConfiguredCost.Free }]));
+        Assert.False(FollowQueries.CanBeNotFree([new GrabEntry { Cost = ConfiguredCost.Ratio }, new GrabEntry { Cost = ConfiguredCost.Wedge }]));
     }
 
     [Fact]
