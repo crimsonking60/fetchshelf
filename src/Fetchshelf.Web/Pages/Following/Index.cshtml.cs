@@ -105,7 +105,10 @@ public class IndexModel(
         return RedirectToPage();
     }
 
-    /// <summary>Makes the follow the first the Follow job searches, and starts the job.</summary>
+    /// <summary>How long Search now waits for the Follow job's run before showing the page again.</summary>
+    public static readonly TimeSpan SearchNowWait = TimeSpan.FromSeconds(15);
+
+    /// <summary>Makes the follow the first the Follow job searches, starts the job, and waits a while for it.</summary>
     public async Task<IActionResult> OnPostSearchNowAsync(int followId, string name)
     {
         if (FollowService is not { } followService)
@@ -121,8 +124,22 @@ public class IndexModel(
             return RedirectToPage();
         }
 
-        _ = jobRegistry.TriggerOrQueueAsync(JobNames.Follow, JobTrigger.Manual, CancellationToken.None);
-        Message = $"The Follow job is searching for {name}; the Jobs page shows when it is done.";
+        // Waits for the run, so the page comes back with what it found and the new search time; a run that searches many
+        // follows, or waits for another MAM job, carries on in the background.
+        var run = jobRegistry.TriggerOrQueueAsync(JobNames.Follow, JobTrigger.Manual, CancellationToken.None);
+        if (await Task.WhenAny(run, Task.Delay(SearchNowWait, HttpContext.RequestAborted)) != run)
+        {
+            Message = $"The Follow job is searching for {name}; the Jobs page shows when it is done.";
+            return RedirectToPage();
+        }
+
+        if (jobRegistry.Get(JobNames.Follow)?.LastRun is { Result: JobRunResult.Failure } failed)
+        {
+            (Message, MessageIsError) = ($"The search for {name} failed: {failed.Summary}", true);
+            return RedirectToPage();
+        }
+
+        Message = $"Searched MAM for {name}.";
         return RedirectToPage();
     }
 

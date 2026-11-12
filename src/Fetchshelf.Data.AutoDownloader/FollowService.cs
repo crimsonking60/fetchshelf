@@ -26,13 +26,31 @@ public sealed record FindDownloadResult(SelectionOutcome? Outcome, TorrentMetada
 public static class FollowQueries
 {
     /// <summary>
-    /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost. Finds of
-    /// an ignored series are left out: the Following page doesn't list those.
+    /// The formats ("Audio", "Ebook", as <see cref="FollowFindEntity.MediaSide"/> holds them) at least one grab block
+    /// takes. A find waiting in another format was found before the blocks changed; it is no longer listed or counted,
+    /// and comes back if a block takes its format again.
     /// </summary>
-    public static Task<int> WaitingCountAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default) =>
+    public static IReadOnlySet<string> WantedSides(IReadOnlyList<GrabEntry> blocks) =>
+        new[] { ("Audio", (Func<GrabEntry, CategoryListOrBool>)(b => b.Categories.Audio)), ("Ebook", b => b.Categories.Ebook) }
+            .Where(side => blocks.Any(block => side.Item2(block).Names is not { Count: 0 }))
+            .Select(side => side.Item1)
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Whether the find is still worth listing: it isn't waiting, or it is waiting in a format a grab block takes.</summary>
+    public static bool IsListed(FollowFindEntity find, IReadOnlySet<string> wantedSides) =>
+        find.Status is not (FollowFindStatus.New or FollowFindStatus.Wanted) || wantedSides.Contains(find.MediaSide);
+
+    /// <summary>
+    /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost, in a
+    /// format a grab block takes (<see cref="WantedSides"/>). Finds of an ignored series are left out: the Following page
+    /// doesn't list those.
+    /// </summary>
+    public static Task<int> WaitingCountAsync(
+        FetchshelfDbContext dbContext, IReadOnlySet<string> wantedSides, CancellationToken cancellationToken = default) =>
         (from find in dbContext.FollowFinds
          join follow in dbContext.Follows on find.FollowId equals follow.Id
          where follow.Mode != FollowMode.Ignore && (find.Status == FollowFindStatus.New || find.Status == FollowFindStatus.Wanted)
+             && wantedSides.Contains(find.MediaSide)
          select find.Id).CountAsync(cancellationToken);
 
     /// <summary>The follow of every followed, watched or ignored series, by key; for the Series page.</summary>
@@ -136,7 +154,10 @@ public sealed class FollowService(
     public async Task<IReadOnlyList<FollowWithFinds>> AllAsync(CancellationToken cancellationToken = default)
     {
         var follows = await dbContext.Follows.Where(f => f.Mode != FollowMode.Ignore).ToListAsync(cancellationToken);
-        var finds = (await dbContext.FollowFinds.ToListAsync(cancellationToken)).ToLookup(f => f.FollowId);
+        var wantedSides = FollowQueries.WantedSides(settings.Grab);
+        var finds = (await dbContext.FollowFinds.ToListAsync(cancellationToken))
+            .Where(f => FollowQueries.IsListed(f, wantedSides))
+            .ToLookup(f => f.FollowId);
         return follows
             .OrderBy(f => f.Kind)
             .ThenBy(f => f.DisplayName, StringComparer.CurrentCultureIgnoreCase)

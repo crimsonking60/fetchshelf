@@ -383,6 +383,59 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_AFindWaitingInAFormatNoGrabBlockTakes_IsNeitherListedNorCounted()
+    {
+        // The find is an audiobook, found before the only grab block was limited to ebooks.
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow + "\ncategories = { audio = false }\n");
+        await SeedFindAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        Assert.Contains("James S. A. Corey", html);
+        Assert.DoesNotContain("The Way of Kings", html);
+        Assert.DoesNotContain("id=\"follow-badge\"", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_SearchNow_WaitsForTheRun_SoThePageShowsTheNewSearchTime()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        var searchedAt = new DateTimeOffset(2026, 11, 12, 13, 20, 22, TimeSpan.Zero);
+        fixture.JobRegistry.Register("Follow", async _ =>
+        {
+            await Task.Delay(200); // the search takes a moment; the page must wait for it
+            using var scope = fixture.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Follows.Single().LastSearchedAt = searchedAt;
+            dbContext.SaveChanges();
+        });
+        using var client = fixture.CreateClient();
+        var followId = FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        var response = await PostAsync(client, "/Following", "/Following?handler=SearchNow", new() { ["followId"] = followId, ["name"] = "James S. A. Corey" });
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains("Searched MAM for James S. A. Corey.", html);
+        Assert.Contains("Last searched <time class=\"local-time\" datetime=\"2026-11-12T13:20:22Z\"", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_SearchNow_ARunThatFails_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        fixture.JobRegistry.Register("Follow", _ => throw new InvalidOperationException("MAM answered HTTP 500"));
+        using var client = fixture.CreateClient();
+        var followId = FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        var response = await PostAsync(client, "/Following", "/Following?handler=SearchNow", new() { ["followId"] = followId, ["name"] = "James S. A. Corey" });
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains("The search for James S. A. Corey failed: MAM answered HTTP 500", html);
+    }
+
+    [Fact]
     public async Task FollowingPage_ListsFinds_AndCountsThemInTheMenu_AndDismissHidesOne()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);

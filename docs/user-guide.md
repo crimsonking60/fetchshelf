@@ -1097,8 +1097,11 @@ A book on *Auto* that isn't downloaded usually costs more than that.
 The **Following** page lists every series and author on *Auto* or followed with what was found for it, with
 each torrent's format and size; the count on its menu link is what is waiting to be looked at. A torrent's
 title opens its details from MAM over the page, as on the **Search** page; **Close** goes back to the list. A find marked *not free* matched, but none of the
-`[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. **Search now** puts a
-series or author first in line and starts the Follow job.
+`[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. A find waiting in a
+format no `[[follow.grab]]` block takes any more, such as an audiobook found before the blocks were limited to
+ebooks, is no longer listed or counted; it shows again if a block takes its format again. **Search now** puts a
+series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
+found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done.
 
 Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
 at most once every `search_again_after` hours (24); the **Following** page shows when each was last searched
