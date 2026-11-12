@@ -48,35 +48,6 @@
     </details>
 </form>
 
-<div id="search-filters">
-    <label>
-        <input type="checkbox" id="hide-downloaded" />
-        Hide downloaded torrents
-    </label>
-    <span id="media-filter">
-        Show:
-        <label class="show-filter-all show-filter-active" data-media-filter="All">
-            <input type="radio" name="MediaFilter" value="All" checked class="visually-hidden" />
-            All
-        </label>
-        <label class="show-filter-ebooks" data-media-filter="Ebooks">
-            <input type="radio" name="MediaFilter" value="Ebooks" class="visually-hidden" />
-            Ebooks
-        </label>
-        <label class="show-filter-audiobooks" data-media-filter="Audiobooks">
-            <input type="radio" name="MediaFilter" value="Audiobooks" class="visually-hidden" />
-            Audiobooks
-        </label>
-        <label class="show-filter-comic" data-media-filter="Comics">
-            <input type="radio" name="MediaFilter" value="Comics" class="visually-hidden" />
-            Comics
-        </label>
-        <label class="show-filter-other" data-media-filter="Other">
-            <input type="radio" name="MediaFilter" value="Other" class="visually-hidden" />
-            Other
-        </label>
-    </span>
-</div>
 
 @{
     var languageSuffix = Model.SearchLanguages.Count == 0
@@ -112,12 +83,17 @@ else
     <script>
         (function () {
             const slugByFilter = { Ebooks: 'ebook', Audiobooks: 'audiobook', Comics: 'comic', Other: 'other' };
-            const hideDownloadedCheckbox = document.getElementById('hide-downloaded');
+            // The filters sit in the results panel, which the results replace once they arrive: a choice made while MAM
+            // is being searched is kept here and put back on the new controls, which are listened to through the page.
             let currentMediaFilter = 'All';
+            let hideDownloaded = false;
 
             function applyFilters() {
                 const mediaSlug = slugByFilter[currentMediaFilter];
-                const hideDownloaded = hideDownloadedCheckbox != null && hideDownloadedCheckbox.checked;
+                const hideDownloadedCheckbox = document.getElementById('hide-downloaded');
+                if (hideDownloadedCheckbox != null) {
+                    hideDownloadedCheckbox.checked = hideDownloaded;
+                }
                 document.querySelectorAll('#search-results tbody tr').forEach(function (row) {
                     const matchesMedia = !mediaSlug || row.dataset.mediaType === mediaSlug;
                     const matchesStatus = !hideDownloaded || (row.dataset.status === 'none' && row.dataset.inQbittorrent !== 'true');
@@ -135,15 +111,19 @@ else
                 });
             }
 
-            document.querySelectorAll('#media-filter [data-media-filter]').forEach(function (button) {
-                button.addEventListener('click', function () {
+            document.body.addEventListener('click', function (event) {
+                const button = event.target.closest('#media-filter [data-media-filter]');
+                if (button != null) {
                     currentMediaFilter = button.dataset.mediaFilter;
                     applyFilters();
-                });
+                }
             });
-            if (hideDownloadedCheckbox != null) {
-                hideDownloadedCheckbox.addEventListener('change', applyFilters);
-            }
+            document.body.addEventListener('change', function (event) {
+                if (event.target.id === 'hide-downloaded') {
+                    hideDownloaded = event.target.checked;
+                    applyFilters();
+                }
+            });
             // A download swaps its row in out of band: it may now be hidden by "Hide downloaded torrents", and the count changes.
             document.body.addEventListener('htmx:oobAfterSwap', applyFilters);
             // The table arrives after page load, so filters must be re-applied to each new set of rows.

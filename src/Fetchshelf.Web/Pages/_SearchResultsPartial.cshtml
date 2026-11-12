@@ -29,6 +29,36 @@ else
             </label>
         </div>
     }
+    @* Right above the table they narrow; the page's script keeps their state when the results arrive. *@
+    <div id="search-filters">
+        <label>
+            <input type="checkbox" id="hide-downloaded" />
+            Hide downloaded torrents
+        </label>
+        <span id="media-filter">
+            Show:
+            <label class="show-filter-all show-filter-active" data-media-filter="All">
+                <input type="radio" name="MediaFilter" value="All" checked class="visually-hidden" />
+                All
+            </label>
+            <label class="show-filter-ebooks" data-media-filter="Ebooks">
+                <input type="radio" name="MediaFilter" value="Ebooks" class="visually-hidden" />
+                Ebooks
+            </label>
+            <label class="show-filter-audiobooks" data-media-filter="Audiobooks">
+                <input type="radio" name="MediaFilter" value="Audiobooks" class="visually-hidden" />
+                Audiobooks
+            </label>
+            <label class="show-filter-comic" data-media-filter="Comics">
+                <input type="radio" name="MediaFilter" value="Comics" class="visually-hidden" />
+                Comics
+            </label>
+            <label class="show-filter-other" data-media-filter="Other">
+                <input type="radio" name="MediaFilter" value="Other" class="visually-hidden" />
+                Other
+            </label>
+        </span>
+    </div>
     @* Before the results arrive this renders as just the header row, so the spinner has a table to sit over. *@
     <table id="search-results">
         <thead>

@@ -11,6 +11,24 @@ namespace Fetchshelf.Web.Tests;
 /// <summary>The Search page, also the application's home page ("/").</summary>
 public partial class IndexPageTests
 {
+    [Fact]
+    public async Task GetResults_TheFiltersSitRightAboveTheTable_BelowTheHeadingAndTheCategoryChoice()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var client = fixture.CreateClient();
+
+        var results = await client.GetStringAsync("/?handler=Results&Q=kings");
+        var page = await client.GetStringAsync("/?Q=kings");
+
+        Assert.True(
+            results.IndexOf("id=\"download-category-bar\"", StringComparison.Ordinal) < results.IndexOf("id=\"search-filters\"", StringComparison.Ordinal)
+            && results.IndexOf("id=\"search-filters\"", StringComparison.Ordinal) < results.IndexOf("<table id=\"search-results\"", StringComparison.Ordinal),
+            "Download into, then the filters, then the table");
+        Assert.True(
+            page.IndexOf("Matches for 'kings'", StringComparison.Ordinal) < page.IndexOf("id=\"search-filters\"", StringComparison.Ordinal),
+            "The filters come below the heading");
+    }
+
     [Theory]
     [InlineData(3)]
     [InlineData(4)]

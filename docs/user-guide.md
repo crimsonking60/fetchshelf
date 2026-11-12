@@ -698,8 +698,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   top-level `languages` in your configuration (see [Filtering](#filtering)); choose *Any language* or one
   language for a search of its own. Without a top-level `languages`, it starts at *Any language*. Unlike the
   filters below, the language is part of what is asked of MAM, so it does change which results come back.
-- **Hide downloaded torrents** hides every result that has a status or is in qBittorrent (see below), so
-  only torrents you don't have yet remain.
+- **Hide downloaded torrents**, in the row right above the results, hides every result that has a status or
+  is in qBittorrent (see below), so only torrents you don't have yet remain.
 - **Show** limits the list to one kind of torrent:
 
   | Choice | Shows |
