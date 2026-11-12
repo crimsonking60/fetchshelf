@@ -694,11 +694,26 @@ public sealed class LinkRunner(
     private static List<LinkedFileRecord> DeserializeLinkedFiles(string? json) =>
         json is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(json) ?? [];
 
-    /// <summary>Applies a manual metadata override, creating the Torrent record if it does not yet exist.</summary>
-    public async Task SetManualMetadataAsync(string torrentId, TorrentMetadata metadata, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Applies a manual metadata override, creating the Torrent record if it does not yet exist, and records what changed
+    /// as an Updated event edited by hand.
+    /// </summary>
+    /// <param name="torrentId">The torrent's info hash.</param>
+    /// <param name="metadata">The details as edited.</param>
+    /// <param name="before">
+    /// The details the edit started from, for a torrent without a record yet, such as MAM's from the Link error; a
+    /// recorded torrent is compared with its stored details.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the save.</param>
+    public async Task SetManualMetadataAsync(
+        string torrentId, TorrentMetadata metadata, TorrentMetadata? before = null, CancellationToken cancellationToken = default)
     {
         var manualMetadata = metadata with { MetadataSource = MetadataSource.Manual };
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken);
+
+        // What the edit changed, against the details stored before (or MAM's, for a torrent without a record yet).
+        var changes = MetadataDiff.Between(
+            existing is null ? before ?? manualMetadata : TorrentMetadataSerializer.Deserialize(existing.MetadataJson), manualMetadata);
 
         if (existing is null)
         {
@@ -718,6 +733,19 @@ public sealed class LinkRunner(
             existing.Title = manualMetadata.Title;
             existing.NormalizedTitleKey = TitleNormalizer.Normalize(manualMetadata.Title);
             existing.MetadataJson = TorrentMetadataSerializer.Serialize(manualMetadata);
+        }
+
+        if (changes.Count > 0)
+        {
+            await eventStore.AppendAsync(new EventEntity
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                TorrentId = existing.Id,
+                MamId = existing.MamId,
+                Kind = EventKind.Updated,
+                FieldChangesJson = JsonSerializer.Serialize(changes),
+                EditedByHand = true,
+            }, cancellationToken);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

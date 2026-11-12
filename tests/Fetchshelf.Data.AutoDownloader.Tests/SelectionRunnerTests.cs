@@ -90,6 +90,31 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcessCandidateAsync_AlreadyInLibraryWithDetailsEditedByHand_KeepsTheEdits()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var record = SelectionTestSupport.BuildRecord(mamId: 1);
+        var edited = MamTorrentMapper.Map(record) with { Title = "Edited Title", MetadataSource = Fetchshelf.Core.Metadata.MetadataSource.Manual };
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 1,
+            NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(edited.Title),
+            Title = edited.Title,
+            MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(edited),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await context.SaveChangesAsync();
+
+        var outcome = await Process(CreateRunner(context), record);
+
+        Assert.Equal(SelectionOutcome.RefreshedLibrary, outcome);
+        context.ChangeTracker.Clear();
+        Assert.Equal("Edited Title", (await context.Torrents.SingleAsync()).Title);
+        Assert.Empty(context.Events);
+    }
+
+    [Fact]
     public async Task ProcessCandidateAsync_MetadataOnlyAdd_NotInLibrary_CreatesEntry()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

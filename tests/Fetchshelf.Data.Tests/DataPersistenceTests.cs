@@ -92,6 +92,25 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_UpdatedEventFromBeforeHandEditsWereRecorded_KeepsItWithEditedByHandEmpty()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261111201637_AddUpgradeSearchedAt");
+        var updated = (int)EventKind.Updated;
+        context.Database.ExecuteSql(
+            $$"""
+            INSERT INTO Events (OccurredAt, TorrentId, Kind, FieldChangesJson)
+            VALUES ('2026-11-11 10:00:00+00:00', 'hash1', {{updated}}, '[{"Field":"Title","From":"A","To":"B"}]')
+            """);
+
+        DatabaseMigrator.Migrate(context);
+
+        var e = context.Events.Single();
+        Assert.Equal((EventKind.Updated, (bool?)null), (e.Kind, e.EditedByHand));
+        Assert.Contains("\"Title\"", e.FieldChangesJson);
+    }
+
+    [Fact]
     public void Migrate_DuplicateErrorRowsFromBeforeTheUniqueIndex_KeepsOnlyTheNewestPerStageAndKey()
     {
         using var context = CreateContext();

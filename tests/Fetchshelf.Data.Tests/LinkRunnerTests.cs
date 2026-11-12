@@ -635,6 +635,37 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task SetManualMetadataAsync_RecordsWhatTheEditChangedAsAnUpdatedEventByHand()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await OrganizerTestSupport.SeedTorrentAsync(context, "hash1", 1);
+        var stored = TorrentMetadataSerializer.Deserialize((await context.Torrents.SingleAsync()).MetadataJson);
+        var runner = CreateRunner(context, new FakeMetadataLookup(null), []);
+
+        await runner.SetManualMetadataAsync("hash1", stored with { Title = "Fixed Title", Series = [SeriesParser.ParseLine("Stormlight #1")] });
+        await runner.SetManualMetadataAsync("hash1", TorrentMetadataSerializer.Deserialize((await context.Torrents.SingleAsync()).MetadataJson));
+
+        var e = await context.Events.SingleAsync(); // the second save changed nothing, so it records nothing
+        Assert.Equal((EventKind.Updated, (bool?)true, "hash1"), (e.Kind, e.EditedByHand, e.TorrentId));
+        Assert.Equal(
+            [new FieldChange("Title", "Book 1", "Fixed Title"), new FieldChange("Series", "", "Stormlight #1")],
+            System.Text.Json.JsonSerializer.Deserialize<List<FieldChange>>(e.FieldChangesJson!));
+    }
+
+    [Fact]
+    public async Task SetManualMetadataAsync_ATorrentWithoutARecord_IsComparedWithTheDetailsTheEditStartedFrom()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context, new FakeMetadataLookup(null), []);
+        var fromMam = OrganizerTestSupport.BuildMetadata(title: "MAM Title", authors: []);
+
+        await runner.SetManualMetadataAsync("hash1", fromMam with { Authors = ["Anne Writer"] }, fromMam);
+
+        var e = await context.Events.SingleAsync();
+        Assert.Equal([new FieldChange("Authors", "", "Anne Writer")], System.Text.Json.JsonSerializer.Deserialize<List<FieldChange>>(e.FieldChangesJson!));
+    }
+
+    [Fact]
     public async Task RefreshAndRelinkAsync_MetadataEditedByHand_LinksByTheEditedMetadata()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

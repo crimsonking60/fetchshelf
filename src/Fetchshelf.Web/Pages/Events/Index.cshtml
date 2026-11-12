@@ -87,7 +87,7 @@ else
                                 @:Unlinked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.Updated:
-                                @:@EventLabels.FieldChanges(e.FieldChangesJson)
+                                @:@(e.EditedByHand == true ? "Edited by hand: " : "")@EventLabels.FieldChanges(e.FieldChangesJson)
                                 break;
                             case Fetchshelf.Data.Entities.EventKind.Grabbed:
                                 @:Grabbed@(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}") (cost: @e.Cost)

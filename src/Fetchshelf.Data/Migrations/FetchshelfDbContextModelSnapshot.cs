@@ -85,6 +85,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("Cost")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool?>("EditedByHand")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("FieldChangesJson")
                         .HasColumnType("TEXT");
 

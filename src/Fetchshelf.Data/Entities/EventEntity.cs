@@ -45,5 +45,11 @@ public sealed class EventEntity
     // Updated: list of (field name, from, to)
     public string? FieldChangesJson { get; set; }
 
+    /// <summary>
+    /// For Updated: true when the details were edited by hand on the torrent's Edit page; null when they came from MAM,
+    /// and for events written before hand edits were recorded.
+    /// </summary>
+    public bool? EditedByHand { get; set; }
+
     // RemovedFromMam carries no payload beyond Kind/TorrentId/MamId/OccurredAt.
 }

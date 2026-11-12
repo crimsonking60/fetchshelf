@@ -165,6 +165,34 @@ public class EventsPageTests
         Assert.Contains("Linked by Audiobooks", Table(linked));
         Assert.Contains("name=\"Field\"", updated);
         Assert.Contains("<option value=\"LegacyCategory\">Category</option>", updated);
+        Assert.Contains("<option value=\"Series\">Series</option>", updated);
+    }
+
+    [Fact]
+    public async Task UpdatedEventEditedByHand_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Updated,
+            TorrentId = "hash1",
+            EditedByHand = true,
+            FieldChangesJson = System.Text.Json.JsonSerializer.Serialize(new[] { new Fetchshelf.Core.Metadata.FieldChange("Title", "A", "B") }),
+        });
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            Kind = EventKind.Updated,
+            TorrentId = "hash2",
+            FieldChangesJson = System.Text.Json.JsonSerializer.Serialize(new[] { new Fetchshelf.Core.Metadata.FieldChange("Title", "C", "D") }),
+        });
+
+        var table = Table(await fixture.CreateClient().GetStringAsync("/events"));
+
+        Assert.Contains("Edited by hand: Title: A → B", System.Net.WebUtility.HtmlDecode(table));
+        Assert.Contains("Title: C → D", System.Net.WebUtility.HtmlDecode(table));
+        Assert.DoesNotContain("Edited by hand: Title: C", System.Net.WebUtility.HtmlDecode(table));
     }
 
     [Fact]

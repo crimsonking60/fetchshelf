@@ -34,7 +34,8 @@ public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner) : P
     public async Task<IActionResult> OnPostAsync(string id)
     {
         Id = id;
-        await linkRunner.SetManualMetadataAsync(id, Input.ToMetadata(await OriginalMetadataAsync(id)));
+        var original = await OriginalMetadataAsync(id);
+        await linkRunner.SetManualMetadataAsync(id, Input.ToMetadata(original), original);
 
         return RedirectToPage("/Torrents/Detail", new { id });
     }

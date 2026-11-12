@@ -1500,17 +1500,19 @@ reported, so they cannot be chosen by hand.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
   such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
-  through link runs, snatchlists and **Refresh and relink**; only **Refresh** replaces them with MAM's
-  details.
+  through link runs, snatchlists, **Refresh and relink**, and autograbs, lists and Follow coming across the
+  torrent again; only **Refresh** replaces them with MAM's details. What an edit changed is recorded on the
+  **Events** page as an update *Edited by hand*.
 
 ### Events
 
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
-fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
-with the dropdowns above it: by event type, by the job that grabbed a torrent (an autograb, a list, Follow,
-Upgrade or the Search page), or by the library that linked it. With the type set to *Updated*, a further
-dropdown filters by the field an update changed. A choice applies straight away; **Clear filters** shows the
-whole list again. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
+fields changed: title, authors, narrators, series, language, category or flags, and whether they were
+edited by hand or came from MAM (an autograb, list or Follow coming across a torrent already in the library,
+**Refresh**, or a relink). Events are never edited, so you can use them to see why something happened. Filter
+the list with the dropdowns above it: by event type, by the job that grabbed a torrent (an autograb, a list,
+Follow, Upgrade or the Search page), or by the library that linked it. With the type set to *Updated*, a
+further dropdown filters by the field an update changed. A choice applies straight away; **Clear filters** shows the whole list again. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
 browser remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move
 between pages.
 

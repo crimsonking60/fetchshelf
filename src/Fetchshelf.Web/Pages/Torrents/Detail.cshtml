@@ -125,7 +125,7 @@
     <ul>
         @foreach (var e in torrent.Events)
         {
-            <li><local-time value="e.OccurredAt" /> - @Fetchshelf.Web.Pages.Events.EventLabels.For(e.Kind)</li>
+            <li><local-time value="e.OccurredAt" /> - @Fetchshelf.Web.Pages.Events.EventLabels.For(e.Kind)@(e.EditedByHand == true ? " (by hand)" : "")</li>
         }
     </ul>
 }

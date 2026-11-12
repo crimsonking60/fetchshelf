@@ -156,9 +156,14 @@ public sealed class SelectionRunner(
         existing.NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title);
     }
 
-    private async Task RefreshLibraryMetadataAsync(TorrentEntity existing, TorrentMetadata metadata, CancellationToken cancellationToken)
+    /// <summary>
+    /// Stores MAM's current details for a torrent already in the library, recording changed fields as an Updated event.
+    /// Details edited by hand are kept, as the Link job and Refresh keep them (<see cref="HandEdits"/>).
+    /// </summary>
+    private async Task RefreshLibraryMetadataAsync(TorrentEntity existing, TorrentMetadata fresh, CancellationToken cancellationToken)
     {
         var current = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
+        var metadata = HandEdits.KeepOver(current, fresh);
         var changes = MetadataDiff.Between(current, metadata);
         if (changes.Count == 0)
         {
