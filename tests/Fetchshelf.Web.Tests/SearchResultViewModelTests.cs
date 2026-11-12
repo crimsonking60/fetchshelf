@@ -54,4 +54,25 @@ public class SearchResultViewModelTests
         Assert.EndsWith("... more", result);
         Assert.True(result.Length - ", ... more".Length <= SearchResultViewModel.MaxAuthorsLength);
     }
+
+    [Theory]
+    [InlineData(MamResultStatus.None, null, true)]
+    [InlineData(MamResultStatus.None, false, true)]
+    [InlineData(MamResultStatus.Selected, null, true)]
+    [InlineData(MamResultStatus.None, true, false)]
+    [InlineData(MamResultStatus.Selected, true, false)]
+    [InlineData(MamResultStatus.Downloading, null, false)]
+    [InlineData(MamResultStatus.Downloaded, false, false)]
+    [InlineData(MamResultStatus.Linked, null, false)]
+    public void ShowSnatched_OnlyWhenNothingElseSaysTheTorrentWasDownloaded(MamResultStatus status, bool? inQBittorrent, bool shown)
+    {
+        var row = new SearchResultViewModel(1, "T", "A", 1, "1 B", false, false, false, false, status, "ebook", "Ebook")
+        {
+            IsSnatchedByMe = true,
+            InQBittorrent = inQBittorrent,
+        };
+
+        Assert.Equal(shown, row.ShowSnatched);
+        Assert.False((row with { IsSnatchedByMe = false }).ShowSnatched);
+    }
 }

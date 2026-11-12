@@ -682,8 +682,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **The type list** limits what is searched: *All torrents*, *Freeleech*, *Freeleech or VIP*, *VIP*,
   *Bookmarked on MAM* (the account's bookmarks), or *Not snatched yet*. MAM can't be asked for torrents the
   account hasn't snatched, so that last one searches everything and leaves out, on each page, the ones it has;
-  the line below the results says how many. A result the account has snatched before is marked **Snatched**
-  whatever the type.
+  the line below the results says how many. Whatever the type, a result the account has snatched before is
+  marked **Snatched**, unless the row already shows it was downloaded: *Downloading*, *Downloaded*, *Linked*
+  or a qBittorrent mark. So the mark points out snatches from outside Fetchshelf or from before, also on a
+  *Selected* result that is about to be downloaded again.
 - **The sort list** sets the order: *Best match*, *Newest*, *Oldest*, *Most seeders*, *Most snatched*,
   *Largest* or *Title*. *Best match* is MAM's own order: by how well a result matches the search text; with
   the box empty, newest first, and for *Bookmarked on MAM* the newest bookmarks first.

@@ -25,6 +25,13 @@ public sealed record SearchResultViewModel(
     /// <summary>Whether the account has snatched the torrent before, as MAM says.</summary>
     public bool IsSnatchedByMe { get; init; }
 
+    /// <summary>
+    /// Whether the row says *Snatched*: only when nothing else on it says the torrent was downloaded. A torrent that is
+    /// downloading, downloaded or linked, or that qBittorrent has, was snatched whatever MAM says; one with no status, or
+    /// only selected, may be a snatch from outside Fetchshelf or from before, which is worth knowing before downloading.
+    /// </summary>
+    public bool ShowSnatched => IsSnatchedByMe && Status is MamResultStatus.None or MamResultStatus.Selected && InQBittorrent != true;
+
     /// <summary>How complete the torrent's metadata on MAM is; null for rows built without the MAM record.</summary>
     public MetadataQualityRating? MetadataQuality { get; init; }
 
