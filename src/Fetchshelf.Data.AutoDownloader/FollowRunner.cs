@@ -164,12 +164,13 @@ public sealed class FollowRunner(
     /// why, such as an owned collection that holds most of a series.
     /// </summary>
     /// <param name="Results">Torrents MAM returned.</param>
+    /// <param name="Pages">The pages they were read in.</param>
     /// <param name="OfFollow">Of those, ebooks and audiobooks of the series, or by the author.</param>
     /// <param name="Owned">Of those, what the library or the selection queue has: the torrent, the book, or its series entry.</param>
     /// <param name="Left">The others.</param>
     /// <param name="Books">The books and formats those are: one torrent each is looked at.</param>
     /// <param name="Taken">The books and formats a grab block's filter takes.</param>
-    private sealed record SearchOutcome(int Results, int OfFollow, int Owned, int Left, int Books, int Taken)
+    private sealed record SearchOutcome(int Results, int Pages, int OfFollow, int Owned, int Left, int Books, int Taken)
     {
         /// <summary>Already listed, dismissed or selected by an earlier search.</summary>
         public int Known { get; set; }
@@ -187,7 +188,7 @@ public sealed class FollowRunner(
         {
             var whose = kind == FollowKind.Series ? "in the series" : "by the author";
             var notTaken = Books - Taken;
-            return $"{Results} torrents on MAM, {OfFollow} of them ebooks or audiobooks {whose}; {Owned} already in the library or selected; "
+            return $"{Results} torrents on MAM in {Pages} {(Pages == 1 ? "page" : "pages")}, {OfFollow} of them ebooks or audiobooks {whose}; {Owned} already in the library or selected; "
                 + $"the other {Left} are {Books} books (one torrent per book and format)"
                 + (notTaken > 0 ? $", {notTaken} of them in no grab block's filter" : string.Empty)
                 + $". Of those, {Known} found before, {New} new to look at, {Selected} selected, {NotFree} not free"
@@ -210,7 +211,7 @@ public sealed class FollowRunner(
         FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, IReadOnlyList<long> ignoreTorrents, RunState run,
         CancellationToken cancellationToken)
     {
-        var (records, readAll) = await SearchPagesAsync(follow, grabFilters, cancellationToken);
+        var (records, readAll, pages) = await SearchPagesAsync(follow, grabFilters, cancellationToken);
         run.Searched++;
 
         var candidates = records.Select(record => ToCandidate(follow, record)).OfType<Candidate>().ToList();
@@ -232,7 +233,7 @@ public sealed class FollowRunner(
         var now = _time.GetUtcNow();
         var foundSomething = false;
         var stoppedByBudget = false;
-        var outcome = new SearchOutcome(records.Count, ofFollow, ofFollow - candidates.Count, candidates.Count, books, decisions.Count);
+        var outcome = new SearchOutcome(records.Count, pages, ofFollow, ofFollow - candidates.Count, candidates.Count, books, decisions.Count);
         foreach (var decision in decisions)
         {
             var shown = decision.Shown;
@@ -358,9 +359,10 @@ public sealed class FollowRunner(
     /// <summary>
     /// Reads the follow's results, newest first, page by page: all of them when the follow hasn't had every page read
     /// within <see cref="ReadAllAgainAfter"/>, else until a page reaches torrents uploaded before the previous search
-    /// (less <see cref="ReadBackOverlap"/>). Returns them, each once, and whether every page was read.
+    /// (less <see cref="ReadBackOverlap"/>). Returns them, each once, whether every page was read, and how many pages
+    /// were.
     /// </summary>
-    private async Task<(List<MamTorrentRecord> Records, bool ReadAll)> SearchPagesAsync(
+    private async Task<(List<MamTorrentRecord> Records, bool ReadAll, int Pages)> SearchPagesAsync(
         FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, CancellationToken cancellationToken)
     {
         var now = _time.GetUtcNow();
@@ -371,31 +373,45 @@ public sealed class FollowRunner(
         var seen = new HashSet<long>();
         for (var page = 0; page < MaxPages; page++)
         {
-            var result = await mamClient.SearchAsync(ToSearchQuery(follow, grabFilters, page * (long)PageSize), cancellationToken);
+            var offset = page * (long)PageSize;
+            var result = await mamClient.SearchAsync(ToSearchQuery(follow, grabFilters, offset), cancellationToken);
             await _delay(PolitenessDelay, cancellationToken);
             // A torrent uploaded while the pages are read pushes the others down a place: it is seen twice, kept once.
-            records.AddRange(result.Data.Where(record => seen.Add(record.MamId)));
+            var fresh = result.Data.Where(record => seen.Add(record.MamId)).ToList();
+            records.AddRange(fresh);
+            _logger.LogDebug(
+                "Follow {Name}: page {Page} from torrent {Offset}: {Count} torrents, {Fresh} not on an earlier page; MAM gave start {Start}, found {Found}, total {Total}",
+                follow.DisplayName, page + 1, offset, result.Data.Count, fresh.Count, result.Start, result.Found, result.Total);
 
-            // A short page is the last; so is a full one that reaches the total MAM gives, when it gives one.
-            var lastPage = result.Data.Count < PageSize || (result.Found > 0 && (page + 1) * (long)PageSize >= result.Found);
-            if (lastPage)
+            // A short page is the last; so is a full one that reaches the count MAM gives, when it gives one. MAM gives
+            // two, found and total; the larger is taken, so a count of the page alone doesn't end the search early.
+            var count = Math.Max(result.Found, result.Total);
+            if (result.Data.Count < PageSize || (count > 0 && offset + PageSize >= count))
             {
-                _logger.LogDebug("Follow {Name}: {Count} results on MAM, read in {Pages} pages", follow.DisplayName, records.Count, page + 1);
-                return (records, readAll);
+                return (records, readAll, page + 1);
+            }
+
+            if (fresh.Count == 0)
+            {
+                // The same torrents again: MAM didn't move on to the next page, and reading on would only repeat them.
+                _logger.LogWarning(
+                    "Follow {Name}: MAM gave page {Page} (from torrent {Offset}) only torrents an earlier page had, so the search stops at {Count} torrents. MAM gave start {Start}, found {Found}, total {Total}",
+                    follow.DisplayName, page + 1, offset, records.Count, result.Start, result.Found, result.Total);
+                return (records, false, page + 1);
             }
 
             if (readBackTo is { } since && result.Data.Min(record => record.UploadedAt) < since)
             {
                 _logger.LogDebug(
                     "Follow {Name}: read {Pages} pages, back to torrents the last search saw", follow.DisplayName, page + 1);
-                return (records, false);
+                return (records, false, page + 1);
             }
         }
 
         _logger.LogWarning(
             "Follow {Name}: stopped after {Pages} pages of results ({Count} torrents); older ones are not looked at",
             follow.DisplayName, MaxPages, records.Count);
-        return (records, false);
+        return (records, false, MaxPages);
     }
 
     /// <summary>

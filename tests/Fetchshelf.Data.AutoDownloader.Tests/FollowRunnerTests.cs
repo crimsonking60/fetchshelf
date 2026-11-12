@@ -199,7 +199,7 @@ public sealed class FollowRunnerTests : IDisposable
         await harness.RunAsync();
 
         Assert.Contains(
-            "Follow The Expanse: 8 torrents on MAM, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
+            "Follow The Expanse: 8 torrents on MAM in 1 page, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
             + "the other 3 are 2 books (one torrent per book and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
             logger.Messages(LogLevel.Information));
         Assert.Equal([5, 6], Finds(harness).Select(f => f.MamId));
@@ -260,20 +260,31 @@ public sealed class FollowRunnerTests : IDisposable
     /// A MAM that has <paramref name="count"/> books by the author, newest first, and answers each search with the page
     /// its offset asks for. Book i was uploaded at <paramref name="addedAt"/>(i).
     /// </summary>
-    private Harness CreatePagedHarness(int count, Func<int, DateTimeOffset> addedAt, bool giveFound = true) =>
-        CreateHarness(body =>
-        {
-            using var json = System.Text.Json.JsonDocument.Parse(body);
-            var start = json.RootElement.TryGetProperty("tor", out var tor) && tor.TryGetProperty("startNumber", out var number) ? number.GetInt64() : 0;
-            var page = Enumerable.Range((int)start, (int)Math.Clamp(count - start, 0, FollowRunner.PageSize))
-                .Select(i => Record(1000 + i, $"Book {i}", added: addedAt(i).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)))
-                .ToArray();
-            var found = giveFound ? count : 0;
-            return new HttpResponseMessage(HttpStatusCode.OK)
+    /// <param name="count">The torrents MAM has for the search.</param>
+    /// <param name="addedAt">Each one's upload time, by its place, newest first.</param>
+    /// <param name="giveFound">Whether MAM gives the count, as found and total; else both are 0.</param>
+    /// <param name="foundIsThePage">Whether found is the count of the page alone, and only total the whole count.</param>
+    /// <param name="ignoreOffset">Whether MAM answers every page with the first.</param>
+    private Harness CreatePagedHarness(
+        int count, Func<int, DateTimeOffset> addedAt, bool giveFound = true, bool foundIsThePage = false, bool ignoreOffset = false,
+        ListLogger<FollowRunner>? logger = null) =>
+        CreateHarness(
+            body =>
             {
-                Content = new StringContent($$"""{"perpage":100,"start":{{start}},"total":{{found}},"found":{{found}},"data":[{{string.Join(",", page)}}]}"""),
-            };
-        });
+                using var json = System.Text.Json.JsonDocument.Parse(body);
+                var start = ignoreOffset ? 0
+                    : json.RootElement.TryGetProperty("tor", out var tor) && tor.TryGetProperty("startNumber", out var number) ? number.GetInt64() : 0;
+                var page = Enumerable.Range((int)start, (int)Math.Clamp(count - start, 0, FollowRunner.PageSize))
+                    .Select(i => Record(1000 + i, $"Book {i}", added: addedAt(i).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)))
+                    .ToArray();
+                var total = giveFound ? count : 0;
+                var found = foundIsThePage ? page.Length : total;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($$"""{"perpage":100,"start":{{start}},"total":{{total}},"found":{{found}},"data":[{{string.Join(",", page)}}]}"""),
+                };
+            },
+            logger: logger);
 
     [Fact]
     public async Task AFirstSearch_ReadsEveryPage()
@@ -287,6 +298,35 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal(250, summary.NewFinds);
         Assert.Equal(250, Finds(harness).Count);
         Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single().FullySearchedAt);
+    }
+
+    [Fact]
+    public async Task WhenMamsFoundCountsOnlyThePage_TheTotalStillHasEveryPageRead()
+    {
+        var harness = CreatePagedHarness(250, i => Now.AddHours(-i), foundIsThePage: true);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(3, harness.Searches.Count);
+        Assert.Equal(250, summary.NewFinds);
+    }
+
+    [Fact]
+    public async Task WhenMamGivesTheFirstPageAgain_TheSearchStops_AndSaysSo()
+    {
+        var logger = new ListLogger<FollowRunner>();
+        var harness = CreatePagedHarness(250, i => Now.AddHours(-i), ignoreOffset: true, logger: logger);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(2, harness.Searches.Count);
+        Assert.Equal(100, summary.NewFinds);
+        Assert.Null(harness.Context.Follows.AsNoTracking().Single().FullySearchedAt); // not every page
+        Assert.Contains(logger.Messages(LogLevel.Warning), m => m.StartsWith(
+            "Follow James S. A. Corey: MAM gave page 2 (from torrent 100) only torrents an earlier page had, so the search stops at 100 torrents.",
+            StringComparison.Ordinal));
     }
 
     [Fact]
