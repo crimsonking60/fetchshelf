@@ -81,7 +81,7 @@ public partial class FollowPagesTests
     }
 
     [Fact]
-    public async Task FollowingPage_ChangeToFollowed_ReloadsThePageWithTheNewModeInTheHeading()
+    public async Task FollowingPage_ChangeToAuto_ReloadsThePageWithTheNewModeInTheHeading()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
         await SeedFindAsync(fixture, mode: FollowMode.Watch);
@@ -94,11 +94,11 @@ public partial class FollowPagesTests
         var after = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal("/Following", response.RequestMessage!.RequestUri!.AbsolutePath);
-        Assert.Contains("Author, Watched - download yourself</span>", before);
-        Assert.Contains(">Change to Followed</button>", before);
-        Assert.Contains("Author, Followed - downloaded automatically</span>", after);
-        Assert.Contains(">Change to Watched</button>", after);
-        Assert.DoesNotContain("Watched - download yourself</span>", after);
+        Assert.Contains("Author, Followed - download yourself</span>", before);
+        Assert.Contains(">Change to Auto</button>", before);
+        Assert.Contains("Author, Auto - downloaded automatically</span>", after);
+        Assert.Contains(">Change to Followed</button>", after);
+        Assert.DoesNotContain("Followed - download yourself</span>", after);
     }
 
     [Fact]
@@ -130,10 +130,11 @@ public partial class FollowPagesTests
 
         Assert.Contains("<section id=\"follow-rules\"", html);
         Assert.Matches(
-            "<p>For a followed series or author, this decides what is downloaded:</p>\\s*<ul>\\s*"
+            "<p>For a series or author on Auto, this decides what is downloaded:</p>\\s*<ul>\\s*"
             + "<li>Ebooks and audiobooks: only free ones \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*</ul>",
             html);
         Assert.Contains("listed as <em>Not free</em>", html);
+        Assert.Contains("A followed series or author only has what is found listed.", html);
         Assert.DoesNotContain("dry_run</code> is on", html);
     }
 
@@ -213,7 +214,7 @@ public partial class FollowPagesTests
     }
 
     [Fact]
-    public async Task SeriesPage_Follow_SwapsTheRow_AndTheFilterFindsIt()
+    public async Task SeriesPage_Auto_SwapsTheRow_AndTheFilterFindsIt()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
         await SeedExpanseAsync(fixture);
@@ -224,7 +225,9 @@ public partial class FollowPagesTests
         var row = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.StartsWith("<tr id=\"series-", row.Trim());
-        Assert.Contains(">Followed</span>", row);
+        Assert.Contains(">Auto</span>", row);
+        Assert.Contains(">Follow</button>", row);
+        Assert.DoesNotContain(">Auto</button>", row); // the mode in use has no button
         Assert.Equal(FollowMode.Download, FollowOf(fixture, FollowKind.Series, "expanse")!.Mode);
         Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=followed"));
         Assert.Contains(">Following</a>", await client.GetStringAsync("/Series"));
@@ -274,6 +277,43 @@ public partial class FollowPagesTests
         Assert.Contains(">Following James S. A. Corey</a>", after);
         // No message is left behind for a later visit to the Following page.
         Assert.DoesNotContain("id=\"follow-message\"", await client.GetStringAsync("/Following"));
+    }
+
+    [Fact]
+    public async Task SeriesPage_Follow_ListsOnly_AndTheFilterNamesBothModes()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateClient();
+        var page = WebUtility.HtmlDecode(await client.GetStringAsync("/Series"));
+
+        var response = await PostAsync(client, "/Series", "/Series?handler=Mode",
+            new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Watch" }, htmx: true);
+        var row = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.True(page.IndexOf(">Follow</button>", StringComparison.Ordinal) < page.IndexOf(">Auto</button>", StringComparison.Ordinal), "Follow comes before Auto");
+        Assert.Contains(">Auto</button>", page);
+        Assert.Contains(">Auto or followed</option>", page);
+        Assert.Contains(">Followed</span>", row);
+        Assert.Equal(FollowMode.Watch, FollowOf(fixture, FollowKind.Series, "expanse")!.Mode);
+    }
+
+    [Fact]
+    public async Task TorrentPage_FollowASeries_StartsItListingOnly_LikeAnAuthor()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedExpanseAsync(fixture);
+        using var client = fixture.CreateNoRedirectClient();
+
+        await PostAsync(client, "/torrents/hash1", "/Following?handler=Follow", new()
+        {
+            ["kind"] = "Series",
+            ["key"] = "expanse",
+            ["name"] = "The Expanse",
+            ["returnUrl"] = "/torrents/hash1",
+        });
+
+        Assert.Equal(FollowMode.Watch, FollowOf(fixture, FollowKind.Series, "expanse")!.Mode);
     }
 
     [Fact]

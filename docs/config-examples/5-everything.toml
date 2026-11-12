@@ -256,12 +256,12 @@ cost = "free"
 
 # =====================================================================================================
 # [follow]: optional. Lets series and authors be followed from the Series page, a torrent's page and the
-# Torrents page; the Follow job then searches MAM for their missing and new books. What is followed is
-# chosen in the web UI, not here.
+# Torrents page; the Follow job then searches MAM for their missing and new books, and downloads them for those
+# set to Auto. What is followed, and what is on Auto, is chosen in the web UI, not here.
 # =====================================================================================================
 [follow]
 search_interval = 60     # overrides the global search_interval
-searches_per_run = 10    # MAM searches per run at most, one per followed series or author
+searches_per_run = 10    # MAM searches per run at most, one per series or author on the Following page
 search_again_after = 24  # hours before the same series or author is searched again
 prefer_format = "audio"  # when both formats are found, take only this one; unset = both
 category = "audiobooks"  # qBittorrent category for everything it downloads; overrides [[tag]] rules

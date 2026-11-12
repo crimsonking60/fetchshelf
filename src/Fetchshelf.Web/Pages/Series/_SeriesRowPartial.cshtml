@@ -14,8 +14,8 @@
     <td class="nowrap">
         @switch (mode)
         {
-            case FollowMode.Download: <span class="status-badge status-linked">Followed</span> break;
-            case FollowMode.Watch: <span class="status-badge status-selected">Watched</span> break;
+            case FollowMode.Download: <span class="status-badge status-linked">Auto</span> break;
+            case FollowMode.Watch: <span class="status-badge status-selected">Followed</span> break;
             case FollowMode.Ignore: <span class="muted">Ignored</span> break;
         }
     </td>
@@ -25,8 +25,8 @@
             @* Each button sets one mode; the one in use is left out, and "Stop" undoes any. *@
             @foreach (var (value, label, title) in new[]
             {
-                ("Download", "Follow", "Download its missing and future books automatically"),
-                ("Watch", "Watch", "List its missing and future books on the Following page"),
+                ("Watch", "Follow", "List its missing and future books on the Following page"),
+                ("Download", "Auto", "Download its missing and future books automatically"),
                 ("Ignore", "Ignore", "Leave it out of the series with missing books"),
                 ("Stop", "Stop", "Stop following or ignoring it"),
             }.Where(b => b.Item1 != mode?.ToString() && (b.Item1 != "Stop" || mode is not null)))

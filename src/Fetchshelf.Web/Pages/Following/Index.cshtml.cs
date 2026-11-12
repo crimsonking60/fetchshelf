@@ -51,7 +51,7 @@ public class IndexModel(
         }
     }
 
-    /// <summary>Follows a series or author in its default mode, from a torrent's page or the Torrents page, and goes back there.</summary>
+    /// <summary>Follows a series or author in the default mode (<see cref="FollowService.DefaultMode"/>), from a torrent's page or the Torrents page, and goes back there.</summary>
     public async Task<IActionResult> OnPostFollowAsync(FollowKind kind, string key, string name, string? returnUrl)
     {
         if (FollowService is not { } followService)
@@ -169,8 +169,8 @@ public class IndexModel(
 
     public static string ModeLabel(FollowMode mode) => mode switch
     {
-        FollowMode.Download => "Followed - downloaded automatically",
-        FollowMode.Watch => "Watched - download yourself",
+        FollowMode.Download => "Auto - downloaded automatically",
+        FollowMode.Watch => "Followed - download yourself",
         _ => "Ignored",
     };
 

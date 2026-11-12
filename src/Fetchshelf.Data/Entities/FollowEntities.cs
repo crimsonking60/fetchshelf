@@ -10,10 +10,10 @@ public enum FollowKind
 /// <summary>What the Follow job does for a followed series or author.</summary>
 public enum FollowMode
 {
-    /// <summary>What is found is selected, through the usual selection rules and budgets.</summary>
+    /// <summary>What is found is selected, through the usual selection rules and budgets. Shown as *Auto*.</summary>
     Download = 0,
 
-    /// <summary>What is found is listed on the Following page, with a Download button; nothing is selected.</summary>
+    /// <summary>What is found is listed on the Following page, with a Download button; nothing is selected. Shown as *Follow*.</summary>
     Watch = 1,
 
     /// <summary>Series only: left out of the series with missing books, and never searched.</summary>

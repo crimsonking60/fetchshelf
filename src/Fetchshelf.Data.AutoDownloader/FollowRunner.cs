@@ -72,7 +72,7 @@ public sealed class FollowRunner(
 
         if (due.Count == 0)
         {
-            _logger.LogInformation("Follow: no followed series or author is due for a search");
+            _logger.LogInformation("Follow: no series or author on the Following page is due for a search");
             return new FollowRunSummary(0, 0, 0, 0, settings.DryRun);
         }
 
@@ -117,7 +117,7 @@ public sealed class FollowRunner(
         }
 
         _logger.LogInformation(
-            "Follow: {Searched} followed searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
+            "Follow: {Searched} series and authors searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
             run.Searched, run.Selected, settings.DryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
             run.Failed == 0 ? string.Empty : $", {run.Failed} failed");
         return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, settings.DryRun);

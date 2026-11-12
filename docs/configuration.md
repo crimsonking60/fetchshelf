@@ -588,16 +588,17 @@ What each run does:
 
 ## `[follow]`
 
-Optional. Lets series and authors be followed: the Follow job searches MAM for them and selects the books the
-library is missing, or lists them on the **Following** page. Which series and authors are followed is chosen in
-the web UI (the **Series** page, a torrent's page, the Torrents page's author and series filters), not here.
+Optional. Lets series and authors be followed: the Follow job searches MAM for them and lists the books the
+library is missing on the **Following** page, or, for those set to *Auto*, selects them for download. Which
+series and authors are followed, and which of them are on *Auto*, is chosen in the web UI (the **Series** page,
+a torrent's page, the Torrents page's author and series filters, the **Following** page), not here.
 Without this section there is no Follow job and no follow buttons; the **Series** page still shows what is
 missing.
 
 | Setting | Default | Description |
 |---|---|---|
 | `search_interval` | global `search_interval` | Minutes between runs of the Follow job, `0` to 43200. `0` means it runs only from the Jobs page. |
-| `searches_per_run` | `10` | MAM searches one run makes at most: one per followed series or author. |
+| `searches_per_run` | `10` | MAM searches one run makes at most: one per series or author on the **Following** page. |
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
 | `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
@@ -626,12 +627,12 @@ What each run does:
 3. **Leaves out what the library has**: the same torrent, the same book (as selection judges a duplicate), a
    series entry already owned in that format, and anything already on the **Selected** page.
 4. **Decides each book**, a series in entry order and an author's books newest first: the first `grab` block
-   whose filter and `cost` accept a torrent takes the one in the best format. A followed series or author has
-   it selected, through the usual rules and the unsatisfied-snatch budget; a watched one has it listed on the
+   whose filter and `cost` accept a torrent takes the one in the best format. A series or author on *Auto* has
+   it selected, through the usual rules and the unsatisfied-snatch budget; a followed one has it listed on the
    **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
-With the defaults, a run makes at most 10 MAM searches, and each followed series or author is searched once a
-day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
+With the defaults, a run makes at most 10 MAM searches, and each series or author on the **Following** page is
+searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
 doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
 on the next run.
 

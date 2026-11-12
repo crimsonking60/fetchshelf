@@ -14,7 +14,7 @@
             <input type="hidden" name="key" value="@name.Key" />
             <input type="hidden" name="name" value="@name.Name" />
             <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-            <button type="submit" title="@(Model.Kind == FollowKind.Series ? "Download this series' missing and future books" : "List this author's new books on the Following page")">Follow @name.Name</button>
+            <button type="submit" title="@(Model.Kind == FollowKind.Series ? "List this series' missing and future books on the Following page" : "List this author's new books on the Following page")">Follow @name.Name</button>
         </form>
     }
 }

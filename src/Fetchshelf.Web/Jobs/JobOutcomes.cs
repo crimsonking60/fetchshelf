@@ -83,7 +83,7 @@ public static class JobOutcomes
     public static JobOutcome Follow(FollowRunSummary summary) => Finish(
         DryRun(
             summary.DryRun,
-            $"{summary.Searched} followed searched, {summary.Selected} "
+            $"{summary.Searched} series and authors searched, {summary.Selected} "
                 + (summary.DryRun ? "would have been selected" : "selected")
                 + $", {summary.NewFinds} new to look at"),
         summary.Failed,

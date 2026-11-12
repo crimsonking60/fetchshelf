@@ -31,7 +31,7 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
     public static IReadOnlyList<(string Value, string Label)> ShowOptions { get; } =
     [
         ("missing", "With missing books"),
-        ("followed", "Followed or watched"),
+        ("followed", "Auto or followed"),
         ("ignored", "Ignored"),
     ];
 

@@ -51,14 +51,18 @@ public sealed class FollowService(
 
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
-    /// <summary>A series is downloaded by default: its books are the next ones of something being read. An author is watched.</summary>
-    public static FollowMode DefaultMode(FollowKind kind) => kind == FollowKind.Series ? FollowMode.Download : FollowMode.Watch;
+    /// <summary>
+    /// What the Follow button on a torrent's page or the Torrents page starts a follow in: listing what is found
+    /// (*Follow*), for a series as for an author, so the button's word is the mode it sets. *Auto* is chosen on the Series
+    /// or Following page.
+    /// </summary>
+    public const FollowMode DefaultMode = FollowMode.Watch;
 
     public Task<FollowEntity?> FindAsync(FollowKind kind, string nameKey, CancellationToken cancellationToken = default) =>
         dbContext.Follows.FirstOrDefaultAsync(f => f.Kind == kind && f.NameKey == nameKey, cancellationToken);
 
     /// <summary>
-    /// Follows a series or author in <paramref name="mode"/>, or its kind's default, or changes the mode of one already
+    /// Follows a series or author in <paramref name="mode"/>, or <see cref="DefaultMode"/>, or changes the mode of one already
     /// followed. An author can't be ignored: ignoring only hides a series from those with missing books.
     /// </summary>
     public async Task<FollowEntity> SetAsync(
@@ -82,7 +86,7 @@ public sealed class FollowService(
                 Kind = kind,
                 NameKey = nameKey,
                 DisplayName = displayName.Trim(),
-                Mode = mode ?? DefaultMode(kind),
+                Mode = mode ?? DefaultMode,
                 CreatedAt = _time.GetUtcNow(),
             };
             dbContext.Follows.Add(follow);

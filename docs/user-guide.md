@@ -1063,13 +1063,13 @@ starts failing, see [A Hardcover list fails](#a-hardcover-list-fails).
 The **Series** page lists every series in the library: its authors, the books it has (*1–4, 6*), the books
 missing between them (*5*), and the media types. Books with a number like 1.5, usually novellas between two
 books, are shown when owned but never counted as missing. It can be limited to series with missing books,
-followed series or ignored ones, and searched by series or author name. Each series name leads to its books
+series on *Auto* or followed, or ignored ones, and searched by series or author name. Each series name leads to its books
 on the **Torrents** page.
 
 Following needs a [`[follow]`](configuration.md#follow) section in the configuration. Without one, the
-**Series** page only lists series, without its **Follow**, **Watch** and **Ignore** buttons; there is no
-**Follow author** button on a torrent's page or next to an author filter on the **Torrents** page; and the
-**Following** page isn't in the menu. A minimal section:
+**Series** page only lists series, without its **Follow**, **Auto** and **Ignore** buttons; there are no
+**Follow** buttons for a series or author on a torrent's page or next to a filter on the **Torrents** page;
+and the **Following** page isn't in the menu. A minimal section:
 
 ```toml
 [follow]
@@ -1080,21 +1080,21 @@ cost = "free"
 categories = { ebook = false }
 ```
 
-- **Follow** a series on the **Series** page: the Follow job then downloads its missing books, and new ones
-  as they are uploaded, through the same rules as automatic downloads.
-- **Watch** a series instead to have what is found listed on the **Following** page, with **Download**,
-  **Wedge download** and **Dismiss** buttons, and nothing downloaded by itself.
+- **Follow** a series on the **Series** page to have what is found listed on the **Following** page, with
+  **Download**, **Wedge download** and **Dismiss** buttons, and nothing downloaded by itself.
+- **Auto** instead has the Follow job download the series' missing books, and new ones as they are uploaded,
+  through the same rules as automatic downloads.
 - **Ignore** a series to leave it out of the series with missing books.
-- **Follow an author** with the button on a torrent's page, or next to an author filter on the **Torrents**
-  page. An author is watched to begin with: their new books are listed, not downloaded. On the **Following**
-  page, **Change to Followed** and **Change to Watched** switch a follow between downloading automatically
+- **Follow** a series or an author with the button on a torrent's page, or next to an author or series filter
+  on the **Torrents** page. It is followed to begin with: new books are listed, not downloaded. On the
+  **Following** page, **Change to Auto** and **Change to Followed** switch between downloading automatically
   and only listing; each series or author's heading says which it is.
 
 At the top, the **Following** page says in plain words what the `[[follow.grab]]` blocks let the Follow job
 download by itself, one line per block, such as "Ebooks in English: free ones, and others paid with ratio."
-A followed book that isn't downloaded usually costs more than that.
+A book on *Auto* that isn't downloaded usually costs more than that.
 
-The **Following** page lists every followed or watched series and author with what was found for it, with
+The **Following** page lists every series and author on *Auto* or followed with what was found for it, with
 each torrent's format and size; the count on its menu link is what is waiting to be looked at. A torrent's
 title opens its details from MAM over the page, as on the **Search** page; **Close** goes back to the list. A find marked *not free* matched, but none of the
 `[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. **Search now** puts a
@@ -1102,7 +1102,7 @@ series or author first in line and starts the Follow job.
 
 Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
 at most once every `search_again_after` hours (24); the **Following** page shows when each was last searched
-and when it will be searched again at the earliest. Fifty followed series are then each searched once a day,
+and when it will be searched again at the earliest. Fifty series on the page are then each searched once a day,
 in five runs. This keeps the number of requests to MAM low. Use
 `dry_run = true` first to see in the log what the job would select.
 
@@ -1386,8 +1386,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
-| **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow, watch or ignore it. |
-| **Following** | The followed series and authors and what was found for them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
+| **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
+| **Following** | The series and authors on Auto or followed, and what was found for them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
