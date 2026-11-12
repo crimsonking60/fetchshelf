@@ -6,6 +6,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -63,7 +64,7 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     /// <summary>A harness whose MAM answers each search with <paramref name="searchResponse"/>, given the search's body.</summary>
-    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20)
+    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20, ListLogger<FollowRunner>? logger = null)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -89,11 +90,11 @@ public sealed class FollowRunnerTests : IDisposable
             context, mamClient, new MamAccessGate(),
             new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists),
             new LibraryQueries(context), settings, SelectionTestSupport.PreferenceLists, new Clock(Now),
-            delay: (_, _) => Task.CompletedTask));
+            delay: (_, _) => Task.CompletedTask, logger: logger));
     }
 
-    private Harness CreateHarness(string results, int unsatLimit = 20) =>
-        CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(results) }, unsatLimit);
+    private Harness CreateHarness(string results, int unsatLimit = 20, ListLogger<FollowRunner>? logger = null) =>
+        CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(results) }, unsatLimit, logger);
 
     private static FollowSettings Settings(
         ConfiguredCost cost = ConfiguredCost.Free, FilterMainType? preferFormat = null, bool dryRun = false, int searchesPerRun = 10) => new()
@@ -174,6 +175,34 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Contains("\"srchIn\":[\"series\"]", search);
         Assert.Contains("\"sortType\":\"dateDesc\"", search);
         Assert.Contains("\"text\":\"The Expanse\"", search);
+    }
+
+    [Fact]
+    public async Task SeriesFollow_LogsWhereTheResultsWent_SuchAsToAnOwnedCollection()
+    {
+        var logger = new ListLogger<FollowRunner>();
+        var harness = CreateHarness(
+            Results(
+                Record(1, "Leviathan Wakes", series: "The Expanse", number: "1"),
+                Record(2, "Caliban's War", series: "The Expanse", number: "2"),
+                Record(3, "Caliban's War", series: "The Expanse", number: "2"),
+                Record(4, "Abaddon's Gate", series: "The Expanse", number: "3"),
+                Record(5, "Cibola Burn", series: "The Expanse", number: "4"),
+                Record(6, "Nemesis Games", series: "The Expanse", number: "5"),
+                Record(7, "Nemesis Games", series: "The Expanse", number: "5"),
+                Record(8, "Persepolis Rising", series: "Some Other Series", number: "7")),
+            logger: logger);
+        // A collection of the first three books: every upload of one of them is owned.
+        AddToLibrary(harness, "hash1", 100, "The Expanse Books 1-3", "The Expanse", "1-3");
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+
+        await harness.RunAsync();
+
+        Assert.Contains(
+            "Follow The Expanse: 8 torrents on MAM, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
+            + "the other 3 are 2 books (one torrent per book and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
+            logger.Messages(LogLevel.Information));
+        Assert.Equal([5, 6], Finds(harness).Select(f => f.MamId));
     }
 
     [Fact]

@@ -159,6 +159,42 @@ public sealed class FollowRunner(
         public int Failed { get; set; }
     }
 
+    /// <summary>
+    /// Where one follow's search results went, for the log: a search that finds 90 torrents and lists nothing new says
+    /// why, such as an owned collection that holds most of a series.
+    /// </summary>
+    /// <param name="Results">Torrents MAM returned.</param>
+    /// <param name="OfFollow">Of those, ebooks and audiobooks of the series, or by the author.</param>
+    /// <param name="Owned">Of those, what the library or the selection queue has: the torrent, the book, or its series entry.</param>
+    /// <param name="Left">The others.</param>
+    /// <param name="Books">The books and formats those are: one torrent each is looked at.</param>
+    /// <param name="Taken">The books and formats a grab block's filter takes.</param>
+    private sealed record SearchOutcome(int Results, int OfFollow, int Owned, int Left, int Books, int Taken)
+    {
+        /// <summary>Already listed, dismissed or selected by an earlier search.</summary>
+        public int Known { get; set; }
+
+        public int New { get; set; }
+
+        public int Selected { get; set; }
+
+        public int NotFree { get; set; }
+
+        /// <summary>Taken, but not selected, such as a duplicate of a selected copy.</summary>
+        public int NotSelected { get; set; }
+
+        public string Describe(FollowKind kind)
+        {
+            var whose = kind == FollowKind.Series ? "in the series" : "by the author";
+            var notTaken = Books - Taken;
+            return $"{Results} torrents on MAM, {OfFollow} of them ebooks or audiobooks {whose}; {Owned} already in the library or selected; "
+                + $"the other {Left} are {Books} books (one torrent per book and format)"
+                + (notTaken > 0 ? $", {notTaken} of them in no grab block's filter" : string.Empty)
+                + $". Of those, {Known} found before, {New} new to look at, {Selected} selected, {NotFree} not free"
+                + (NotSelected > 0 ? $", {NotSelected} not selected" : string.Empty);
+        }
+    }
+
     /// <summary>A search result that is a book of the followed series or author.</summary>
     private sealed record Candidate(
         MamTorrentRecord Record, TorrentMetadata Metadata, FilterMainType Side, string BookKey, string? SeriesDisplay, double? SeriesNumber,
@@ -178,6 +214,7 @@ public sealed class FollowRunner(
         run.Searched++;
 
         var candidates = records.Select(record => ToCandidate(follow, record)).OfType<Candidate>().ToList();
+        var ofFollow = candidates.Count;
         var finds = await dbContext.FollowFinds.Where(f => f.FollowId == follow.Id).ToDictionaryAsync(f => f.MamId, cancellationToken);
 
         // Finds already listed are mostly left as they are below, so their sizes are brought up to date here, from every
@@ -191,10 +228,11 @@ public sealed class FollowRunner(
         }
         candidates = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
 
-        var decisions = Decide(follow, candidates, grabFilters);
+        var decisions = Decide(follow, candidates, grabFilters, out var books);
         var now = _time.GetUtcNow();
         var foundSomething = false;
         var stoppedByBudget = false;
+        var outcome = new SearchOutcome(records.Count, ofFollow, ofFollow - candidates.Count, candidates.Count, books, decisions.Count);
         foreach (var decision in decisions)
         {
             var shown = decision.Shown;
@@ -203,6 +241,7 @@ public sealed class FollowRunner(
                     || (known.Status is FollowFindStatus.New && follow.Mode == FollowMode.Watch)
                     || (known.Status is FollowFindStatus.Wanted && decision.Winner is null)))
             {
+                outcome.Known++;
                 continue;
             }
 
@@ -210,6 +249,7 @@ public sealed class FollowRunner(
             {
                 Record(follow, shown, FollowFindStatus.Wanted, finds, now);
                 Log(follow, shown, "matches, but no grab block's cost accepts it");
+                outcome.NotFree++;
                 foundSomething = true;
                 continue;
             }
@@ -218,6 +258,7 @@ public sealed class FollowRunner(
             {
                 Record(follow, shown, FollowFindStatus.New, finds, now);
                 run.NewFinds++;
+                outcome.New++;
                 foundSomething = true;
                 Log(follow, shown, "listed on the Following page");
                 continue;
@@ -230,24 +271,31 @@ public sealed class FollowRunner(
                 break;
             }
 
-            var outcome = await selectionRunner.ProcessCandidateAsync(
+            var selection = await selectionRunner.ProcessCandidateAsync(
                 shown.Record, shown.Metadata, ignoreTorrents, decision.Grab!.Cost, autograbCategory: settings.Category,
                 grabberName: GrabberName(follow), dryRun: settings.DryRun, cancellationToken: cancellationToken);
-            Log(follow, shown, outcome.Describe(settings.DryRun));
-            switch (outcome)
+            Log(follow, shown, selection.Describe(settings.DryRun));
+            switch (selection)
             {
                 case SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade:
                     Record(follow, shown, FollowFindStatus.Selected, finds, now);
                     run.Selected++;
                     run.BudgetLeft--;
+                    outcome.Selected++;
                     foundSomething = true;
                     break;
                 case SelectionOutcome.CostNotFree:
                     Record(follow, shown, FollowFindStatus.Wanted, finds, now);
+                    outcome.NotFree++;
                     foundSomething = true;
+                    break;
+                default:
+                    outcome.NotSelected++;
                     break;
             }
         }
+
+        _logger.LogInformation("Follow {Name}: {Outcome}", follow.DisplayName, outcome.Describe(follow.Kind));
 
         if (!stoppedByBudget)
         {
@@ -308,11 +356,6 @@ public sealed class FollowRunner(
     }
 
     /// <summary>
-    /// The search: the followed name in MAM's series (or author) field, newest first, so a series or author with more
-    /// than one page of torrents still has its new ones seen. Limited to the languages and main categories every grab
-    /// block together allows; each block's own filter is applied to the results afterwards.
-    /// </summary>
-    /// <summary>
     /// Reads the follow's results, newest first, page by page: all of them when the follow hasn't had every page read
     /// within <see cref="ReadAllAgainAfter"/>, else until a page reaches torrents uploaded before the previous search
     /// (less <see cref="ReadBackOverlap"/>). Returns them, each once, and whether every page was read.
@@ -355,6 +398,11 @@ public sealed class FollowRunner(
         return (records, false);
     }
 
+    /// <summary>
+    /// The search: the followed name in MAM's series (or author) field, newest first, so a series or author with more
+    /// than one page of torrents still has its new ones seen. Limited to the languages and main categories every grab
+    /// block together allows; each block's own filter is applied to the results afterwards.
+    /// </summary>
     private static MamSearchQuery ToSearchQuery(FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, long pageOffset)
     {
         var languages = grabFilters.Any(f => f.Languages is not { Count: > 0 })
@@ -492,10 +540,16 @@ public sealed class FollowRunner(
     /// format (then the most seeded); a match no block pays for is kept as wanted. With <c>prefer_format</c>, a book
     /// found in both formats keeps only the preferred one.
     /// </summary>
-    private List<Decision> Decide(FollowEntity follow, List<Candidate> candidates, IReadOnlyList<TorrentFilter> grabFilters)
+    /// <param name="follow">The series or author.</param>
+    /// <param name="candidates">Its books on MAM that the library and the selection queue don't have.</param>
+    /// <param name="grabFilters">The grab blocks' filters, in order.</param>
+    /// <param name="books">How many books and formats the candidates are, before the grab blocks leave some out.</param>
+    private List<Decision> Decide(FollowEntity follow, List<Candidate> candidates, IReadOnlyList<TorrentFilter> grabFilters, out int books)
     {
         var decisions = new List<(string BookKey, FilterMainType Side, Decision Decision, double Order, DateTimeOffset Uploaded)>();
-        foreach (var group in candidates.GroupBy(c => (c.BookKey, c.Side)))
+        var groups = candidates.GroupBy(c => (c.BookKey, c.Side)).ToList();
+        books = groups.Count;
+        foreach (var group in groups)
         {
             var preferred = preferenceLists.For(group.First().Metadata.MediaType);
             Candidate? winner = null;

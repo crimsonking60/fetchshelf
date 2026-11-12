@@ -1116,6 +1116,13 @@ ebooks, is no longer listed or counted; it shows again if a block takes its form
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
 found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done.
 
+What the library already has is never listed: the same torrent, another copy of the same book, or, for a
+series, an entry owned in that format. A collection counts for every book it holds, so with a *Discworld 1-40*
+ebook collection in the library none of the novels 1 to 40 is listed as an ebook, however many single uploads
+MAM has; one torrent is listed for each book and format, however many uploads it has. For each series or author
+searched, the log says how many torrents MAM returned, how many of them were already in the library or selected,
+how many books the rest came to, and how many of those were new.
+
 Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
 at most once every `search_again_after` hours (24); the **Following** page shows when each was last searched
 and when it will be searched again at the earliest. Fifty series on the page are then each searched once a day,
