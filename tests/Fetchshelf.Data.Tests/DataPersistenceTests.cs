@@ -92,6 +92,20 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_FollowFromBeforeEveryPageWasRead_HasNoFullSearchYet()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261112082637_AddFollowFindSize");
+        context.Database.ExecuteSql(
+            $"INSERT INTO Follows (Kind, NameKey, DisplayName, Mode, CreatedAt, LastSearchedAt) VALUES (1, 'joehaldeman', 'Joe Haldeman', 1, '2026-11-11 10:00:00+00:00', '2026-11-12 10:00:00+00:00')");
+
+        DatabaseMigrator.Migrate(context);
+
+        var follow = context.Follows.Single();
+        Assert.Equal(("Joe Haldeman", (DateTimeOffset?)null), (follow.DisplayName, follow.FullySearchedAt));
+    }
+
+    [Fact]
     public void Migrate_FollowFindFromBeforeSizesWereKept_KeepsItWithoutASize()
     {
         using var context = CreateContext();

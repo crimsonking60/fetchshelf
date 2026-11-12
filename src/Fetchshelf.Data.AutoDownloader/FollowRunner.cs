@@ -28,7 +28,9 @@ public sealed record FollowRunSummary(int Searched, int Selected, int NewFinds, 
 /// </summary>
 /// <remarks>
 /// One MAM search per follow, at most <see cref="FollowSettings.SearchesPerRun"/> per run, and each follow at most once
-/// per <see cref="FollowSettings.SearchAgainAfter"/> hours. MAM's search matches words, so a result counts only when its
+/// per <see cref="FollowSettings.SearchAgainAfter"/> hours. A search reads its results newest first, page by page: every
+/// page the first time and every <see cref="ReadAllAgainAfter"/> after that, and otherwise only until it reaches torrents
+/// uploaded before the previous search, which that search saw. MAM's search matches words, so a result counts only when its
 /// series (or author) has the followed name's key, the same key the library's series and people rows have. What the
 /// library already has, or the selection queue holds, is never a find.
 /// </remarks>
@@ -45,6 +47,27 @@ public sealed class FollowRunner(
     ILogger<FollowRunner>? logger = null)
 {
     private static readonly TimeSpan PolitenessDelay = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>Torrents per page of a follow's search, the most MAM gives at once.</summary>
+    public const int PageSize = 100;
+
+    /// <summary>
+    /// The most pages one follow's search reads, 10,000 torrents: a guard against a search that never ends, not a limit a
+    /// real series or author reaches.
+    /// </summary>
+    public const int MaxPages = 100;
+
+    /// <summary>
+    /// How often a follow's search reads every page again, not only what was uploaded since: an older torrent can be
+    /// given the series or author later, or become free.
+    /// </summary>
+    public static readonly TimeSpan ReadAllAgainAfter = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// How far before the previous search a later one reads back: a torrent can show up on MAM a while after its upload
+    /// time, such as one that was waiting for a moderator.
+    /// </summary>
+    public static readonly TimeSpan ReadBackOverlap = TimeSpan.FromDays(1);
 
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, ct));
@@ -151,16 +174,15 @@ public sealed class FollowRunner(
         FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, IReadOnlyList<long> ignoreTorrents, RunState run,
         CancellationToken cancellationToken)
     {
-        var result = await mamClient.SearchAsync(ToSearchQuery(follow, grabFilters), cancellationToken);
-        await _delay(PolitenessDelay, cancellationToken);
+        var (records, readAll) = await SearchPagesAsync(follow, grabFilters, cancellationToken);
         run.Searched++;
 
-        var candidates = result.Data.Select(record => ToCandidate(follow, record)).OfType<Candidate>().ToList();
+        var candidates = records.Select(record => ToCandidate(follow, record)).OfType<Candidate>().ToList();
         var finds = await dbContext.FollowFinds.Where(f => f.FollowId == follow.Id).ToDictionaryAsync(f => f.MamId, cancellationToken);
 
         // Finds already listed are mostly left as they are below, so their sizes are brought up to date here, from every
         // result: also those that are owned by now, or dismissed.
-        foreach (var record in result.Data)
+        foreach (var record in records)
         {
             if (finds.TryGetValue(record.MamId, out var listed) && SizeOf(record) is { } size)
             {
@@ -230,6 +252,10 @@ public sealed class FollowRunner(
         if (!stoppedByBudget)
         {
             follow.LastSearchedAt = now;
+            if (readAll)
+            {
+                follow.FullySearchedAt = now;
+            }
         }
 
         if (foundSomething)
@@ -286,7 +312,50 @@ public sealed class FollowRunner(
     /// than one page of torrents still has its new ones seen. Limited to the languages and main categories every grab
     /// block together allows; each block's own filter is applied to the results afterwards.
     /// </summary>
-    private static MamSearchQuery ToSearchQuery(FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters)
+    /// <summary>
+    /// Reads the follow's results, newest first, page by page: all of them when the follow hasn't had every page read
+    /// within <see cref="ReadAllAgainAfter"/>, else until a page reaches torrents uploaded before the previous search
+    /// (less <see cref="ReadBackOverlap"/>). Returns them, each once, and whether every page was read.
+    /// </summary>
+    private async Task<(List<MamTorrentRecord> Records, bool ReadAll)> SearchPagesAsync(
+        FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+        var readAll = follow.LastSearchedAt is null || follow.FullySearchedAt is not { } fully || fully <= now - ReadAllAgainAfter;
+        DateTimeOffset? readBackTo = readAll ? null : follow.LastSearchedAt - ReadBackOverlap;
+
+        var records = new List<MamTorrentRecord>();
+        var seen = new HashSet<long>();
+        for (var page = 0; page < MaxPages; page++)
+        {
+            var result = await mamClient.SearchAsync(ToSearchQuery(follow, grabFilters, page * (long)PageSize), cancellationToken);
+            await _delay(PolitenessDelay, cancellationToken);
+            // A torrent uploaded while the pages are read pushes the others down a place: it is seen twice, kept once.
+            records.AddRange(result.Data.Where(record => seen.Add(record.MamId)));
+
+            // A short page is the last; so is a full one that reaches the total MAM gives, when it gives one.
+            var lastPage = result.Data.Count < PageSize || (result.Found > 0 && (page + 1) * (long)PageSize >= result.Found);
+            if (lastPage)
+            {
+                _logger.LogDebug("Follow {Name}: {Count} results on MAM, read in {Pages} pages", follow.DisplayName, records.Count, page + 1);
+                return (records, readAll);
+            }
+
+            if (readBackTo is { } since && result.Data.Min(record => record.UploadedAt) < since)
+            {
+                _logger.LogDebug(
+                    "Follow {Name}: read {Pages} pages, back to torrents the last search saw", follow.DisplayName, page + 1);
+                return (records, false);
+            }
+        }
+
+        _logger.LogWarning(
+            "Follow {Name}: stopped after {Pages} pages of results ({Count} torrents); older ones are not looked at",
+            follow.DisplayName, MaxPages, records.Count);
+        return (records, false);
+    }
+
+    private static MamSearchQuery ToSearchQuery(FollowEntity follow, IReadOnlyList<TorrentFilter> grabFilters, long pageOffset)
     {
         var languages = grabFilters.Any(f => f.Languages is not { Count: > 0 })
             ? []
@@ -300,7 +369,8 @@ public sealed class FollowRunner(
             SortOrder = MamSortOrder.NewestByDate,
             LanguageIds = languages,
             MainCategoryIds = mainCategories.Any(ids => ids.Count == 0) ? [] : mainCategories.SelectMany(ids => ids).Distinct().ToList(),
-            PerPage = 100,
+            PageOffset = pageOffset,
+            PerPage = PageSize,
             ReturnDownloadLink = true,
         };
     }

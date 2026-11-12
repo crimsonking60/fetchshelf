@@ -61,6 +61,12 @@ public sealed class FollowEntity
 
     /// <summary>When a search last found something new for it.</summary>
     public DateTimeOffset? LastFoundAt { get; set; }
+
+    /// <summary>
+    /// When a search last read every page MAM had for it, not only those uploaded since the search before; null until
+    /// the first such search.
+    /// </summary>
+    public DateTimeOffset? FullySearchedAt { get; set; }
 }
 
 /// <summary>One torrent a follow's search found, and what became of it. One row per follow and MAM torrent.</summary>

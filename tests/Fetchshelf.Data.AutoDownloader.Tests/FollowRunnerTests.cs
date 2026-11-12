@@ -227,6 +227,80 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal((FollowFindStatus.New, DateTimeOffset.UnixEpoch, (long?)(100L * 1024 * 1024)), (find.Status, find.StatusAt, find.SizeBytes));
     }
 
+    /// <summary>
+    /// A MAM that has <paramref name="count"/> books by the author, newest first, and answers each search with the page
+    /// its offset asks for. Book i was uploaded at <paramref name="addedAt"/>(i).
+    /// </summary>
+    private Harness CreatePagedHarness(int count, Func<int, DateTimeOffset> addedAt, bool giveFound = true) =>
+        CreateHarness(body =>
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(body);
+            var start = json.RootElement.TryGetProperty("tor", out var tor) && tor.TryGetProperty("startNumber", out var number) ? number.GetInt64() : 0;
+            var page = Enumerable.Range((int)start, (int)Math.Clamp(count - start, 0, FollowRunner.PageSize))
+                .Select(i => Record(1000 + i, $"Book {i}", added: addedAt(i).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)))
+                .ToArray();
+            var found = giveFound ? count : 0;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($$"""{"perpage":100,"start":{{start}},"total":{{found}},"found":{{found}},"data":[{{string.Join(",", page)}}]}"""),
+            };
+        });
+
+    [Fact]
+    public async Task AFirstSearch_ReadsEveryPage()
+    {
+        var harness = CreatePagedHarness(250, i => Now.AddHours(-i));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(3, harness.Searches.Count);
+        Assert.Equal(250, summary.NewFinds);
+        Assert.Equal(250, Finds(harness).Count);
+        Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single().FullySearchedAt);
+    }
+
+    [Fact]
+    public async Task ALaterSearch_StopsAtTorrentsThePreviousSearchSaw()
+    {
+        // 150 books uploaded since the last search two days ago, then older ones: the second page reaches those.
+        var harness = CreatePagedHarness(400, i => i < 150 ? Now.AddMinutes(-i) : Now.AddDays(-10).AddHours(-i));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey", lastSearched: Now.AddDays(-2)));
+        harness.Context.Follows.Single().FullySearchedAt = Now.AddDays(-2);
+        harness.Context.SaveChanges();
+
+        await harness.RunAsync();
+
+        Assert.Equal(2, harness.Searches.Count);
+        Assert.Equal(Now.AddDays(-2), harness.Context.Follows.AsNoTracking().Single().FullySearchedAt); // not every page
+    }
+
+    [Fact]
+    public async Task ASearchAfterReadAllAgainAfter_ReadsEveryPageAgain()
+    {
+        var harness = CreatePagedHarness(400, i => i < 150 ? Now.AddMinutes(-i) : Now.AddDays(-10).AddHours(-i));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey", lastSearched: Now.AddDays(-2)));
+        harness.Context.Follows.Single().FullySearchedAt = Now - FollowRunner.ReadAllAgainAfter;
+        harness.Context.SaveChanges();
+
+        await harness.RunAsync();
+
+        Assert.Equal(4, harness.Searches.Count);
+        Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single().FullySearchedAt);
+    }
+
+    [Fact]
+    public async Task WithoutATotalFromMam_PagesAreReadUntilAShortOne()
+    {
+        var harness = CreatePagedHarness(230, i => Now.AddHours(-i), giveFound: false);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+
+        await harness.RunAsync();
+
+        Assert.Equal(3, harness.Searches.Count);
+        Assert.Equal(230, Finds(harness).Count);
+    }
+
     [Fact]
     public async Task ACostNoGrabBlockAccepts_IsRecordedAsWanted()
     {

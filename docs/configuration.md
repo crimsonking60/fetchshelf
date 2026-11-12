@@ -598,7 +598,7 @@ missing.
 | Setting | Default | Description |
 |---|---|---|
 | `search_interval` | global `search_interval` | Minutes between runs of the Follow job, `0` to 43200. `0` means it runs only from the Jobs page. |
-| `searches_per_run` | `10` | MAM searches one run makes at most: one per series or author on the **Following** page. |
+| `searches_per_run` | `10` | Series and authors one run searches at most. Each search reads as many pages of results as it needs, 100 torrents to a page (see below). |
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
 | `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
@@ -621,9 +621,13 @@ What each run does:
 
 1. **Picks the follows that are due**: those not searched within `search_again_after` hours, the
    longest-waiting first, up to `searches_per_run`. Ignored series are never searched.
-2. **Searches MAM** once for each, in the series (or author) field, newest first, in the languages and main
-   categories the `grab` blocks allow. MAM matches words, so a result only counts when its series (or author)
-   is the followed one, compared the way the library compares names.
+2. **Searches MAM** for each, in the series (or author) field, newest first, in the languages and main
+   categories the `grab` blocks allow, reading the results 100 to a page. The first search of a series or
+   author reads every page, however many there are, and so does one every 30 days after that. The searches in
+   between stop at the page that reaches torrents uploaded before the previous search (less a day, for uploads
+   MAM shows late), since that search saw the rest: a long-running author then costs one or two pages a day,
+   not all of them. MAM matches words, so a result only counts when its series (or author) is the followed one,
+   compared the way the library compares names.
 3. **Leaves out what the library has**: the same torrent, the same book (as selection judges a duplicate), a
    series entry already owned in that format, and anything already on the **Selected** page.
 4. **Decides each book**, a series in entry order and an author's books newest first: the first `grab` block
@@ -631,8 +635,8 @@ What each run does:
    it selected, through the usual rules and the unsatisfied-snatch budget; a followed one has it listed on the
    **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
-With the defaults, a run makes at most 10 MAM searches, and each series or author on the **Following** page is
-searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
+With the defaults, a run searches at most 10 series or authors, and each series or author on the **Following**
+page is searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
 doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
 on the next run.
 
