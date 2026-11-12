@@ -1,0 +1,147 @@
+@model Fetchshelf.Web.Pages.Following.FindListViewModel
+@using Fetchshelf.Data.AutoDownloader
+@using Fetchshelf.Web.Pages.Following
+@{
+    var query = Model.Query;
+    var anyWaiting = Model.Rows.Any(r => FindListViewModel.IsWaiting(r.Find));
+}
+
+@* A changed dropdown applies straight away, as on the Torrents page. No action: it stays on this page, a follow's id and all. *@
+<form method="get" class="toolbar" id="find-filters">
+    @if (Model.ShowsShowFilter)
+    {
+        <select name="Show" aria-label="Show" onchange="this.form.requestSubmit()">
+            @foreach (var (value, label) in FindListQuery.ShowOptions)
+            {
+                <option value="@value" selected="@(query.Show == value)">@label</option>
+            }
+        </select>
+    }
+    <select name="Format" aria-label="Format" onchange="this.form.requestSubmit()">
+        <option value="">Any format</option>
+        @foreach (var (value, label) in FindListQuery.FormatOptions)
+        {
+            <option value="@value" selected="@(query.Format == value)">@label</option>
+        }
+    </select>
+    <input type="hidden" name="Sort" value="@query.Sort" />
+    <input type="hidden" name="Dir" value="@query.Dir" />
+    <input type="hidden" name="PageSize" value="@query.PageSize" />
+    @if (query.HasFilters)
+    {
+        <a id="clear-filters" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(query.WithoutFilters())">Clear filters</a>
+    }
+</form>
+
+@if (Model.Rows.Count == 0)
+{
+    <p id="no-finds-message" class="empty">@(query.Show == FindShow.ToLookAt && query.Format is null ? "Nothing to look at." : "No finds match.")</p>
+}
+else
+{
+    @* The tick boxes belong to this form through their form attribute: each row's own buttons are forms too, and forms can't nest. *@
+    @if (anyWaiting)
+    {
+        <form id="bulk-finds" method="post" asp-page="/Following/Index" asp-page-handler="Bulk" class="toolbar">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <span class="muted">Ticked:</span>
+            <button type="submit" name="bulkAction" value="download">Download</button>
+            <button type="submit" name="bulkAction" value="wedge" onclick="return confirm('Spend a freeleech wedge on each ticked book?')">Wedge&nbsp;download</button>
+            <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
+        </form>
+    }
+    <table class="follow-finds">
+        <thead>
+            <tr>
+                @if (anyWaiting)
+                {
+                    <th><input type="checkbox" aria-label="Tick all" onclick="document.querySelectorAll('.find-select').forEach(c => c.checked = this.checked)" /></th>
+                }
+                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Title"))'>Title</a></th>
+                @if (Model.ShowsFollow)
+                {
+                    <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Follow"))'>Series or author</a></th>
+                }
+                @if (Model.ShowsBook)
+                {
+                    <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Book"))'>Book</a></th>
+                }
+                <th>Format</th>
+                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Size"))'>Size</a></th>
+                <th>Status</th>
+                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Found"))'>Found</a></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var (find, follow) in Model.Rows)
+            {
+                var waiting = FindListViewModel.IsWaiting(find);
+                <tr class="@(waiting ? null : "muted")">
+                    @if (anyWaiting)
+                    {
+                        <td>
+                            @if (waiting)
+                            {
+                                <input class="find-select" type="checkbox" form="bulk-finds" name="findIds" value="@find.Id" aria-label="Tick @find.Title" />
+                            }
+                        </td>
+                    }
+                    @* Opens the details in a dialog over the page, as on the Search page; the link itself is the full page, for a new tab. *@
+                    <td><a asp-page="/Search/Detail" asp-route-mamId="@find.MamId"
+                           hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = find.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@find.Title</a></td>
+                    @if (Model.ShowsFollow)
+                    {
+                        <td><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
+                    }
+                    @if (Model.ShowsBook)
+                    {
+                        <td>@find.SeriesDisplay</td>
+                    }
+                    <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                    <td class="nowrap">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
+                    <td>
+                        @if (Model.StatusBadge(find) is { } badge)
+                        {
+                            <partial name="_SearchResultStatusPartial" model="badge" />
+                        }
+                        else
+                        {
+                            @IndexModel.StatusLabel(find.Status)
+                        }
+                    </td>
+                    <td><local-time value="find.FoundAt" /></td>
+                    <td class="nowrap">
+                        @if (waiting)
+                        {
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="findId" value="@find.Id" />
+                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                <button type="submit">Download</button>
+                            </form>
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="findId" value="@find.Id" />
+                                <input type="hidden" name="wedge" value="true" />
+                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                <button type="submit">Wedge&nbsp;download</button>
+                            </form>
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Dismiss" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="findId" value="@find.Id" />
+                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                <button type="submit">Dismiss</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @await Html.PartialAsync("_Pager", Model.Pager)
+}
+
+<partial name="_HitDialog" />

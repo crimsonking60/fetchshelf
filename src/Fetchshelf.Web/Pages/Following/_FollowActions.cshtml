@@ -1,0 +1,30 @@
+@model Fetchshelf.Web.Pages.Following.FollowActionsViewModel
+@using Fetchshelf.Data.Entities
+@{
+    var follow = Model.Follow;
+    var otherMode = follow.Mode == FollowMode.Download ? FollowMode.Watch : FollowMode.Download;
+}
+@* Plain form posts that redirect back: the whole page reloads, so everything on it shows the new mode. *@
+<form method="post" asp-page="/Following/Index" asp-page-handler="Mode" class="inline">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="kind" value="@follow.Kind" />
+    <input type="hidden" name="key" value="@follow.NameKey" />
+    <input type="hidden" name="name" value="@follow.DisplayName" />
+    <input type="hidden" name="mode" value="@otherMode" />
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    <button type="submit">@(otherMode == FollowMode.Download ? "Change to Auto" : "Change to Followed")</button>
+</form>
+<form method="post" asp-page="/Following/Index" asp-page-handler="SearchNow" class="inline">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="followId" value="@follow.Id" />
+    <input type="hidden" name="name" value="@follow.DisplayName" />
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    <button type="submit">Search now</button>
+</form>
+<form method="post" asp-page="/Following/Index" asp-page-handler="Stop" class="inline">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="followId" value="@follow.Id" />
+    <input type="hidden" name="name" value="@follow.DisplayName" />
+    <input type="hidden" name="returnUrl" value="@Model.StopReturnUrl" />
+    <button type="submit" class="danger">Stop following</button>
+</form>

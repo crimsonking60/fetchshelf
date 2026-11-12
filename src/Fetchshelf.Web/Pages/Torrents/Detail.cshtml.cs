@@ -23,8 +23,8 @@ public class DetailModel(
     public TorrentDetailViewModel? Torrent { get; private set; }
 
     /// <summary>What is followed, by kind and key, for the follow buttons; empty without a `[follow]` section.</summary>
-    public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Data.Entities.FollowMode> Followed { get; private set; } =
-        new Dictionary<(Data.Entities.FollowKind, string), Data.Entities.FollowMode>();
+    public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Following.FollowState> Followed { get; private set; } =
+        new Dictionary<(Data.Entities.FollowKind, string), Following.FollowState>();
 
     /// <summary>What the last action did, shown once after the redirect back to this page.</summary>
     [TempData]

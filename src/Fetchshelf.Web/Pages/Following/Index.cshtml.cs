@@ -11,9 +11,10 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace Fetchshelf.Web.Pages.Following;
 
 /// <summary>
-/// The Following page: every followed or watched series and author, with what the Follow job found for it, and the
-/// buttons to download or dismiss a find, change the mode, search now or stop following. Also where the follow buttons
-/// on a torrent's page and the Torrents page post to.
+/// The Following page: every followed series and author, one row each with how many of its finds are in each state, and
+/// the buttons to change its mode, search now or stop following. Also where every follow button posts to: those on a
+/// torrent's page and the Torrents page, on a follow's own page (<see cref="DetailModel"/>) and on the To look at page
+/// (<see cref="ToLookAtModel"/>); each comes back to the page it was on.
 /// </summary>
 public class IndexModel(
     FetchshelfSettings settings, IJobRegistry jobRegistry, FormatPreferenceLists formatPreferenceLists, MamClientOptions mamOptions,
@@ -40,31 +41,68 @@ public class IndexModel(
     public DateTimeOffset SearchAgainAfter(DateTimeOffset lastSearched) =>
         lastSearched + TimeSpan.FromHours(settings.Follow?.SearchAgainAfter ?? FollowSettings.DefaultSearchAgainAfterHours);
 
-    public IReadOnlyList<FollowWithFinds> Follows { get; private set; } = [];
+    [BindProperty(SupportsGet = true)]
+    public string? Q { get; set; }
 
-    /// <summary>Where each find's torrent stands in Fetchshelf, by MAM id; finds never selected have none.</summary>
-    public IReadOnlyDictionary<long, MamResultStatus> PipelineStatuses { get; private set; } = new Dictionary<long, MamResultStatus>();
+    [BindProperty(SupportsGet = true)]
+    public FollowKind? Kind { get; set; }
 
-    /// <summary>
-    /// The status badge for a find whose torrent is selected, downloading, downloaded or linked, as the Search page shows
-    /// it: it asks again by itself and starts the Link job once qBittorrent has finished. Null for a find never selected,
-    /// which keeps its own label.
-    /// </summary>
-    public SearchResultStatusViewModel? StatusBadge(FollowFindEntity find) =>
-        PipelineStatuses.TryGetValue(find.MamId, out var status) && status != MamResultStatus.None
-            ? new SearchResultStatusViewModel(find.MamId, status)
-            : null;
+    [BindProperty(SupportsGet = true)]
+    public FollowMode? Mode { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public bool Waiting { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string Sort { get; set; } = FollowListQuery.DefaultSort;
+
+    [BindProperty(SupportsGet = true)]
+    public string Dir { get; set; } = FollowListQuery.DefaultDir(FollowListQuery.DefaultSort);
+
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int PageSize { get; set; } = Paging.DefaultPageSize;
+
+    public FollowListQuery Query => new(Q, Kind, Mode, Waiting, Sort, Dir, PageSize);
+
+    /// <summary>The follows on this page.</summary>
+    public IReadOnlyList<FollowSummary> Follows { get; private set; } = [];
+
+    /// <summary>Whether anything is followed at all, matched by the search and filters or not.</summary>
+    public bool AnyFollows { get; private set; }
+
+    /// <summary>The finds to look at, of every follow.</summary>
+    public int ToLookAt { get; private set; }
+
+    public int TotalCount { get; private set; }
+
+    public int TotalPages { get; private set; } = 1;
+
+    public PagerViewModel Pager =>
+        new("/Following/Index", Query.ToRouteValues(), PageNumber, TotalPages, Follows.Count, TotalCount, PageSize, "follow-pager", "Pages of follows");
+
+    /// <summary>Where a button on the page comes back to: this page, with its search, filters, sort and page.</summary>
+    public string ReturnUrl => Request.Path + Request.QueryString;
 
     private FollowService? FollowService => services.GetService<FollowService>();
 
     public async Task OnGetAsync()
     {
-        if (FollowService is { } followService)
+        PageSize = PageSizeCookie.Apply(HttpContext, "following", PageSize);
+        if (settings.Follow is not { } follow)
         {
-            Follows = await followService.AllAsync(HttpContext.RequestAborted);
-            PipelineStatuses = await MamResultStatuses.LoadAsync(
-                dbContext, Follows.SelectMany(f => f.Finds).Select(f => f.MamId).Distinct().ToList());
+            return;
         }
+
+        var summaries = await FollowQueries.SummariesAsync(dbContext, FollowQueries.WantedSides(follow.Grab), HttpContext.RequestAborted);
+        AnyFollows = summaries.Count > 0;
+        ToLookAt = summaries.Sum(s => s.ToLookAt);
+        var matched = Query.Apply(summaries).ToList();
+        TotalCount = matched.Count;
+        (var page, PageNumber, TotalPages) = Paging.Slice(matched, TotalCount, PageNumber, PageSize);
+        Follows = page;
     }
 
     /// <summary>Follows a series or author in the default mode (<see cref="FollowService.DefaultMode"/>), from a torrent's page or the Torrents page, and goes back there.</summary>
@@ -88,10 +126,10 @@ public class IndexModel(
         }
 
         Message = $"Following {Describe(follow)}.";
-        return RedirectToPage();
+        return RedirectToPage("/Following/Detail", new { id = follow.Id });
     }
 
-    public async Task<IActionResult> OnPostModeAsync(FollowKind kind, string key, string name, FollowMode mode)
+    public async Task<IActionResult> OnPostModeAsync(FollowKind kind, string key, string name, FollowMode mode, string? returnUrl)
     {
         if (FollowService is not { } followService)
         {
@@ -106,10 +144,10 @@ public class IndexModel(
 
         var follow = await followService.SetAsync(kind, key, name, mode);
         Message = $"{Describe(follow)}: {ModeLabel(follow.Mode)}.";
-        return RedirectToPage();
+        return Back(returnUrl);
     }
 
-    public async Task<IActionResult> OnPostStopAsync(int followId, string name)
+    public async Task<IActionResult> OnPostStopAsync(int followId, string name, string? returnUrl)
     {
         if (FollowService is not { } followService)
         {
@@ -118,14 +156,14 @@ public class IndexModel(
 
         await followService.StopAsync(followId);
         Message = $"Stopped following {name}.";
-        return RedirectToPage();
+        return Back(returnUrl);
     }
 
     /// <summary>How long Search now waits for the Follow job's run before showing the page again.</summary>
     public static readonly TimeSpan SearchNowWait = TimeSpan.FromSeconds(15);
 
     /// <summary>Makes the follow the first the Follow job searches, starts the job, and waits a while for it.</summary>
-    public async Task<IActionResult> OnPostSearchNowAsync(int followId, string name)
+    public async Task<IActionResult> OnPostSearchNowAsync(int followId, string name, string? returnUrl)
     {
         if (FollowService is not { } followService)
         {
@@ -137,7 +175,7 @@ public class IndexModel(
         {
             // Background jobs are off, such as without a mam_id: the search waits for them.
             Message = $"{name} is searched first when the Follow job next runs.";
-            return RedirectToPage();
+            return Back(returnUrl);
         }
 
         // Waits for the run, so the page comes back with what it found and the new search time; a run that searches many
@@ -146,20 +184,20 @@ public class IndexModel(
         if (await Task.WhenAny(run, Task.Delay(SearchNowWait, HttpContext.RequestAborted)) != run)
         {
             Message = $"The Follow job is searching for {name}; the Jobs page shows when it is done.";
-            return RedirectToPage();
+            return Back(returnUrl);
         }
 
         if (jobRegistry.Get(JobNames.Follow)?.LastRun is { Result: JobRunResult.Failure } failed)
         {
             (Message, MessageIsError) = ($"The search for {name} failed: {failed.Summary}", true);
-            return RedirectToPage();
+            return Back(returnUrl);
         }
 
         Message = $"Searched MAM for {name}.";
-        return RedirectToPage();
+        return Back(returnUrl);
     }
 
-    public async Task<IActionResult> OnPostDismissAsync(int findId)
+    public async Task<IActionResult> OnPostDismissAsync(int findId, string? returnUrl)
     {
         if (FollowService is not { } followService)
         {
@@ -167,10 +205,10 @@ public class IndexModel(
         }
 
         await followService.DismissAsync(findId);
-        return RedirectToPage();
+        return Back(returnUrl);
     }
 
-    public async Task<IActionResult> OnPostDownloadAsync(int findId, bool wedge)
+    public async Task<IActionResult> OnPostDownloadAsync(int findId, bool wedge, string? returnUrl)
     {
         if (FollowService is not { } followService)
         {
@@ -197,8 +235,89 @@ public class IndexModel(
             (Message, MessageIsError) = ($"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}", true);
         }
 
-        return RedirectToPage();
+        return Back(returnUrl);
     }
+
+    /// <summary>How many of the ticked books' outcomes a bulk download names, before saying how many more there are.</summary>
+    private const int BulkProblemsNamed = 3;
+
+    /// <summary>Downloads, wedge-downloads or dismisses the ticked finds of a list of finds.</summary>
+    public async Task<IActionResult> OnPostBulkAsync(string bulkAction, int[] findIds, string? returnUrl)
+    {
+        if (FollowService is not { } followService)
+        {
+            return NotFound();
+        }
+
+        if (findIds.Length == 0)
+        {
+            (Message, MessageIsError) = ("Tick one or more books first.", true);
+            return Back(returnUrl);
+        }
+
+        switch (bulkAction)
+        {
+            case "dismiss":
+                foreach (var findId in findIds)
+                {
+                    await followService.DismissAsync(findId);
+                }
+
+                Message = findIds.Length == 1 ? "Dismissed 1 book." : $"Dismissed {findIds.Length} books.";
+                return Back(returnUrl);
+            case "download" or "wedge":
+                await DownloadAllAsync(followService, findIds, bulkAction == "wedge");
+                return Back(returnUrl);
+            default:
+                return BadRequest();
+        }
+    }
+
+    /// <summary>
+    /// Selects each find in turn, as its own Download button does, and says how many were selected and why others weren't.
+    /// A MAM failure stops the rest: they would most likely fail the same way.
+    /// </summary>
+    private async Task DownloadAllAsync(FollowService followService, int[] findIds, bool wedge)
+    {
+        var selected = 0;
+        var problems = new List<string>();
+        foreach (var findId in findIds)
+        {
+            try
+            {
+                var result = await followService.DownloadAsync(findId, wedge, HttpContext.RequestAborted);
+                if (result.Outcome is { } outcome && outcome.IsSelected())
+                {
+                    selected++;
+                }
+                else if (result.Outcome is { } other && result.Metadata is { } metadata)
+                {
+                    problems.Add(SelectionOutcomeMessages.Describe(other, metadata, formatPreferenceLists, downloadStarted: false));
+                }
+                else
+                {
+                    problems.Add(result.Problem ?? string.Empty);
+                }
+            }
+            catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
+            {
+                logger.LogWarning(ex, "Downloading follow find {FindId} failed", findId);
+                problems.Add($"Download failed: {MamErrorDescriber.Describe(ex, mamOptions.Timeout)}");
+                break;
+            }
+        }
+
+        var started = selected > 0 && StartDownload();
+        var summary = $"Selected {selected} of {findIds.Length}"
+            + (selected == 0 ? "." : started ? "; the Download job is starting them now." : "; they start at the next Download run.");
+        var named = problems.Take(BulkProblemsNamed).Append(
+            problems.Count > BulkProblemsNamed ? $"{problems.Count - BulkProblemsNamed} more were not selected." : string.Empty);
+        Message = string.Join(' ', named.Prepend(summary).Where(part => part.Length > 0));
+        MessageIsError = selected == 0;
+    }
+
+    /// <summary>Back to the page the button was on, else to this one.</summary>
+    private IActionResult Back(string? returnUrl) => Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToPage();
 
     public static string ModeLabel(FollowMode mode) => mode switch
     {

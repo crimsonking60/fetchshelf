@@ -7,11 +7,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
-/// <summary>A follow with its finds, newest first.</summary>
-public sealed record FollowWithFinds(FollowEntity Follow, IReadOnlyList<FollowFindEntity> Finds)
+/// <summary>A followed series or author, with how many of its finds are in each state, for the Following page's overview.</summary>
+/// <param name="Follow">The series or author.</param>
+/// <param name="ToLookAt">Finds waiting to be downloaded or dismissed, in a format a grab block takes; not-free ones included.</param>
+/// <param name="NotFree">Of those, the ones no grab block's cost accepts.</param>
+/// <param name="Selected">Finds selected for download, by the Follow job or by hand, and not linked yet.</param>
+/// <param name="InLibrary">
+/// Finds the library has by now: marked so by a search, or selected and linked since, which the next search marks.
+/// </param>
+public sealed record FollowSummary(FollowEntity Follow, int ToLookAt, int NotFree, int Selected, int InLibrary);
+
+/// <summary>Which of a list's finds it shows.</summary>
+public enum FindShow
 {
-    public int NewCount => Finds.Count(f => f.Status is FollowFindStatus.New or FollowFindStatus.Wanted);
+    /// <summary>Waiting to be downloaded or dismissed, in a format a grab block takes (<see cref="FollowQueries.WantedSides"/>).</summary>
+    ToLookAt,
+
+    /// <summary>Waiting, and no grab block's cost accepts it.</summary>
+    NotFree,
+
+    Selected,
+
+    InLibrary,
+
+    Dismissed,
+
+    All,
 }
+
+/// <summary>A find with the series or author it was found for.</summary>
+public sealed record FindRow(FollowFindEntity Find, FollowEntity Follow);
 
 /// <summary>What became of a Download click on a find.</summary>
 /// <param name="Outcome">The selection's outcome; null when it never got that far.</param>
@@ -36,10 +61,6 @@ public static class FollowQueries
             .Select(side => side.Item1)
             .ToHashSet(StringComparer.Ordinal);
 
-    /// <summary>Whether the find is still worth listing: it isn't waiting, or it is waiting in a format a grab block takes.</summary>
-    public static bool IsListed(FollowFindEntity find, IReadOnlySet<string> wantedSides) =>
-        find.Status is not (FollowFindStatus.New or FollowFindStatus.Wanted) || wantedSides.Contains(find.MediaSide);
-
     /// <summary>
     /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost, in a
     /// format a grab block takes (<see cref="WantedSides"/>). Finds of an ignored series are left out: the Following page
@@ -52,6 +73,76 @@ public static class FollowQueries
          where follow.Mode != FollowMode.Ignore && (find.Status == FollowFindStatus.New || find.Status == FollowFindStatus.Wanted)
              && wantedSides.Contains(find.MediaSide)
          select find.Id).CountAsync(cancellationToken);
+
+    /// <summary>
+    /// Every followed series and author (not ignored ones), with its finds counted by state in the database, so the
+    /// overview doesn't read the finds themselves.
+    /// </summary>
+    public static async Task<List<FollowSummary>> SummariesAsync(
+        FetchshelfDbContext dbContext, IReadOnlySet<string> wantedSides, CancellationToken cancellationToken = default)
+    {
+        var follows = await dbContext.Follows.AsNoTracking().Where(f => f.Mode != FollowMode.Ignore).ToListAsync(cancellationToken);
+        var counts = (await dbContext.FollowFinds
+                .Select(f => new { f.FollowId, f.Status, f.MediaSide, Linked = dbContext.Torrents.Any(t => t.MamId == f.MamId && t.LibraryPath != null) })
+                .GroupBy(f => new { f.FollowId, f.Status, f.MediaSide, f.Linked })
+                .Select(g => new { g.Key.FollowId, g.Key.Status, g.Key.MediaSide, g.Key.Linked, Count = g.Count() })
+                .ToListAsync(cancellationToken))
+            .ToLookup(c => c.FollowId);
+        return follows.Select(follow =>
+        {
+            var own = counts[follow.Id].ToList();
+            int Count(Func<FollowFindStatus, string, bool, bool> which) => own.Where(c => which(c.Status, c.MediaSide, c.Linked)).Sum(c => c.Count);
+            return new FollowSummary(
+                follow,
+                ToLookAt: Count((status, side, _) => status is FollowFindStatus.New or FollowFindStatus.Wanted && wantedSides.Contains(side)),
+                NotFree: Count((status, side, _) => status == FollowFindStatus.Wanted && wantedSides.Contains(side)),
+                Selected: Count((status, _, linked) => status == FollowFindStatus.Selected && !linked),
+                InLibrary: Count((status, _, linked) => status == FollowFindStatus.Owned || (status == FollowFindStatus.Selected && linked)));
+        }).ToList();
+    }
+
+    /// <summary>
+    /// The finds a list shows, with their series or author: of one follow, or of every followed one (not ignored ones),
+    /// in one format or both. Unsorted; the page sorts and pages them.
+    /// </summary>
+    /// <param name="dbContext">Fetchshelf's database.</param>
+    /// <param name="followId">One follow's finds; null for every follow's.</param>
+    /// <param name="show">Which finds, by what became of them.</param>
+    /// <param name="side">"Audio" or "Ebook" for one format; null for both.</param>
+    /// <param name="wantedSides">The formats a grab block takes (<see cref="WantedSides"/>), which decide what is to look at.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public static async Task<List<FindRow>> FindsAsync(
+        FetchshelfDbContext dbContext, int? followId, FindShow show, string? side, IReadOnlySet<string> wantedSides,
+        CancellationToken cancellationToken = default)
+    {
+        var query = from find in dbContext.FollowFinds.AsNoTracking()
+                    join follow in dbContext.Follows.AsNoTracking() on find.FollowId equals follow.Id
+                    where follow.Mode != FollowMode.Ignore
+                    select new { find, follow, linked = dbContext.Torrents.Any(t => t.MamId == find.MamId && t.LibraryPath != null) };
+        if (followId is { } id)
+        {
+            query = query.Where(row => row.follow.Id == id);
+        }
+
+        if (side is not null)
+        {
+            query = query.Where(row => row.find.MediaSide == side);
+        }
+
+        var sides = wantedSides.ToList();
+        query = show switch
+        {
+            FindShow.ToLookAt => query.Where(row => (row.find.Status == FollowFindStatus.New || row.find.Status == FollowFindStatus.Wanted)
+                && sides.Contains(row.find.MediaSide)),
+            FindShow.NotFree => query.Where(row => row.find.Status == FollowFindStatus.Wanted && sides.Contains(row.find.MediaSide)),
+            FindShow.Selected => query.Where(row => row.find.Status == FollowFindStatus.Selected && !row.linked),
+            FindShow.InLibrary => query.Where(row => row.find.Status == FollowFindStatus.Owned
+                || (row.find.Status == FollowFindStatus.Selected && row.linked)),
+            FindShow.Dismissed => query.Where(row => row.find.Status == FollowFindStatus.Dismissed),
+            _ => query,
+        };
+        return (await query.ToListAsync(cancellationToken)).Select(row => new FindRow(row.find, row.follow)).ToList();
+    }
 
     /// <summary>The follow of every followed, watched or ignored series, by key; for the Series page.</summary>
     public static async Task<Dictionary<string, FollowEntity>> SeriesFollowsAsync(FetchshelfDbContext dbContext, CancellationToken cancellationToken = default) =>
@@ -148,21 +239,6 @@ public sealed class FollowService(
             (find.Status, find.StatusAt) = (FollowFindStatus.Dismissed, _time.GetUtcNow());
             await dbContext.SaveChangesAsync(cancellationToken);
         }
-    }
-
-    /// <summary>Every follow with its finds: followed series and authors by name, each one's finds newest first.</summary>
-    public async Task<IReadOnlyList<FollowWithFinds>> AllAsync(CancellationToken cancellationToken = default)
-    {
-        var follows = await dbContext.Follows.Where(f => f.Mode != FollowMode.Ignore).ToListAsync(cancellationToken);
-        var wantedSides = FollowQueries.WantedSides(settings.Grab);
-        var finds = (await dbContext.FollowFinds.ToListAsync(cancellationToken))
-            .Where(f => FollowQueries.IsListed(f, wantedSides))
-            .ToLookup(f => f.FollowId);
-        return follows
-            .OrderBy(f => f.Kind)
-            .ThenBy(f => f.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-            .Select(f => new FollowWithFinds(f, finds[f.Id].OrderByDescending(x => x.FoundAt.UtcTicks).ToList()))
-            .ToList();
     }
 
     /// <summary>

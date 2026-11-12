@@ -70,7 +70,7 @@ public class IndexModel(
     public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
 
     /// <summary>What is followed, for the follow buttons by the author and series filters; empty without a `[follow]` section.</summary>
-    public IReadOnlyDictionary<(FollowKind, string), FollowMode> Followed { get; private set; } = new Dictionary<(FollowKind, string), FollowMode>();
+    public IReadOnlyDictionary<(FollowKind, string), Following.FollowState> Followed { get; private set; } = new Dictionary<(FollowKind, string), Following.FollowState>();
 
     /// <summary>The choices for the Library, Language and Media type filters: the values among all tracked torrents.</summary>
     public IReadOnlyList<string> LibraryOptions { get; private set; } = [];

@@ -1,10 +1,15 @@
 @model Fetchshelf.Web.Pages.Following.FollowButtonsViewModel
 @using Fetchshelf.Data.Entities
-@foreach (var (name, mode) in Model.Buttons)
+@foreach (var (name, state) in Model.Buttons)
 {
-    if (mode is { } followMode)
+    if (state is { Mode: FollowMode.Ignore })
     {
-        <a class="follow-state" asp-page="/Following/Index">@(followMode == FollowMode.Ignore ? "Ignored" : "Following") @name.Name</a>
+        @* An ignored series has no page of its own; the Series page is where it is ignored, and followed again. *@
+        <a class="follow-state" asp-page="/Series/Index">Ignored @name.Name</a>
+    }
+    else if (state is not null)
+    {
+        <a class="follow-state" asp-page="/Following/Detail" asp-route-id="@state.Id">Following @name.Name</a>
     }
     else
     {

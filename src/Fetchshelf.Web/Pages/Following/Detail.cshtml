@@ -1,0 +1,64 @@
+@page "{id:int}"
+@model Fetchshelf.Web.Pages.Following.DetailModel
+@using Fetchshelf.Data.AutoDownloader
+@using Fetchshelf.Data.Entities
+@{
+    ViewData["Title"] = Model.Follow?.DisplayName ?? "Following";
+}
+
+@if (Model.Follow is { } follow)
+{
+    var kind = follow.Kind == FollowKind.Series ? "Series" : "Author";
+    <h2>@follow.DisplayName</h2>
+    <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).
+        <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
+           asp-route-Author="@(follow.Kind == FollowKind.Author ? follow.NameKey : null)">In Torrents</a>
+        - <a asp-page="/Following/Index">All followed</a></p>
+
+    @if (Model.Message is { } message)
+    {
+        <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
+    }
+
+    @if (follow.Mode == FollowMode.Ignore)
+    {
+        <p id="follow-ignored" class="empty">This series is ignored: it is never searched. The <a asp-page="/Series/Index">Series</a> page follows it again.</p>
+    }
+    else
+    {
+        <p class="muted">
+            @if (follow.LastSearchedAt is { } searched)
+            {
+                @* <text>, not @:, which writes a tag helper out as it is instead of running it. *@
+                <text>Last searched <local-time value="searched" />, will search again after <local-time value="Model.SearchAgainAfter(searched)" />.</text>
+            }
+            else
+            {
+                @:Not searched yet.
+            }
+        </p>
+        <div class="actions">
+            <partial name="_FollowActions" model="Model.Actions" />
+        </div>
+
+        @if (Model.Summary is { } summary)
+        {
+            @* Each count opens the finds it counts. *@
+            <p id="follow-counts" class="toolbar">
+                @foreach (var (show, label, count) in new[]
+                {
+                    (FindShow.ToLookAt, "To look at", summary.ToLookAt),
+                    (FindShow.NotFree, "Not free", summary.NotFree),
+                    (FindShow.Selected, "Selected", summary.Selected),
+                    (FindShow.InLibrary, "In the library", summary.InLibrary),
+                })
+                {
+                    <a asp-page="/Following/Detail" asp-all-route-data="Model.RouteValuesFor(show)"
+                       aria-current="@(Model.List!.Query.Show == show ? "true" : null)">@label: @count</a>
+                }
+            </p>
+        }
+
+        <partial name="_FindList" model="Model.List" />
+    }
+}

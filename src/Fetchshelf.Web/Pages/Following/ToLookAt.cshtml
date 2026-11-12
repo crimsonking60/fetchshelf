@@ -1,0 +1,19 @@
+@page
+@model Fetchshelf.Web.Pages.Following.ToLookAtModel
+@{
+    ViewData["Title"] = "To look at";
+}
+
+<h2>To look at</h2>
+@await Html.PartialAsync("_PageExplanation", "This page lists what the Follow job found, for every followed series and author, that waits to be downloaded or dismissed: what the count on the menu's Following link counts. A book listed as not free matched, but no grab block in the [follow] section pays for it; Download or Wedge download takes it anyway. Tick several to download or dismiss them at once. A series' or author's own page also lists what is selected, in the library or dismissed.")
+<p><a asp-page="/Following/Index">All followed series and authors</a></p>
+
+@if (Model.Message is { } message)
+{
+    <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
+}
+
+@if (Model.List is { } list)
+{
+    <partial name="_FindList" model="list" />
+}

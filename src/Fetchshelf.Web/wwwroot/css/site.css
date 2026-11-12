@@ -193,6 +193,8 @@ button.wedge-highlighted {
 /* An author, narrator or series filter in use, with its x to drop it */
 .name-filter { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-2); }
 .name-filter a { text-decoration: none; }
+/* A follow's counts: the one whose finds are listed reads as chosen. */
+#follow-counts a[aria-current="true"] { color: var(--text); font-weight: 600; text-decoration: none; }
 
 form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 
