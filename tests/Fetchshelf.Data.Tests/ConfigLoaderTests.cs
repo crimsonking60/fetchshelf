@@ -65,7 +65,7 @@ public sealed class ConfigLoaderTests : IDisposable
         var settings = ConfigLoader.Load(ConfigPath);
 
         Assert.Equal(["m4b", "m4a", "mp4", "mp3", "ogg"], settings.AudioTypes);
-        Assert.Equal(["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"], settings.EbookTypes);
+        Assert.Equal(["epub", "cbz", "pdf", "mobi", "azw3", "azw", "cbr"], settings.EbookTypes);
         Assert.Equal(["flac", "mp3", "pdf"], settings.MusicTypes);
         Assert.Equal(["mp3"], settings.RadioTypes);
         Assert.Empty(settings.IgnoreTorrents);

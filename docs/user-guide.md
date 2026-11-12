@@ -725,17 +725,28 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   **Downloading**, each check asks qBittorrent about it; once qBittorrent has finished it, the Link job
   starts straight away rather than at its next interval, so **Linked** follows within seconds. A finished
   torrent shows **Downloaded** when no library accepts it.
-- **Metadata** rates how complete the torrent's information on MAM is, which decides how well Fetchshelf can
-  name, file and describe the book. Point at the pill to see what is missing.
+- **Quality** rates the torrent's formats and how complete its information on MAM is, which together decide
+  how well Fetchshelf can download, name, file and describe the book. Point at the pill to see why: a line
+  about the formats when something is wrong with them, then what the information is missing.
+
+  The formats are checked against the format list for the torrent's media type (`audio_types`,
+  `ebook_types`, `music_types` or `radio_types`), whose first entry is the format you want most. With
+  `ebook_types = ["epub", "mobi", "pdf"]`, an ebook with an `epub` is fine, one with only a `mobi` or a `pdf`
+  is at best *Lacking*, and one with none of the three is *Poor*, since Fetchshelf won't download it. The
+  pill shows the worse of the two ratings: an upload with perfect information in a second-choice format is
+  *Lacking*. Ebooks, comics and manga share `ebook_types`, so a comic or manga prefers the first comic format
+  in it (`cbz`, `cbr`, `cb7` or `cbt`), and any other ebook the first format that isn't one; a comic in
+  another format from the list, such as `pdf`, is *Lacking*, not *Poor*.
 
   | Pill | Means |
   |---|---|
-  | **Good** (green) | Author, file types, description, cover, genres, a narrator for audiobooks, and an ISBN or ASIN, or all but one small item. |
-  | **Lacking** (yellow) | No real description, or two small items missing. |
-  | **Poor** (red) | No author (such a torrent can't be linked into a library), no file types (Fetchshelf can't tell its format, so it never downloads it), or more missing than for *Lacking*. |
+  | **Good** (green) | The first format in the list, and author, file types, description, cover, genres, a narrator for audiobooks, and an ISBN or ASIN, or all but one small item. |
+  | **Lacking** (yellow) | Only formats further down the list, no real description, or two small items missing. |
+  | **Poor** (red) | None of the formats in the list, no author (such a torrent can't be linked into a library), no file types (Fetchshelf can't tell its format, so it never downloads it), or more missing than for *Lacking*. |
 
   A description with fewer than 80 characters of text counts as missing. When several uploads of the same
-  book are on offer, the pill helps pick the one whose library folder and `metadata.json` will come out best.
+  book are on offer, the pill helps pick the one in the format you want, whose library folder and
+  `metadata.json` will come out best.
 - Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
   you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
   `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded

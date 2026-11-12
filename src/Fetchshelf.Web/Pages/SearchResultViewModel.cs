@@ -28,8 +28,19 @@ public sealed record SearchResultViewModel(
     /// <summary>How complete the torrent's metadata on MAM is; null for rows built without the MAM record.</summary>
     public MetadataQualityRating? MetadataQuality { get; init; }
 
-    /// <summary>The pill's word for <see cref="MetadataQuality"/>.</summary>
-    public string? MetadataQualityLabel => MetadataQuality?.Grade switch
+    /// <summary>
+    /// How well the torrent's formats fit the format list for its media type; null when no list applies (no format lists
+    /// given, or a media type Fetchshelf doesn't know).
+    /// </summary>
+    public FormatQualityRating? FormatQuality { get; init; }
+
+    /// <summary>The Quality pill's grade: the worse of the metadata's and the formats'.</summary>
+    public MetadataQualityGrade? QualityGrade => MetadataQuality is not { } metadata ? null
+        : FormatQuality is { } format ? Core.Metadata.FormatQuality.Worse(metadata.Grade, format.Grade)
+        : metadata.Grade;
+
+    /// <summary>The pill's word for <see cref="QualityGrade"/>.</summary>
+    public string? QualityLabel => QualityGrade switch
     {
         MetadataQualityGrade.Good => "Good",
         MetadataQualityGrade.Lacking => "Lacking",
@@ -37,7 +48,10 @@ public sealed record SearchResultViewModel(
         _ => null,
     };
 
-    /// <summary>What the pill's tooltip says: what is missing, or that nothing is.</summary>
+    /// <summary>The tooltip's first line, what is wrong with the formats; null when nothing is.</summary>
+    public string? FormatQualityDetail => FormatQuality?.Issue;
+
+    /// <summary>The tooltip's metadata line: what is missing, or that nothing is.</summary>
     public string? MetadataQualityDetail => MetadataQuality is not { } rating ? null
         : rating.Missing.Count == 0 ? "Author, file types, description, cover, genres and ISBN or ASIN are all there."
         : $"Missing: {string.Join(", ", rating.Missing)}.";
@@ -51,6 +65,7 @@ public sealed record SearchResultViewModel(
         MediaTypeLabel: MediaTypeLabelOf(record))
         {
             MetadataQuality = RateMetadata(record),
+            FormatQuality = preferenceLists is null ? null : RateFormats(record, preferenceLists),
             IsSnatchedByMe = record.IsSnatchedByMe,
             CannotDownloadReason = preferenceLists is null ? null : CannotDownloadReasonFor(record, preferenceLists),
         };
@@ -77,6 +92,20 @@ public sealed record SearchResultViewModel(
         return FormatRanker.Rank(wanted, fileTypes) == FormatRanker.NotPresent
             ? $"None of its file types ({string.Join(", ", fileTypes)}) is in your {FormatPreferenceLists.SettingNameFor(mediaType)} "
                 + $"setting ({string.Join(", ", wanted)}), so Fetchshelf won't download it."
+            : null;
+    }
+
+    /// <summary>
+    /// Rates the torrent's file types against the format list for its media type, the list selection checks them
+    /// against; null for a media type Fetchshelf doesn't know. See <see cref="Core.Metadata.FormatQuality"/>.
+    /// </summary>
+    public static FormatQualityRating? RateFormats(MamTorrentRecord record, FormatPreferenceLists preferenceLists)
+    {
+        var mediaType = (MediaType)MamTorrentMapper.EffectiveMediaTypeId(record);
+        return Enum.IsDefined(mediaType)
+            ? Core.Metadata.FormatQuality.Rate(
+                preferenceLists.For(mediaType), record.FileTypesRaw.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+                mediaType, FormatPreferenceLists.SettingNameFor(mediaType))
             : null;
     }
 

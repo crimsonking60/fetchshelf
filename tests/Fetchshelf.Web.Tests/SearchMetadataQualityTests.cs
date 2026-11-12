@@ -2,7 +2,7 @@ using System.Net;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The Search page's metadata quality pill.</summary>
+/// <summary>The Search page's Quality pill: the metadata's completeness and the formats' fit.</summary>
 public class SearchMetadataQualityTests
 {
     private static string SearchJson(string extraFields) => $$"""
@@ -69,13 +69,52 @@ public class SearchMetadataQualityTests
     }
 
     [Fact]
-    public async Task ResultsTable_HasAMetadataColumn()
+    public async Task ResultsTable_HasAQualityColumn()
     {
         var html = await ResultsHtmlAsync(SearchJson("""
             "narrator_info": "{}", "isbn": null, "description": null
             """));
 
-        Assert.Contains("<th>Metadata</th>", html);
+        Assert.Contains("<th>Quality</th>", html);
+        Assert.DoesNotContain("<th>Metadata</th>", html);
+    }
+
+    private static string Complete => $$"""
+        "narrator_info": "{\"2\":\"Michael Kramer\"}", "isbn": "9780765326355", "poster_type": "jpg",
+        "description": "{{new string('x', 120)}}"
+        """;
+
+    [Fact]
+    public async Task CompleteMetadataWithoutTheFirstFormat_IsLackingAndSaysSoAboveTheMetadataLine()
+    {
+        var html = await ResultsHtmlAsync(
+            SearchJson(Complete).Replace("\"filetype\": \"m4b\"", "\"filetype\": \"mp3\""),
+            "mam_id = \"\"\naudio_types = [\"m4b\", \"mp3\"]\n");
+
+        Assert.Contains("<span class=\"quality-pill quality-lacking\">Lacking</span>", html);
+        var formatLine = html.IndexOf("Format: no m4b (preferred), it has mp3.", StringComparison.Ordinal);
+        var metadataLine = html.IndexOf("Author, file types, description, cover, genres and ISBN or ASIN are all there.", StringComparison.Ordinal);
+        Assert.True(formatLine >= 0 && metadataLine > formatLine, "The format line comes first, then the metadata line.");
+    }
+
+    [Fact]
+    public async Task CompleteMetadataWithNoAcceptedFormat_IsPoor()
+    {
+        var html = await ResultsHtmlAsync(
+            SearchJson(Complete).Replace("\"filetype\": \"m4b\"", "\"filetype\": \"flac\""),
+            "mam_id = \"\"\naudio_types = [\"m4b\", \"mp3\"]\n");
+
+        Assert.Contains("<span class=\"quality-pill quality-poor\">Poor</span>", html);
+        Assert.Contains("Format: none of its file types (flac) is in your audio_types setting (m4b, mp3).", html);
+    }
+
+    [Fact]
+    public async Task TheFirstFormat_AddsNoFormatLine()
+    {
+        var html = await ResultsHtmlAsync(SearchJson(Complete), "mam_id = \"\"\naudio_types = [\"m4b\", \"mp3\"]\n");
+
+        Assert.Contains("<span class=\"quality-pill quality-good\">Good</span>", html);
+        Assert.DoesNotContain("Format:", html);
     }
 
     private const string Sparse = """

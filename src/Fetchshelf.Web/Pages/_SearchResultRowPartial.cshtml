@@ -20,10 +20,20 @@
     </td>
     <td>@result.MediaTypeLabel</td>
     <td class="nowrap">
-        @if (result.MetadataQuality is { } quality)
+        @if (result.QualityGrade is { } grade)
         {
             @* Focusable so what is missing is also reachable by keyboard and touch, like the authors' balloon. *@
-            <span class="has-tip" tabindex="0"><span class="quality-pill quality-@quality.Grade.ToString().ToLowerInvariant()">@result.MetadataQualityLabel</span><span class="tip" role="tooltip">@result.MetadataQualityDetail</span></span>
+            @* The formats' issue, when there is one, comes first: it matters most for which upload to take. *@
+            <span class="has-tip" tabindex="0">
+                <span class="quality-pill quality-@grade.ToString().ToLowerInvariant()">@result.QualityLabel</span>
+                <span class="tip" role="tooltip">
+                    @if (result.FormatQualityDetail is { } formatDetail)
+                    {
+                        <span class="tip-line">@formatDetail</span>
+                    }
+                    <span class="tip-line">@result.MetadataQualityDetail</span>
+                </span>
+            </span>
         }
     </td>
     <td>

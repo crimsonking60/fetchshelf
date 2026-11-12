@@ -79,7 +79,7 @@ public sealed class FetchshelfSettings
 
     public List<string> AudioTypes { get; set; } = ["m4b", "m4a", "mp4", "mp3", "ogg"];
 
-    public List<string> EbookTypes { get; set; } = ["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"];
+    public List<string> EbookTypes { get; set; } = ["epub", "cbz", "pdf", "mobi", "azw3", "azw", "cbr"];
 
     public List<string> MusicTypes { get; set; } = ["flac", "mp3", "pdf"];
 
