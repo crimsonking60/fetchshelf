@@ -1,6 +1,7 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Jobs;
+using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -16,7 +17,7 @@ namespace Fetchshelf.Web.Pages.Following;
 /// </summary>
 public class IndexModel(
     FetchshelfSettings settings, IJobRegistry jobRegistry, FormatPreferenceLists formatPreferenceLists, MamClientOptions mamOptions,
-    IServiceProvider services, ILogger<IndexModel> logger) : PageModel
+    FetchshelfDbContext dbContext, IServiceProvider services, ILogger<IndexModel> logger) : PageModel
 {
     [TempData]
     public string? Message { get; set; }
@@ -41,6 +42,19 @@ public class IndexModel(
 
     public IReadOnlyList<FollowWithFinds> Follows { get; private set; } = [];
 
+    /// <summary>Where each find's torrent stands in Fetchshelf, by MAM id; finds never selected have none.</summary>
+    public IReadOnlyDictionary<long, MamResultStatus> PipelineStatuses { get; private set; } = new Dictionary<long, MamResultStatus>();
+
+    /// <summary>
+    /// The status badge for a find whose torrent is selected, downloading, downloaded or linked, as the Search page shows
+    /// it: it asks again by itself and starts the Link job once qBittorrent has finished. Null for a find never selected,
+    /// which keeps its own label.
+    /// </summary>
+    public SearchResultStatusViewModel? StatusBadge(FollowFindEntity find) =>
+        PipelineStatuses.TryGetValue(find.MamId, out var status) && status != MamResultStatus.None
+            ? new SearchResultStatusViewModel(find.MamId, status)
+            : null;
+
     private FollowService? FollowService => services.GetService<FollowService>();
 
     public async Task OnGetAsync()
@@ -48,6 +62,8 @@ public class IndexModel(
         if (FollowService is { } followService)
         {
             Follows = await followService.AllAsync(HttpContext.RequestAborted);
+            PipelineStatuses = await MamResultStatuses.LoadAsync(
+                dbContext, Follows.SelectMany(f => f.Finds).Select(f => f.MamId).Distinct().ToList());
         }
     }
 
@@ -191,9 +207,13 @@ public class IndexModel(
         _ => "Ignored",
     };
 
+    /// <summary>
+    /// A find's own label, for one not on its way into the library. A new find has none, as a Search result with nothing
+    /// done to it has none: its Download and Dismiss buttons say what can be done.
+    /// </summary>
     public static string StatusLabel(FollowFindStatus status) => status switch
     {
-        FollowFindStatus.New => "New",
+        FollowFindStatus.New => string.Empty,
         FollowFindStatus.Selected => "Selected",
         FollowFindStatus.Wanted => "Not free",
         FollowFindStatus.Owned => "In the library",

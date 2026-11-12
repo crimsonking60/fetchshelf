@@ -140,7 +140,16 @@ else
                                 }
                                 <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
                                 <td class="nowrap">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
-                                <td>@Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(find.Status)</td>
+                                <td>
+                                    @if (Model.StatusBadge(find) is { } badge)
+                                    {
+                                        <partial name="_SearchResultStatusPartial" model="badge" />
+                                    }
+                                    else
+                                    {
+                                        @Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(find.Status)
+                                    }
+                                </td>
                                 <td><local-time value="find.FoundAt" /></td>
                                 <td class="nowrap">
                                     @if (waiting)

@@ -439,6 +439,66 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_ASelectedFind_ShowsTheSearchPagesBadge_WhichAsksAgain()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture, FollowFindStatus.Selected);
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.SelectedTorrents.Add(new SelectedTorrentEntity
+            {
+                MamId = 1,
+                DownloadLink = "dl1",
+                CostDecision = "Ratio",
+                MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata()),
+                NormalizedTitleKey = "the way of kings",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            dbContext.SaveChanges();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        // The badge asks the Search page's status check again, which moves it on and starts the Link job when done.
+        Assert.Contains("hx-get=\"/?mamId=1&amp;round=1&amp;handler=Status\"", html);
+        Assert.Contains("<span class=\"status-badge status-selected\">Selected</span>", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_AFindNowInTheLibrary_ShowsLinked_AndStopsAsking()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture, FollowFindStatus.Selected);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata() with { MamId = 1 }, libraryPath: "/library/x");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Torrents.Single().MamId = 1;
+            dbContext.SaveChanges();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        Assert.Contains("<span class=\"status-badge status-linked\">Linked</span>", html);
+        Assert.DoesNotContain("handler=Status", html);
+    }
+
+    [Fact]
+    public async Task FollowingPage_ANewFind_HasAnEmptyStatus_AndANotFreeOneSaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        Assert.Matches("<td>\\s*</td>\\s*<td><local-time|<td>\\s*</td>\\s*<td><time", html);
+        Assert.DoesNotContain(">New<", html);
+        Assert.DoesNotContain("result-status", html);
+        Assert.Equal("Not free", Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(FollowFindStatus.Wanted));
+    }
+
+    [Fact]
     public async Task FollowingPage_ListsFinds_AndCountsThemInTheMenu_AndDismissHidesOne()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
