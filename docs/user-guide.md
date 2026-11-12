@@ -1091,6 +1091,16 @@ categories = { ebook = false }
   **Following** page, **Change to Auto** and **Change to Followed** switch between downloading automatically
   and only listing; each series or author's heading says which it is.
 
+> [!WARNING]
+> **Auto** downloads *anything* MAM lists as part of the series, or by the author, that the
+> `[[follow.grab]]` blocks' cost and filters allow. Which series and authors a torrent belongs to is
+> entered by whoever uploaded it, so for a series this can be an omnibus or box set of several books, a
+> companion guide or something only loosely connected to it, and for an author an anthology with one story
+> of theirs, or an upload credited to them by mistake. Fetchshelf leaves out books you already have, but it
+> doesn't recognise a collection as made of books you own. Start a series or author on **Follow**, look at
+> what is found, and switch to **Auto** once its finds look right; filters in the `[[follow.grab]]` blocks,
+> such as `max_authors` or `max_size`, can keep out the worst of it.
+
 At the top, the **Following** page says in plain words what the `[[follow.grab]]` blocks let the Follow job
 download by itself, one line per block, such as "Ebooks in English: free ones, and others paid with ratio."
 A book on *Auto* that isn't downloaded usually costs more than that.
