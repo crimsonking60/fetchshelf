@@ -259,6 +259,9 @@ public partial class FollowPagesTests
         using var client = fixture.CreateNoRedirectClient();
 
         var before = WebUtility.HtmlDecode(await client.GetStringAsync("/torrents/hash1"));
+        // A browser ends a <p> where a <form> starts, which spilled the buttons out of the details' grid.
+        Assert.Contains("<div id=\"follow-buttons\">", before);
+        Assert.DoesNotMatch(new System.Text.RegularExpressions.Regex("<p[ >](?:(?!</p>).)*<form", System.Text.RegularExpressions.RegexOptions.Singleline), before);
         Assert.Contains(">Follow The Expanse</button>", before);
         Assert.Contains(">Follow James S. A. Corey</button>", before);
 

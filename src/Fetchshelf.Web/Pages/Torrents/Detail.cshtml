@@ -20,10 +20,11 @@
         @if (Settings.Follow is not null)
         {
             var returnUrl = Model.Request.Path + Model.Request.QueryString;
-            <p id="follow-buttons"><span class="label">Follow</span><span class="value">
+            @* A div, not a p: a browser ends a p where a form starts, which would spill the buttons out of their row. *@
+            <div id="follow-buttons"><span class="label">Follow</span><span class="value">
                 <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Series, NameLink.Series(torrent.Metadata), Model.Followed, returnUrl)" />
                 <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Author, NameLink.Authors(torrent.Metadata), Model.Followed, returnUrl)" />
-            </span></p>
+            </span></div>
         }
         @if (Model.UpgradeNote is { } upgradeNote)
         {

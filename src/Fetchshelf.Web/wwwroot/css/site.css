@@ -396,7 +396,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 
 /* Torrent detail */
 .meta-block { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0.5rem 0; padding: 0.7rem 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
-.meta-block > p { display: contents; }
+.meta-block > p, .meta-block > div { display: contents; }
 .meta-block .label { color: var(--text-muted); }
 .meta-block .value { overflow-wrap: anywhere; }
 
