@@ -46,9 +46,9 @@ public class EventsPagingTests
 
         var html = await client.GetStringAsync("/events?PageSize=3");
 
-        Assert.Contains("Linker 07", html);
-        Assert.Contains("Linker 05", html);
-        Assert.DoesNotContain("Linker 04", html);
+        Assert.Contains("Linked by Linker 07", html);
+        Assert.Contains("Linked by Linker 05", html);
+        Assert.DoesNotContain("Linked by Linker 04", html); // the Library dropdown lists every name
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class EventsPagingTests
         var html = await client.GetStringAsync("/events?PageSize=3&PageNumber=3");
 
         Assert.Contains("Showing 1 of 7. Page 3 of 3.", html);
-        Assert.Contains("Linker 01", html);
+        Assert.Contains("Linked by Linker 01", html);
         Assert.Contains("id=\"pager-prev\"", html);
         Assert.Contains("id=\"pager-first\"", html);
         Assert.Contains("PageNumber=1", html);

@@ -19,6 +19,19 @@ public class MetadataDiffTests
     };
 
     [Fact]
+    public void Fields_AreEveryFieldBetweenRecords_InItsOrder() =>
+        Assert.Equal(
+            MetadataDiff.Fields,
+            MetadataDiff.Between(Original, Original with
+            {
+                Title = "Dune Messiah",
+                Authors = ["Brian Herbert"],
+                Narrators = ["Euan Morton"],
+                Language = Language.German,
+                LegacyCategory = LegacyCategory.AudiobookScienceFiction,
+            }).Select(change => change.Field));
+
+    [Fact]
     public void Between_SameMetadata_IsEmpty() =>
         Assert.Empty(MetadataDiff.Between(Original, Original with { }));
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,25 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 
     public IReadOnlyList<EventEntity> Events { get; private set; } = [];
 
+    /// <summary>The names of the jobs that grabbed torrents, as events recorded them, for the Grabber dropdown.</summary>
+    public IReadOnlyList<string> GrabberOptions { get; private set; } = [];
+
+    /// <summary>The names of the libraries that linked or cleaned torrents, as events recorded them, for the Linker dropdown.</summary>
+    public IReadOnlyList<string> LinkerOptions { get; private set; } = [];
+
+    /// <summary>The fields an Updated event can record, for the Field dropdown.</summary>
+    public static IReadOnlyList<string> FieldOptions => MetadataDiff.Fields;
+
+    /// <summary>Whether the Field filter is offered and applied: it narrows Updated events, the only ones with changed fields.</summary>
+    public bool FiltersByField => Type == EventKind.Updated;
+
+    /// <summary>Whether any filter is set, so the page offers to clear them.</summary>
+    public bool HasFilters => Type is not null || !string.IsNullOrWhiteSpace(Grabber) || !string.IsNullOrWhiteSpace(Linker)
+        || (FiltersByField && !string.IsNullOrWhiteSpace(Field));
+
+    /// <summary>The route values without any filter: the page size stays.</summary>
+    public Dictionary<string, string> ClearedRouteValues() => new() { [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture) };
+
     public int TotalCount { get; private set; }
 
     public int TotalPages { get; private set; } = 1;
@@ -44,11 +64,21 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
             [nameof(Type)] = Type?.ToString() ?? string.Empty,
             [nameof(Grabber)] = Grabber ?? string.Empty,
             [nameof(Linker)] = Linker ?? string.Empty,
-            [nameof(Field)] = Field ?? string.Empty,
+            [nameof(Field)] = FiltersByField ? Field ?? string.Empty : string.Empty,
             [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture),
         };
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
+
+    private static async Task<List<string>> DistinctNamesAsync(IQueryable<string?> names) =>
+        (await names.Where(name => name != null && name != "").Distinct().ToListAsync())
+            .OfType<string>()
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    /// <summary>The options, with the current value added when no event has it any more, so the dropdown still shows it.</summary>
+    private static List<string> WithCurrent(List<string> options, string? current) =>
+        string.IsNullOrWhiteSpace(current) || options.Contains(current, StringComparer.Ordinal) ? options : [current, .. options];
 
     private IReadOnlyDictionary<string, string> _titles = new Dictionary<string, string>();
 
@@ -76,10 +106,15 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
             query = query.Where(e => e.LinkerName == Linker);
         }
 
-        if (!string.IsNullOrWhiteSpace(Field))
+        if (FiltersByField && !string.IsNullOrWhiteSpace(Field))
         {
-            query = query.Where(e => e.FieldChangesJson != null && e.FieldChangesJson.Contains(Field));
+            // The field's name as the stored change list writes it, so a value that happens to hold the word doesn't match.
+            var fieldJson = $"\"Field\":{System.Text.Json.JsonSerializer.Serialize(Field)}";
+            query = query.Where(e => e.FieldChangesJson != null && e.FieldChangesJson.Contains(fieldJson));
         }
+
+        GrabberOptions = WithCurrent(await DistinctNamesAsync(dbContext.Events.Select(e => e.GrabberName)), Grabber);
+        LinkerOptions = WithCurrent(await DistinctNamesAsync(dbContext.Events.Select(e => e.LinkerName)), Linker);
 
         // Sorted and paged in memory: the SQLite EF Core provider cannot translate ORDER BY over a
         // DateTimeOffset column (see the same note in Pages/Torrents/Index.cshtml.cs).

@@ -51,5 +51,6 @@ public static class EventLabels
         }
     }
 
-    private static string FieldName(string field) => field == "LegacyCategory" ? "Category" : field;
+    /// <summary>A recorded field's name as the page shows it.</summary>
+    public static string FieldName(string field) => field == "LegacyCategory" ? "Category" : field;
 }

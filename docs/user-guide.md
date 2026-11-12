@@ -1507,8 +1507,10 @@ reported, so they cannot be chosen by hand.
 
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed. Events are never edited, so you can use them to see why something happened. Filter the list
-by event type, by the autograb that grabbed a torrent, by the library that linked it, or by a
-changed field. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
+with the dropdowns above it: by event type, by the job that grabbed a torrent (an autograb, a list, Follow,
+Upgrade or the Search page), or by the library that linked it. With the type set to *Updated*, a further
+dropdown filters by the field an update changed. A choice applies straight away; **Clear filters** shows the
+whole list again. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
 browser remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move
 between pages.
 

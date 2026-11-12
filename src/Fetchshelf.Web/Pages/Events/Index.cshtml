@@ -5,21 +5,46 @@
 }
 
 <h2>Events</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is a log of everything Fetchshelf has done, such as grabbing, linking, and cleaning up torrents. Filter by type, grabber, linker, or field to find a specific event.")
+@await Html.PartialAsync("_PageExplanation", "This page is a log of everything Fetchshelf has done, such as grabbing, linking, and cleaning up torrents. Filter by type, by the job that grabbed a torrent, or by the library that linked it; updates can also be filtered by the field they changed.")
 
+@* A changed dropdown applies straight away, as on the Torrents page. *@
 <form method="get" class="toolbar">
-    <select name="Type">
+    <select name="Type" aria-label="Type" onchange="this.form.requestSubmit()">
         <option value="">All types</option>
         @foreach (var kind in Enum.GetValues<Fetchshelf.Data.Entities.EventKind>())
         {
             <option value="@kind" selected="@(Model.Type == kind)">@EventLabels.For(kind)</option>
         }
     </select>
-    <input type="text" name="Grabber" value="@Model.Grabber" placeholder="Grabber" />
-    <input type="text" name="Linker" value="@Model.Linker" placeholder="Linker" />
-    <input type="text" name="Field" value="@Model.Field" placeholder="Field" />
+    <select name="Grabber" aria-label="Grabbed by" onchange="this.form.requestSubmit()">
+        <option value="">Grabbed by any job</option>
+        @foreach (var grabber in Model.GrabberOptions)
+        {
+            <option value="@grabber" selected="@(Model.Grabber == grabber)">@grabber</option>
+        }
+    </select>
+    <select name="Linker" aria-label="Library" onchange="this.form.requestSubmit()">
+        <option value="">Any library</option>
+        @foreach (var linker in Model.LinkerOptions)
+        {
+            <option value="@linker" selected="@(Model.Linker == linker)">@linker</option>
+        }
+    </select>
+    @if (Model.FiltersByField)
+    {
+        <select name="Field" aria-label="Changed field" onchange="this.form.requestSubmit()">
+            <option value="">Any changed field</option>
+            @foreach (var field in IndexModel.FieldOptions)
+            {
+                <option value="@field" selected="@(Model.Field == field)">@EventLabels.FieldName(field)</option>
+            }
+        </select>
+    }
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
-    <button type="submit">Filter</button>
+    @if (Model.HasFilters)
+    {
+        <a id="clear-filters" asp-page="/Events/Index" asp-all-route-data="Model.ClearedRouteValues()">Clear filters</a>
+    }
 </form>
 
 @if (Model.Events.Count == 0)

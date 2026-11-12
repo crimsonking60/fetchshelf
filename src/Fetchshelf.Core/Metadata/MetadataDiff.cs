@@ -6,6 +6,9 @@ public sealed record FieldChange(string Field, string From, string To);
 /// <summary>The fields an Updated event records when a torrent's metadata changes.</summary>
 public static class MetadataDiff
 {
+    /// <summary>Every field an Updated event can record, in the order <see cref="Between"/> records them.</summary>
+    public static readonly IReadOnlyList<string> Fields = ["Title", "Authors", "Narrators", "Language", "LegacyCategory"];
+
     /// <summary>The recorded fields that differ, in a fixed order; empty when none does.</summary>
     public static List<FieldChange> Between(TorrentMetadata from, TorrentMetadata to)
     {
