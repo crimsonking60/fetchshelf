@@ -1091,7 +1091,8 @@ categories = { ebook = false }
   and only listing; each series or author's heading says which it is.
 
 The **Following** page lists every followed or watched series and author with what was found for it, with
-each torrent's format and size; the count on its menu link is what is waiting to be looked at. A find marked *not free* matched, but none of the
+each torrent's format and size; the count on its menu link is what is waiting to be looked at. A torrent's
+title opens its details from MAM over the page, as on the **Search** page; **Close** goes back to the list. A find marked *not free* matched, but none of the
 `[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. **Search now** puts a
 series or author first in line and starts the Follow job.
 

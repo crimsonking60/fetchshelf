@@ -122,6 +122,21 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_AFindsTitle_OpensItsDetailsInADialog_AsOnTheSearchPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        Assert.Contains(
+            "<a hx-get=\"/search/1?handler=Partial\" hx-target=\"#hit-dialog-body\" hx-swap=\"innerHTML\" href=\"/search/1\">The Way of Kings</a>",
+            html);
+        Assert.Contains("<dialog id=\"hit-dialog\"", html);
+        Assert.Contains("id=\"hit-dialog-body\"", html);
+    }
+
+    [Fact]
     public async Task FollowingPage_ShowsEachFindsSize_AndNothingForAFindWithoutOne()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);

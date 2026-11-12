@@ -1,0 +1,31 @@
+@* A MAM torrent's details in a dialog over the page, so what the page shows, its filters and scroll position stay
+   put. A link opens it with hx-get to /Search/Detail's Partial handler and hx-target="#hit-dialog-body"; its href
+   stays the full details page, for a new tab. Used by the Search and Following pages. *@
+<dialog id="hit-dialog" class="hit-dialog" aria-label="Torrent details">
+    <div class="hit-dialog-bar">
+        <button type="button" id="hit-dialog-close">Close</button>
+    </div>
+    <div id="hit-dialog-body"></div>
+</dialog>
+<script>
+    (function () {
+        const hitDialog = document.getElementById('hit-dialog');
+        const hitDialogBody = document.getElementById('hit-dialog-body');
+        document.body.addEventListener('htmx:beforeRequest', function (event) {
+            if (event.detail.target === hitDialogBody) {
+                hitDialogBody.innerHTML = '<p class="muted">Loading…</p>';
+                if (!hitDialog.open) {
+                    hitDialog.showModal();
+                }
+            }
+        });
+        document.getElementById('hit-dialog-close').addEventListener('click', function () {
+            hitDialog.close();
+        });
+        hitDialog.addEventListener('click', function (event) {
+            if (event.target === hitDialog) {
+                hitDialog.close();
+            }
+        });
+    })();
+</script>

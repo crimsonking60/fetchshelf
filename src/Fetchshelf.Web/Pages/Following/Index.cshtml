@@ -99,7 +99,9 @@ else
                         {
                             var waiting = find.Status is FollowFindStatus.New or FollowFindStatus.Wanted;
                             <tr class="@(waiting ? null : "muted")">
-                                <td><a href="/search/@find.MamId">@find.Title</a></td>
+                                @* Opens the details in a dialog over the page, as on the Search page; the link itself is the full page, for a new tab. *@
+                                <td><a asp-page="/Search/Detail" asp-route-mamId="@find.MamId"
+                                       hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = find.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@find.Title</a></td>
                                 @if (follow.Kind == FollowKind.Series)
                                 {
                                     <td>@find.SeriesDisplay</td>
@@ -137,3 +139,5 @@ else
         </section>
     }
 }
+
+<partial name="_HitDialog" />

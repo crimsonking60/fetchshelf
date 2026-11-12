@@ -106,12 +106,7 @@ else
     </div>
 </div>
 
-<dialog id="hit-dialog" class="hit-dialog" aria-label="Torrent details">
-    <div class="hit-dialog-bar">
-        <button type="button" id="hit-dialog-close">Close</button>
-    </div>
-    <div id="hit-dialog-body"></div>
-</dialog>
+<partial name="_HitDialog" />
 
 @section Scripts {
     <script>
@@ -149,26 +144,6 @@ else
             if (hideDownloadedCheckbox != null) {
                 hideDownloadedCheckbox.addEventListener('change', applyFilters);
             }
-            // A result's details open in a dialog over the results, so the results, filters and scroll position stay put.
-            const hitDialog = document.getElementById('hit-dialog');
-            const hitDialogBody = document.getElementById('hit-dialog-body');
-            document.body.addEventListener('htmx:beforeRequest', function (event) {
-                if (event.detail.target === hitDialogBody) {
-                    hitDialogBody.innerHTML = '<p class="muted">Loading…</p>';
-                    if (!hitDialog.open) {
-                        hitDialog.showModal();
-                    }
-                }
-            });
-            document.getElementById('hit-dialog-close').addEventListener('click', function () {
-                hitDialog.close();
-            });
-            hitDialog.addEventListener('click', function (event) {
-                if (event.target === hitDialog) {
-                    hitDialog.close();
-                }
-            });
-
             // A download swaps its row in out of band: it may now be hidden by "Hide downloaded torrents", and the count changes.
             document.body.addEventListener('htmx:oobAfterSwap', applyFilters);
             // The table arrives after page load, so filters must be re-applied to each new set of rows.
