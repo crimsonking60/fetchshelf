@@ -1086,11 +1086,12 @@ categories = { ebook = false }
   **Wedge download** and **Dismiss** buttons, and nothing downloaded by itself.
 - **Ignore** a series to leave it out of the series with missing books.
 - **Follow an author** with the button on a torrent's page, or next to an author filter on the **Torrents**
-  page. An author is watched to begin with: their new books are listed, not downloaded. The **Following**
-  page switches a follow between downloading automatically and only listing.
+  page. An author is watched to begin with: their new books are listed, not downloaded. On the **Following**
+  page, **Change to Followed** and **Change to Watched** switch a follow between downloading automatically
+  and only listing; each series or author's heading says which it is.
 
-The **Following** page lists every followed or watched series and author with what was found for it; the
-count on its menu link is what is waiting to be looked at. A find marked *not free* matched, but none of the
+The **Following** page lists every followed or watched series and author with what was found for it, with
+each torrent's format and size; the count on its menu link is what is waiting to be looked at. A find marked *not free* matched, but none of the
 `[[follow.grab]]` blocks pays for it; **Download** or **Wedge download** still takes it. **Search now** puts a
 series or author first in line and starts the Follow job.
 

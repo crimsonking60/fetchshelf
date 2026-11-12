@@ -199,7 +199,7 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal((0, 1), (summary.Selected, summary.NewFinds));
         Assert.Empty(harness.Context.SelectedTorrents.AsNoTracking());
         var find = Assert.Single(Finds(harness));
-        Assert.Equal((5L, FollowFindStatus.New, null), (find.MamId, find.Status, find.SeriesDisplay));
+        Assert.Equal((5L, FollowFindStatus.New, null, (long?)(100L * 1024 * 1024)), (find.MamId, find.Status, find.SeriesDisplay, find.SizeBytes));
         Assert.Contains("\"srchIn\":[\"author\"]", Assert.Single(harness.Searches));
 
         // Searched again later, a find already listed is not listed twice.
@@ -207,6 +207,24 @@ public sealed class FollowRunnerTests : IDisposable
         harness.Context.SaveChanges();
         Assert.Equal(0, (await harness.RunAsync()).NewFinds);
         Assert.Single(Finds(harness));
+    }
+
+    [Fact]
+    public async Task AFindAlreadyListedWithoutASize_GetsItWhenSearchedAgain()
+    {
+        var harness = CreateHarness(Results(Record(5, "Tiamat's Wrath")));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        await harness.RunAsync();
+
+        // As a find listed before sizes were kept: it stays listed as it is, and only its size changes.
+        var listed = harness.Context.FollowFinds.Single();
+        (listed.SizeBytes, listed.StatusAt) = (null, DateTimeOffset.UnixEpoch);
+        harness.Context.Follows.Single().LastSearchedAt = null;
+        harness.Context.SaveChanges();
+        await harness.RunAsync();
+
+        var find = Assert.Single(Finds(harness));
+        Assert.Equal((FollowFindStatus.New, DateTimeOffset.UnixEpoch, (long?)(100L * 1024 * 1024)), (find.Status, find.StatusAt, find.SizeBytes));
     }
 
     [Fact]

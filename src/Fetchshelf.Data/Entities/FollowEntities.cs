@@ -80,6 +80,9 @@ public sealed class FollowFindEntity
     /// <summary>"Audio" or "Ebook".</summary>
     public required string MediaSide { get; set; }
 
+    /// <summary>The torrent's size as MAM gave it when last found; null for finds recorded before sizes were kept.</summary>
+    public long? SizeBytes { get; set; }
+
     public required FollowFindStatus Status { get; set; }
 
     public required DateTimeOffset FoundAt { get; set; }

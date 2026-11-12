@@ -157,6 +157,16 @@ public sealed class FollowRunner(
 
         var candidates = result.Data.Select(record => ToCandidate(follow, record)).OfType<Candidate>().ToList();
         var finds = await dbContext.FollowFinds.Where(f => f.FollowId == follow.Id).ToDictionaryAsync(f => f.MamId, cancellationToken);
+
+        // Finds already listed are mostly left as they are below, so their sizes are brought up to date here, from every
+        // result: also those that are owned by now, or dismissed.
+        foreach (var record in result.Data)
+        {
+            if (finds.TryGetValue(record.MamId, out var listed) && SizeOf(record) is { } size)
+            {
+                listed.SizeBytes = size;
+            }
+        }
         candidates = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
 
         var decisions = Decide(follow, candidates, grabFilters);
@@ -233,6 +243,19 @@ public sealed class FollowRunner(
             settings.DryRun ? LogLevel.Information : LogLevel.Debug, "Follow {Name}: \"{Title}\" (MAM torrent {MamId}): {What}",
             follow.DisplayName, candidate.Metadata.Title, candidate.Record.MamId, what);
 
+    /// <summary>The torrent's size from MAM's listing; null when MAM gives none or one that can't be read, as it is only shown.</summary>
+    private static long? SizeOf(MamTorrentRecord record)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(record.SizeRaw) ? null : MamSizeParser.ParseBytes(record.SizeRaw);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Adds or updates the follow's find for the torrent. In a dry run nothing is kept: the run discards it.</summary>
     private void Record(FollowEntity follow, Candidate candidate, FollowFindStatus status, Dictionary<long, FollowFindEntity> finds, DateTimeOffset now)
     {
@@ -245,6 +268,7 @@ public sealed class FollowRunner(
                 Title = candidate.Metadata.Title,
                 SeriesDisplay = candidate.SeriesDisplay,
                 MediaSide = candidate.Side.ToString(),
+                SizeBytes = SizeOf(candidate.Record),
                 Status = status,
                 FoundAt = now,
                 StatusAt = now,

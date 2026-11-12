@@ -31,7 +31,7 @@ else
             <h3>
                 <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
                    asp-route-Author="@(follow.Kind == FollowKind.Author ? follow.NameKey : null)">@follow.DisplayName</a>
-                <span class="muted">@kind, @Fetchshelf.Web.Pages.Following.IndexModel.ModeLabel(follow.Mode).ToLowerInvariant()</span>
+                <span class="muted">@kind, @Fetchshelf.Web.Pages.Following.IndexModel.ModeLabel(follow.Mode)</span>
             </h3>
             <p class="muted">
                 @if (follow.LastSearchedAt is { } searched)
@@ -47,13 +47,14 @@ else
                 @{
                     var otherMode = follow.Mode == FollowMode.Download ? FollowMode.Watch : FollowMode.Download;
                 }
+                @* A plain form post that redirects back: the whole page reloads, so the heading above shows the new mode. *@
                 <form method="post" asp-page-handler="Mode" class="inline">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="kind" value="@follow.Kind" />
                     <input type="hidden" name="key" value="@follow.NameKey" />
                     <input type="hidden" name="name" value="@follow.DisplayName" />
                     <input type="hidden" name="mode" value="@otherMode" />
-                    <button type="submit">@(otherMode == FollowMode.Download ? "Download automatically" : "Only list what is found")</button>
+                    <button type="submit">@(otherMode == FollowMode.Download ? "Change to Followed" : "Change to Watched")</button>
                 </form>
                 <form method="post" asp-page-handler="SearchNow" class="inline">
                     @Html.AntiForgeryToken()
@@ -86,6 +87,7 @@ else
                                 <th>Book</th>
                             }
                             <th>Format</th>
+                            <th>Size</th>
                             <th>Status</th>
                             <th>Found</th>
                             <th></th>
@@ -102,6 +104,7 @@ else
                                     <td>@find.SeriesDisplay</td>
                                 }
                                 <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                                <td class="nowrap">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
                                 <td>@Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(find.Status)</td>
                                 <td><local-time value="find.FoundAt" /></td>
                                 <td class="nowrap">

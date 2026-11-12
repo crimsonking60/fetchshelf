@@ -186,6 +186,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("SeriesDisplay")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 

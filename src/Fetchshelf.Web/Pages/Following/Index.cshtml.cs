@@ -76,7 +76,7 @@ public class IndexModel(
         }
 
         var follow = await followService.SetAsync(kind, key, name, mode);
-        Message = $"{Describe(follow)}: {ModeLabel(follow.Mode).ToLowerInvariant()}.";
+        Message = $"{Describe(follow)}: {ModeLabel(follow.Mode)}.";
         return RedirectToPage();
     }
 
@@ -156,8 +156,8 @@ public class IndexModel(
 
     public static string ModeLabel(FollowMode mode) => mode switch
     {
-        FollowMode.Download => "Downloaded automatically",
-        FollowMode.Watch => "Watched",
+        FollowMode.Download => "Followed - downloaded automatically",
+        FollowMode.Watch => "Watched - download yourself",
         _ => "Ignored",
     };
 

@@ -81,6 +81,48 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_ChangeToFollowed_ReloadsThePageWithTheNewModeInTheHeading()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture, mode: FollowMode.Watch);
+        using var client = fixture.CreateClient();
+
+        var before = WebUtility.HtmlDecode(await client.GetStringAsync("/Following"));
+        var response = await PostAsync(client, "/Following", "/Following?handler=Mode",
+            new() { ["kind"] = "Author", ["key"] = "jamessacorey", ["name"] = "James S. A. Corey", ["mode"] = "Download" });
+        // The client follows the redirect, so the response is the page as it reloads.
+        var after = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal("/Following", response.RequestMessage!.RequestUri!.AbsolutePath);
+        Assert.Contains("Author, Watched - download yourself</span>", before);
+        Assert.Contains(">Change to Followed</button>", before);
+        Assert.Contains("Author, Followed - downloaded automatically</span>", after);
+        Assert.Contains(">Change to Watched</button>", after);
+        Assert.DoesNotContain("Watched - download yourself</span>", after);
+    }
+
+    [Fact]
+    public async Task FollowingPage_ShowsEachFindsSize_AndNothingForAFindWithoutOne()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        var findId = await SeedFindAsync(fixture);
+        using var client = fixture.CreateClient();
+        var withoutSize = await client.GetStringAsync("/Following");
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.FollowFinds.Single(f => f.Id == findId).SizeBytes = 1288490189; // 1.2 GiB
+            dbContext.SaveChanges();
+        }
+
+        var withSize = await client.GetStringAsync("/Following");
+
+        Assert.Contains("<th>Size</th>", withoutSize);
+        Assert.Contains("<td class=\"nowrap\"></td>", withoutSize);
+        Assert.Contains("<td class=\"nowrap\">1.2 GiB</td>", withSize);
+    }
+
+    [Fact]
     public async Task SeriesPage_ShowsWhatIsOwnedAndMissing_WithoutFollowButtonsWithoutAFollowSection()
     {
         using var fixture = new FetchshelfWebAppFixture();

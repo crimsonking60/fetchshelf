@@ -92,6 +92,25 @@ public sealed class DataPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_FollowFindFromBeforeSizesWereKept_KeepsItWithoutASize()
+    {
+        using var context = CreateContext();
+        context.GetService<IMigrator>().Migrate("20261112073113_AddEventEditedByHand");
+        context.Database.ExecuteSql(
+            $"INSERT INTO Follows (Kind, NameKey, DisplayName, Mode, CreatedAt) VALUES (0, 'expanse', 'The Expanse', 0, '2026-11-11 10:00:00+00:00')");
+        context.Database.ExecuteSql(
+            $"""
+            INSERT INTO FollowFinds (FollowId, MamId, Title, MediaSide, Status, FoundAt, StatusAt)
+            VALUES (1, 5, 'Tiamat''s Wrath', 'Audio', 0, '2026-11-11 10:00:00+00:00', '2026-11-11 10:00:00+00:00')
+            """);
+
+        DatabaseMigrator.Migrate(context);
+
+        var find = context.FollowFinds.Single();
+        Assert.Equal(("Tiamat's Wrath", (long?)null), (find.Title, find.SizeBytes));
+    }
+
+    [Fact]
     public void Migrate_UpdatedEventFromBeforeHandEditsWereRecorded_KeepsItWithEditedByHandEmpty()
     {
         using var context = CreateContext();
