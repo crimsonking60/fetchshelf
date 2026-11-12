@@ -26,6 +26,13 @@ public class IndexModel(
 
     public bool CanFollow => settings.Follow is not null;
 
+    /// <summary>
+    /// When the Follow job searches a series or author again, at the earliest: `search_again_after` hours after its last
+    /// search, as the job decides what is due. A later run, or Search now, does it.
+    /// </summary>
+    public DateTimeOffset SearchAgainAfter(DateTimeOffset lastSearched) =>
+        lastSearched + TimeSpan.FromHours(settings.Follow?.SearchAgainAfter ?? FollowSettings.DefaultSearchAgainAfterHours);
+
     public IReadOnlyList<FollowWithFinds> Follows { get; private set; } = [];
 
     private FollowService? FollowService => services.GetService<FollowService>();

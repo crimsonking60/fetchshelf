@@ -1096,7 +1096,8 @@ each torrent's format and size; the count on its menu link is what is waiting to
 series or author first in line and starts the Follow job.
 
 Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
-at most once every `search_again_after` hours (24). Fifty followed series are then each searched once a day,
+at most once every `search_again_after` hours (24); the **Following** page shows when each was last searched
+and when it will be searched again at the earliest. Fifty followed series are then each searched once a day,
 in five runs. This keeps the number of requests to MAM low. Use
 `dry_run = true` first to see in the log what the job would select.
 

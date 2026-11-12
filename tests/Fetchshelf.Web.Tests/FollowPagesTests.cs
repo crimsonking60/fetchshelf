@@ -102,6 +102,26 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_SaysWhenAFollowWasSearched_AndWhenItIsSearchedAgain()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow.Replace("[follow]", "[follow]\nsearch_again_after = 12", StringComparison.Ordinal));
+        await SeedFindAsync(fixture);
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Follows.Single().LastSearchedAt = new DateTimeOffset(2026, 11, 12, 7, 57, 56, TimeSpan.Zero);
+            dbContext.SaveChanges();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/Following");
+
+        Assert.Matches(
+            "Last searched <time class=\"local-time\" datetime=\"2026-11-12T07:57:56Z\"[^>]*>2026-11-12 07:57:56 UTC</time>, "
+            + "will search again after <time class=\"local-time\" datetime=\"2026-11-12T19:57:56Z\"[^>]*>2026-11-12 19:57:56 UTC</time>\\.",
+            html);
+    }
+
+    [Fact]
     public async Task FollowingPage_ShowsEachFindsSize_AndNothingForAFindWithoutOne()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);

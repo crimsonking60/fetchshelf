@@ -20,7 +20,7 @@
                 {
                     var (shown, more) = FailingJobText.Names(group);
                     <strong>@FailingJobText.Cause(group.Kind)</strong>
-                    @:since <local-time value="group.Since" />:
+                    <text>since <local-time value="group.Since" />:</text>
                     @for (var i = 0; i < shown.Count; i++)
                     {
                         @(i == 0 ? "" : i == shown.Count - 1 && more == 0 ? " and " : ", ")<a asp-page="/Jobs/History" asp-route-job="@shown[i]">@shown[i]</a>

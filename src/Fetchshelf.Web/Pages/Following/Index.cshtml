@@ -36,7 +36,8 @@ else
             <p class="muted">
                 @if (follow.LastSearchedAt is { } searched)
                 {
-                    @:Last searched <local-time value="searched" />.
+                    @* <text>, not @:, which writes a tag helper out as it is instead of running it. *@
+                    <text>Last searched <local-time value="searched" />, will search again after <local-time value="Model.SearchAgainAfter(searched)" />.</text>
                 }
                 else
                 {

@@ -22,7 +22,7 @@
         MAM is busy with <strong>@busyWith</strong>; try again when it is done.
         @if (summary.Snapshot is { } shown)
         {
-            @:The numbers below are from <local-time value="shown.FetchedAt" />.
+            <text>The numbers below are from <local-time value="shown.FetchedAt" />.</text>
         }
     </p>
 }
@@ -137,7 +137,7 @@ else
     <li>
         @if (summary.LastSuccessAt is { } lastSuccess)
         {
-            @:Last answered successfully <local-time value="lastSuccess" />.
+            <text>Last answered successfully <local-time value="lastSuccess" />.</text>
         }
         else
         {

@@ -63,6 +63,8 @@ public partial class JobFailuresPageTests
         var html = await client.GetStringAsync("/Errors");
 
         Assert.Single(Regex.Matches(html, "MAM refused mam_id \\(HTTP 403\\)"));
+        Assert.Matches("</strong>\\s*since <time class=\"local-time\"[^>]*>[^<]+</time>:", html);
+        Assert.DoesNotContain("<local-time", html);
         Assert.Contains("and 2 more", html);
         Assert.Contains("Fix mam_id in config.toml", html);
         Assert.Contains("disk full", html); // the unrelated failure keeps its own line

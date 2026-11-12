@@ -58,6 +58,8 @@ public partial class AccountPageTests
         var html = await client.GetStringAsync("/Account");
 
         Assert.Contains("example-user, Power User", html);
+        Assert.Matches("Last answered successfully <time class=\"local-time\"[^>]*>[^<]+</time>\\.", html);
+        Assert.DoesNotContain("<local-time", html);
         Assert.Contains("1.2 TiB / 436.0 GiB", html);
         Assert.Contains("14 of 20", html);
         Assert.Contains("41,250", html);
@@ -161,7 +163,7 @@ public partial class AccountPageTests
         var html = await PostRefreshAsync(client, page);
 
         Assert.Contains("MAM is busy with <strong>Autograb Freeleech</strong>", html);
-        Assert.Contains("The numbers below are from", html);
+        Assert.Matches("The numbers below are from <time class=\"local-time\"[^>]*>[^<]+</time>\\.", html);
         Assert.Contains("14 of 20", html);
         Assert.Equal(1, reads); // only the read before the refresh
     }
