@@ -12,6 +12,7 @@ workflow in the [contributors guide](contributors-guide.md).
   - [Reviewing](#reviewing)
   - [Merging into main](#merging-into-main)
   - [Outside contributions](#outside-contributions)
+  - [Dependency updates](#dependency-updates)
   - [Stale and declined pull requests](#stale-and-declined-pull-requests)
 - [Testing the head of main](#testing-the-head-of-main)
 - [Versioning](#versioning)
@@ -160,6 +161,19 @@ After merging, check that the linked issue was closed.
 - **Feature requests in code form:** if a pull request adds something that won't be built, say so early and
   kindly, before the author spends more time on it. Turn the idea into an issue if it is worth keeping, or
   decline it with a short reason.
+
+### Dependency updates
+
+Dependabot ([`.github/dependabot.yml`](../.github/dependabot.yml)) opens pull requests every week for NuGet
+packages and GitHub Actions: one per ecosystem for all minor and patch updates, and one for each major update.
+They run the same checks as any other pull request and are labelled `dependencies`, which puts them in their
+own group in the release notes. Squash-merge them once the checks pass; read the changelog of a major update
+first.
+
+```sh
+gh pr list --label dependencies
+gh pr merge 42 --squash --delete-branch
+```
 
 ### Stale and declined pull requests
 
