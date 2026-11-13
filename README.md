@@ -50,9 +50,9 @@ setup. If you use one, please report how it went, good or bad (see
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - `mark_removed` in `[[autograb]]`.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
-- `[[notify]]`: the ntfy, Gotify, Discord and Apprise formats follow those services' documented APIs but have
-  not been tried against the services themselves. The `json` format and the messages' contents are covered by
-  tests.
+- `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
+  tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
+  contents are covered by tests.
 
 ## Latest release
 
