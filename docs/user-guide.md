@@ -1573,7 +1573,8 @@ reported, so they cannot be chosen by hand.
   (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
   such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
   through link runs, snatchlists, **Refresh and relink**, and autograbs, lists and Follow coming across the
-  torrent again; only **Refresh** replaces them with MAM's details. What an edit changed is recorded on the
+  torrent again; only **Refresh** replaces them with MAM's details, and on a hand-edited torrent it asks first.
+  To apply an edit to the library folder, use **Refresh and relink**, which keeps it. What an edit changed is recorded on the
   **Events** page as an update *Edited by hand*.
 
 ### Events

@@ -22,6 +22,9 @@ public class DetailModel(
 
     public TorrentDetailViewModel? Torrent { get; private set; }
 
+    /// <summary>Whether the details were edited by hand, which Refresh would replace with MAM's.</summary>
+    public bool EditedByHand => Torrent is { } torrent && HandEdits.AreIn(torrent.Metadata);
+
     /// <summary>What is followed, by kind and key, for the follow buttons; empty without a `[follow]` section.</summary>
     public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Following.FollowState> Followed { get; private set; } =
         new Dictionary<(Data.Entities.FollowKind, string), Following.FollowState>();

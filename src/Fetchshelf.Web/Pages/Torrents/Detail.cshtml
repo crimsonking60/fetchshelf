@@ -103,9 +103,20 @@
     }
 
     <h3>Actions</h3>
+    <p id="refresh-explanation" class="muted">
+        <strong>Refresh</strong> replaces the details with MAM's, including any edited by hand.
+        <strong>Refresh and relink</strong> keeps details edited by hand, and moves the book's folder to match them.
+    </p>
     <div class="actions">
         <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
-        <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+        @if (Model.EditedByHand)
+        {
+            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" onsubmit="return confirm('Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead.')">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+        }
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
         @if (torrent.UnlinkedAt is null)
         {

@@ -21,6 +21,32 @@ public class TorrentDetailPageTests
     }
 
     [Fact]
+    public async Task Get_EditedByHand_RefreshAsksFirst_AndTheActionsSayWhatEachRefreshDoes()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(
+            fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings") with { MetadataSource = Fetchshelf.Core.Metadata.MetadataSource.Manual });
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/torrents/hash1"));
+
+        Assert.Contains("onsubmit=\"return confirm('Replace the details edited by hand with the details from MAM?", html);
+        Assert.Contains("replaces the details with MAM's, including any edited by hand.", html);
+        Assert.Contains("keeps details edited by hand", html);
+    }
+
+    [Fact]
+    public async Task Get_NotEditedByHand_RefreshDoesNotAsk()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        Assert.Contains("id=\"refresh-explanation\"", html);
+        Assert.DoesNotContain("Replace the details edited by hand", html);
+    }
+
+    [Fact]
     public async Task Post_RemoveRecord_DeletesTorrentAndRedirectsToList()
     {
         using var fixture = new FetchshelfWebAppFixture();
