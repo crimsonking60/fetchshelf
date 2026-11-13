@@ -10,13 +10,14 @@ workflow in the [contributors guide](contributors-guide.md).
 - [Working with pull requests](#working-with-pull-requests)
   - [Triage](#triage)
   - [Reviewing](#reviewing)
-  - [Merging into develop](#merging-into-develop)
+  - [Merging into main](#merging-into-main)
+  - [Outside contributions](#outside-contributions)
   - [Stale and declined pull requests](#stale-and-declined-pull-requests)
-- [Testing the head of develop](#testing-the-head-of-develop)
+- [Testing the head of main](#testing-the-head-of-main)
 - [Versioning](#versioning)
 - [Release notes](#release-notes)
 - [Releasing a new version](#releasing-a-new-version)
-  - [Is develop ready?](#is-develop-ready)
+  - [Is main ready?](#is-main-ready)
   - [Preparing the release](#preparing-the-release)
   - [Making the release](#making-the-release)
   - [After the release](#after-the-release)
@@ -28,42 +29,39 @@ workflow in the [contributors guide](contributors-guide.md).
 
 | Branch | Holds | Who changes it, and how |
 | --- | --- | --- |
-| `develop` | The integration branch: everything merged since the last release. The repository's default branch. | Pull requests from contributors and maintainers, squash-merged. |
-| `main` | Exactly what was last released. Every commit on `main` is a release. | Only the release pull request from `develop` and hotfix pull requests. |
-| `fix/…`, `feature/…`, `docs/…`, … | One change each, in contributors' forks. | Their authors. |
-| `release/…` | The release notes for the next release, branched from `develop`. | Maintainers. See [Preparing the release](#preparing-the-release). |
-| `hotfix/…` | An urgent fix to the current release, branched from `main`. | Maintainers. See [Hotfixes](#hotfixes). |
+| `main` | Everything merged so far. The repository's default branch, and the only long-lived one. A release is a tag on it. | Pull requests from contributors and maintainers, squash-merged. Maintainers may push trivial changes directly. |
+| `fix/…`, `feature/…`, `docs/…`, `chore/…`, … | One change each, short-lived: in contributors' forks, or in this repository for maintainers. | Their authors. Deleted once merged. |
 
 Rules that keep this working:
 
-- **Nobody pushes directly to `develop` or `main`,** maintainers included. Maintainers' own changes go
-  through pull requests like everyone else's.
-- **Pushing to `main` publishes a release.** Merge into `main` only when you mean to release.
-- **`main` is always an ancestor of `develop`.** After every release or hotfix, `main` is merged back into
-  `develop` (see [After the release](#after-the-release)).
-- Because `develop` is the default branch, pull requests target it automatically, and `Fixes #123` in a pull
-  request closes the issue when it is merged into `develop`.
-- **Visitors land on `develop`,** being the default branch, so the documentation they see first is for
-  changes not released yet. The README's notice and the notes at the top of the user guide and the
-  configuration reference say so in words that are true on both branches, so they can be merged into `main`
-  as they are. Keep it that way: no wording that only fits one branch. The README's links for people who run
-  Fetchshelf (the user guide, the configuration reference, getting help) are absolute links to `main`; a
-  link to a page that isn't on `main` yet stays relative until the release that brings it.
+- **Anything that touches code or behaviour goes through a pull request,** maintainers' own changes included.
+- **Trivial changes may be pushed straight to `main`** by a maintainer: typos, small documentation tweaks,
+  dependency bumps. Such a push uses the admin bypass of the branch rules, so the checks run after it lands,
+  not before. If `main` turns red, fix it straight away with a follow-up commit. That risk is the reason to
+  keep direct pushes to changes that really are trivial.
+- **Pushing to `main` doesn't release anything.** It publishes the `edge` image (see
+  [Testing the head of main](#testing-the-head-of-main)). A release is a `vYYYY.MM.N` tag pushed by a
+  maintainer (see [Making the release](#making-the-release)).
+- `Fixes #123` in a pull request closes the issue when it is merged into `main`.
+- **The documentation on `main` may describe changes that are not released yet.** The README's notice and the
+  notes at the top of the user guide and the configuration reference say so, and point people who run a
+  released version to the "Latest release" section of the README. That section links the user guide and the
+  configuration reference at the release's tag, and is updated with every release.
 
 Repository rulesets enforce this:
 
-| Ruleset | Branch | Rules | Bypass |
+| Ruleset | Applies to | Rules | Bypass |
 | --- | --- | --- | --- |
-| Protect develop | `develop` | No deletion or force-push; changes through a pull request with passing checks. | Repository admins |
-| Protect main | `main` | The same. | Repository admins |
+| Protect main | `main` | Changes through a pull request with the `Build, test and format` check passing; squash merges only. | Repository admins |
 | Never delete or rewrite main | `main` | No deletion or force-push. | Nobody |
+| Protect release tags | `v*` tags | No creating, moving or deleting. | Repository admins |
 
-The third ruleset exists because the repository deletes a pull request's head branch once it is merged, and
-GitHub does that as the person who merged. That person is usually an admin, who may bypass the first two
-rulesets, so after the 2026.11.3 release merging the back-merge pull request (whose head is `main`) deleted
-`main`. With no bypass, the third ruleset refuses that deletion, and anyone else's. To delete or rewrite
-`main` on purpose, which should never be needed, disable that ruleset first and enable it again straight
-after.
+The second ruleset has no bypass, so it refuses deleting or rewriting `main` even for admins, for example when
+a merged pull request's head branch is deleted automatically. To delete or rewrite `main` on purpose, which
+should never be needed, disable that ruleset first and enable it again straight after.
+
+The third ruleset means release tags only come from maintainers, and a published tag can't be moved by
+accident.
 
 ## Working with pull requests
 
@@ -72,13 +70,15 @@ after.
 Look at new pull requests within a few days, even if a full review has to wait. For each one:
 
 - **Label it** (`bug`, `enhancement`, `documentation`, `accessibility`) and link the issue it addresses, if any.
-- **Check the target.** It should be `develop`. Retarget it if not: `gh pr edit 42 --base develop`.
+  The labels also decide where the pull request is listed in the release notes (see
+  [Release notes](#release-notes)).
+- **Check the target.** It should be `main`. Retarget it if not: `gh pr edit 42 --base main`.
 - **Check that it is wanted.** If it is a larger change that nobody discussed first, say so kindly and point
   to the issue or discussion where it should be agreed, before anyone spends time reviewing code.
 - **Thank first-time contributors.**
 
 ```sh
-gh pr list --base develop
+gh pr list --base main
 gh pr view 42
 gh pr edit 42 --add-label bug
 ```
@@ -99,7 +99,7 @@ Then read the diff (`gh pr diff 42`) with these questions in mind:
   without mocking EF Core or HTTP where it can be avoided.
 - **Database changes:** is there a migration, does it upgrade an existing database with data in it, and does
   it leave already-merged migrations untouched? Try it on a copy of a real database (see
-  [Testing the head of develop](#testing-the-head-of-develop)).
+  [Testing the head of main](#testing-the-head-of-main)).
 - **Configuration:** setting names are part of the user-facing contract. Renamed or removed settings break
   users' files; new settings must be documented in [configuration.md](configuration.md).
 - **MAM safety:** the ratio, unsatisfied-slot and wedge checks must not be weakened, request politeness must
@@ -122,10 +122,12 @@ gh pr review 42 --comment --body "Looks good; one suggestion inline, not blockin
 ```
 
 When there is more than one maintainer, a maintainer's own pull request needs another maintainer's approval.
+The ruleset requires no approvals, because GitHub doesn't let authors approve their own pull requests, and a
+single maintainer would otherwise need the bypass for every merge.
 
-### Merging into develop
+### Merging into main
 
-Merge with **squash**, so every change lands on `develop` as one commit:
+Merge with **squash**, the only merge method allowed, so every change lands on `main` as one commit:
 
 ```sh
 gh pr merge 42 --squash --delete-branch \
@@ -133,11 +135,31 @@ gh pr merge 42 --squash --delete-branch \
   --body-file squash-message.txt
 ```
 
-The squash commit is what ends up in the history and the release notes, so edit its message to follow the
-commit conventions in the [contributors guide](contributors-guide.md#commits): an imperative subject line,
-and a body that explains why. Keep the contributor's `Co-authored-by:` lines and any `Fixes #123`.
+The squash commit's title is the pull request's title and its body is the branch's commit messages; the pull
+request's description isn't used, because it carries the template's checklist. The squash commit is what ends
+up in the history, so edit its message to follow the commit conventions in the
+[contributors guide](contributors-guide.md#commits): an imperative subject line, and a body that explains why.
+Keep the contributor's `Co-authored-by:` lines and any `Fixes #123`.
 
 After merging, check that the linked issue was closed.
+
+### Outside contributions
+
+- **Small fixes to a contributor's pull request:** push them to the contributor's branch rather than asking
+  for another round. That works while **Allow edits by maintainers** is ticked on the pull request, which the
+  contributors guide asks for. Say in a comment what was changed.
+
+  ```sh
+  gh pr checkout 42
+  # fix, commit
+  git push
+  ```
+
+- **Work in progress:** ask for a draft pull request, or leave a review with **Request changes**, so the list
+  of open pull requests shows what is ready to merge.
+- **Feature requests in code form:** if a pull request adds something that won't be built, say so early and
+  kindly, before the author spends more time on it. Turn the idea into an issue if it is worth keeping, or
+  decline it with a short reason.
 
 ### Stale and declined pull requests
 
@@ -152,10 +174,10 @@ gh pr comment 42 --body "Are you still planning to finish this? No rush, just ch
 gh pr close 42 --comment "Closing for now since it has been quiet; feel free to reopen any time."
 ```
 
-## Testing the head of develop
+## Testing the head of main
 
 Automated tests prove the code is correct, not that the app works with real torrents, a real library and a
-real MAM account. Maintainers run the head of `develop` on their own setups between releases, so problems are
+real MAM account. Maintainers run the head of `main` on their own setups between releases, so problems are
 found before users see them.
 
 Keep a local clone of the main repository (not a fork) for this:
@@ -163,7 +185,7 @@ Keep a local clone of the main repository (not a fork) for this:
 ```sh
 gh repo clone crimsonking60/fetchshelf fetchshelf-maintainer
 cd fetchshelf-maintainer
-git switch develop
+git switch main
 git pull
 dotnet build && dotnet test && dotnet format --verify-no-changes
 ```
@@ -175,7 +197,8 @@ Then:
 2. **Try what changed since the last release.** The list is in the commits:
 
    ```sh
-   git log --oneline main..develop
+   git fetch --tags
+   git log --oneline "$(git describe --tags --abbrev=0 main)..main"
    ```
 
 3. **Exercise the core paths:** run each job from the Jobs page, download something small and free, let it
@@ -190,16 +213,16 @@ Then:
 
 5. **Build and run the container:** `docker compose up --build`.
 
-Testers who don't build Fetchshelf themselves can run the head of `develop` from its container image, which
-is published on every push to `develop`:
+Testers who don't build Fetchshelf themselves can run the head of `main` from its container image, which is
+published on every push to `main`, after the checks pass:
 
 ```sh
-docker pull ghcr.io/crimsonking60/fetchshelf:develop
+docker pull ghcr.io/crimsonking60/fetchshelf:edge
 ```
 
-The `develop` image is for testing only. It can change several times a day, and its database migrations may
-not be final, so tell testers to point it at a copy of their data, never at the data their real Fetchshelf
-uses.
+The `edge` image is for testing only. It can change several times a day, and its database migrations may not
+be final, so tell testers to point it at a copy of their data, never at the data their real Fetchshelf uses.
+It reports its version as `edge-<commit>`.
 
 Report what you find as issues, labelled `bug`, before the next release.
 
@@ -216,10 +239,10 @@ Fetchshelf uses calendar versioning, **`YYYY.MM.N`**:
 So the first release in October 2026 is `2026.10.1`, a hotfix later that month is `2026.10.2`, and the first
 release in January 2027 is `2027.01.1`. With two-digit months, versions sort correctly as plain text.
 
-- Git tags are the version with a `v` in front: `v2026.10.1`.
+- Git tags are the version with a `v` in front: `v2026.10.1`. Pushing one is what makes the release.
 - Container images are published to the GitHub Container Registry as `ghcr.io/crimsonking60/fetchshelf`, tagged
-  with the plain version (`2026.10.1`) and `latest` for the newest release. The head of `develop` is tagged
-  `develop`.
+  with the plain version (`2026.10.1`) and `latest` for the newest release. The head of `main` is tagged
+  `edge`.
 - The version says when a release was made, not how big it is. [`RELEASES.md`](../RELEASES.md) says what
   changed, and calls out anything users must do when upgrading.
 - The maintainer preparing a release picks the number: the month the release is prepared in, and the next free
@@ -234,8 +257,8 @@ release in January 2027 is `2027.01.1`. With two-digit months, versions sort cor
 
 Every release is recorded in [`RELEASES.md`](../RELEASES.md) at the root of the repository, newest first, and
 the newest one is named in the "Latest release" section of [`README.md`](../README.md). Both are updated in the
-same pull request that prepares the release (see [Preparing the release](#preparing-the-release)), so the
-notes always ship with the code they describe.
+pull request that prepares the release (see [Preparing the release](#preparing-the-release)), so the notes
+always ship with the code they describe.
 
 Each release gets a section in this form:
 
@@ -266,20 +289,24 @@ Each release gets a section in this form:
 ```
 
 Leave out any other subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
-what is different for them, not which classes changed.
+what is different for them, not which classes changed. Links into the user guide or the configuration reference
+point at the release's tag (`https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/user-guide.md#…`),
+not at `main`, so they keep describing that release as `main` moves on.
 
-The release workflow reads the version from the first `## ` heading of `RELEASES.md`, and uses that section as
-the GitHub release's description. While `RELEASES.md` lists no release, a push to `main` publishes nothing.
+The GitHub release's description is that section, followed by GitHub's generated list of the pull requests
+merged since the previous release, grouped by label as [`.github/release.yml`](../.github/release.yml) says.
+Changes pushed straight to `main` aren't in that list, which is one reason the hand-written section comes
+first.
 
 ## Releasing a new version
 
-### Is develop ready?
+### Is main ready?
 
-Release when `develop` has something worth shipping and:
+Release when `main` has something worth shipping and:
 
-- [ ] the automated checks pass on the head of `develop`;
-- [ ] you have run the head of `develop` on a real setup since the last change (see
-  [Testing the head of develop](#testing-the-head-of-develop));
+- [ ] the automated checks pass on the head of `main`;
+- [ ] you have run the head of `main` (or its `edge` image) on a real setup since the last change (see
+  [Testing the head of main](#testing-the-head-of-main));
 - [ ] no open issue labelled `bug` was introduced since the last release, unless it is minor and known;
 - [ ] migrations upgrade a copy of a real database cleanly;
 - [ ] user-visible changes are documented in the [user guide](user-guide.md) or the
@@ -291,139 +318,111 @@ Release when `develop` has something worth shipping and:
 2. **List what changed** since the last release:
 
    ```sh
-   git log --oneline main..develop
-   gh pr list --repo crimsonking60/fetchshelf --base develop --state merged --limit 100 \
-     --search "merged:>=$(git log -1 --format=%cs main)" --json number,title,labels \
+   git fetch --tags
+   last=$(git describe --tags --abbrev=0 main)
+   git log --oneline "$last..main"
+   gh pr list --repo crimsonking60/fetchshelf --base main --state merged --limit 100 \
+     --search "merged:>=$(git log -1 --format=%cs "$last")" --json number,title,labels \
      --jq '.[] | "- \(.title) (#\(.number)) [\([.labels[].name] | join(", "))]"'
    ```
 
-3. **Write the release notes** on a branch from `develop`:
-   - add the new section at the top of `RELEASES.md`, below the introduction (for the first release, also
-     remove the "No release has been published yet." line);
-   - update the "Latest release" section of `README.md` with the new version, its date and a link to its
-     section in `RELEASES.md`:
+3. **Write the release notes** on a branch from `main`:
+   - add the new section at the top of `RELEASES.md`, below the introduction;
+   - update the "Latest release" section of `README.md` with the new version, its date, a link to its section
+     in `RELEASES.md`, and links to the user guide and the configuration reference at the new tag:
 
      ```markdown
      ## Latest release
 
      **2026.10.1** (2026-10-28). See [RELEASES.md](RELEASES.md#2026101---2026-10-28) for what changed, and
-     for every earlier release.
+     for every earlier release. The documentation for this release:
+     [user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/user-guide.md) and
+     [configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/configuration.md).
      ```
 
+     The tag links don't resolve until the tag is pushed.
+
    ```sh
-   git switch develop && git pull
-   git switch -c release/2026.10.1
+   git switch main && git pull
+   git switch -c prepare-release/2026.10.1
    # edit RELEASES.md and README.md
    git commit -am "Prepare release 2026.10.1"
-   git push -u origin release/2026.10.1
-   gh pr create --repo crimsonking60/fetchshelf --base develop --title "Prepare release 2026.10.1" --fill
+   git push -u origin prepare-release/2026.10.1
+   gh pr create --repo crimsonking60/fetchshelf --base main --title "Prepare release 2026.10.1" --fill
    ```
 
-4. **Squash-merge** the preparation pull request into `develop` like any other.
+4. **Squash-merge** the preparation pull request into `main` like any other, once the checks pass. Nothing is
+   released yet.
 
 ### Making the release
 
-1. **Open the release pull request** from `develop` into `main`:
+1. **Tag the merged commit and push the tag.** Pushing the tag publishes the release, so check first that
+   the head of `main` is the preparation commit (or a commit after it that you mean to ship):
 
    ```sh
-   gh pr create --repo crimsonking60/fetchshelf --base main --head develop \
-     --title "Release 2026.10.1" --body "See RELEASES.md."
+   git switch main && git pull
+   git log --oneline -3
+   git tag -a v2026.10.1 -m 2026.10.1
+   git push origin v2026.10.1
    ```
 
-2. **Check it** one last time: the commit list (`gh pr view --web`) contains what you expect, the top of
-   `RELEASES.md` has the version you picked, and the checks pass.
-
-3. **Merge it with a merge commit**, not squash or rebase, and **don't delete the branch**:
-
-   ```sh
-   gh pr merge <number> --merge
-   ```
-
-   A merge commit keeps `develop`'s individual commits in `main`'s history and keeps the two branches related.
-   Squashing would make `main` and `develop` disagree about history and cause conflicts at the next release.
-
-4. **Watch the release workflow.** The push to `main` starts it. It reads the version from `RELEASES.md`, stops
-   if that version's tag already exists or doesn't match `YYYY.MM.N`, builds and tests, publishes the container
-   image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, tags the commit, creates the GitHub
-   release with the `RELEASES.md` section as its description, and merges `main` back into `develop` (see
-   [After the release](#after-the-release)).
+2. **Watch the release workflow.** The tag push starts it. It stops with an error naming the cause if the tag
+   isn't `vYYYY.MM.N`, the tagged commit isn't on `main`, the first section of `RELEASES.md` at that commit is
+   for a different version, or that version is already released. Otherwise it builds and tests, publishes the
+   container image as `ghcr.io/crimsonking60/fetchshelf:<version>` and `:latest`, and creates the GitHub release
+   (see [Release notes](#release-notes)).
 
    ```sh
    gh run list --workflow release.yml --limit 3
    gh run watch
    ```
 
-5. **Check the result:**
+3. **Check the result:** the GitHub release's description (the `RELEASES.md` section, then the list of pull
+   requests), the image tags, and that the README's links at the new tag resolve.
 
    ```sh
-   gh release view --repo crimsonking60/fetchshelf
+   gh release view v2026.10.1 --repo crimsonking60/fetchshelf
    docker pull ghcr.io/crimsonking60/fetchshelf:2026.10.1
    ```
 
 ### After the release
 
-1. **Merge `main` back into `develop`.** The release workflow's last job opens a pull request "Merge release
-   2026.10.1 back into develop" from `main` into `develop`, so `main` stays an ancestor of `develop`. It
-   doesn't merge anything itself. Resolve any conflicts and merge that pull request with a merge commit:
-
-   ```sh
-   gh pr list --repo crimsonking60/fetchshelf --base develop --head main
-   gh pr merge <number> --merge
-   ```
-
-   A pull request opened by a workflow doesn't start other workflows, so its checks never run. Merge it by
-   bypassing the branch rules, after making sure `develop` builds.
-
-   Merging it also makes the repository try to delete its head branch, `main`. The *Never delete or rewrite
-   main* ruleset refuses that (see [Branches](#branches)); check afterwards that `main` is still there:
-   `gh api repos/crimsonking60/fetchshelf/branches/main --jq .name`. If it is gone, because the ruleset was
-   disabled or removed, press **Restore branch** on the merged pull request straight away and restore the
-   ruleset.
-
-   A local `origin/main` doesn't show that `main` was deleted on GitHub, since fetching keeps branches that are
-   gone. Fetch with `git fetch --prune` to see the real state.
-
-   Pull `develop` before you continue working on it: `git switch develop && git pull`.
-
-2. **Pull the new image** on your own setup and check that it starts and upgrades your database.
-3. **Close the milestone,** if you used one, and move anything unfinished to the next.
+1. **Pull the new image** on your own setup and check that it starts and upgrades your database.
+2. **Close the milestone,** if you used one, and move anything unfinished to the next.
 
 The release is announced by the updated "Latest release" section in `README.md` and its entry in
 `RELEASES.md`; there is nothing else to publish.
 
 ## Hotfixes
 
-When the current release has a bug that can't wait, and `develop` holds changes that aren't ready to ship:
+When the current release has a bug that can't wait, fix it on `main` like any other change, then make a
+release as above, with the next number of the month (for example `2026.10.2`). Keep the fix's pull request
+minimal: only the fix and its test.
 
-1. Branch from `main`, fix, and add the release notes in the same branch: a new section at the top of
-   `RELEASES.md` with the next number of the month (for example `2026.10.2`), and the updated "Latest release"
-   section in `README.md`.
+That is all it takes while `main` holds nothing that isn't ready to ship. When it does hold unready, untested
+changes, there are three ways out, in this order of preference:
 
-   ```sh
-   git switch main && git pull
-   git switch -c hotfix/2026.10.2
-   # fix, test, update RELEASES.md and README.md, commit
-   git push -u origin hotfix/2026.10.2
-   gh pr create --repo crimsonking60/fetchshelf --base main --title "Release 2026.10.2" --fill
-   ```
-
-2. Review it as usual, but keep it minimal: only the fix, its test and the release notes.
-3. Squash-merge it into `main`. That publishes the release.
-4. The release workflow merges `main` back into `develop`, so the fix and its release notes aren't lost. A
-   hotfix is the likeliest release to conflict with `develop`; if it does, finish the merge as in
-   [After the release](#after-the-release).
-
-If `develop` is ready to release anyway, skip the hotfix branch: fix it on `develop` and make a normal
-release.
+1. **Release `main` as it is,** if the unready changes are safe enough after a quick test.
+2. **Revert the unready changes** on `main` (`git revert`, through a pull request), release, then bring them
+   back with a revert of the revert.
+3. **Release from a branch made from the last tag.** The release workflow refuses tags on commits that aren't on
+   `main`, so this needs that check loosened first. It hasn't been needed so far; don't add it until it is.
 
 ## When a release goes wrong
 
-- **The workflow failed before publishing:** nothing reached users and no tag was created. Fix the cause on
-  `develop` (or with a hotfix) and merge into `main` again. The version in `RELEASES.md` can stay the same.
-- **A broken release was published:** don't delete or move its tag or image; people may already run it.
-  Publish a fixed version as soon as possible (usually a [hotfix](#hotfixes)), and add a line to the broken
-  release's section in `RELEASES.md` and to its GitHub release: "Don't use this version, upgrade to
-  2026.10.2."
+- **The workflow failed:** if the cause was temporary (a registry hiccup, a flaky test), re-run it:
+  `gh run rerun <run-id> --failed`. If the cause is in the repository (the tag was wrong, or the notes or the
+  code need a fix), fix it on `main`, then delete the tag and push it again on the right commit. That needs the
+  tag ruleset's bypass, and is only allowed while nothing was published: no image pushed, no GitHub release.
+
+  ```sh
+  git push origin :refs/tags/v2026.10.1 && git tag -d v2026.10.1
+  ```
+
+- **A broken release was published:** never delete, move or re-push its tag or image; people may already run
+  it. Publish a fixed version as the next `N` as soon as possible (see [Hotfixes](#hotfixes)), and add a line
+  to the broken release's section in `RELEASES.md` and to its GitHub release: "Don't use this version, upgrade
+  to 2026.10.2."
 - **Users need to go back:** they can pin the previous image tag, as long as the newer version didn't change
   the database in a way the older version can't read. Say so under "Upgrading" whenever a migration makes going
   back impossible.
@@ -432,18 +431,18 @@ release.
 
 | Task | Command |
 | --- | --- |
-| Open pull requests for develop | `gh pr list --base develop` |
+| Open pull requests | `gh pr list --base main` |
 | Label a pull request | `gh pr edit 42 --add-label bug` |
-| Retarget a pull request | `gh pr edit 42 --base develop` |
+| Retarget a pull request | `gh pr edit 42 --base main` |
 | Check out and test | `gh pr checkout 42`, then `dotnet build && dotnet test` |
 | Read the diff | `gh pr diff 42` |
 | Review | `gh pr review 42 --approve` / `--comment` / `--request-changes` |
-| Squash-merge into develop | `gh pr merge 42 --squash --delete-branch --subject "..." --body-file msg.txt` |
+| Squash-merge into main | `gh pr merge 42 --squash --delete-branch --subject "..." --body-file msg.txt` |
 | Comment / close | `gh pr comment 42 --body "..."` / `gh pr close 42 --comment "..."` |
-| What's unreleased | `git log --oneline main..develop` |
+| What's unreleased | `git fetch --tags && git log --oneline "$(git describe --tags --abbrev=0 main)..main"` |
 | Used version numbers this month | `git fetch --tags && git tag --list "v2026.10.*"` |
-| Open the release pull request | `gh pr create --base main --head develop --title "Release 2026.10.1"` |
-| Merge the release | `gh pr merge <number> --merge` (no `--delete-branch`) |
+| Make the release | `git tag -a v2026.10.1 -m 2026.10.1 && git push origin v2026.10.1` |
 | Watch the release workflow | `gh run list --workflow release.yml`, `gh run watch` |
+| Re-run a failed workflow | `gh run rerun <run-id> --failed` |
 | See a release | `gh release view v2026.10.1` |
 | Close an issue as not planned | `gh issue close 123 --reason "not planned" --comment "..."` |

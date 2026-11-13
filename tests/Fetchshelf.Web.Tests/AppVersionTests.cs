@@ -5,7 +5,7 @@ public class AppVersionTests
 {
     [Theory]
     [InlineData("2026.10.2", "2026.10.2")]
-    [InlineData("develop-14747e2", "develop-14747e2")]
+    [InlineData("edge-14747e2", "edge-14747e2")]
     [InlineData("dev+14747e2a1b2c3d4e5f60718293a4b5c6d7e8f90", "dev")]
     [InlineData(null, "unknown")]
     [InlineData("", "unknown")]

@@ -11,7 +11,7 @@ examples throughout.
 
 1. **Talk first for anything bigger than a small fix.** Open an issue or a discussion with your plan, so no
    one builds something that doesn't fit.
-2. **Fork, then branch** from an up-to-date `develop`: `gh repo fork crimsonking60/fetchshelf --clone`, then
+2. **Fork, then branch** from an up-to-date `main`: `gh repo fork crimsonking60/fetchshelf --clone`, then
    `git switch -c fix/123-short-description`.
 3. **Pass all three checks** before you push:
 
@@ -21,7 +21,8 @@ examples throughout.
 
    The build treats every warning as an error, and new behavior and bug fixes need tests.
 4. **Write commit messages** with an imperative subject line and a body that explains why.
-5. **Open a pull request** against `develop`: `gh pr create --repo crimsonking60/fetchshelf --base develop --fill`.
+5. **Open a pull request** against `main`: `gh pr create --repo crimsonking60/fetchshelf --base main --fill`. Leave
+   **Allow edits by maintainers** ticked, so small fixes can be pushed to your branch.
 
 ## Reporting bugs
 

@@ -20,11 +20,11 @@
 
 ## Checklist
 
-See [Before you open one](https://github.com/crimsonking60/fetchshelf/blob/develop/docs/contributors-guide.md#before-you-open-one).
+See [Before you open one](https://github.com/crimsonking60/fetchshelf/blob/main/docs/contributors-guide.md#before-you-open-one).
 
 - [ ] `dotnet build`, `dotnet test` and `dotnet format --verify-no-changes` all pass.
 - [ ] New behavior and bug fixes have tests.
 - [ ] User-facing changes are documented in the user guide or the configuration reference.
 - [ ] Database changes have a migration that upgrades existing databases.
-- [ ] My branch is up to date with `upstream/develop`.
+- [ ] My branch is up to date with `upstream/main`.
 - [ ] I haven't edited `RELEASES.md` or the "Latest release" section of `README.md`.

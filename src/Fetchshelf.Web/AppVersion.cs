@@ -3,7 +3,7 @@ using System.Reflection;
 namespace Fetchshelf.Web;
 
 /// <summary>
-/// The running version: a release number such as <c>2026.10.2</c>, <c>develop-&lt;commit&gt;</c> for develop images,
+/// The running version: a release number such as <c>2026.10.2</c>, <c>edge-&lt;commit&gt;</c> for edge images,
 /// or <c>dev</c> for a local build. Bug reports quote it, so it is shown on the Config page and logged at startup.
 /// </summary>
 public static class AppVersion
