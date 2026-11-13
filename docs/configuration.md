@@ -491,7 +491,9 @@ in its range would look like a gap. Setting `mark_removed` on one stops startup 
 
 ## Cost
 
-`cost` appears on `[[autograb]]`, `[[snatchlist]]` and the `grab` blocks of `[[hardcover_list]]`.
+`cost` appears on `[[autograb]]`, `[[snatchlist]]` and the `grab` blocks of `[[hardcover_list]]`, `[follow]` and
+`[upgrade]`. `[[snatchlist]]` only takes the two `metadata_only` values, and the `grab` blocks take every value
+except those two.
 
 | Value | Meaning |
 |---|---|
