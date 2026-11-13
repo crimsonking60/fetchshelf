@@ -1380,6 +1380,20 @@ download is logged as *selected as a better copy than the library's*. To look fo
   blocks it only takes free copies (VIP, freeleech or personal freeleech): a book already in the library is
   worth a better copy, but rarely worth ratio or a wedge. Add blocks with another `cost` to change that.
 
+  The Jobs page names the books a run searched. The log has one line per book: the search sent to MAM, the
+  book's language and linked format, how many results came back, how many of them were not known to Fetchshelf
+  yet, the same book, and in a better format, and what became of the best one. With `FETCHSHELF_LOG=debug`, every
+  result also gets a line saying why it was passed over: already known, not the same book, or not in a better
+  format. When a run searches nothing, the Jobs page says why, for example that no book is due a search yet. A
+  dry run (`dry_run = true`) doesn't record the search, so each dry run searches the same books again, which
+  makes it the way to try out `[[upgrade.grab]]` blocks.
+
+  The Jobs page names the books a run searched. The log has one line per book: the search sent to MAM, the
+  book's language and linked format, how many results came back, how many of them were not known to Fetchshelf
+  yet, the same book, and in a better format, and what became of the best one. With `FETCHSHELF_LOG=debug`, every
+  result also gets a line saying why it was passed over: already known, not the same book, or not in a better
+  format. When a run searches nothing, the Jobs page says why, for example that no book is due a search yet.
+
 ### Unlinking a book you don't want
 
 To take a book out of your library while qBittorrent keeps seeding it, use **Unlink** on its torrent page,

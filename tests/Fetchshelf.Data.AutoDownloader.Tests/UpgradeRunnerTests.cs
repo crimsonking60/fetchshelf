@@ -6,6 +6,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -63,7 +64,7 @@ public sealed class UpgradeRunnerTests : IDisposable
             create(settings ?? Settings()).RunAsync(unsatBuffer: 0, ignoreTorrents: ignoreTorrents ?? []);
     }
 
-    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20)
+    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20, ListLogger<UpgradeRunner>? logger = null)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -88,11 +89,11 @@ public sealed class UpgradeRunnerTests : IDisposable
         return new Harness(context, searches, settings => new UpgradeRunner(
             context, mamClient, new MamAccessGate(),
             new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists),
-            settings, Libraries, SelectionTestSupport.PreferenceLists, new Clock(Now), delay: (_, _) => Task.CompletedTask));
+            settings, Libraries, SelectionTestSupport.PreferenceLists, new Clock(Now), delay: (_, _) => Task.CompletedTask, logger: logger));
     }
 
-    private Harness CreateHarness(string results, int unsatLimit = 20) =>
-        CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(results) }, unsatLimit);
+    private Harness CreateHarness(string results, int unsatLimit = 20, ListLogger<UpgradeRunner>? logger = null) =>
+        CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(results) }, unsatLimit, logger);
 
     private static UpgradeSettings Settings(bool dryRun = false, int searchesPerRun = 20, params string[] libraries) => new()
     {
@@ -178,6 +179,61 @@ public sealed class UpgradeRunnerTests : IDisposable
         Assert.Equal((1, 0), (summary.Searched, summary.Selected));
         Assert.Empty(harness.Context.SelectedTorrents.AsNoTracking());
         Assert.Equal(Now, Stored(harness, "hash1").UpgradeSearchedAt);
+    }
+
+    [Fact]
+    public async Task EachSearchedBook_IsLoggedWithItsSearchAndWhatTheResultsWere()
+    {
+        var logger = new ListLogger<UpgradeRunner>();
+        var harness = CreateHarness(
+            Results(
+                Record(1, filetype: "mp3"),
+                Record(2, filetype: "m4b", author: "Brian Herbert"),
+                Record(3, title: "Dune Messiah", filetype: "m4b"),
+                Record(4, filetype: "m4b")),
+            logger: logger);
+        var known = Copy("hash2", title: "Other");
+        (known.MamId, known.LibraryPath) = (4, null);
+        Add(harness, Copy("hash1"), known);
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(["Dune"], summary.SearchedTitles);
+        var line = Assert.Single(logger.Messages(LogLevel.Information), m => m.StartsWith("Upgrade \"Dune\":", StringComparison.Ordinal));
+        Assert.Contains("searched for @title Dune @author (", line);
+        Assert.Contains("in English, linked as mp3: 4 results, 3 not known yet, 1 the same book, 0 in a better format; no better copy", line);
+        var debug = logger.Messages(LogLevel.Debug);
+        Assert.Contains(debug, m => m.Contains("MAM torrent 1 \"Dune\" by Frank Herbert (mp3): not in a better format", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("MAM torrent 2 \"Dune\" by Brian Herbert (m4b): not the same book", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("MAM torrent 3 \"Dune Messiah\" by Frank Herbert (m4b): not the same book", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("MAM torrent 4 \"Dune\" by Frank Herbert (m4b): already known", StringComparison.Ordinal));
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.StartsWith("Upgrade: 1 book searched on MAM (\"Dune\"), 0 better copies selected", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ASelectedCopy_IsLoggedWithTheTorrentChosen()
+    {
+        var logger = new ListLogger<UpgradeRunner>();
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")), logger: logger);
+        Add(harness, Copy("hash1"));
+
+        await harness.RunAsync();
+
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.StartsWith("Upgrade \"Dune\":", StringComparison.Ordinal)
+            && m.Contains("1 result, 1 not known yet, 1 the same book, 1 in a better format; MAM torrent 2 (m4b): ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task NothingDue_SaysWhyInTheSummary()
+    {
+        var harness = CreateHarness(Results());
+        Add(harness, Copy("hash1", searchedAt: Now.AddDays(-1)));
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(0, summary.Searched);
+        Assert.Equal("1 book could be in a better format, but none is due a search: each is searched again 30 days after its last search", summary.Note);
+        Assert.Empty(harness.Searches);
     }
 
     [Fact]

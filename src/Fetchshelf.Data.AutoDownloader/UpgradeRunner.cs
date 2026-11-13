@@ -16,10 +16,26 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <param name="Selected">Better copies selected; in a dry run, those that would have been.</param>
 /// <param name="Failed">Copies whose search failed.</param>
 /// <param name="DryRun">Whether the run was a dry run, which selects and writes nothing.</param>
-public sealed record UpgradeRunSummary(int Searched, int Selected, int Failed, bool DryRun = false)
+/// <param name="SearchedTitles">The titles of the copies searched, in the order they were searched.</param>
+/// <param name="Note">Why nothing was searched, when nothing was.</param>
+public sealed record UpgradeRunSummary(
+    int Searched, int Selected, int Failed, bool DryRun = false, IReadOnlyList<string>? SearchedTitles = null, string? Note = null)
 {
+    private const int TitlesShown = 5;
+
     /// <summary>The selections now waiting to be downloaded: none in a dry run.</summary>
     public int SelectedForDownload => DryRun ? 0 : Selected;
+
+    /// <summary>The searched titles for a one-line message: the first few, then how many more.</summary>
+    public string TitlesText
+    {
+        get
+        {
+            var titles = SearchedTitles ?? [];
+            var shown = string.Join(", ", titles.Take(TitlesShown).Select(t => $"\"{t}\""));
+            return titles.Count > TitlesShown ? $"{shown} and {titles.Count - TitlesShown} more" : shown;
+        }
+    }
 }
 
 /// <summary>
@@ -65,8 +81,12 @@ public sealed class UpgradeRunner(
 
         if (due.Count == 0)
         {
-            _logger.LogInformation("Upgrade: no book in the library is due a search for a better copy");
-            return new UpgradeRunSummary(0, 0, 0, settings.DryRun);
+            var note = upgradable.Count == 0
+                ? "no book in the library could be in a better format"
+                : $"{upgradable.Count} {(upgradable.Count == 1 ? "book" : "books")} could be in a better format, but none is due a search: "
+                    + $"each is searched again {settings.SearchAgainAfter} days after its last search";
+            _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
+            return new UpgradeRunSummary(0, 0, 0, settings.DryRun, Note: note);
         }
 
         using var _ = await accessGate.AcquireAsync(JobNames.Upgrade, cancellationToken);
@@ -76,13 +96,15 @@ public sealed class UpgradeRunner(
         if (budget <= 0)
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
-            _logger.LogInformation("Upgrade: nothing searched, this run's limit is 0 selections ({BudgetExplanation})", explanation);
-            return new UpgradeRunSummary(0, 0, 0, settings.DryRun);
+            var note = $"this run's limit is 0 selections ({explanation})";
+            _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
+            return new UpgradeRunSummary(0, 0, 0, settings.DryRun, Note: note);
         }
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var libraryCategories = libraries.Select(l => l.Category).OfType<string>().Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal);
-        var (searched, selected, failed) = (0, 0, 0);
+        var (selected, failed) = (0, 0);
+        var searchedTitles = new List<string>();
         var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Upgrade, settings.DryRun, cancellationToken);
         foreach (var copy in due)
         {
@@ -92,7 +114,7 @@ public sealed class UpgradeRunner(
                 break;
             }
 
-            searched++;
+            searchedTitles.Add(copy.Title);
             var failure = await errors.RunAsync(
                 copy.Id, copy.Title,
                 async () =>
@@ -117,11 +139,12 @@ public sealed class UpgradeRunner(
             dbContext.DiscardPendingChanges();
         }
 
+        var summary = new UpgradeRunSummary(searchedTitles.Count, selected, failed, settings.DryRun, searchedTitles);
         _logger.LogInformation(
-            "Upgrade: {Searched} {Books} searched on MAM, {Selected} better {Copies} {Verb}{Failures}",
-            searched, searched == 1 ? "book" : "books", selected, selected == 1 ? "copy" : "copies",
+            "Upgrade: {Searched} {Books} searched on MAM ({Titles}), {Selected} better {Copies} {Verb}{Failures}",
+            summary.Searched, summary.Searched == 1 ? "book" : "books", summary.TitlesText, selected, selected == 1 ? "copy" : "copies",
             settings.DryRun ? "would have been selected (dry run)" : "selected", failed == 0 ? string.Empty : $", {failed} failed");
-        return new UpgradeRunSummary(searched, selected, failed, settings.DryRun);
+        return summary;
     }
 
     /// <summary>
@@ -207,7 +230,8 @@ public sealed class UpgradeRunner(
         var metadata = TorrentMetadataSerializer.Deserialize(copy.MetadataJson);
         var copyRank = LibraryCopyRank.Of(copy, preferenceLists);
 
-        var result = await mamClient.SearchAsync(ToSearchQuery(metadata), cancellationToken);
+        var query = ToSearchQuery(metadata);
+        var result = await mamClient.SearchAsync(query, cancellationToken);
         await _delay(PolitenessDelay, cancellationToken);
 
         // The same book in a better format, ranked with the list the copy's own format was chosen from. Torrents
@@ -218,20 +242,42 @@ public sealed class UpgradeRunner(
             .Concat(await dbContext.SelectedTorrents.Where(s => s.RemovedAt == null && mamIds.Contains(s.MamId)).Select(s => s.MamId).ToListAsync(cancellationToken))
             .Concat(ignoreTorrents)
             .ToHashSet();
-        var better = result.Data
-            .Where(record => !known.Contains(record.MamId))
-            .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
+        var (unknown, sameBook) = (0, 0);
+        var better = new List<(MamTorrentRecord Record, TorrentMetadata Metadata, int Rank)>();
+        foreach (var record in result.Data)
+        {
+            var candidate = GrabMatching.TryMap(record);
+            if (known.Contains(record.MamId))
+            {
+                Explain(copy, record, candidate, "already known to Fetchshelf, queued or in ignore_torrents");
+                continue;
+            }
+
+            unknown++;
             // The same book as selection judges it: the same title key, then the same-book test, which leaves titles out.
-            .Where(c => c.Metadata is not null && TitleNormalizer.Normalize(c.Metadata.Title) == copy.NormalizedTitleKey
-                && SameBookComparer.AreSameBook(metadata, c.Metadata))
-            .Select(c => (c.Record, Metadata: c.Metadata!, Rank: FormatRanker.Rank(preferred, c.Metadata!.FileTypes)))
-            .Where(c => c.Rank < copyRank)
-            .OrderBy(c => c.Rank)
-            .ThenByDescending(c => c.Record.Seeders)
-            .ToList();
+            if (candidate is null || TitleNormalizer.Normalize(candidate.Title) != copy.NormalizedTitleKey || !SameBookComparer.AreSameBook(metadata, candidate))
+            {
+                Explain(copy, record, candidate, candidate is null ? "its details can't be read" : "not the same book");
+                continue;
+            }
+
+            sameBook++;
+            var rank = FormatRanker.Rank(preferred, candidate.FileTypes);
+            if (rank >= copyRank)
+            {
+                Explain(copy, record, candidate, "not in a better format");
+                continue;
+            }
+
+            better.Add((record, candidate, rank));
+        }
+
+        better = [.. better.OrderBy(c => c.Rank).ThenByDescending(c => c.Record.Seeders)];
+        var counts = $"searched for {query.Text} in {metadata.Language}, linked as {CopyFormat(copy)}: {Count(result.Data.Count, "result", "results")}, "
+            + $"{unknown} not known yet, {sameBook} the same book, {better.Count} in a better format";
         if (better.Count == 0)
         {
-            Log(copy, "no better copy on MAM");
+            _logger.LogInformation("Upgrade \"{Title}\": {Counts}; no better copy", copy.Title, counts);
             return false;
         }
 
@@ -245,7 +291,9 @@ public sealed class UpgradeRunner(
             .ToList();
         if (tries.Count == 0)
         {
-            Log(copy, $"a better copy is on MAM (torrent {better[0].Record.MamId}), but no grab block's cost accepts it");
+            _logger.LogInformation(
+                "Upgrade \"{Title}\": {Counts}; a better copy is on MAM (torrent {MamId}), but no grab block's filter and cost accept it",
+                copy.Title, counts, better[0].Record.MamId);
             return false;
         }
 
@@ -255,7 +303,9 @@ public sealed class UpgradeRunner(
             var outcome = await selectionRunner.ProcessCandidateAsync(
                 record, candidate, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
                 dryRun: settings.DryRun, formatList: preferred, cancellationToken: cancellationToken);
-            Log(copy, $"MAM torrent {record.MamId} ({string.Join(", ", candidate.FileTypes)}): {outcome.Describe(settings.DryRun)}");
+            _logger.LogInformation(
+                "Upgrade \"{Title}\": {Counts}; MAM torrent {MamId} ({Formats}): {Outcome}",
+                copy.Title, counts, record.MamId, string.Join(", ", candidate.FileTypes), outcome.Describe(settings.DryRun));
             if (outcome.IsSelected())
             {
                 return true;
@@ -271,8 +321,17 @@ public sealed class UpgradeRunner(
         return false;
     }
 
-    private void Log(TorrentEntity copy, string what) =>
-        _logger.Log(settings.DryRun ? LogLevel.Information : LogLevel.Debug, "Upgrade \"{Title}\": {What}", copy.Title, what);
+    /// <summary>Why a search result is not a better copy, at debug level: one line per result.</summary>
+    private void Explain(TorrentEntity copy, MamTorrentRecord record, TorrentMetadata? candidate, string why) =>
+        _logger.LogDebug(
+            "Upgrade \"{Title}\": MAM torrent {MamId} \"{ResultTitle}\" by {Authors} ({Formats}): {Why}",
+            copy.Title, record.MamId, candidate?.Title ?? record.Title, string.Join(", ", candidate?.Authors ?? [.. record.Authors.Values]),
+            candidate is null ? "?" : string.Join(", ", candidate.FileTypes), why);
+
+    private static string CopyFormat(TorrentEntity copy) =>
+        string.Join(" and ", new[] { copy.ChosenAudioExtension, copy.ChosenEbookExtension }.OfType<string>());
+
+    private static string Count(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
 
     /// <summary>
     /// The title and authors as a Hardcover list searches them (<see cref="ListMamQueryBuilder.Build"/>), in the copy's

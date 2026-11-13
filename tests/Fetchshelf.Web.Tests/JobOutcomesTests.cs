@@ -26,6 +26,18 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void Upgrade_NamesTheBooksSearched_TheFirstFiveAndHowManyMore() =>
+        Assert.Equal(
+            "7 books searched (\"A\", \"B\", \"C\", \"D\", \"E\" and 2 more), 1 better copy selected",
+            JobOutcomes.Upgrade(new UpgradeRunSummary(7, 1, 0, SearchedTitles: ["A", "B", "C", "D", "E", "F", "G"])).Summary);
+
+    [Fact]
+    public void Upgrade_NothingSearched_SaysWhy() =>
+        Assert.Equal(
+            "Nothing searched: why",
+            JobOutcomes.Upgrade(new UpgradeRunSummary(0, 0, 0, Note: "why")).Summary);
+
+    [Fact]
     public void Autograb_Results_SaysHowManyWereReadAndSelected() =>
         Assert.Equal(
             "312 search results, 2 selected",

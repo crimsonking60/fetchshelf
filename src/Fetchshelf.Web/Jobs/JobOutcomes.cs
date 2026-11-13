@@ -93,8 +93,12 @@ public static class JobOutcomes
     public static JobOutcome Upgrade(UpgradeRunSummary summary) => Finish(
         DryRun(
             summary.DryRun,
-            $"{Count(summary.Searched, "book", "books")} searched, {Count(summary.Selected, "better copy", "better copies")} "
-                + (summary.DryRun ? "would have been selected" : "selected")),
+            summary is { Searched: 0, Note: { } note }
+                ? $"Nothing searched: {note}"
+                : $"{Count(summary.Searched, "book", "books")} searched"
+                    + (summary.Searched > 0 ? $" ({summary.TitlesText})" : "")
+                    + $", {Count(summary.Selected, "better copy", "better copies")} "
+                    + (summary.DryRun ? "would have been selected" : "selected")),
         summary.Failed,
         "could not be searched for; see the Errors page",
         new() { ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
