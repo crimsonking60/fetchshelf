@@ -1,0 +1,25 @@
+# Weekly pull requests for NuGet packages and GitHub Actions. Minor and patch updates come as one pull request per
+# ecosystem, major updates one per pull request. The Dockerfile is left out: its floating 10.0 base images pick up
+# patches at every build.
+# https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nuget-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch
