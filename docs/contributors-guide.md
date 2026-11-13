@@ -18,6 +18,7 @@ GitHub. If you only want to run Fetchshelf, read the [user guide](user-guide.md)
 - [Building](#building)
 - [Testing](#testing)
 - [Formatting and code analysis](#formatting-and-code-analysis)
+- [The documentation site](#the-documentation-site)
 - [Running Fetchshelf locally](#running-fetchshelf-locally)
 - [Running in Docker](#running-in-docker)
 - [How the code is organized](#how-the-code-is-organized)
@@ -290,6 +291,24 @@ Before every push, run all three checks:
 ```sh
 dotnet build && dotnet test && dotnet format --verify-no-changes
 ```
+
+## The documentation site
+
+The pages in `docs/` are also published as a documentation site on Read the Docs, built with Sphinx from the
+same Markdown files. A pull request that changes them gets a preview link. To build the site locally, which
+needs Python 3:
+
+```sh
+python3 -m venv ~/.venvs/fetchshelf-docs
+~/.venvs/fetchshelf-docs/bin/pip install -r docs/requirements.txt
+~/.venvs/fetchshelf-docs/bin/sphinx-build -b dirhtml -W --keep-going docs docs/_build
+python3 -m http.server -d docs/_build 8000   # then open http://localhost:8000
+```
+
+`-W` turns warnings into errors, as on Read the Docs: a link to a page or a heading that doesn't exist fails
+the build. Write the pages as plain GitHub Markdown; `docs/conf.py` turns GitHub's `> [!NOTE]` and
+`> [!WARNING]` boxes into notes, and links to files outside `docs/` into links to GitHub. Text wrapped in
+`<!-- github-only:start -->` and `<!-- github-only:end -->` is left out of the site.
 
 ## Running Fetchshelf locally
 
