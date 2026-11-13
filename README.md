@@ -55,10 +55,10 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.7** (2026-11-10). See [RELEASES.md](RELEASES.md#2026117---2026-11-10) for what changed, and for
+**2026.11.8** (2026-11-13). See [RELEASES.md](RELEASES.md#2026118---2026-11-13) for what changed, and for
 every earlier release. The documentation for this release:
-[user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.7/docs/user-guide.md) and
-[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.7/docs/configuration.md).
+[user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/user-guide.md) and
+[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md).
 
 ## Contributing
 
