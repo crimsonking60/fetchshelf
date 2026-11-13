@@ -15,6 +15,7 @@ workflow in the [contributors guide](contributors-guide.md).
   - [Dependency updates](#dependency-updates)
   - [Stale and declined pull requests](#stale-and-declined-pull-requests)
 - [Testing the head of main](#testing-the-head-of-main)
+- [Documentation site](#documentation-site)
 - [Versioning](#versioning)
 - [Release notes](#release-notes)
 - [Releasing a new version](#releasing-a-new-version)
@@ -46,8 +47,9 @@ Rules that keep this working:
 - `Fixes #123` in a pull request closes the issue when it is merged into `main`.
 - **The documentation on `main` may describe changes that are not released yet.** The README's notice and the
   notes at the top of the user guide and the configuration reference say so, and point people who run a
-  released version to the "Latest release" section of the README. That section links the user guide and the
-  configuration reference at the release's tag, and is updated with every release.
+  released version to the "Latest release" section of the README. That section links the
+  [documentation site](https://fetchshelf.readthedocs.io/en/stable/), whose *stable* version is always the newest release (see
+  [Documentation site](#documentation-site)).
 
 Repository rulesets enforce this:
 
@@ -240,6 +242,29 @@ It reports its version as `edge-<commit>`.
 
 Report what you find as issues, labelled `bug`, before the next release.
 
+## Documentation site
+
+The pages in `docs/` are published on Read the Docs at <https://fetchshelf.readthedocs.io>, with a version for
+every release, built from its tag, and *latest* for the head of `main`. *stable* is the newest release and the
+site's default. The site is built with Sphinx and MyST from the same Markdown files GitHub shows:
+[`.readthedocs.yaml`](../.readthedocs.yaml) sets up the build, and [`conf.py`](conf.py) adapts the few
+GitHub-only constructs. Building the site locally is described in the
+[contributors guide](contributors-guide.md#the-documentation-site).
+
+The build fails on any Sphinx warning, such as a link to a heading that doesn't exist, so a broken link shows
+as a failed build on Read the Docs.
+
+These are set in the project's settings on Read the Docs:
+
+| Setting | Value |
+| --- | --- |
+| Default version | `stable` |
+| Default branch | `main` |
+| Automation rule | Activate new versions whose tag matches `^v\d{4}\.\d{2}\.\d+$`. |
+| Pull request builds | On, so a pull request that changes the docs gets a preview link and a check. |
+
+Releases up to 2026.11.8 have no build configuration in their tag, so the site has no version for them.
+
 ## Versioning
 
 Fetchshelf uses calendar versioning, **`YYYY.MM.N`**:
@@ -304,8 +329,8 @@ Each release gets a section in this form:
 
 Leave out any other subsection that would be empty. Write for people who run Fetchshelf, not for developers: say
 what is different for them, not which classes changed. Links into the user guide or the configuration reference
-point at the release's tag (`https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/user-guide.md#…`),
-not at `main`, so they keep describing that release as `main` moves on.
+point at the release's version of the documentation site (`https://fetchshelf.readthedocs.io/en/v2026.10.1/configuration/#…`), not at
+*latest* or *stable*, so they keep describing that release as `main` moves on.
 
 The GitHub release's description is that section, followed by GitHub's generated list of the pull requests
 merged since the previous release, grouped by label as [`.github/release.yml`](../.github/release.yml) says.
@@ -342,19 +367,19 @@ Release when `main` has something worth shipping and:
 
 3. **Write the release notes** on a branch from `main`:
    - add the new section at the top of `RELEASES.md`, below the introduction;
-   - update the "Latest release" section of `README.md` with the new version, its date, a link to its section
-     in `RELEASES.md`, and links to the user guide and the configuration reference at the new tag:
+   - update the "Latest release" section of `README.md` with the new version, its date and a link to its
+     section in `RELEASES.md`. Its link to the documentation site's *stable* version stays as it is:
 
      ```markdown
      ## Latest release
 
      **2026.10.1** (2026-10-28). See [RELEASES.md](RELEASES.md#2026101---2026-10-28) for what changed, and
-     for every earlier release. The documentation for this release:
-     [user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/user-guide.md) and
-     [configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.10.1/docs/configuration.md).
+     for every earlier release. Its documentation is on the
+     [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
      ```
 
-     The tag links don't resolve until the tag is pushed.
+     Links to the release's own version of the site (`https://fetchshelf.readthedocs.io/en/v2026.10.1/…`) don't resolve until the tag is
+     pushed and built.
 
    ```sh
    git switch main && git pull
@@ -392,7 +417,8 @@ Release when `main` has something worth shipping and:
    ```
 
 3. **Check the result:** the GitHub release's description (the `RELEASES.md` section, then the list of pull
-   requests), the image tags, and that the README's links at the new tag resolve.
+   requests), the image tags, and that the documentation site built the new version: it is in the site's
+   version menu, and *stable* shows it.
 
    ```sh
    gh release view v2026.10.1 --repo crimsonking60/fetchshelf

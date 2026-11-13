@@ -20,3 +20,6 @@ obj/
 # Local Claude setup/history/memory
 .claude
 CLAUDE.md
+
+# Documentation site build output
+docs/_build/

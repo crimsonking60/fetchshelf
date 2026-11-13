@@ -2,12 +2,14 @@
 
 Fetchshelf is configured with a single TOML file, `config.toml`. This page lists every setting, what it
 does and how the settings relate to each other. For working configs to start from, see
-[`docs/config-examples/`](config-examples/): five numbered examples, from a bare-bones `1-minimal.toml`
+[`docs/config-examples/`](config-examples/README.md): five numbered examples, from a bare-bones `1-minimal.toml`
 to `5-everything.toml`, which uses every option.
 
+<!-- github-only:start -->
 > [!NOTE]
 > Development happens on `main`, so this page may describe changes that are not released yet. For the version you
 > run, use the documentation linked under [Latest release](../README.md#latest-release) in the README.
+<!-- github-only:end -->
 
 ## Contents
 
