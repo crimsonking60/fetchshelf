@@ -5,6 +5,107 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.8 - 2026-11-13
+
+Fetchshelf can follow series and authors and download what is missing, look for better copies of books already
+in the library, and send notifications to ntfy, Gotify, Discord, Apprise or any webhook. A new **Account** page
+shows the MAM numbers every safety rule works from, job runs are kept across restarts and can be cancelled,
+failing jobs show on the **Errors** page, and the Search page pages through every result.
+
+### Upgrading
+
+- **Every scheduled job runs within minutes of the first start.** The job history starts empty, so every job
+  counts as never run: the jobs start one after another, 30 seconds apart, instead of one interval after
+  start. That includes the autograbs, the snatchlist, the Hardcover lists and the Download job. Set
+  `dry_run` on a block first if it shouldn't download right away. From then on, a job's first run after a
+  restart follows its last run.
+- **Ebooks now prefer epub to cbz.** The default `ebook_types` starts with `epub` instead of `cbz`. If you don't
+  set `ebook_types`, a torrent with both is now linked as epub, and the Clean job keeps an epub copy of a book
+  over a cbz one. To keep the old order, set
+  `ebook_types = ["cbz", "epub", "pdf", "mobi", "azw3", "azw", "cbr"]`; see
+  [the format lists](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md#top-level-settings).
+- **An `[[autograb]]` with a `query` and no `sort_by`** (or `sort_by = "newest_first"`) now gets MAM's newest
+  uploads first, instead of MAM's best matches. Set another `sort_by` if you relied on that order.
+- The first start fills in the authors, narrators and series of every stored torrent, which takes a little
+  while on a large library.
+- Testers of the development image: `:develop` no longer updates. The head of development is now published as
+  `:edge`.
+- Everything new is opt-in: without `[follow]`, `[upgrade]` and `[[notify]]` nothing is followed, upgraded or
+  sent. Otherwise existing configurations work unchanged.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+
+### Added
+
+- **Follow series and authors** with a `[follow]` section. The new **Series** page lists every series in the
+  library, with the books it has and those missing. A series or author can be set to **Follow** (what MAM has
+  is listed on the new **Following** page, to download with a click), **Auto** (downloaded through the
+  `[[follow.grab]]` blocks and the usual budget), or ignored to leave it out of the series with missing books.
+  The Follow job reads every page of a follow's
+  results the first time, then only what is new. Series and authors on MAM are entered by uploaders, so Auto
+  can take box sets and companion books: start with Follow. See
+  [`[follow]`](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md#follow) (#49).
+- **Upgrade to a better copy** with an `[upgrade]` section: the Upgrade job searches MAM for books linked in a
+  format that isn't the first in their format list, such as an mp3 audiobook when m4b comes first, and selects a
+  better copy of the same book. Without `[[upgrade.grab]]` blocks it only takes free copies. The **Torrents**
+  page gets a *Could be upgraded* filter, and a torrent's page a **Look for a better copy** link. See
+  [`[upgrade]`](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md#upgrade) (#50).
+- **Notifications** with `[[notify]]` blocks, to ntfy, Gotify, Discord, an Apprise API server or anything that
+  takes a JSON POST: MAM refusing `mam_id` or rate limiting, a job that starts failing or works again, runs with
+  errors, grabbed, linked and removed torrents, a new hit-and-run, and selections left waiting for budget. Bursts
+  are merged into one message, and the **Config** page can send a test. With `web_url` set, messages link back
+  to Fetchshelf. See [`[[notify]]`](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md#notify) (#46).
+- **Account** page: ratio, upload and download, unsatisfied snatches, wedges, bonus points and every kind of
+  snatch MAM counts, with hit-and-runs first. Below that, the ratio budget, the selection slots and the wedges
+  Fetchshelf works out from them, globally and per autograb, each with its formula, and when MAM last answered
+  or why calls are paused. **Refresh from MAM** reads the account again. The **Jobs** page shows the main
+  numbers (#44).
+- Job runs are kept in the database: each job has a history page, a run says what it did in one line and what
+  started it, and a running job can be cancelled from the **Jobs** page (#43).
+- The **Errors** page lists jobs whose runs keep failing, with since when and **Run now**, and the items the
+  snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. The **Errors** link shows a count (#45).
+- **Torrents** page: filters for author, narrator and series, reached by clicking a name in the list or on a
+  torrent's page (#47).
+- **Search** page: pages through every result, 100 at a time, searches in chosen fields (title, author,
+  series, narrator, description, tags, file names), sorts by best match, date, seeders, snatches, size or
+  title, can be limited to freeleech, VIP, bookmarks or torrents not snatched yet, and can download into a
+  chosen qBittorrent category (#48).
+- `sort_by` on `[[autograb]]` also takes `high_seeders`, `high_snatches`, `largest_first` and `title` (#48).
+- `extra_categories`: qBittorrent categories no library uses, offered in **Set category** and **Download
+  into** for torrents that belong in no library.
+- Saving the **Edit** page records what changed as an event marked as edited by hand.
+
+### Changed
+
+- A torrent downloaded by Fetchshelf is followed in qBittorrent on the server, and the Link job starts as soon
+  as it has finished, instead of at the Link job's next run or only while its page was open.
+- The Search page's **Metadata** column is now **Quality**, and also rates a torrent's formats against your
+  format list.
+- **Refresh** on a hand-edited torrent asks before replacing the edits with MAM's details, and the page says
+  what **Refresh** and **Refresh and relink** each do.
+- The **Events** page filters by grabber, linker and field with dropdowns, and has **Clear filters**.
+- The Search page's filters sit right above the results, its **Search in** choices are always shown, and
+  **Snatched** only marks results nothing else says were downloaded.
+- The theme selector moved to a footer on every page, next to the Fetchshelf version.
+
+### Fixed
+
+- Cancelling or stopping a Download run couldn't cut short a MAM or qBittorrent call that hung, so a container
+  stop could kill it in the middle of a torrent, after a wedge was spent. Such a call now stops within five
+  seconds, and a torrent qBittorrent already has is still recorded (#43).
+- A Hardcover list found nothing for an author whose initials MAM writes differently, such as "Sarah J.
+  Maas" and "Sarah J Maas".
+- A search, list or follow download that came across a torrent already in the library replaced details edited
+  by hand with MAM's.
+- Writes could fail with "database is locked" while a page or a job was reading the database.
+- A torrent downloaded from the Search page was shown as *Not in qBittorrent* until qBittorrent's list was read
+  again.
+- A Hardcover list dry run reported 0 selected, and the Jobs page didn't show what it would have selected.
+- An Audiobookshelf run that failed could report a failed save instead of what stopped it.
+- An Audiobookshelf error stayed on the **Errors** page for good once its book was unlinked or replaced.
+- While a job ran, the **Jobs** page showed the previous run's result next to *Running*.
+- The **Events** page's field filter also matched values that merely contained the field's name.
+
 ## 2026.11.7 - 2026-11-10
 
 A release of fixes to how Fetchshelf protects your account and your library. The ratio budget now really
