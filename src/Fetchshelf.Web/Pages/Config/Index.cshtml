@@ -51,6 +51,7 @@
             <tr><th>search_interval</th><td>@settings.SearchInterval</td></tr>
             <tr><th>link_interval</th><td>@settings.LinkInterval</td></tr>
             <tr><th>ignore_torrents</th><td>@string.Join(", ", settings.IgnoreTorrents)</td></tr>
+            <tr><th>extra_categories</th><td>@string.Join(", ", settings.ExtraCategories)</td></tr>
             <tr><th>languages</th><td>@(settings.Languages.Count == 0 ? "any" : string.Join(", ", settings.Languages))</td></tr>
             <tr><th>audio_types</th><td>@string.Join(", ", settings.AudioTypes)</td></tr>
             <tr><th>ebook_types</th><td>@string.Join(", ", settings.EbookTypes)</td></tr>

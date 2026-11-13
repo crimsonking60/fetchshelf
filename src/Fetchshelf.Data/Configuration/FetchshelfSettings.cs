@@ -72,6 +72,12 @@ public sealed class FetchshelfSettings
     public List<string> IgnoreTorrents { get; set; } = [];
 
     /// <summary>
+    /// qBittorrent categories the web UI offers alongside the `[[library]]` ones, for torrents that belong in no
+    /// library. Offering one links nothing: only a library's category or save path does that.
+    /// </summary>
+    public List<string> ExtraCategories { get; set; } = [];
+
+    /// <summary>
     /// The `languages` of every `[[autograb]]` and `[[hardcover_list.grab]]` block that doesn't set its own, and the
     /// Search page's default. Empty means any language. `[[tag]]` rules don't use it.
     /// </summary>

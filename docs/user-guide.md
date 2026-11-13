@@ -758,8 +758,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   next one, which that search starts, so the following search shows where it is.
 - The **Cost** column marks **FL** (freeleech), **Personal FL** (personal freeleech) and **VIP** torrents.
 - **Download into**, above the results, chooses the qBittorrent category a download gets, and with it the
-  library it ends up in. It offers each library's category, then every other category qBittorrent has
-  torrents in. Left at *the category the tag rules give*, the `[[tag]]` rules decide, as for automatic
+  library it ends up in. It offers each library's category, then the `extra_categories` from your
+  configuration, then every other category qBittorrent has torrents in. Left at *the category the tag rules give*, the `[[tag]]` rules decide, as for automatic
   downloads. Tags always come from the `[[tag]]` rules. The browser remembers the choice, and the message
   after a download names the category used. A remembered category that is no longer offered, for example
   while qBittorrent doesn't answer, falls back to the tag rules.
@@ -1535,9 +1535,12 @@ reported, so they cannot be chosen by hand.
     [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
   - **Set category**, below the other buttons, gives the ticked torrents one of the qBittorrent categories
-    your `[[library]]` blocks use, chosen from the dropdown. That is how a torrent added outside Fetchshelf, or
-    under another category, gets linked: the next Link run picks it up. Moving an already linked torrent to
-    another library's category marks it with a library mismatch; **Relink selected** then moves it. In
+    your `[[library]]` blocks use, or one of the `extra_categories` in your configuration, chosen from the
+    dropdown. A library's category is how a torrent added outside Fetchshelf, or under another category, gets
+    linked: the next Link run picks it up. An `extra_categories` one, marked *no library*, is for torrents that
+    belong in no library. Moving an already linked torrent to another library's category marks it with a
+    library mismatch; **Relink selected** then moves it. Moving it to a category no library uses marks it
+    *No library* and leaves its library files where they are: **Unlink** it first to take it out of the library. In
     qBittorrent, a torrent in Automatic Torrent Management mode also moves its files to the new category's
     save path.
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
@@ -1549,9 +1552,9 @@ reported, so they cannot be chosen by hand.
   link stays, as MAM may say why) and, for a replaced book, a link to the torrent that replaced it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
   qBittorrent, **Remove from qBittorrent with data**, **Remove record**, and, for a replaced book, **Clear
   replaced marker**. While qBittorrent has the torrent, you can also change its category and tags there:
-  choose one of your libraries' categories, untick a tag to remove it, type new ones separated by commas,
-  and press **Set category and tags**. A category no library uses is only offered when the torrent already
-  has it.
+  choose one of your libraries' categories or `extra_categories`, untick a tag to remove it, type new ones
+  separated by commas, and press **Set category and tags**. Any other category no library uses is only offered
+  when the torrent already has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
   such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values

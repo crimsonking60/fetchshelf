@@ -150,15 +150,15 @@ public class IndexModel(
                 + $"{result.FoundInClient} of {torrents} updated; the rest were left unchanged.{retired}{skipped}";
     }
 
-    /// <summary>The library categories the bulk category dropdown offers.</summary>
+    /// <summary>The categories the bulk category dropdown offers: the libraries', then `extra_categories`.</summary>
     public IReadOnlyList<LibraryCategory> CategoryOptions => LibraryCategories.For(settings);
 
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds, string? category)
     {
         switch (action)
         {
-            case "setCategory" when !LibraryCategories.IsLibraryCategory(settings, category):
-                TempData["CheckMessage"] = "Choose one of your libraries' categories first.";
+            case "setCategory" when !LibraryCategories.IsOffered(settings, category):
+                TempData["CheckMessage"] = "Choose a category first.";
                 TempData["CheckFailed"] = true;
                 break;
             case "setCategory":

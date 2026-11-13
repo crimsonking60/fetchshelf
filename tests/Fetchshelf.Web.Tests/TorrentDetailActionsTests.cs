@@ -221,6 +221,38 @@ public partial class TorrentDetailActionsTests
     }
 
     [Fact]
+    public async Task Post_SetCategoryAndTags_AnExtraCategory_IsSet()
+    {
+        var categoriesSet = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture(
+            "extra_categories = [\"seed-only\"]\n" + ConfigWithQBittorrent("/library"),
+            qbittorrentHandler: request =>
+            {
+                if (request.RequestUri!.AbsolutePath.Contains("setCategory"))
+                {
+                    categoriesSet.Add(Uri.UnescapeDataString(request.Content!.ReadAsStringAsync().Result));
+                }
+
+                return OrganizerTestSupport.FakeQBittorrentServer(Hash)(request);
+            });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash);
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync($"/torrents/{Hash}");
+        var token = ExtractAntiforgeryToken(html);
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["category"] = "seed-only",
+            ["__RequestVerificationToken"] = token,
+        });
+        var response = await client.PostAsync($"/torrents/{Hash}?handler=SetCategoryAndTags", form);
+
+        Assert.Contains("<option value=\"seed-only\">seed-only (no library)</option>", html);
+        response.EnsureSuccessStatusCode();
+        Assert.Contains(categoriesSet, c => c.Contains("category=seed-only", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Post_SetCategoryAndTags_AddsCommaSeparatedNewTags()
     {
         var addedTags = new List<string>();

@@ -150,8 +150,8 @@ public class IndexModel(
     public string ChosenCategory => CategoryOptions.Any(o => o.Value == RememberedCategory) ? RememberedCategory : string.Empty;
 
     /// <summary>
-    /// The categories a download can go to: each library's, then any other qBittorrent has torrents in (once its list
-    /// has been read). Empty means the `[[tag]]` rules decide.
+    /// The categories a download can go to: each library's, then `extra_categories`, then any other qBittorrent has
+    /// torrents in (once its list has been read). Empty means the `[[tag]]` rules decide.
     /// </summary>
     public IReadOnlyList<(string Value, string Label)> CategoryOptions { get; private set; } = [];
 
@@ -337,7 +337,7 @@ public class IndexModel(
         category = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
         if (category is not null && !CategoriesFor(settings, await qbittorrentPresence.GetAsync()).Any(o => o.Value == category))
         {
-            message = $"Not downloaded: {category} is neither a library's category nor one qBittorrent has now. Choose another category.";
+            message = $"Not downloaded: {category} is not a library's category, one of extra_categories or one qBittorrent has now. Choose another category.";
             if (!Request.Headers.ContainsKey("HX-Request"))
             {
                 DownloadMessage = message;

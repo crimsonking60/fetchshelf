@@ -45,6 +45,11 @@ internal static partial class ConfigValueValidator
             throw Invalid($"'ignore_torrents' holds '{unreadableId}', which is not a MAM torrent id; expected whole numbers such as \"123456\".");
         }
 
+        if (settings.ExtraCategories.Any(string.IsNullOrWhiteSpace))
+        {
+            throw Invalid("'extra_categories' holds an empty category name.");
+        }
+
         for (var i = 0; i < settings.Autograb.Count; i++)
         {
             var autograb = settings.Autograb[i];

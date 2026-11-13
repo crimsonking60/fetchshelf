@@ -176,6 +176,21 @@ public partial class SearchPageChoicesTests
     }
 
     [Fact]
+    public async Task Download_IntoAnExtraCategory_SelectsItWithThatCategory()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            configToml: "extra_categories = [\"seed-only\"]\n" + ConfigWithLibrary, mamHandler: Mam(SearchJson(1, (1, false))).Handler);
+        using var client = fixture.CreateNoRedirectClient();
+
+        var page = await client.GetStringAsync("/?handler=Results&Q=kings");
+        await DownloadAsync(client, "seed-only");
+
+        Assert.Contains("<option value=\"seed-only\">seed-only (no library)</option>", page);
+        using var scope = fixture.CreateScope();
+        Assert.Equal("seed-only", Assert.Single(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents).Category);
+    }
+
+    [Fact]
     public async Task Download_IntoACategoryNobodyUses_IsRefused()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithLibrary, mamHandler: Mam(SearchJson(1, (1, false))).Handler);
@@ -185,7 +200,7 @@ public partial class SearchPageChoicesTests
 
         using var scope = fixture.CreateScope();
         Assert.Empty(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents);
-        Assert.Contains("Not downloaded: made-up is neither a library's category nor one qBittorrent has now.", body);
+        Assert.Contains("Not downloaded: made-up is not a library's category, one of extra_categories or one qBittorrent has now.", body);
     }
 
     [Fact]

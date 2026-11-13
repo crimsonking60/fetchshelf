@@ -520,6 +520,50 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_OffersTheExtraCategoriesAfterTheLibraries_OnceEach()
+    {
+        using var fixture = new FetchshelfWebAppFixture("extra_categories = [\"seed-only\", \"fetchshelf-ebooks\", \"seed-only\"]\n" + ConfigWithLibraries);
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents");
+
+        var start = html.IndexOf("id=\"bulk-category\"", StringComparison.Ordinal);
+        var select = html[start..html.IndexOf("</select>", start, StringComparison.Ordinal)];
+        var options = Regex.Matches(select, @"<option value=""([^""]*)""[^>]*>([^<]*)</option>").Select(m => m.Groups[2].Value);
+        Assert.Equal(["Choose a category", "fetchshelf-ebooks (Ebooks)", "fetchshelf-audiobooks (Audiobooks)", "seed-only (no library)"], options);
+    }
+
+    [Fact]
+    public async Task Post_BulkSetCategory_ToAnExtraCategory_SetsItInQBittorrent()
+    {
+        var categoriesSet = new List<string>();
+        using var fixture = new FetchshelfWebAppFixture("extra_categories = [\"seed-only\"]\n" + ConfigWithLibraries, qbittorrentHandler: request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("setCategory"))
+            {
+                categoriesSet.Add(Uri.UnescapeDataString(request.Content!.ReadAsStringAsync().Result));
+            }
+
+            return OrganizerTestSupport.FakeQBittorrentServer("hash1")(request);
+        });
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["selectedIds"] = "hash1",
+            ["action"] = "setCategory",
+            ["category"] = "seed-only",
+            ["__RequestVerificationToken"] = token,
+        });
+        var html = System.Net.WebUtility.HtmlDecode(await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync());
+
+        Assert.Contains(categoriesSet, c => c.Contains("category=seed-only", StringComparison.Ordinal));
+        Assert.Contains("Set the category to seed-only for 1 torrent.", html);
+    }
+
+    [Fact]
     public async Task Get_NoLibraryUsesACategory_HasNoCategoryDropdown()
     {
         using var fixture = new FetchshelfWebAppFixture();
@@ -589,6 +633,6 @@ public class TorrentsIndexPageTests
         var html = await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync();
 
         Assert.Empty(categoriesSet);
-        Assert.Contains("Choose one of your libraries", html);
+        Assert.Contains("Choose a category first.", html);
     }
 }

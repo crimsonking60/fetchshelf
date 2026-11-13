@@ -46,6 +46,7 @@ public static class ConfigLoader
         ["search_interval"] = (s, n, v) => s.SearchInterval = ParseInt(n, v),
         ["link_interval"] = (s, n, v) => s.LinkInterval = ParseInt(n, v),
         ["ignore_torrents"] = (s, _, v) => s.IgnoreTorrents = SplitList(v),
+        ["extra_categories"] = (s, _, v) => s.ExtraCategories = SplitList(v),
         ["languages"] = (s, _, v) => s.Languages = SplitList(v),
         ["audio_types"] = (s, _, v) => s.AudioTypes = SplitList(v),
         ["ebook_types"] = (s, _, v) => s.EbookTypes = SplitList(v),

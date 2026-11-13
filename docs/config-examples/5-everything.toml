@@ -48,6 +48,10 @@ link_interval = 10       # how often finished torrents are scanned and linked
 # MAM torrent ids that must never be selected, as strings.
 ignore_torrents = ["123456", "234567"]
 
+# qBittorrent categories offered on the Torrents and Search pages besides the libraries' ones, for torrents
+# that belong in no library. Torrents in them are never linked.
+extra_categories = ["seed-only"]
+
 # Wanted file types per kind of media, best first. A torrent is only downloaded if it has at least one
 # of these, only these are linked, and the first-listed type wins when two copies of a book compete.
 audio_types = ["m4b", "m4a", "mp4", "mp3", "ogg"]            # audiobooks, periodical audiobooks

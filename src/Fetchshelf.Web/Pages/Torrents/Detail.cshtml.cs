@@ -174,9 +174,9 @@ public class DetailModel(
     public async Task<IActionResult> OnPostSetCategoryAndTagsAsync(string id, string? category, List<string> tags, string? newTags)
     {
         category ??= string.Empty;
-        // Only a library's category, or the one the torrent already has, which the dropdown also offers.
+        // Only a library's category, one of extra_categories, or the one the torrent already has, which the dropdown also offers.
         var currentCategory = await dbContext.Torrents.Where(t => t.Id == id).Select(t => t.QBittorrentCategory).FirstOrDefaultAsync();
-        if (!LibraryCategories.IsLibraryCategory(settings, category) && category != (currentCategory ?? string.Empty)
+        if (!LibraryCategories.IsOffered(settings, category) && category != (currentCategory ?? string.Empty)
             && !await HasCategoryInClientAsync(id, category))
         {
             return BadRequest();
@@ -208,7 +208,7 @@ public class DetailModel(
         return RedirectToPage(new { id });
     }
 
-    /// <summary>The library categories the category dropdown offers.</summary>
+    /// <summary>The categories the category dropdown offers: the libraries', then `extra_categories`.</summary>
     public IReadOnlyList<LibraryCategory> CategoryOptions => LibraryCategories.For(settings);
 
     private async Task<bool> HasCategoryInClientAsync(string hash, string category)

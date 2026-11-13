@@ -29,6 +29,7 @@ public sealed class ConfigValidationTests : IDisposable
     [InlineData("unsat_buffer = 0")]
     [InlineData("wedge_buffer = 0")]
     [InlineData("ignore_torrents = [\"1\", \"123456\"]")]
+    [InlineData("extra_categories = [\"seed-only\", \"manual\"]")]
     public void Load_TopLevelValueAtItsBoundary_IsAccepted(string line)
     {
         Load(line + "\n");
@@ -49,6 +50,7 @@ public sealed class ConfigValidationTests : IDisposable
     [InlineData("ignore_torrents = [\"12a\"]", "'12a'")]
     [InlineData("ignore_torrents = [\"0\"]", "'0'")]
     [InlineData("ignore_torrents = [\"-5\"]", "'-5'")]
+    [InlineData("extra_categories = [\"seed-only\", \" \"]", "'extra_categories'")]
     public void Load_TopLevelValueOutOfRange_IsRejectedNamingTheSetting(string line, string expected)
     {
         var message = Rejected(line + "\n");
