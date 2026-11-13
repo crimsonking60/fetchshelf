@@ -1,10 +1,10 @@
 # Build (the build is also the lint step), test and format check. Runs on every pull request, and is called by
-# the develop-image and release workflows so nothing is published from code that fails these checks.
+# the edge-image and release workflows so nothing is published from code that fails these checks.
 name: Checks
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [main]
   workflow_call:
 
 permissions:

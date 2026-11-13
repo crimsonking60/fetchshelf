@@ -1,11 +1,12 @@
-# Every push to main is a release. The version and release notes come from the first "## " section of RELEASES.md.
-# Publishes ghcr.io/crimsonking60/fetchshelf:<version> and :latest, tags the commit, creates the GitHub release, and
-# opens a pull request that merges main back into develop.
+# Pushing a vYYYY.MM.N tag is a release. The tagged commit must be on main, and the first "## " section of RELEASES.md
+# at that commit must be for the same version. Publishes ghcr.io/crimsonking60/fetchshelf:<version> and :latest, and
+# creates the GitHub release: the RELEASES.md section, followed by GitHub's list of the pull requests merged since the
+# previous release.
 name: Release
 
 on:
   push:
-    branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -20,122 +21,103 @@ env:
   PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
 
 jobs:
+  validate:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The whole history and every branch, to tell whether the tagged commit is on main.
+          fetch-depth: 0
+
+      - name: Check the tag against main and RELEASES.md
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if ! printf '%s\n' "$TAG" | grep -Eq '^v[0-9]{4}\.(0[1-9]|1[0-2])\.(0|[1-9][0-9]*)$'; then
+            echo "::error::The tag must be vYYYY.MM.N, such as v2026.11.8, but it is: $TAG"
+            exit 1
+          fi
+          version=${TAG#v}
+
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG points at $(git rev-parse --short HEAD), which is not on main. Tag a commit on main."
+            exit 1
+          fi
+
+          heading=$(grep -m1 '^## ' RELEASES.md || true)
+          heading_version=$(printf '%s\n' "$heading" | sed -E 's/^## +([^ ]+).*/\1/')
+          if [ "$heading_version" != "$version" ]; then
+            echo "::error::The first heading in RELEASES.md at $TAG must be for $version, but it is: ${heading:-(none)}"
+            exit 1
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::$TAG is already released. A published version is never released again: tag the next one."
+            exit 1
+          fi
+
+          echo "Releasing $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   checks:
+    needs: validate
     uses: ./.github/workflows/checks.yml
 
   release:
     name: Publish release
-    needs: checks
+    needs: [validate, checks]
     # Forks have no access to this image name.
     if: github.repository == 'crimsonking60/fetchshelf'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-    outputs:
-      publish: ${{ steps.release.outputs.publish }}
-      version: ${{ steps.release.outputs.version }}
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Read the version and notes from RELEASES.md
-        id: release
-        run: |
-          heading=$(grep -m1 '^## ' RELEASES.md || true)
-          if [ -z "$heading" ]; then
-            echo "::notice::RELEASES.md lists no release yet, so there is nothing to publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+      - name: Read the release notes from RELEASES.md
+        run: awk '/^## /{ if (found) exit; found = 1; next } found { print }' RELEASES.md > "$RUNNER_TEMP/notes.md"
 
-          version=$(printf '%s\n' "$heading" | sed -E 's/^## +([^ ]+).*/\1/')
-          if ! printf '%s\n' "$version" | grep -Eq '^[0-9]{4}\.(0[1-9]|1[0-2])\.(0|[1-9][0-9]*)$'; then
-            echo "::error::The first heading in RELEASES.md must start with a YYYY.MM.N version, but it is: $heading"
-            exit 1
-          fi
+      - uses: docker/setup-buildx-action@v4
 
-          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
-            echo "::error::v$version is already released. Add a section for the new version at the top of RELEASES.md."
-            exit 1
-          fi
-
-          awk '/^## /{ if (found) exit; found = 1; next } found { print }' RELEASES.md > "$RUNNER_TEMP/notes.md"
-
-          echo "Releasing $version"
-          echo "publish=true" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - if: steps.release.outputs.publish == 'true'
-        uses: docker/setup-buildx-action@v4
-
-      - if: steps.release.outputs.publish == 'true'
-        uses: docker/login-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - if: steps.release.outputs.publish == 'true'
-        uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: ${{ env.PLATFORMS }}
           push: true
-          build-args: FETCHSHELF_VERSION=${{ steps.release.outputs.version }}
+          build-args: FETCHSHELF_VERSION=${{ env.VERSION }}
           tags: |
-            ${{ env.IMAGE }}:${{ steps.release.outputs.version }}
+            ${{ env.IMAGE }}:${{ env.VERSION }}
             ${{ env.IMAGE }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.version=${{ env.VERSION }}
 
-      - name: Tag the commit and create the GitHub release
-        if: steps.release.outputs.publish == 'true'
+      # --generate-notes appends the merged pull requests since the previous release to the notes file, grouped as
+      # .github/release.yml says.
+      - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "v$VERSION" \
-            --target "$GITHUB_SHA" \
+          gh release create "$TAG" \
+            --verify-tag \
             --title "$VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md"
-
-  back-merge:
-    name: Open a pull request from main into develop
-    needs: release
-    if: needs.release.outputs.publish == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: develop
-          fetch-depth: 0
-
-      # Keeps main an ancestor of develop, so the release commit and its notes (and a hotfix) are not lost. develop
-      # only takes pull requests, so the workflow opens one and leaves the merge to a maintainer.
-      - name: Open the pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.release.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          git fetch origin main
-          if git merge-base --is-ancestor origin/main HEAD; then
-            echo "develop already contains main; nothing to merge."
-            exit 0
-          fi
-
-          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --base develop --head main --state open --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            echo "Pull request #$existing is already open."
-            exit 0
-          fi
-
-          gh pr create --repo "$GITHUB_REPOSITORY" --base develop --head main \
-            --title "Merge release $VERSION back into develop" \
-            --body "Brings release $VERSION from main back into develop. Merge this with a merge commit (not a squash), so main stays an ancestor of develop."
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --generate-notes

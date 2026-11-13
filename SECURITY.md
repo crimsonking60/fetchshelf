@@ -3,7 +3,7 @@
 ## Supported versions
 
 Only the latest release gets security fixes. Fixes ship as a new release, so update to it; see
-[Updating Fetchshelf](docs/user-guide.md#updating-fetchshelf). The `develop` image is for testing and is not
+[Updating Fetchshelf](docs/user-guide.md#updating-fetchshelf). The `edge` image is for testing and is not
 supported.
 
 ## Reporting a vulnerability

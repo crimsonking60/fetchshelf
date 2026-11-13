@@ -408,7 +408,7 @@ working. When you change an entity or the database context:
    SQL that fixes them before that step.
 5. Add a test that upgrades a database from the previous migration with realistic data in it.
 
-Never edit a migration that is already on `develop` or `main`. Add a new one instead.
+Never edit a migration that is already on `main`. Add a new one instead.
 
 Some values need application code to change, such as title keys or anything worked out from the metadata JSON.
 `DatabaseMigrator` runs those as numbered *data upgrades*, tracked in SQLite's `user_version`: raise
@@ -433,16 +433,15 @@ people's accounts. When you work on anything that talks to MAM:
 
 ## Branches
 
-The main repository has two long-lived branches. `develop` is where pull requests are merged and where the
-next release takes shape; it is the default branch. `main` holds the latest release and only changes when a
-new version is released (see the [maintainer guide](maintainer-guide.md)). Contributors only need `develop`.
+The main repository has one long-lived branch, `main`. Pull requests are merged into it, and releases are
+tagged on it (see the [maintainer guide](maintainer-guide.md)).
 
-Never work directly on `develop`, not even in your fork. Keep your fork's `develop` as a clean copy of the main
+Never work directly on `main`, not even in your fork. Keep your fork's `main` as a clean copy of the main
 repository's and create one branch per change from it:
 
 ```sh
-git switch develop
-git pull upstream develop
+git switch main
+git pull upstream main
 git switch -c fix/123-errors-page-duplicates
 ```
 
@@ -521,7 +520,7 @@ git push --force-with-lease
   [configuration reference](configuration.md).
 - Database changes have a migration that upgrades existing databases (see
   [Database changes and migrations](#database-changes-and-migrations)).
-- Your branch is up to date with `upstream/develop`.
+- Your branch is up to date with `upstream/main`.
 - You haven't edited `RELEASES.md` or the "Latest release" section of `README.md`. Maintainers write those when
   they prepare a release, from your pull request's description.
 
@@ -530,14 +529,14 @@ git push --force-with-lease
 From your branch, after pushing:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base develop --fill
+gh pr create --repo crimsonking60/fetchshelf --base main --fill
 ```
 
 `--fill` uses your commit messages for the title and description. Edit them if the pull request has more
 than one commit. To write the description yourself:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base develop \
+gh pr create --repo crimsonking60/fetchshelf --base main \
   --title "Keep one error per torrent and job on the Errors page" \
   --body-file pr-description.md
 ```
@@ -545,7 +544,7 @@ gh pr create --repo crimsonking60/fetchshelf --base develop \
 Open a **draft** pull request to get early feedback on work in progress, and mark it ready when it is:
 
 ```sh
-gh pr create --repo crimsonking60/fetchshelf --base develop --fill --draft
+gh pr create --repo crimsonking60/fetchshelf --base main --fill --draft
 gh pr ready
 ```
 
@@ -588,42 +587,43 @@ gh pr review 42 --approve
 gh pr review 42 --request-changes --body "The migration drops existing rows; see inline comment."
 ```
 
-Maintainers merge approved pull requests into `develop`, squashing each into one commit. The
-[maintainer guide](maintainer-guide.md) describes merging and releasing.
+Maintainers merge approved pull requests into `main`, squashing each into one commit. They may push small
+fixes to your branch before merging, which works as long as **Allow edits by maintainers** stays ticked on the
+pull request. The [maintainer guide](maintainer-guide.md) describes merging and releasing.
 
 ### After the merge
 
 ```sh
-git switch develop                                        # go back to your local develop
-git pull upstream develop                                 # fetch develop with your merged change in it
-git push origin develop                                   # bring your fork's develop up to date too
+git switch main                                           # go back to your local main
+git pull upstream main                                    # fetch main with your merged change in it
+git push origin main                                      # bring your fork's main up to date too
 git branch -D fix/123-errors-page-duplicates              # delete the finished branch locally (-D: squash-merged, so Git can't tell it was merged)
 git push origin --delete fix/123-errors-page-duplicates   # delete it from your fork on GitHub
 ```
 
 ## Keeping your fork up to date
 
-Bring your fork's `develop` up to date with the main repository:
+Bring your fork's `main` up to date with the main repository:
 
 ```sh
-gh repo sync <your-username>/fetchshelf --branch develop   # updates your fork on GitHub
-git switch develop
-git pull origin develop                                    # updates your local develop
+gh repo sync <your-username>/fetchshelf --branch main   # updates your fork on GitHub
+git switch main
+git pull origin main                                    # updates your local main
 ```
 
 or, with Git alone:
 
 ```sh
-git switch develop
-git pull upstream develop
-git push origin develop
+git switch main
+git pull upstream main
+git push origin main
 ```
 
-To bring a branch you are working on up to date, rebase it on the new `develop`, then force-push it:
+To bring a branch you are working on up to date, rebase it on the new `main`, then force-push it:
 
 ```sh
 git switch fix/123-errors-page-duplicates
-git rebase develop
+git rebase main
 # fix any conflicts, then: git add <files> && git rebase --continue
 dotnet build && dotnet test
 git push --force-with-lease
@@ -729,15 +729,15 @@ choose **Report a vulnerability**, so the report stays private until a fix is ou
 | --- | --- |
 | Sign in | `gh auth login`, then `gh auth setup-git` |
 | Fork and clone | `gh repo fork crimsonking60/fetchshelf --clone` |
-| Update your fork on GitHub | `gh repo sync <your-username>/fetchshelf --branch develop` |
+| Update your fork on GitHub | `gh repo sync <your-username>/fetchshelf --branch main` |
 | Open the repository in the browser | `gh repo view crimsonking60/fetchshelf --web` |
 | List issues | `gh issue list --repo crimsonking60/fetchshelf` |
 | Search issues | `gh issue list --repo crimsonking60/fetchshelf --search "text"` |
 | Read an issue | `gh issue view 123 --repo crimsonking60/fetchshelf --comments` |
 | Create an issue | `gh issue create --repo crimsonking60/fetchshelf --label bug --title "..." --body-file report.md` |
 | Comment on an issue | `gh issue comment 123 --repo crimsonking60/fetchshelf --body "..."` |
-| Create a pull request | `gh pr create --repo crimsonking60/fetchshelf --base develop --fill` |
-| Create a draft pull request | `gh pr create --repo crimsonking60/fetchshelf --base develop --fill --draft` |
+| Create a pull request | `gh pr create --repo crimsonking60/fetchshelf --base main --fill` |
+| Create a draft pull request | `gh pr create --repo crimsonking60/fetchshelf --base main --fill --draft` |
 | Mark a draft ready | `gh pr ready` |
 | Your pull requests | `gh pr status` |
 | View the current pull request | `gh pr view --web` |

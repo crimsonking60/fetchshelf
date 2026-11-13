@@ -6,7 +6,7 @@ WORKDIR /src
 
 COPY . .
 
-# A release version (YYYY.MM.N) becomes the assembly version. Anything else, such as develop-<commit>, is not a
+# A release version (YYYY.MM.N) becomes the assembly version. Anything else, such as edge-<commit>, is not a
 # valid assembly version, so it only sets the informational version. The argument must not be called VERSION:
 # build arguments are environment variables here, and MSBuild would read that as its own Version property.
 ARG FETCHSHELF_VERSION=

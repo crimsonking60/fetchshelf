@@ -5,8 +5,8 @@ are comfortable editing a text file, and know how MAM works: ratio, unsatisfied 
 and VIP are not explained here. It does not cover building Fetchshelf from source.
 
 > [!NOTE]
-> This page follows the branch you are viewing: on `develop` it describes changes that are not released yet.
-> For the version you run, see [this page on `main`](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md), which matches the latest release.
+> Development happens on `main`, so this page may describe changes that are not released yet. For the version you
+> run, use the documentation linked under [Latest release](../README.md#latest-release) in the README.
 
 ## Contents
 
@@ -102,9 +102,9 @@ Docker picks the right one for your machine automatically. These tags are availa
 |---|---|
 | `latest` | The newest release. The examples in this guide use it. |
 | A version, such as `2026.10.2` | One specific release. It never changes, so use it to upgrade only when you choose to. |
-| `develop` | The current development build, for testing only. It can change several times a day and can break your setup. |
+| `edge` | The current development build, the head of `main`, for testing only. It can change several times a day and can break your setup. |
 
-**NEVER run the `develop` image against a database or library you consider valuable. You risk losing both.**
+**NEVER run the `edge` image against a database or library you consider valuable. You risk losing both.**
 
 Versions are written `YYYY.MM.N`: the year and month of the release, then a number that counts releases
 within that month from `1`. Every release and what changed in it is listed in

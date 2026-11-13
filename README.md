@@ -13,10 +13,9 @@ date as well. It is a C# reimplementation of MLM ("MyAnonamouse Library Manager"
 application.
 
 > [!NOTE]
-> The documentation follows the branch you are viewing: **`main`** matches the latest release, **`develop`**
-> has changes that are not released yet. If you run a released version, use the
-> [user guide](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md) and the
-> [configuration reference](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md) from `main`.
+> Development happens on `main`, so the documentation on `main` may describe changes that are not released yet.
+> If you run a released version, use the user guide and the configuration reference linked under
+> [Latest release](#latest-release).
 
 Fetchshelf has two independent, optional halves:
 
@@ -57,7 +56,9 @@ setup. If you use one, please report how it went, good or bad (see
 ## Latest release
 
 **2026.11.7** (2026-11-10). See [RELEASES.md](RELEASES.md#2026117---2026-11-10) for what changed, and for
-every earlier release.
+every earlier release. The documentation for this release:
+[user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.7/docs/user-guide.md) and
+[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.7/docs/configuration.md).
 
 ## Contributing
 
