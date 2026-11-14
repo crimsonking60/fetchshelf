@@ -213,7 +213,7 @@ builder.Services.AddScoped(sp => new DownloadProgressChecker(
     QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
     sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddScoped(sp => new Cleaner(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists,
+    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists, settings.Library,
     sp.GetService<AbsClient>(), sp.GetRequiredService<ILogger<Cleaner>>()));
 
 var tagRules = settings.Tag

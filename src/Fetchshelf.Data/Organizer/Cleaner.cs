@@ -21,10 +21,12 @@ public sealed record UnlinkResult(bool Succeeded, string Message);
 /// <summary>
 /// Takes copies out of the library: superseded duplicates among linked torrents, and torrents unlinked by hand.
 /// </summary>
+/// <param name="libraries">The configured libraries, to find the folder a copy's empty parent folders are removed up to.</param>
 public sealed class Cleaner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
     FormatPreferenceLists formatPreferenceLists,
+    IReadOnlyList<Library> libraries,
     AbsClient? absClient = null,
     ILogger<Cleaner>? logger = null)
 {
@@ -210,7 +212,8 @@ public sealed class Cleaner(
         {
             var others = await LibraryFileRemover.FolderUseByOthersAsync(dbContext, member.LibraryPath, member.Id, cancellationToken);
             var linkedFiles = DeserializeLinkedFiles(member.LinkedFilesJson);
-            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, linkedFiles, others.Shared, others.Files);
+            var libraryDir = LibraryFolders.IndexContaining(libraries, member.LibraryPath) is { } index ? libraries[index].LibraryDir : null;
+            removedFiles = LibraryFileRemover.Remove(member.LibraryPath, linkedFiles, others.Shared, others.Files, libraryDir);
             details.Insert(0, $"removed {removedFiles.Count} {(removedFiles.Count == 1 ? "file" : "files")} from {member.LibraryPath}");
             var kept = linkedFiles.Count(file => others.Files.Contains(file.RelativePath));
             if (kept > 0)

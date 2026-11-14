@@ -26,8 +26,10 @@ public sealed class CleanerTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
+    private string LibraryDir => Path.Combine(_root, "library");
+
     private Cleaner CreateCleaner(FetchshelfDbContext context) =>
-        new(context, new EventStore(context), Formats);
+        new(context, new EventStore(context), Formats, [new Library { LibraryDir = LibraryDir }]);
 
     private async Task<TorrentEntity> AddLinkedTorrentAsync(
         FetchshelfDbContext context, string id, string audioExtension, long sizeBytes, string libraryPath, string? title = null)
@@ -121,7 +123,7 @@ public sealed class CleanerTests : IDisposable
         await AddLinkedTorrentAsync(context, "loser", "mp3", 100, loserPath);
         var logger = new ListLogger<Cleaner>();
 
-        var summary = await new Cleaner(context, new EventStore(context), Formats, logger: logger).RunAsync([]);
+        var summary = await new Cleaner(context, new EventStore(context), Formats, [], logger: logger).RunAsync([]);
 
         Assert.Equal(new CleanRunSummary(Retired: 1, Failed: 0), summary);
         var message = Assert.Single(logger.Messages(LogLevel.Information));
@@ -137,7 +139,7 @@ public sealed class CleanerTests : IDisposable
         await AddLinkedTorrentAsync(context, "only", "m4b", 100, Path.Combine(_root, "only"));
         var logger = new ListLogger<Cleaner>();
 
-        var summary = await new Cleaner(context, new EventStore(context), Formats, logger: logger).RunAsync([]);
+        var summary = await new Cleaner(context, new EventStore(context), Formats, [], logger: logger).RunAsync([]);
 
         Assert.Equal(new CleanRunSummary(Retired: 0, Failed: 0), summary);
         Assert.Equal(["No duplicate copies to clean up"], logger.Messages(LogLevel.Information));
@@ -243,6 +245,33 @@ public sealed class CleanerTests : IDisposable
         Assert.Equal("keeper", retired.ReplacedWithTorrentId);
         Assert.Null(retired.LibraryPath);
         Assert.False(Directory.Exists(loserPath));
+    }
+
+    [Fact]
+    public async Task UnlinkAsync_OnlyBookOfAnAuthor_RemovesTheEmptySeriesAndAuthorFoldersButNotTheLibrary()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var bookPath = Path.Combine(LibraryDir, "Author", "Series", "Book");
+        await AddLinkedTorrentAsync(context, "hash1", "m4b", 100, bookPath);
+
+        var result = await CreateCleaner(context).UnlinkAsync("hash1", []);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.False(Directory.Exists(Path.Combine(LibraryDir, "Author")));
+        Assert.True(Directory.Exists(LibraryDir));
+    }
+
+    [Fact]
+    public async Task UnlinkAsync_AuthorWithAnotherBook_KeepsTheAuthorFolder()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "hash1", "m4b", 100, Path.Combine(LibraryDir, "Author", "Series", "Book 1"));
+        await AddLinkedTorrentAsync(context, "hash2", "m4b", 100, Path.Combine(LibraryDir, "Author", "Book 2"));
+
+        await CreateCleaner(context).UnlinkAsync("hash1", []);
+
+        Assert.False(Directory.Exists(Path.Combine(LibraryDir, "Author", "Series")));
+        Assert.True(Directory.Exists(Path.Combine(LibraryDir, "Author", "Book 2")));
     }
 
     [Fact]
