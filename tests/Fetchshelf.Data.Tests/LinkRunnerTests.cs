@@ -785,7 +785,7 @@ public sealed class LinkRunnerTests : IDisposable
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         var libraries = new List<Library> { CreateLibrary(LibraryDir) };
         var (client, libraryPath) = await LinkOnceAsync(context, libraries);
-        await new Cleaner(context, new EventStore(context), Formats).UnlinkAsync("hash1", []);
+        await new Cleaner(context, new EventStore(context), Formats, libraries).UnlinkAsync("hash1", []);
         var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries);
 
         await runner.RunAsync(new QBittorrentConnection(), client);

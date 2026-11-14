@@ -1349,7 +1349,8 @@ Korean, are compared letter for letter. Author and narrator names are compared i
 punctuation and accents, so *J. R. R. Tolkien* and *J.R.R. Tolkien* are the same author. The same rule decides
 what a new download duplicates (see the **Duplicates** page).
 
-The replaced copy has its linked files, its folder (if empty), `cover.jpg` and its metadata files removed, is
+The replaced copy has its linked files, its folder and the series and author folders above it (if empty),
+`cover.jpg` and its metadata files removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
 was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The
 downloaded data itself is not deleted.
@@ -1402,7 +1403,8 @@ To take a book out of your library while qBittorrent keeps seeding it, use **Unl
 or tick several on the **Torrents** page and choose **Unlink selected**. Fetchshelf then:
 
 - removes the files it linked, `cover.jpg` and the metadata files (unless another torrent shares the folder),
-  and the folder if that leaves it empty, and deletes the book's Audiobookshelf item;
+  and the folder if that leaves it empty, along with series and author folders left empty, and deletes the
+  book's Audiobookshelf item;
 - applies `on_unlinked` to the torrent in qBittorrent, if you set it;
 - keeps its record, marked *unlinked*, so the book still counts as one you have and is not downloaded again;
 - leaves it alone in later Link runs, whatever its category.
@@ -1539,8 +1541,8 @@ reported, so they cannot be chosen by hand.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
-    `cover.jpg` and metadata files (unless the kept copy shares the folder), and its folder if that is then
-    empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
+    `cover.jpg` and metadata files (unless the kept copy shares the folder), and its folder and the series and
+    author folders above it if they are then empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
     does nothing. The Clean job does the same automatically after every link run.
   - *Refresh* re-reads its metadata from MAM.
   - *Relink* does what **Refresh and relink** does on a torrent's page, but with the details Fetchshelf already
@@ -2005,7 +2007,8 @@ well. Audiobookshelf is just the one app it has a direct integration with.
 **Can I use it without qBittorrent?** No. Both halves work through qBittorrent.
 
 **Does it ever delete my downloaded data?** Clean and **Unlink** only remove files that Fetchshelf itself
-linked, and empty folders, `cover.jpg`, `metadata.json` and `metadata.opf` in a book's own library folder. The one action that
+linked, `cover.jpg`, `metadata.json` and `metadata.opf` in a book's own library folder, and the folders this leaves
+empty, up to but never including the `library_dir`. The one action that
 deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
 and then confirm.
 

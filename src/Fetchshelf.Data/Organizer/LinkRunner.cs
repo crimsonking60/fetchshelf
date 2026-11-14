@@ -591,7 +591,9 @@ public sealed class LinkRunner(
         {
             if (oldPath is not null)
             {
-                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathUse!.Shared, oldPathUse.Files);
+                LibraryFileRemover.Remove(
+                    oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathUse!.Shared, oldPathUse.Files,
+                    LibraryContaining(oldPath)?.LibraryDir);
             }
 
             placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);

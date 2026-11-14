@@ -27,7 +27,7 @@ public sealed class CleanerAbsDeleteTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private Cleaner CreateCleaner(FetchshelfDbContext context, AbsClient? absClient) =>
-        new(context, new EventStore(context), Formats, absClient);
+        new(context, new EventStore(context), Formats, [], absClient);
 
     private static AbsClient CreateAbsClient(List<string> deletedItemIds)
     {
@@ -163,7 +163,7 @@ public sealed class CleanerAbsDeleteTests : IDisposable
         await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
         await AddLinkedTorrentAsync(context, "loser", "mp3", 100, Path.Combine(_root, "loser"), absId: "item1");
         var logger = new ListLogger<Cleaner>();
-        var cleaner = new Cleaner(context, new EventStore(context), Formats, CreateFailingAbsClient(), logger);
+        var cleaner = new Cleaner(context, new EventStore(context), Formats, [], CreateFailingAbsClient(), logger);
 
         var summary = await cleaner.RunAsync([]);
 

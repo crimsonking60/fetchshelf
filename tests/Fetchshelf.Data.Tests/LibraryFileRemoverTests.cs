@@ -61,6 +61,52 @@ public sealed class LibraryFileRemoverTests : IDisposable
     }
 
     [Fact]
+    public void Remove_WithLibraryDir_RemovesEmptyFoldersUpToTheLibraryButNotIt()
+    {
+        var bookPath = Path.Combine(_root, "library", "Author", "Series", "Book");
+        Directory.CreateDirectory(bookPath);
+        File.WriteAllText(Path.Combine(bookPath, "book.m4b"), "x");
+
+        LibraryFileRemover.Remove(bookPath, [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false,
+            libraryDir: Path.Combine(_root, "library") + "/");
+
+        Assert.False(Directory.Exists(Path.Combine(_root, "library", "Author")));
+        Assert.True(Directory.Exists(Path.Combine(_root, "library")));
+    }
+
+    [Fact]
+    public void Remove_WithLibraryDir_StopsAtAFolderThatIsNotEmpty()
+    {
+        var bookPath = Path.Combine(_root, "library", "Author", "Series", "Book");
+        Directory.CreateDirectory(bookPath);
+        File.WriteAllText(Path.Combine(bookPath, "book.m4b"), "x");
+        var otherBook = Path.Combine(_root, "library", "Author", "Other Book");
+        Directory.CreateDirectory(otherBook);
+
+        LibraryFileRemover.Remove(bookPath, [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false,
+            libraryDir: Path.Combine(_root, "library"));
+
+        Assert.False(Directory.Exists(Path.Combine(_root, "library", "Author", "Series")));
+        Assert.True(Directory.Exists(otherBook));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("elsewhere")]
+    public void Remove_WithoutTheLibraryHoldingTheBook_LeavesTheFoldersAboveIt(string? libraryDirName)
+    {
+        var bookPath = Path.Combine(_root, "library", "Author", "Book");
+        Directory.CreateDirectory(bookPath);
+        File.WriteAllText(Path.Combine(bookPath, "book.m4b"), "x");
+
+        LibraryFileRemover.Remove(bookPath, [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false,
+            libraryDir: libraryDirName is null ? null : Path.Combine(_root, libraryDirName));
+
+        Assert.False(Directory.Exists(bookPath));
+        Assert.True(Directory.Exists(Path.Combine(_root, "library", "Author")));
+    }
+
+    [Fact]
     public void Remove_FolderAlreadyGone_DoesNothing()
     {
         var removed = LibraryFileRemover.Remove(Path.Combine(_root, "missing"), [new("book.m4b", 1)], folderSharedWithAnotherTorrent: false);

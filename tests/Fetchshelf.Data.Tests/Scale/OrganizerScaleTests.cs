@@ -93,7 +93,7 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
     {
         await SeedAsync();
         using var context = OrganizerTestSupport.CreateContext(DbPath);
-        var cleaner = new Cleaner(context, new EventStore(context), Formats);
+        var cleaner = new Cleaner(context, new EventStore(context), Formats, []);
 
         var stopwatch = Stopwatch.StartNew();
         var summary = await cleaner.RunAsync([]);

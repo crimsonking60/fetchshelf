@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Fetchshelf.Core.Organizer;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Organizer;
@@ -13,6 +14,11 @@ public static class LibraryFileRemover
     /// `metadata.opf`, sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
     /// Returns the relative paths of the linked files that were removed.
     /// </summary>
+    /// <param name="libraryDir">
+    /// The `library_dir` of the library holding <paramref name="libraryPath"/>, if any. Folders between the two that the
+    /// removal leaves empty, such as the series and author folders of an author's only book, are removed too; the
+    /// library's own folder never is. Null removes nothing above <paramref name="libraryPath"/>.
+    /// </param>
     /// <param name="folderSharedWithAnotherTorrent">
     /// True when another linked torrent still uses the folder, such as a better format of the same book; its
     /// `cover.jpg`, `metadata.json` and `metadata.opf` are then left in place.
@@ -23,7 +29,7 @@ public static class LibraryFileRemover
     /// </param>
     public static List<string> Remove(
         string libraryPath, IEnumerable<LinkedFileRecord> linkedFiles, bool folderSharedWithAnotherTorrent,
-        IReadOnlySet<string>? filesUsedByOthers = null)
+        IReadOnlySet<string>? filesUsedByOthers = null, string? libraryDir = null)
     {
         var removed = new List<string>();
         foreach (var file in linkedFiles)
@@ -59,9 +65,27 @@ public static class LibraryFileRemover
         if (IsEmptyFolder(libraryPath))
         {
             Directory.Delete(libraryPath);
+            RemoveEmptyParents(libraryPath, libraryDir);
         }
 
         return removed;
+    }
+
+    /// <summary>Removes the empty folders above <paramref name="folder"/>, up to but not including <paramref name="libraryDir"/>.</summary>
+    private static void RemoveEmptyParents(string folder, string? libraryDir)
+    {
+        if (libraryDir is null || !PathPrefix.IsSameOrUnder(folder, libraryDir))
+        {
+            return;
+        }
+
+        var root = libraryDir.TrimEnd('/', '\\');
+        for (var parent = Path.GetDirectoryName(folder.TrimEnd('/', '\\'));
+             parent is not null && parent != root && PathPrefix.IsSameOrUnder(parent, root) && IsEmptyFolder(parent);
+             parent = Path.GetDirectoryName(parent))
+        {
+            Directory.Delete(parent);
+        }
     }
 
     /// <summary>
