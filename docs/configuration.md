@@ -696,7 +696,7 @@ section no points are ever spent.
 
 | Setting | Default | Description |
 |---|---|---|
-| `search_interval` | `120` | Minutes between runs of the Bonus job: `0` (only from the Jobs page) or `60` to 43200. |
+| `search_interval` | `120` | Minutes between runs of the Bonus job: `0` (only from the Jobs page) or `60` to 43200 (30 days). |
 | `keep_points` | `0` | Upload credit and VIP are only bought with points above this. A wedge may use them: `keep_points = 55000` keeps a wedge's worth of points, plus 5,000, from upload credit. |
 | `upload_amounts` | `[100, 50, 20, 5, 1]` | How many GB of upload credit one purchase buys, tried largest first, each as often as the points above `keep_points` allow. Whole numbers from 1 to 100; MAM sells 1, 5, 20, 50 and 100. `[]` buys no upload credit. |
 | `wedge_every` | `0` | Hours between wedge purchases, up to 8760. `0` buys no wedges. A wedge costs 50,000 points. |
