@@ -5,6 +5,42 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.9 - 2026-11-15
+
+Fetchshelf can spend MAM bonus points before they pass the cap: on a wedge a day, VIP and upload credit. Unlinking
+the last book of a series or an author now removes the folders it leaves empty, and the documentation has its own
+site, with a version for every release from this one.
+
+### Upgrading
+
+- A configured block named `Bonus` (an `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` with
+  `name = "Bonus"`) stops startup, as `Bonus` is now the name of a built-in job. Rename it.
+- If you spend bonus points with a script or tool of your own, stop it before you add a `[bonus]` section, or both
+  will buy. Without a `[bonus]` section, Fetchshelf spends nothing.
+- The database is upgraded when the new version starts, and going back to an older version is not possible.
+  Back up your data folder first.
+
+### Added
+
+- `[bonus]`: the optional Bonus job spends bonus points, every two hours by default: a wedge every
+  `wedge_every` hours, a VIP top-up with `vip = true`, then upload credit in `upload_amounts` steps, keeping
+  `keep_points` back. Every purchase is on the **Events** page, and the **Account** page shows what the next run
+  would buy. See [`[bonus]`](https://fetchshelf.readthedocs.io/en/v2026.11.9/configuration/#bonus) and
+  [Spending bonus points](https://fetchshelf.readthedocs.io/en/v2026.11.9/user-guide/#spending-bonus-points) (#62).
+- The `bonus_spent` notification event, sent for each purchase (#62).
+- The documentation is published at [fetchshelf.readthedocs.io](https://fetchshelf.readthedocs.io/en/stable/), with a version for every release from
+  this one; choose yours in the version menu (#59).
+
+### Changed
+
+- **Events** page: details longer than 200 characters, such as a long library path, show their first 180
+  characters and **... more**, which opens the whole text (#63).
+
+### Fixed
+
+- Unlinking an author's only book left the empty series and author folders in the library. Unlink, Clean and
+  relinking now remove the folders they leave empty, up to but never including the `library_dir` (#61, #29).
+
 ## 2026.11.8 - 2026-11-13
 
 Fetchshelf can follow series and authors and download what is missing, look for better copies of books already
