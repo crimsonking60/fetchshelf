@@ -104,10 +104,10 @@ internal static partial class ConfigValueValidator
         if (settings.Bonus is { } bonus)
         {
             const string label = "the [bonus] section";
-            CheckInterval("search_interval", bonus.SearchInterval, label);
-            if (bonus.SearchInterval is > 0 and < BonusSettings.MinIntervalMinutes)
+            CheckInterval("bonus_interval", bonus.BonusInterval, label);
+            if (bonus.BonusInterval is > 0 and < BonusSettings.MinIntervalMinutes)
             {
-                throw Invalid($"'search_interval' in {label} must be 0 (run only from the Jobs page) or at least {BonusSettings.MinIntervalMinutes} minutes; got {bonus.SearchInterval}.");
+                throw Invalid($"'bonus_interval' in {label} must be 0 (run only from the Jobs page) or at least {BonusSettings.MinIntervalMinutes} minutes; got {bonus.BonusInterval}.");
             }
 
             CheckAtLeast("keep_points", bonus.KeepPoints, 0, label);

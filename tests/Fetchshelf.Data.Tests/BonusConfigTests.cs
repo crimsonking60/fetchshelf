@@ -34,7 +34,7 @@ public sealed class BonusConfigTests : IDisposable
     {
         var bonus = Load("[bonus]\n").Bonus!;
 
-        Assert.Equal((120, 0L, 0, false, 10, false), (bonus.SearchInterval, bonus.KeepPoints, bonus.WedgeEvery, bonus.Vip, bonus.MaxPurchasesPerRun, bonus.DryRun));
+        Assert.Equal((120, 0L, 0, false, 10, false), (bonus.BonusInterval, bonus.KeepPoints, bonus.WedgeEvery, bonus.Vip, bonus.MaxPurchasesPerRun, bonus.DryRun));
         Assert.Equal([100, 50, 20, 5, 1], bonus.UploadAmounts);
     }
 
@@ -43,7 +43,7 @@ public sealed class BonusConfigTests : IDisposable
     {
         var bonus = Load("""
             [bonus]
-            search_interval = 240
+            bonus_interval = 240
             keep_points = 55000
             upload_amounts = [100, 50]
             wedge_every = 24
@@ -52,7 +52,7 @@ public sealed class BonusConfigTests : IDisposable
             dry_run = true
             """).Bonus!;
 
-        Assert.Equal((240, 55_000L, 24, true, 3, true), (bonus.SearchInterval, bonus.KeepPoints, bonus.WedgeEvery, bonus.Vip, bonus.MaxPurchasesPerRun, bonus.DryRun));
+        Assert.Equal((240, 55_000L, 24, true, 3, true), (bonus.BonusInterval, bonus.KeepPoints, bonus.WedgeEvery, bonus.Vip, bonus.MaxPurchasesPerRun, bonus.DryRun));
         Assert.Equal([100, 50], bonus.UploadAmounts);
     }
 
@@ -63,8 +63,8 @@ public sealed class BonusConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData("search_interval = 30", "'search_interval' in the [bonus] section must be 0 (run only from the Jobs page) or at least 60 minutes; got 30.")]
-    [InlineData("search_interval = 50000", "'search_interval' in the [bonus] section must be between 0")]
+    [InlineData("bonus_interval = 30", "'bonus_interval' in the [bonus] section must be 0 (run only from the Jobs page) or at least 60 minutes; got 30.")]
+    [InlineData("bonus_interval = 50000", "'bonus_interval' in the [bonus] section must be between 0")]
     [InlineData("keep_points = -1", "'keep_points' in the [bonus] section must be 0 or more; got -1.")]
     [InlineData("upload_amounts = [50, 0]", "'upload_amounts' in the [bonus] section must hold whole numbers of GB from 1 to 100; got 0.")]
     [InlineData("upload_amounts = [500]", "got 500.")]
@@ -78,9 +78,21 @@ public sealed class BonusConfigTests : IDisposable
     }
 
     [Fact]
-    public void Load_SearchIntervalZero_RunsOnlyFromTheJobsPage()
+    public void Load_BonusIntervalZero_RunsOnlyFromTheJobsPage()
     {
-        Assert.Equal(0, Load("[bonus]\nsearch_interval = 0\n").Bonus!.SearchInterval);
+        Assert.Equal(0, Load("[bonus]\nbonus_interval = 0\n").Bonus!.BonusInterval);
+    }
+
+    [Fact]
+    public void Load_SearchIntervalInBonus_IsRefused()
+    {
+        LoadFails("[bonus]\nsearch_interval = 240\n");
+    }
+
+    [Fact]
+    public void Load_TopLevelSearchInterval_DoesNotReachBonus()
+    {
+        Assert.Equal(120, Load("search_interval = 15\n[bonus]\n").Bonus!.BonusInterval);
     }
 
     [Fact]

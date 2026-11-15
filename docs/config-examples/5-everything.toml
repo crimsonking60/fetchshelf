@@ -293,7 +293,7 @@ dry_run = false
 # upload credit, keeping keep_points back. Without this section no points are ever spent.
 # =====================================================================================================
 [bonus]
-search_interval = 120         # minutes between runs: 0, or 60 and up
+bonus_interval = 120          # minutes between runs: 0, or 60 and up; not the top-level search_interval
 keep_points = 55000           # upload credit and VIP only from points above this; a wedge may use them
 upload_amounts = [100, 50]    # GB per purchase, largest first; [] buys no upload credit
 wedge_every = 24              # hours between wedge purchases; 0 buys none

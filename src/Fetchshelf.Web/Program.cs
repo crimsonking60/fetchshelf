@@ -338,7 +338,7 @@ if (settings.BackgroundJobsEnabled)
         .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)))
         .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : [])
         .Concat(settings.Upgrade is { } scheduledUpgrade ? [(JobNames.Upgrade, scheduledUpgrade.SearchInterval)] : [])
-        .Concat(settings.Bonus is { } scheduledBonus ? [(JobNames.Bonus, (int?)scheduledBonus.SearchInterval)] : []);
+        .Concat(settings.Bonus is { } scheduledBonus ? [(JobNames.Bonus, (int?)scheduledBonus.BonusInterval)] : []);
     foreach (var (jobName, searchInterval) in mamJobs)
     {
         var intervalMinutes = searchInterval ?? settings.SearchInterval;

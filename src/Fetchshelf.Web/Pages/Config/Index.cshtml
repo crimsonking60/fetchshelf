@@ -281,7 +281,7 @@
                     <td>@(bonus.WedgeEvery == 0 ? "never" : $"{bonus.WedgeEvery} hours")</td>
                     <td>@(bonus.Vip ? "yes" : "no")</td>
                     <td>@bonus.MaxPurchasesPerRun</td>
-                    <td>@(bonus.SearchInterval == 0 ? "Jobs page only" : $"{bonus.SearchInterval} minutes")</td>
+                    <td>@(bonus.BonusInterval == 0 ? "Jobs page only" : $"{bonus.BonusInterval} minutes")</td>
                     <td>@(bonus.DryRun ? "yes" : "no")</td>
                 </tr>
             </tbody>

@@ -8,8 +8,11 @@ namespace Fetchshelf.Data.Configuration;
 /// </summary>
 public sealed class BonusSettings
 {
-    /// <summary>Minutes between runs: 0 means only from the Jobs page, otherwise at least <see cref="MinIntervalMinutes"/>.</summary>
-    public int SearchInterval { get; set; } = 120;
+    /// <summary>
+    /// `bonus_interval`: minutes between runs: 0 means only from the Jobs page, otherwise at least
+    /// <see cref="MinIntervalMinutes"/>. Not the top-level `search_interval`, which is for jobs that search MAM.
+    /// </summary>
+    public int BonusInterval { get; set; } = 120;
 
     /// <summary>Upload credit and VIP are only bought with points above this; a wedge may use them.</summary>
     public long KeepPoints { get; set; }

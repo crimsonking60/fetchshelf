@@ -298,7 +298,7 @@ public partial class AccountPageTests
 
 
             [bonus]
-            search_interval = 0
+            bonus_interval = 0
             keep_points = 30000
             upload_amounts = [20, 5]
             """);

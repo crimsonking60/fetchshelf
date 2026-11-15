@@ -39,7 +39,7 @@ Optional `[bonus]` table; nothing is bought without it.
 
 | Setting | Default | Description |
 |---|---|---|
-| `search_interval` | `120` | Minutes between runs: `0` (only from the Jobs page) or `60` to 43200. |
+| `bonus_interval` | `120` | Minutes between runs: `0` (only from the Jobs page) or `60` to 43200 (30 days). Only in `[bonus]`: the top-level `search_interval` is for jobs that search MAM. |
 | `keep_points` | `0` | Upload credit and VIP are only bought with points above this. A wedge may use them: keeping 55,000 keeps a wedge's worth plus 5,000. |
 | `upload_amounts` | `[100, 50, 20, 5, 1]` | GB of upload credit one purchase buys, tried largest first, each bought as often as the points above `keep_points` allow. `[]` buys none. Whole numbers from 1 to 100. |
 | `wedge_every` | `0` | Hours between wedge purchases; `0` buys none. A wedge needs 50,000 points. Up to 8760. |
