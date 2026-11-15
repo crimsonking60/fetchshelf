@@ -1612,7 +1612,9 @@ reported, so they cannot be chosen by hand.
 An audit log, newest first. Each entry says what happened to which torrent and, for metadata changes, which
 fields changed: title, authors, narrators, series, language, category or flags, and whether they were
 edited by hand or came from MAM (an autograb, list or Follow coming across a torrent already in the library,
-**Refresh**, or a relink). Events are never edited, so you can use them to see why something happened. Filter
+**Refresh**, or a relink). Details longer than 200 characters, such as a long library path, show their first
+180 characters and **... more**, which opens the whole text over the page. Events are never edited, so you can
+use them to see why something happened. Filter
 the list with the dropdowns above it: by event type, by the job that grabbed a torrent (an autograb, a list,
 Follow, Upgrade or the Search page), or by the library that linked it. With the type set to *Updated*, a
 further dropdown filters by the field an update changed. A choice applies straight away; **Clear filters** shows the whole list again. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
