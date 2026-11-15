@@ -14,8 +14,8 @@ application.
 
 > [!NOTE]
 > Development happens on `main`, so the documentation on `main` may describe changes that are not released yet.
-> If you run a released version, use the user guide and the configuration reference linked under
-> [Latest release](#latest-release).
+> If you run a released version, use the [documentation site](https://fetchshelf.readthedocs.io/en/stable/), which
+> has a version for every release from 2026.11.9 on.
 
 Fetchshelf has two independent, optional halves:
 
@@ -31,10 +31,10 @@ Fetchshelf has two independent, optional halves:
 
 ## Getting started
 
-Fetchshelf runs in Docker. The [user guide](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md) walks you through installing it with
+Fetchshelf runs in Docker. The [user guide](https://fetchshelf.readthedocs.io/en/stable/user-guide/) walks you through installing it with
 Docker or Docker Compose, connecting it to MAM and qBittorrent (and, if you use it, Audiobookshelf),
 and setting up your library and automatic downloads. For every setting, see the
-[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/main/docs/configuration.md).
+[configuration reference](https://fetchshelf.readthedocs.io/en/stable/configuration/).
 
 ## Status
 
@@ -44,7 +44,7 @@ This project is under active, incremental development.
 
 These features are built and covered by automated tests, but have not yet been confirmed working on a real
 setup. If you use one, please report how it went, good or bad (see
-[Getting help](https://github.com/crimsonking60/fetchshelf/blob/main/docs/user-guide.md#getting-help)).
+[Getting help](https://fetchshelf.readthedocs.io/en/stable/user-guide/#getting-help)).
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - `mark_removed` in `[[autograb]]`.
@@ -57,10 +57,8 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.8** (2026-11-13). See [RELEASES.md](RELEASES.md#2026118---2026-11-13) for what changed, and for
-every earlier release. The documentation for this release:
-[user guide](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/user-guide.md) and
-[configuration reference](https://github.com/crimsonking60/fetchshelf/blob/v2026.11.8/docs/configuration.md).
+**2026.11.9** (2026-11-15). See [RELEASES.md](RELEASES.md#2026119---2026-11-15) for what changed, and for
+every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing
 
