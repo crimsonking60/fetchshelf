@@ -287,6 +287,47 @@ public class EventsPageTests
         var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
 
         Assert.Contains("<td class=\"nowrap\">Bonus purchase</td>", html);
-        Assert.Matches(@"Bought 50 GB of upload credit\s+with bonus points, 99,999 → 74,999", html);
+        Assert.Contains("Bought 50 GB of upload credit with bonus points, 99,999 → 74,999", System.Net.WebUtility.HtmlDecode(html));
+    }
+
+    [Fact]
+    public async Task Get_DetailsLongerThan200_ShowsTheFirst180AndAMoreButtonWithTheWhole()
+    {
+        var path = "/data/fs-audiobooks/" + new string('x', 200);
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Linked,
+            LinkerName = "audiobooks",
+            LibraryPath = path,
+        });
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/events"));
+
+        var whole = $"Linked by audiobooks to {path}";
+        Assert.Contains($"{whole[..180]}<button type=\"button\" class=\"link-button details-more\" data-details=\"{whole}\">... more</button>", html);
+        Assert.Contains("<dialog id=\"details-dialog\"", html);
+    }
+
+    [Fact]
+    public async Task Get_DetailsOf200OrLess_AreShownWhole()
+    {
+        const string path = "/data/fs-audiobooks/Terry Pratchett/Discworld/Terry Pratchett: The BBC Radio Drama";
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Linked,
+            LinkerName = "audiobooks",
+            LibraryPath = path,
+        });
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/events"));
+
+        Assert.Contains($"Linked by audiobooks to {path}", html);
+        Assert.DoesNotContain("class=\"link-button details-more\"", html);
     }
 }

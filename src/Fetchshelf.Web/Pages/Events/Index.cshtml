@@ -75,33 +75,14 @@ else
                         }
                     </td>
                     <td>
-                        @switch (e.Kind)
+                        @{ var details = EventLabels.Details(e); }
+                        @if (EventLabels.Shortened(details) is { } shortened)
                         {
-                            case Fetchshelf.Data.Entities.EventKind.Linked:
-                                @:Linked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" by {e.LinkerName}") to @e.LibraryPath
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.Cleaned:
-                                @:Cleaned@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.Unlinked:
-                                @:Unlinked@(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})"), removed files: @EventLabels.RemovedFiles(e.FilesRemovedJson)
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.Updated:
-                                @:@(e.EditedByHand == true ? "Edited by hand: " : "")@EventLabels.FieldChanges(e.FieldChangesJson)
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.Grabbed:
-                                @:Grabbed@(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}") (cost: @e.Cost)
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.RemovedFromMam:
-                                @:Removed from MAM
-                                break;
-                            case Fetchshelf.Data.Entities.EventKind.BonusPurchase:
-                                @:Bought @Fetchshelf.Data.Notifications.EventNotifications.BonusPurchaseDescription(e.BonusSpend, e.BonusUploadGb)
-                                @if (e.PointsBefore is { } before && e.PointsAfter is { } after)
-                                {
-                                    <text>with bonus points, @Fetchshelf.Core.AutoDownloader.BonusPlanner.Points(before) → @Fetchshelf.Core.AutoDownloader.BonusPlanner.Points(after)</text>
-                                }
-                                break;
+                            @shortened<button type="button" class="link-button details-more" data-details="@details">... more</button>
+                        }
+                        else
+                        {
+                            @details
                         }
                     </td>
                 </tr>
@@ -110,4 +91,32 @@ else
     </table>
 
     @await Html.PartialAsync("_Pager", Model.Pager)
+
+    @* Details too long for the table open here whole: "... more" carries the text in data-details. *@
+    <dialog id="details-dialog" class="hit-dialog" aria-label="Event details">
+        <div class="hit-dialog-bar">
+            <button type="button" id="details-dialog-close">Close</button>
+        </div>
+        <p id="details-dialog-text" class="details-full"></p>
+    </dialog>
+    <script>
+        (function () {
+            const dialog = document.getElementById('details-dialog');
+            const text = document.getElementById('details-dialog-text');
+            document.querySelectorAll('.details-more').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    text.textContent = button.dataset.details;
+                    dialog.showModal();
+                });
+            });
+            document.getElementById('details-dialog-close').addEventListener('click', function () {
+                dialog.close();
+            });
+            dialog.addEventListener('click', function (event) {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+        })();
+    </script>
 }
