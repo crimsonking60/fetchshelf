@@ -32,6 +32,9 @@ public enum NotificationEvent
 
     /// <summary>The Download job left selections queued because the ratio budget or the unsatisfied-snatch slots are spent.</summary>
     BudgetSpent,
+
+    /// <summary>The Bonus job bought something with bonus points.</summary>
+    BonusSpent,
 }
 
 /// <summary>The configuration's names for <see cref="NotificationEvent"/>, and what kind of event each is.</summary>
@@ -52,6 +55,7 @@ public static class NotificationEvents
         [NotificationEvent.RemovedFromMam] = "removed_from_mam",
         [NotificationEvent.HitAndRun] = "hit_and_run",
         [NotificationEvent.BudgetSpent] = "budget_spent",
+        [NotificationEvent.BonusSpent] = "bonus_spent",
     };
 
     /// <summary>Every event, in the order the documentation lists them.</summary>

@@ -1,12 +1,15 @@
 using System.Text.Json;
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Account;
 
-public class IndexModel(AccountSummaryBuilder summaryBuilder, MamClient mamClient, MamAccessGate accessGate, FetchshelfSettings settings)
+public class IndexModel(
+    AccountSummaryBuilder summaryBuilder, MamClient mamClient, MamAccessGate accessGate, FetchshelfSettings settings,
+    FetchshelfDbContext dbContext, TimeProvider timeProvider)
     : PageModel
 {
     /// <summary>How long Refresh waits for a job that is talking to MAM before saying MAM is busy.</summary>
@@ -16,6 +19,9 @@ public class IndexModel(AccountSummaryBuilder summaryBuilder, MamClient mamClien
 
     public AccountSummary Summary { get; private set; } = new();
 
+    /// <summary>The Bonus points section; null until the page is built.</summary>
+    public BonusView? Bonus { get; private set; }
+
     /// <summary>Who held the gate when Refresh gave up waiting for it; null unless that happened.</summary>
     [TempData]
     public string? BusyWith { get; set; }
@@ -24,8 +30,11 @@ public class IndexModel(AccountSummaryBuilder summaryBuilder, MamClient mamClien
     [TempData]
     public string? RefreshError { get; set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken) =>
+    public async Task OnGetAsync(CancellationToken cancellationToken)
+    {
         Summary = await summaryBuilder.BuildAsync(cancellationToken);
+        Bonus = await BonusView.BuildAsync(settings.Bonus, Summary.Snapshot?.State.BonusPoints, dbContext, timeProvider, cancellationToken);
+    }
 
     /// <summary>
     /// Reads the account from MAM again. Like every MAM call it takes the access gate, but waits at most

@@ -101,6 +101,32 @@ internal static partial class ConfigValueValidator
             }
         }
 
+        if (settings.Bonus is { } bonus)
+        {
+            const string label = "the [bonus] section";
+            CheckInterval("search_interval", bonus.SearchInterval, label);
+            if (bonus.SearchInterval is > 0 and < BonusSettings.MinIntervalMinutes)
+            {
+                throw Invalid($"'search_interval' in {label} must be 0 (run only from the Jobs page) or at least {BonusSettings.MinIntervalMinutes} minutes; got {bonus.SearchInterval}.");
+            }
+
+            CheckAtLeast("keep_points", bonus.KeepPoints, 0, label);
+            if (bonus.UploadAmounts.Select(gb => (int?)gb).FirstOrDefault(gb => gb is < 1 or > BonusSettings.MaxUploadAmount) is { } badAmount)
+            {
+                throw Invalid($"'upload_amounts' in {label} must hold whole numbers of GB from 1 to {BonusSettings.MaxUploadAmount}; got {badAmount}.");
+            }
+
+            if (bonus.WedgeEvery is < 0 or > BonusSettings.MaxWedgeEveryHours)
+            {
+                throw Invalid($"'wedge_every' in {label} must be between 0 (buy no wedges) and {BonusSettings.MaxWedgeEveryHours} hours (a year); got {bonus.WedgeEvery}.");
+            }
+
+            if (bonus.MaxPurchasesPerRun is < 1 or > BonusSettings.MaxPurchasesPerRunLimit)
+            {
+                throw Invalid($"'max_purchases_per_run' in {label} must be between 1 and {BonusSettings.MaxPurchasesPerRunLimit}; got {bonus.MaxPurchasesPerRun}.");
+            }
+        }
+
         if (settings.Follow is { } follow)
         {
             const string label = "the [follow] section";

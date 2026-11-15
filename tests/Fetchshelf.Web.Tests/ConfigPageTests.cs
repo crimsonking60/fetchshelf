@@ -203,4 +203,24 @@ public class ConfigPageTests
             html, @"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""");
         return match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
     }
+
+    [Fact]
+    public async Task Get_ConfigPage_ShowsTheBonusSettings()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [bonus]
+            keep_points = 55000
+            upload_amounts = [100, 50]
+            wedge_every = 24
+            """);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/config");
+
+        Assert.Contains("<td>55000</td>", html);
+        Assert.Contains("<td>100 GB, 50 GB</td>", html);
+        Assert.Contains("<td>24 hours</td>", html);
+    }
 }

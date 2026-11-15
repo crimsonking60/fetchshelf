@@ -184,7 +184,7 @@ public class NotificationRulesTests
             Assert.Equal(notificationEvent, parsed);
         }
 
-        Assert.Equal(10, NotificationEvents.All.Count);
+        Assert.Equal(11, NotificationEvents.All.Count);
         Assert.False(NotificationEvents.TryParse("all", out _));
         Assert.False(NotificationEvents.TryParse("Grabbed", out _)); // names are lower case
     }

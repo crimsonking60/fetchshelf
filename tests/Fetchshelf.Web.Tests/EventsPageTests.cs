@@ -268,4 +268,25 @@ public class EventsPageTests
         Assert.Contains("<option value=\"RemovedFromMam\">Removed from MAM</option>", html);
         Assert.DoesNotContain(">RemovedFromMam<", html);
     }
+
+    [Fact]
+    public async Task Get_BonusPurchaseEvent_SaysWhatWasBoughtAndThePoints()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.BonusPurchase,
+            BonusSpend = "Upload",
+            BonusUploadGb = 50,
+            PointsBefore = 99_999,
+            PointsAfter = 74_999.5,
+        });
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
+
+        Assert.Contains("<td class=\"nowrap\">Bonus purchase</td>", html);
+        Assert.Matches(@"Bought 50 GB of upload credit\s+with bonus points, 99,999 → 74,999", html);
+    }
 }

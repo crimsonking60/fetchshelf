@@ -1186,6 +1186,27 @@ Other safeguards:
 Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` or more,
 `wedge_buffer = 5`, `cost = "free"` on your first autograb, and `dry_run = true` until the log looks right.
 
+### Spending bonus points
+
+MAM's bonus points stop at 99,999; points earned above that are lost. With a [`[bonus]`](configuration.md#bonus)
+section, the Bonus job spends them before that happens, every two hours by default: a wedge when one is due,
+a VIP top-up if you ask for one, then upload credit, keeping `keep_points` back. Upload credit raises your ratio,
+so ratio-cost downloads that wait for budget can start; wedges keep `wedge` costs supplied.
+
+It is worth turning on when the points sit near the cap, or when downloads wait on the **Selected** page for
+ratio budget. Without a `[bonus]` section nothing is bought, and the **Account** page says what the points
+would buy.
+
+```toml
+[bonus]
+keep_points = 55000      # keep a wedge's worth, plus 5,000, from upload credit
+upload_amounts = [100, 50]
+wedge_every = 24         # one wedge a day
+dry_run = true           # check the log first, then remove this line
+```
+
+Every purchase is listed on the **Events** page, and the **Account** page shows what the next run would buy.
+
 ## How finished downloads are organized
 
 Every `link_interval` minutes (default 10), Fetchshelf looks for torrents in
@@ -1486,6 +1507,11 @@ Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Err
 - **Queue:** how many torrents wait on the **Selected** page, and how many of them these numbers would let
   the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
   or no longer free.
+
+**Bonus points:** with a `[bonus]` section, its settings, what the next run of the Bonus job would buy from
+the points as last read and why it would stop there, when the next wedge is due, and the last purchases.
+Without one, how much upload credit the points would buy. See
+[Spending bonus points](#spending-bonus-points).
 
 **Connection to MAM:** when MAM last answered, whether MAM can reach the torrent client, and the last time MAM
 refused the session (HTTP 403) or the account (HTTP 406). After a 403, Fetchshelf stops calling MAM for 30

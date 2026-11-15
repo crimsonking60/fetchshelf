@@ -233,4 +233,28 @@ public sealed class EventStoreNotificationTests : IDisposable
     [InlineData(null, null, null)]
     public void DescribeCost_ReadsAsAPersonWouldSayIt(string? cost, bool? wedgeUsed, string? expected) =>
         Assert.Equal(expected, EventNotifications.DescribeCost(cost, wedgeUsed));
+
+    [Fact]
+    public async Task AppendAsync_BonusPurchaseEvent_IsPublishedAsBonusSpentWithThePointsLeft()
+    {
+        var (context, sink, store) = await CreateAsync();
+        using var _ = context;
+
+        await store.AppendAsync(new EventEntity
+        {
+            OccurredAt = At,
+            Kind = EventKind.BonusPurchase,
+            BonusSpend = "Upload",
+            BonusUploadGb = 50,
+            PointsBefore = 99_999,
+            PointsAfter = 74_999.4,
+        });
+
+        var notification = Assert.Single(sink.Published);
+        Assert.Equal(NotificationEvent.BonusSpent, notification.Event);
+        Assert.Equal("Bought 50 GB of upload credit", notification.Title);
+        Assert.Equal("Bought 50 GB of upload credit with bonus points. 74,999 points are left, of 99,999.", notification.Message);
+        Assert.Equal("/Account", notification.LinkPath);
+        Assert.Equal(50, notification.Fields!["upload_gb"]);
+    }
 }

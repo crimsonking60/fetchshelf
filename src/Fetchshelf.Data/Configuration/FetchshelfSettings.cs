@@ -131,6 +131,9 @@ public sealed class FetchshelfSettings
     /// <summary>Optional `[upgrade]` section. Null when not configured, and then no Upgrade job looks for better copies.</summary>
     public UpgradeSettings? Upgrade { get; set; }
 
+    /// <summary>Optional `[bonus]` section. Null when not configured, and then no bonus points are ever spent.</summary>
+    public BonusSettings? Bonus { get; set; }
+
     /// <summary>Repeatable `[[notify]]` entries: where to send messages about what Fetchshelf does.</summary>
     public List<NotifyEntry> Notify { get; set; } = [];
 

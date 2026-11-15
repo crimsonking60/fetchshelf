@@ -279,6 +279,18 @@ if (settings.Upgrade is { } upgradeSettings)
         logger: sp.GetRequiredService<ILogger<UpgradeRunner>>()));
 }
 
+if (settings.Bonus is { } bonusSettings)
+{
+    builder.Services.AddScoped(sp => new BonusRunner(
+        sp.GetRequiredService<FetchshelfDbContext>(),
+        sp.GetRequiredService<EventStore>(),
+        sp.GetRequiredService<MamClient>(),
+        sp.GetRequiredService<MamAccessGate>(),
+        bonusSettings,
+        sp.GetRequiredService<TimeProvider>(),
+        sp.GetRequiredService<ILogger<BonusRunner>>()));
+}
+
 // The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
 builder.Services.AddSingleton(new SafetyBuffers(
     settings.UnsatBuffer, settings.WedgeBuffer,
@@ -325,7 +337,8 @@ if (settings.BackgroundJobsEnabled)
         .Concat(settings.Snatchlist.Select((entry, i) => (AutoDownloaderJobNames.Snatchlist(entry, i), entry.SearchInterval)))
         .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)))
         .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : [])
-        .Concat(settings.Upgrade is { } scheduledUpgrade ? [(JobNames.Upgrade, scheduledUpgrade.SearchInterval)] : []);
+        .Concat(settings.Upgrade is { } scheduledUpgrade ? [(JobNames.Upgrade, scheduledUpgrade.SearchInterval)] : [])
+        .Concat(settings.Bonus is { } scheduledBonus ? [(JobNames.Bonus, (int?)scheduledBonus.SearchInterval)] : []);
     foreach (var (jobName, searchInterval) in mamJobs)
     {
         var intervalMinutes = searchInterval ?? settings.SearchInterval;
@@ -556,6 +569,16 @@ static void RegisterAutoDownloaderJobs(IServiceProvider services, FetchshelfSett
 
             return JobOutcomes.Upgrade(summary);
         }, "Searches MAM for better formats of books in the library, such as m4b for an mp3 copy, and selects them when a grab block's cost allows.");
+    }
+
+    if (settings.Bonus is not null)
+    {
+        jobRegistry.Register(JobNames.Bonus, async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var summary = await scope.ServiceProvider.GetRequiredService<BonusRunner>().RunAsync(ct);
+            return JobOutcomes.Bonus(summary);
+        }, "Spends bonus points as the [bonus] section says: a wedge when one is due, a VIP top-up, then upload credit, keeping keep_points back.");
     }
 
     var budgetSpent = services.GetRequiredService<BudgetSpentWatcher>();

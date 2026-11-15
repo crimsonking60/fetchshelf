@@ -28,6 +28,7 @@ to `5-everything.toml`, which uses every option.
 - [`[[hardcover_list]]`](#hardcover_list)
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
+- [`[bonus]`](#bonus)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [`[[notify]]`](#notify)
@@ -681,6 +682,41 @@ cost = "wedge"
 categories = { ebook = false }
 ```
 
+## `[bonus]`
+
+Optional. The Bonus job spends the account's bonus points: a wedge when one is due, then a VIP top-up, then upload
+credit, as long as the points above `keep_points` pay for it. Points stop at MAM's cap of 99,999, and those earned
+above it are lost, so spending them in time costs nothing. Upload credit raises the ratio, and with it the
+[ratio budget](user-guide.md#protecting-your-account); wedges are what the `wedge` [costs](#cost) spend. Without this
+section no points are ever spent.
+
+> [!WARNING]
+> The Bonus job spends points without asking. Set `dry_run = true` first and check the log, or the Account page's
+> **Bonus points** section, to see what it would buy.
+
+| Setting | Default | Description |
+|---|---|---|
+| `search_interval` | `120` | Minutes between runs of the Bonus job: `0` (only from the Jobs page) or `60` to 43200. |
+| `keep_points` | `0` | Upload credit and VIP are only bought with points above this. A wedge may use them: `keep_points = 55000` keeps a wedge's worth of points, plus 5,000, from upload credit. |
+| `upload_amounts` | `[100, 50, 20, 5, 1]` | How many GB of upload credit one purchase buys, tried largest first, each as often as the points above `keep_points` allow. Whole numbers from 1 to 100; MAM sells 1, 5, 20, 50 and 100. `[]` buys no upload credit. |
+| `wedge_every` | `0` | Hours between wedge purchases, up to 8760. `0` buys no wedges. A wedge costs 50,000 points. |
+| `vip` | `false` | Top VIP up to the most MAM allows, once a run, when the points above `keep_points` are at least 15,000. |
+| `max_purchases_per_run` | `10` | Purchases one run makes at most, `1` to `100`. |
+| `dry_run` | `false` | Decide what to buy and log it, but buy nothing. |
+
+What each run does: it reads the account's points, then buys one thing at a time. A wedge comes first, when
+`wedge_every` hours (less ten minutes) have passed since the last wedge bought with points. Upload credit costs 500
+points per GB. Each purchase goes by the points MAM says are left after the last one, and purchases are at least
+ten seconds apart, since MAM refuses purchases that come too fast; such a refusal ends the run's purchases until the
+next run. Every purchase is on the **Events** page, and can be [notified](#notification-events) as `bonus_spent`.
+
+```toml
+[bonus]
+keep_points = 55000          # keep a wedge's worth of points, plus 5,000
+upload_amounts = [100, 50]
+wedge_every = 24             # one wedge a day
+```
+
 ## `[[tag]]`
 
 Repeatable. A tag rule is the [shared filter](#the-shared-torrent-filter) plus what to do in qBittorrent
@@ -827,6 +863,7 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 | `removed_from_mam` | [`mark_removed`](#mark_removed) finds that MAM no longer has a stored torrent. | "MAM no longer has The Way of Kings by Brandon Sanderson." |
 | `hit_and_run` | MAM counts more hit-and-runs ("Not Seeding - H&R - Not Yet Satisfied") than the last count seen. | "MAM counts 1 hit-and-run (Not Seeding - H&R - Not Yet Satisfied). Seed it again to avoid a penalty." |
 | `budget_spent` | The Download job leaves selections queued because the ratio budget or the unsatisfied-snatch slots are spent, after a run that left none. | "3 selections wait: the ratio budget left is 0 B, less than the 1.2 GiB the first of them needs (min_ratio 2)." |
+| `bonus_spent` | The [Bonus job](#bonus) buys something with bonus points. One message per purchase. | "Bought 50 GB of upload credit with bonus points. 74,999 points are left, of 99,999." |
 
 - **Only changes are sent,** not states. A job that fails every 10 minutes for a day sends `job_failing`
   once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once. How many

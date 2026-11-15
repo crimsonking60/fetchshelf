@@ -32,6 +32,48 @@ public class JobOutcomesTests
             JobOutcomes.Upgrade(new UpgradeRunSummary(7, 1, 0, SearchedTitles: ["A", "B", "C", "D", "E", "F", "G"])).Summary);
 
     [Fact]
+    public void Bonus_Bought_NamesThePurchases()
+    {
+        var outcome = JobOutcomes.Bonus(new BonusRunSummary(["a wedge", "50 GB of upload credit"], DryRun: false, "why"));
+
+        Assert.Equal("Bought a wedge, 50 GB of upload credit", outcome.Summary);
+        Assert.Equal(2, outcome.Counts!["bought"]);
+    }
+
+    [Fact]
+    public void Bonus_NothingBought_SaysWhy() =>
+        Assert.Equal(
+            "Nothing bought: the 41,250 points leave nothing above keep_points 55,000",
+            JobOutcomes.Bonus(new BonusRunSummary([], DryRun: false, "the 41,250 points leave nothing above keep_points 55,000")).Summary);
+
+    [Fact]
+    public void Bonus_DryRun_SaysWhatItWouldBuyAndCountsNothing()
+    {
+        var outcome = JobOutcomes.Bonus(new BonusRunSummary(["a wedge"], DryRun: true, "why"));
+
+        Assert.Equal("Dry run: Would buy a wedge", outcome.Summary);
+        Assert.Equal(0, outcome.Counts!["bought"]);
+    }
+
+    [Fact]
+    public void Bonus_FailureAfterPurchases_FinishesWithErrorsNamingBoth()
+    {
+        var exception = Assert.Throws<JobCompletedWithErrorsException>(() =>
+            JobOutcomes.Bonus(new BonusRunSummary(["a wedge"], DryRun: false, "MAM refused", Failure: "MAM refused 50 GB of upload credit: Invalid amount")));
+
+        Assert.Equal("Bought a wedge; then MAM refused 50 GB of upload credit: Invalid amount", exception.Message);
+    }
+
+    [Fact]
+    public void Bonus_FailureBeforeAnyPurchase_FinishesWithErrorsSayingWhy()
+    {
+        var exception = Assert.Throws<JobCompletedWithErrorsException>(() =>
+            JobOutcomes.Bonus(new BonusRunSummary([], DryRun: false, "x", Failure: "MAM refused 50 GB of upload credit: Invalid amount")));
+
+        Assert.Equal("Nothing bought: MAM refused 50 GB of upload credit: Invalid amount", exception.Message);
+    }
+
+    [Fact]
     public void Upgrade_NothingSearched_SaysWhy() =>
         Assert.Equal(
             "Nothing searched: why",

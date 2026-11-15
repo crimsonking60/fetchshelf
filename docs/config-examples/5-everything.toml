@@ -289,6 +289,19 @@ dry_run = false
 # Without [[upgrade.grab]] blocks, only free copies are taken.
 
 # =====================================================================================================
+# [bonus]: optional. Spends bonus points without asking: a wedge when one is due, a VIP top-up, then
+# upload credit, keeping keep_points back. Without this section no points are ever spent.
+# =====================================================================================================
+[bonus]
+search_interval = 120         # minutes between runs: 0, or 60 and up
+keep_points = 55000           # upload credit and VIP only from points above this; a wedge may use them
+upload_amounts = [100, 50]    # GB per purchase, largest first; [] buys no upload credit
+wedge_every = 24              # hours between wedge purchases; 0 buys none
+vip = false                   # top VIP up to the most MAM allows, once a run
+max_purchases_per_run = 10
+dry_run = true                # log what would be bought, buy nothing
+
+# =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
 # Category: first matching rule that sets one. Tags: union over all matching rules.
 # Tag rules do NOT use the top-level 'languages': a rule without its own 'languages' matches every
