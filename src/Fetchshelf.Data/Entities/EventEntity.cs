@@ -1,6 +1,6 @@
 namespace Fetchshelf.Data.Entities;
 
-/// <summary>The six event payload shapes.</summary>
+/// <summary>The event payload shapes. Stored as numbers, so new kinds go at the end.</summary>
 public enum EventKind
 {
     Grabbed,
@@ -9,6 +9,7 @@ public enum EventKind
     Updated,
     RemovedFromMam,
     Unlinked,
+    BonusPurchase,
 }
 
 /// <summary>
@@ -52,4 +53,18 @@ public sealed class EventEntity
     public bool? EditedByHand { get; set; }
 
     // RemovedFromMam carries no payload beyond Kind/TorrentId/MamId/OccurredAt.
+
+    // BonusPurchase: what bonus points bought, with no torrent.
+
+    /// <summary>For BonusPurchase: what was bought, a <c>BonusPurchaseKind</c> name: Wedge, Vip or Upload.</summary>
+    public string? BonusSpend { get; set; }
+
+    /// <summary>For an upload credit BonusPurchase: how many GB.</summary>
+    public int? BonusUploadGb { get; set; }
+
+    /// <summary>For BonusPurchase: the points before the purchase.</summary>
+    public double? PointsBefore { get; set; }
+
+    /// <summary>For BonusPurchase: the points MAM said were left after it.</summary>
+    public double? PointsAfter { get; set; }
 }

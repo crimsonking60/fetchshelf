@@ -103,6 +103,20 @@ public static class JobOutcomes
         "could not be searched for; see the Errors page",
         new() { ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
 
+    public static JobOutcome Bonus(BonusRunSummary summary)
+    {
+        var line = DryRun(summary.DryRun, summary.Bought.Count == 0
+            ? $"Nothing bought: {summary.Failure ?? summary.StopReason}"
+            : $"{(summary.DryRun ? "Would buy" : "Bought")} {string.Join(", ", summary.Bought)}");
+        var counts = new Dictionary<string, long> { ["bought"] = summary.DryRun ? 0 : summary.Bought.Count };
+        return summary.Failure switch
+        {
+            null => new JobOutcome(line, counts),
+            not null when summary.Bought.Count == 0 => throw new JobCompletedWithErrorsException(line, counts),
+            { } failure => throw new JobCompletedWithErrorsException($"{line}; then {failure}", counts),
+        };
+    }
+
     public static JobOutcome Download(DownloadRunSummary summary) => Finish(
         summary.Queued == 0
             ? "No selected torrents waiting to be downloaded"

@@ -1,28 +1,35 @@
-# Bonus points: spend them on upload credit before they are wasted — implementation plan
+# Bonus points: spend them before they are wasted — implementation plan
 
 ## Context
 
-MAM accounts earn bonus points while seeding, up to a cap; points above it are lost. Upload credit bought with
-points is what raises the ratio budget, which since the formula fix (PR #32) is often 0 for accounts that don't
-seed a lot, so `cost = "ratio"` downloads wait. "The ratio budget is 0 and 80,000 points are available" is a
-situation Fetchshelf can see (`MamAccountState.BonusPoints` is read already and shown on the Account page) and
-could resolve.
+MAM accounts earn bonus points while seeding, up to a cap; points above it are lost. Points buy upload credit
+(which raises the ratio budget, often 0 for accounts that don't seed a lot, so `cost = "ratio"` downloads wait),
+freeleech wedges (which the Download job spends on `wedge` costs) and VIP. Fetchshelf already reads the points
+(`MamAccountState.BonusPoints`, shown on the Account page) but spends none of them.
 
-Buying is a write action on the account, through an endpoint Fetchshelf doesn't use today. The plan is therefore in
-two stages, and the second is only built if the first says it may be.
+Until now this was done outside Fetchshelf by a shell script run from cron every two hours: it read the points,
+bought a wedge once a day, optionally topped up VIP, and bought upload credit in 100 and 50 GB steps while the
+points stayed above a buffer of 55,000. The Bonus job replaces it.
 
-## Stage 1: check first (no code)
+## Stage 1: what MAM's purchase endpoint does
 
-1. **The endpoint.** MAM has had a JSON purchase endpoint (`/json/bonusBuy.php`, with a spend type and an amount);
-   for wedges it is no longer offered (wedges are bought by the `fl` flag on the download, which Fetchshelf uses).
-   Find out from MAM's current API documentation (the forum's API thread, linked from the preferences page where
-   `mam_id` is made) which purchases it still offers: upload credit, VIP; their parameters and amounts; and what the
-   answer looks like on success, on too few points and when refused.
-2. **The rules.** Whether automating purchases with a `mam_id` session is allowed. If it isn't clearly allowed, the
-   plan stops here and only the reminder in "Out of scope" is built.
-3. **The cap.** What the point cap is today, so the default threshold can sit below it.
+Taken from the script and its log of over a year of runs (about 1,500 purchases), not from new requests to MAM.
 
-The answers go into this plan before stage 2 starts.
+- **Endpoint:** `GET /json/bonusBuy.php/?spendtype=<type>&…&_=<milliseconds>` with the `mam_id` session, answering
+  JSON.
+  - Upload credit: `spendtype=upload&amount=<GB>`. Amounts 1, 5, 20, 50 and 100 all succeeded. 500 points per GB.
+  - Wedge: `spendtype=wedges&source=points`. 50,000 points each. Answer:
+    `{"success":true,"type":"wedge","amount":1,"method":"points","seedbonus":9421.16,"FLleft":369}`. (Wedges are also
+    spent with the `fl` flag on a download, which Fetchshelf already uses; buying them with points still works.)
+  - VIP: `spendtype=VIP&duration=max`, topping VIP up to the most MAM allows. Never used by the script with its
+    setting off, so its answer and price are not known from the log.
+- **Answers:** `success` says whether it worked; on success, `seedbonus` holds the points left. A refusal is
+  `{"success":false,"error":"…"}`, with no `seedbonus`.
+- **Rate limit:** `{"success":false,"error":"Rate Limit Exceeded."}` came 8 times, and about 95 purchases failed in
+  runs that bought several in quick succession. Purchases are spaced out, and a refusal ends the run's purchases.
+- **The cap:** 99,999 points.
+- **The rules:** automated purchases with the `mam_id` session have been made by the script for over a year. The
+  maintainer accepts that as allowed.
 
 ## Stage 2: the Bonus job
 
@@ -32,58 +39,67 @@ Optional `[bonus]` table; nothing is bought without it.
 
 | Setting | Default | Description |
 |---|---|---|
-| `search_interval` | `720` | Minutes between runs, `60` to 43200. |
-| `buy_upload_above` | (required) | Buy upload credit only while points are above this. |
-| `keep_points` | `0` | Never take points below this. |
-| `upload_step` | the smallest amount MAM sells | How much upload credit one purchase buys. |
-| `max_per_run` | `1` | Purchases one run makes at most. |
-| `only_when_ratio_budget_below` | unset | A size: buy only while the ratio budget is below it. Unset: buy whenever points are above `buy_upload_above`. |
+| `bonus_interval` | `120` | Minutes between runs: `0` (only from the Jobs page) or `60` to 43200 (30 days). Only in `[bonus]`: the top-level `search_interval` is for jobs that search MAM. |
+| `keep_points` | `0` | Upload credit and VIP are only bought with points above this. A wedge may use them: keeping 55,000 keeps a wedge's worth plus 5,000. |
+| `upload_amounts` | `[100, 50, 20, 5, 1]` | GB of upload credit one purchase buys, tried largest first, each bought as often as the points above `keep_points` allow. `[]` buys none. Whole numbers from 1 to 100. |
+| `wedge_every` | `0` | Hours between wedge purchases; `0` buys none. A wedge needs 50,000 points. Up to 8760. |
+| `vip` | `false` | Top VIP up to the most MAM allows, once a run, when the points above `keep_points` are at least 15,000. |
+| `max_purchases_per_run` | `10` | Purchases one run makes at most, `1` to `100`. |
 | `dry_run` | `false` | Decide and log, buy nothing. |
 
-`keep_points` must be below `buy_upload_above`. VIP purchases are added only if stage 1 finds them offered, as
-`buy_vip_below_days`, needing the VIP expiry in the account answer.
+The plan's earlier `buy_upload_above` and `upload_step` are replaced by `keep_points` and `upload_amounts`, which
+say the same more simply. `only_when_ratio_budget_below` is dropped: points above the cap are lost anyway, so
+holding back upload credit only saves points `keep_points` can already keep.
+
+Order within a run, as the script did: a wedge when one is due, then VIP, then upload credit. A wedge is due when
+`wedge_every` hours (less ten minutes, so a schedule drifting by a few minutes doesn't skip a day) have passed since
+the last wedge bought with points, as the events record.
 
 ### Deciding (Core, pure)
 
-`BonusPlanner.Plan(points, ratioBudgetBytes, settings, price)` → the purchases to make, each a spend type and amount,
-or none with the reason ("points 41,250 are below buy_upload_above 50,000"). Never more than `max_per_run`, never
-below `keep_points`.
+`BonusPlanner.Next(policy, state)` → the next purchase (kind, amount, price) or none with the reason ("the 41,250
+points leave nothing above keep_points 55,000"). `BonusPlanner.PlanRun` repeats it, assuming each purchase goes
+through at its price, for a dry run and for the Account page's "the next run would buy".
 
 ### Buying
 
-- `MamClient.BuyAsync(spendType, amount)`, under `MamAccessGate` as `Bonus`, through the client's normal request path
-  (403/406/429 handling, no retry: a purchase is not repeated on a lost answer).
-- After a purchase the account state is read again, and the run checks the points went down by the price; if not,
-  it stops and says so.
-- Each purchase is an event (`EventKind.BonusPurchase`, amount and points before and after) and is logged at
+- `MamClient.BuyWithBonusPointsAsync(purchase)`, under `MamAccessGate` as `Bonus`, through the client's normal request
+  path (403/406/429 handling), with no retry: a purchase is never sent twice. Purchases are at least 10 seconds
+  apart.
+- The answer's `seedbonus` must be lower than the points before; if it isn't, the run stops and fails.
+- A refusal ends the run's purchases: a rate limit as a note, anything else as a failure, except a refused VIP top-up,
+  which is logged and the run goes on to upload credit.
+- Each purchase is an event (`EventKind.BonusPurchase`: what, how much, points before and after) and is logged at
   Information. A dry run logs what it would buy.
-- Notification `bonus_spent` (opt-in) with what was bought.
+- Notification `bonus_spent` (opt-in) for each purchase.
+- The account is read again at the end of a run that bought anything, so the Account page shows the new numbers.
 
 ### Shown
 
-- Account page: points, the threshold, what the next run would do, and the last purchase.
+- Account page: a Bonus points section with the settings, what the next run would buy, and the last purchases.
+  Without `[bonus]`, what the points could buy.
+- Config page: the `[bonus]` settings.
 - Events page: the purchases.
 
 ## Tests (stage 2)
 
-- `BonusPlannerTests`: thresholds, `keep_points`, `max_per_run`, the ratio-budget condition, the reasons.
-- `MamClientTests`: the purchase request and the parsed answers from stage 1's recorded examples; no retry.
-- `BonusRunnerTests`: gate taken; dry run buys nothing; a purchase writes the event and re-reads the account; points
-  that didn't go down stop the run.
-- Config tests for ranges and the `keep_points` < `buy_upload_above` rule.
+- `BonusPlannerTests`: `keep_points`, the order (wedge, VIP, upload), the largest amount first, wedge due times,
+  `max_purchases_per_run`, VIP's reserve, the reasons, `PlanRun`.
+- `MamClientBonusTests`: the request URLs, the parsed answers from the recorded examples, a refusal, no retry.
+- `BonusRunnerTests`: gate taken; dry run buys nothing; a purchase writes the event; points that didn't go down stop
+  the run; a rate limit ends the run's purchases; a refused VIP goes on to upload credit; the last wedge is found in
+  the events.
+- `BonusConfigTests`: defaults, ranges.
 
 ## Documentation
 
-- `docs/configuration.md`: `[bonus]`, with a warning that it spends points without asking.
+- `docs/configuration.md`: `[bonus]`, with a warning that it spends points without asking, and the `bonus_spent`
+  notification event.
 - `docs/user-guide.md`: what the job does and when it is worth turning on.
+- `README.md`: VIP purchases on the untested list.
+- `docs/config-examples/5-everything.toml`: a `[bonus]` table.
 
 ## Release notes (stage 2)
 
-- Added: the optional Bonus job buys upload credit with bonus points above a configured threshold.
-- Upgrading: nothing to do; nothing is bought without a `[bonus]` table.
-
-## Out of scope
-
-- Buying wedges with points.
-- A reminder without buying ("80,000 points could buy N GB of upload") on the Account page: small, and worth doing
-  even if stage 1 says no to automatic purchases.
+- Added: the optional Bonus job buys wedges, VIP and upload credit with bonus points.
+- Upgrading: nothing to do; nothing is bought without a `[bonus]` table. A block named `Bonus` must be renamed.

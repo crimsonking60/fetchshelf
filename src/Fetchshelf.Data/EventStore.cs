@@ -13,7 +13,9 @@ namespace Fetchshelf.Data;
 /// once written, an event's stored fields are never changed.
 /// </summary>
 /// <param name="dbContext">The context the event is saved in.</param>
-/// <param name="notifications">Told of a grab, a link or a torrent MAM no longer has, once the event is saved; null for none.</param>
+/// <param name="notifications">
+/// Told of a grab, a link, a torrent MAM no longer has or a bonus purchase, once the event is saved; null for none.
+/// </param>
 /// <param name="logger">Logs a notification that could not be made.</param>
 public sealed class EventStore(FetchshelfDbContext dbContext, INotificationSink? notifications = null, ILogger<EventStore>? logger = null)
 {
@@ -37,6 +39,7 @@ public sealed class EventStore(FetchshelfDbContext dbContext, INotificationSink?
             EventKind.Grabbed => NotificationEvent.Grabbed,
             EventKind.Linked => NotificationEvent.Linked,
             EventKind.RemovedFromMam => NotificationEvent.RemovedFromMam,
+            EventKind.BonusPurchase => NotificationEvent.BonusSpent,
             _ => null,
         };
 

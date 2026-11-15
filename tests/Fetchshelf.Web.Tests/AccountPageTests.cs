@@ -280,6 +280,52 @@ public partial class AccountPageTests
         await dbContext.SaveChangesAsync();
     }
 
+    [Fact]
+    public async Task AccountPage_NoBonusSection_SaysNothingIsSpentAndWhatThePointsWouldBuy()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Contains("Fetchshelf spends no bonus points. The 41,250 points would buy 82 GB of upload credit.", html);
+    }
+
+    [Fact]
+    public async Task AccountPage_BonusSection_ShowsWhatTheNextRunWouldBuyAndTheLastPurchases()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json, configToml: ConfigToml + """
+
+
+            [bonus]
+            bonus_interval = 0
+            keep_points = 30000
+            upload_amounts = [20, 5]
+            """);
+        var client = await StartAndReadAccountAsync(fixture);
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Events.Add(new EventEntity
+            {
+                OccurredAt = DateTimeOffset.UtcNow.AddHours(-2),
+                Kind = EventKind.BonusPurchase,
+                BonusSpend = "Wedge",
+                PointsBefore = 91_250,
+                PointsAfter = 41_250,
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await client.GetStringAsync("/Account");
+
+        // 11,250 above keep_points: 20 GB (10,000), and the 1,250 left don't pay for 5 GB.
+        Assert.Contains("would buy 20 GB of upload credit:", html);
+        Assert.Contains("the 1,250 points above keep_points 30,000 don&#x27;t pay for 5 GB (2,500)", html);
+        Assert.Contains("<td>a wedge</td>", html);
+        Assert.Contains("91,250 → 41,250", html);
+    }
+
     private static async Task<string> PostRefreshAsync(HttpClient client, string page)
     {
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>

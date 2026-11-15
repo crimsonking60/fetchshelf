@@ -95,6 +95,13 @@ else
                             case Fetchshelf.Data.Entities.EventKind.RemovedFromMam:
                                 @:Removed from MAM
                                 break;
+                            case Fetchshelf.Data.Entities.EventKind.BonusPurchase:
+                                @:Bought @Fetchshelf.Data.Notifications.EventNotifications.BonusPurchaseDescription(e.BonusSpend, e.BonusUploadGb)
+                                @if (e.PointsBefore is { } before && e.PointsAfter is { } after)
+                                {
+                                    <text>with bonus points, @Fetchshelf.Core.AutoDownloader.BonusPlanner.Points(before) → @Fetchshelf.Core.AutoDownloader.BonusPlanner.Points(after)</text>
+                                }
+                                break;
                         }
                     </td>
                 </tr>

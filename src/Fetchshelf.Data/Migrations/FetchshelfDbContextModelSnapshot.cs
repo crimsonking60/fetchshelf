@@ -82,6 +82,12 @@ namespace Fetchshelf.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("BonusSpend")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("BonusUploadGb")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Cost")
                         .HasColumnType("TEXT");
 
@@ -111,6 +117,12 @@ namespace Fetchshelf.Data.Migrations
 
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<double?>("PointsAfter")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("PointsBefore")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("TorrentId")
                         .HasColumnType("TEXT");

@@ -1,10 +1,11 @@
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Notifications;
 using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Data.Notifications;
 
-/// <summary>What a saved event means for notifications: a grab, a link, a torrent MAM no longer has.</summary>
+/// <summary>What a saved event means for notifications: a grab, a link, a torrent MAM no longer has, a bonus purchase.</summary>
 public static class EventNotifications
 {
     /// <summary>
@@ -46,10 +47,40 @@ public static class EventNotifications
                 return new Notification(
                     NotificationEvent.RemovedFromMam, "MAM no longer has a torrent", $"MAM no longer has {name}.",
                     @event.OccurredAt, fields, link);
+            case EventKind.BonusPurchase:
+                return BonusSpent(@event);
             default:
                 return null;
         }
     }
+
+    private static Notification BonusSpent(EventEntity @event)
+    {
+        var bought = BonusPurchaseDescription(@event.BonusSpend, @event.BonusUploadGb);
+        var points = @event.PointsAfter is { } after
+            ? $" {BonusPlanner.Points(after)} points are left"
+                + (@event.PointsBefore is { } before ? $", of {BonusPlanner.Points(before)}." : ".")
+            : "";
+        return new Notification(
+            NotificationEvent.BonusSpent,
+            $"Bought {bought}",
+            $"Bought {bought} with bonus points.{points}",
+            @event.OccurredAt,
+            new Dictionary<string, object?>
+            {
+                ["spend"] = @event.BonusSpend,
+                ["upload_gb"] = @event.BonusUploadGb,
+                ["points_before"] = @event.PointsBefore,
+                ["points_after"] = @event.PointsAfter,
+            },
+            "/Account");
+    }
+
+    /// <summary>"a wedge", "a VIP top-up", "50 GB of upload credit", from a BonusPurchase event's stored fields.</summary>
+    public static string BonusPurchaseDescription(string? spend, int? uploadGb) =>
+        Enum.TryParse<BonusPurchaseKind>(spend, out var kind)
+            ? new BonusPurchase(kind, uploadGb ?? 0).Description
+            : spend ?? "something";
 
     /// <summary>The cost as a reader knows it: "freeleech", "VIP", "wedge used". Null for a cost not recorded.</summary>
     public static string? DescribeCost(string? cost, bool? wedgeUsed) => cost switch

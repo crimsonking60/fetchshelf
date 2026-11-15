@@ -265,6 +265,31 @@
 </section>
 
 <section>
+    <h3>Bonus points</h3>
+    @if (settings.Bonus is not { } bonus)
+    {
+        <p class="empty">No [bonus] section configured: no bonus points are spent.</p>
+    }
+    else
+    {
+        <table id="bonus-settings">
+            <thead><tr><th>Keep points</th><th>Upload amounts</th><th>Wedge every</th><th>VIP</th><th>Max purchases per run</th><th>Interval</th><th>Dry run</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@bonus.KeepPoints</td>
+                    <td>@(bonus.UploadAmounts.Count == 0 ? "none" : string.Join(", ", bonus.UploadAmounts.Select(gb => $"{gb} GB")))</td>
+                    <td>@(bonus.WedgeEvery == 0 ? "never" : $"{bonus.WedgeEvery} hours")</td>
+                    <td>@(bonus.Vip ? "yes" : "no")</td>
+                    <td>@bonus.MaxPurchasesPerRun</td>
+                    <td>@(bonus.BonusInterval == 0 ? "Jobs page only" : $"{bonus.BonusInterval} minutes")</td>
+                    <td>@(bonus.DryRun ? "yes" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Notifications</h3>
     @if (Model.NotifyTargets.Count == 0)
     {

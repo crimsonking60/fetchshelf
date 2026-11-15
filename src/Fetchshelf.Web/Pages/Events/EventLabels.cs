@@ -10,6 +10,7 @@ public static class EventLabels
     public static string For(EventKind kind) => kind switch
     {
         EventKind.RemovedFromMam => "Removed from MAM",
+        EventKind.BonusPurchase => "Bonus purchase",
         _ => kind.ToString(),
     };
 

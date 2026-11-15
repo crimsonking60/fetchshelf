@@ -1,6 +1,7 @@
 @page
 @model Fetchshelf.Web.Pages.Account.IndexModel
 @using System.Globalization
+@using Fetchshelf.Core.AutoDownloader
 @{
     ViewData["Title"] = "Account";
     var summary = Model.Summary;
@@ -130,6 +131,78 @@ else
             </tr>
         </tbody>
     </table>
+}
+
+@if (Model.Bonus is { } bonusView)
+{
+    <h3>Bonus points</h3>
+    <div id="bonus">
+        @if (bonusView.Settings is not { } bonusSettings)
+        {
+            <p class="muted">No <code>[bonus]</code> section: Fetchshelf spends no bonus points.@if (bonusView.UploadGbThePointsBuy is { } gb && gb > 0)
+            {
+                <text> The @BonusPlanner.Points(bonusView.Points!.Value) points would buy @gb.ToString("N0", CultureInfo.InvariantCulture) GB of upload credit.</text>
+            }</p>
+        }
+        else
+        {
+            <table id="bonus-settings" class="key-values">
+                <tbody>
+                    <tr><th>Kept back</th><td>@BonusPlanner.Points(bonusSettings.KeepPoints) points, from upload credit and VIP</td></tr>
+                    <tr><th>Upload credit</th><td>@(bonusSettings.UploadAmounts.Count == 0 ? "none" : string.Join(", ", bonusSettings.UploadAmounts.OrderDescending().Select(gb => $"{gb} GB")) + " at a time")</td></tr>
+                    <tr>
+                        <th>Wedges</th>
+                        <td>
+                            @if (bonusSettings.WedgeEvery == 0)
+                            {
+                                @:none
+                            }
+                            else
+                            {
+                                @:one every @bonusSettings.WedgeEvery hours@(bonusView.NextWedgeDue is null ? ", the next one due now" : "")
+                                @if (bonusView.NextWedgeDue is { } due)
+                                {
+                                    <text>, the next one due <local-time value="due" /></text>
+                                }
+                            }
+                        </td>
+                    </tr>
+                    <tr><th>VIP</th><td>@(bonusSettings.Vip ? "topped up every run" : "not bought")</td></tr>
+                    @if (bonusSettings.DryRun)
+                    {
+                        <tr><th>Dry run</th><td>on: nothing is bought</td></tr>
+                    }
+                    @if (bonusView.NextRun is { } nextRun)
+                    {
+                        <tr>
+                            <th>The next run</th>
+                            <td id="bonus-next-run">
+                                @(nextRun.Purchases.Count == 0 ? "buys nothing" : $"would buy {string.Join(", ", nextRun.Purchases.Select(p => p.Description))}"):
+                                <span class="muted">@nextRun.StopReason</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (bonusView.Recent.Count > 0)
+        {
+            <table id="bonus-purchases">
+                <thead><tr><th>Bought</th><th>What</th><th>Points</th></tr></thead>
+                <tbody>
+                    @foreach (var purchase in bonusView.Recent)
+                    {
+                        <tr>
+                            <td><local-time value="purchase.OccurredAt" /></td>
+                            <td>@Fetchshelf.Data.Notifications.EventNotifications.BonusPurchaseDescription(purchase.BonusSpend, purchase.BonusUploadGb)</td>
+                            <td class="nowrap">@(purchase.PointsBefore is { } before ? BonusPlanner.Points(before) : "?") → @(purchase.PointsAfter is { } after ? BonusPlanner.Points(after) : "?")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 }
 
 <h3>Connection to MAM</h3>
