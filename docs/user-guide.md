@@ -794,6 +794,13 @@ from the `[[tag]]` rules, or the category chosen under **Download into**. The do
 unless `download_after_selection = false`
 makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
 
+Only one thing talks to MAM at a time (see [Background jobs](#background-jobs)). While a job is talking to
+MAM, a search, a **Download**, an **Import** or a result's details wait up to 10 seconds for it, then say which job
+is busy, such as *MAM is busy with Autograb Freeleech; try again in a moment.*, without asking MAM anything or
+downloading anything. **Try again** repeats it. An autograb or a snatchlist holds MAM for its whole run, which can
+take a few minutes. A download from this page never runs at the same time as an automatic selection, so the
+same book can't be selected twice by the two at once.
+
 If qBittorrent already has the torrent, in any category, Fetchshelf doesn't add it again and spends no
 wedge on it. It records the torrent, which then shows on the **Torrents** page, and leaves its category in
 qBittorrent as it is. The Link job links it once its category or save path matches one of your libraries.

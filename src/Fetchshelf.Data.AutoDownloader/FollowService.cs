@@ -161,9 +161,6 @@ public sealed class FollowService(
     FetchshelfDbContext dbContext, MamClient mamClient, MamAccessGate accessGate, SelectionRunner selectionRunner, FollowSettings settings,
     TimeProvider? timeProvider = null)
 {
-    /// <summary>How long a Download click waits for a running MAM job before saying MAM is busy.</summary>
-    public static readonly TimeSpan GateWait = TimeSpan.FromSeconds(10);
-
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
     /// <summary>
@@ -260,7 +257,7 @@ public sealed class FollowService(
             return new FindDownloadResult(null, null, "That find is no longer listed.");
         }
 
-        using var gate = await accessGate.TryAcquireAsync("Following page", GateWait, cancellationToken);
+        using var gate = await accessGate.TryAcquireAsync("Following page", MamAccessGate.PageWait, cancellationToken);
         if (gate is null)
         {
             return new FindDownloadResult(null, null, $"MAM is busy with {accessGate.Owner ?? "another job"}; try again in a moment.");

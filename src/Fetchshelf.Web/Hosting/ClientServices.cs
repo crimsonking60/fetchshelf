@@ -29,6 +29,7 @@ public static class ClientServices
             logger: sp.GetRequiredService<ILogger<MamClient>>()));
         services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
         services.AddSingleton<MamAccessGate>();
+        services.AddSingleton<MamPageGate>();
         return services;
     }
 

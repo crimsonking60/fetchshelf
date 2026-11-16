@@ -25,7 +25,7 @@ namespace Fetchshelf.Web.Pages;
 public class IndexModel(
     MamClient mamClient, MamClientOptions mamOptions, SelectionRunner selectionRunner, FetchshelfSettings settings,
     FormatPreferenceLists formatPreferenceLists, FetchshelfDbContext dbContext, IJobRegistry jobRegistry,
-    QBittorrentPresenceCache qbittorrentPresence,
+    QBittorrentPresenceCache qbittorrentPresence, MamPageGate pageGate,
     ILogger<IndexModel> logger) : PageModel
 {
     /// <summary>What happened to the last Download click, shown once after the redirect back to this page.</summary>
@@ -221,6 +221,9 @@ public class IndexModel(
     /// <summary>Set when the MAM search failed, so the results panel can say why instead of staying empty.</summary>
     public string? SearchError { get; private set; }
 
+    /// <summary>Set when a job held the MAM gate past <see cref="MamPageGate.Wait"/>, so nothing was searched; says which job.</summary>
+    public string? SearchBusy { get; private set; }
+
     /// <summary>
     /// Renders the page shell without waiting on MAM; the browser then fetches the table through
     /// <see cref="OnGetResultsAsync"/> (htmx, on load) while a spinner covers it. Reading qBittorrent's torrent
@@ -241,7 +244,17 @@ public class IndexModel(
         {
             // Read alongside the MAM search, not after it, in case the page's own warm-up hasn't finished.
             var presenceTask = qbittorrentPresence.GetAsync();
+            using var gate = await pageGate.TryEnterAsync("Search page", HttpContext.RequestAborted);
+            if (gate is null)
+            {
+                SearchBusy = pageGate.BusyMessage;
+                ResultsLoaded = true;
+                return Partial("_SearchResultsPartial", this);
+            }
+
             var result = await mamClient.SearchAsync(query);
+            // Let go as soon as MAM has answered: the rest of the page is Fetchshelf's own.
+            gate.Dispose();
             var wedgeOverBytes = settings.Search.WedgeOverBytes;
             var mamIds = result.Data.Select(record => record.MamId).ToList();
             var presence = await presenceTask;
@@ -354,25 +367,41 @@ public class IndexModel(
 
         try
         {
-            var lookup = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnDownloadLink = true });
-            record = lookup.Data.FirstOrDefault();
-            if (record is not null)
+            // The lookup and the selection both hold the gate, so the selection never runs alongside a job's: two
+            // selections of one book side by side could both pass the duplicate check.
+            SelectionOutcome? outcome = null;
+            using (var gate = await pageGate.TryEnterAsync("Search page download", HttpContext.RequestAborted))
+            {
+                if (gate is null)
+                {
+                    failed = true;
+                    message = $"Not downloaded: {pageGate.BusyMessage}";
+                }
+                else
+                {
+                    var lookup = await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnDownloadLink = true });
+                    record = lookup.Data.FirstOrDefault();
+                    message = $"MAM returned no torrent with id {mamId}.";
+                    if (record is not null)
+                    {
+                        outcome = await selectionRunner.ProcessCandidateAsync(
+                            record, MamTorrentMapper.Map(record), [], wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio,
+                            autograbCategory: category, grabberName: JobNames.ManualSearchGrabber);
+                    }
+                }
+            }
+
+            if (record is not null && outcome is { } selection)
             {
                 var metadata = MamTorrentMapper.Map(record);
-                var cost = wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio;
-                var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, [], cost, autograbCategory: category, grabberName: JobNames.ManualSearchGrabber);
-                logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), outcome.Describe(dryRun: false));
-                var downloadStarted = outcome.IsSelected() && StartDownload();
-                message = SelectionOutcomeMessages.Describe(outcome, metadata, formatPreferenceLists, downloadStarted);
-                if (outcome.IsSelected() && category is not null)
+                logger.LogInformation("Manual download of {Torrent}: {Outcome}", metadata.DisplayName(), selection.Describe(dryRun: false));
+                // After the gate is let go: the Download job takes it itself.
+                var downloadStarted = selection.IsSelected() && StartDownload();
+                message = SelectionOutcomeMessages.Describe(selection, metadata, formatPreferenceLists, downloadStarted);
+                if (selection.IsSelected() && category is not null)
                 {
                     message += $" Category: {category}.";
                 }
-            }
-            else
-            {
-                message = $"MAM returned no torrent with id {mamId}.";
             }
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
@@ -426,8 +455,23 @@ public class IndexModel(
         {
             var presence = await qbittorrentPresence.GetAsync();
             var hash = presence.HashByMamId.GetValueOrDefault(mamId);
-            record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId })).Data.FirstOrDefault();
-            if (record is null)
+            using (var gate = await pageGate.TryEnterAsync("Search page import", HttpContext.RequestAborted))
+            {
+                if (gate is not null)
+                {
+                    record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId })).Data.FirstOrDefault();
+                }
+                else
+                {
+                    failed = true;
+                }
+            }
+
+            if (failed)
+            {
+                message = $"Not imported: {pageGate.BusyMessage}";
+            }
+            else if (record is null)
             {
                 message = $"MAM returned no torrent with id {mamId}.";
             }

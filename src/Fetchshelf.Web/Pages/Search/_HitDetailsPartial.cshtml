@@ -2,7 +2,22 @@
 @using Fetchshelf.Core.Metadata
 @using Fetchshelf.Core.Organizer
 @* One MAM hit's details: the body of its own page, and of the dialog the Search page opens. *@
-@if (Model.Error is { } error)
+@if (Model.Busy is { } busy)
+{
+    <h2>Torrent @Model.MamId on MAM</h2>
+    <p id="hit-busy" class="notice" role="status">
+        @busy
+        @if (Model.InDialog)
+        {
+            <button type="button" hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = Model.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">Try again</button>
+        }
+        else
+        {
+            <a href="@Url.Page("/Search/Detail", new { mamId = Model.MamId, Q = Model.Q })">Try again</a>
+        }
+    </p>
+}
+else if (Model.Error is { } error)
 {
     <h2>Torrent @Model.MamId on MAM</h2>
     <p id="hit-error" class="notice error" role="alert">@error</p>

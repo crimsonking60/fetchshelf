@@ -9,6 +9,12 @@ public sealed class MamAccessGate
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private volatile string? _owner;
 
+    /// <summary>
+    /// How long a page action waits for a job that holds the gate before saying MAM is busy, rather than queueing behind
+    /// a run that can take minutes.
+    /// </summary>
+    public static readonly TimeSpan PageWait = TimeSpan.FromSeconds(10);
+
     /// <summary>Who holds the gate, such as "Autograb Freeleech"; null while it is free.</summary>
     public string? Owner => _owner;
 

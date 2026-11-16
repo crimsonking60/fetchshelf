@@ -1,6 +1,14 @@
 @model Fetchshelf.Web.Pages.IndexModel
 
-@if (Model.SearchError is not null)
+@if (Model.SearchBusy is not null)
+{
+    @* Nothing was asked of MAM: a job held the gate. *@
+    <p id="search-busy" class="notice" role="status">
+        @Model.SearchBusy
+        <button type="button" hx-get="@Url.Page("/Index", "Results", Model.SearchRouteValues())" hx-target="#search-results-panel" hx-swap="innerHTML" hx-indicator="#search-loading">Try again</button>
+    </p>
+}
+else if (Model.SearchError is not null)
 {
     <p id="search-error" class="notice error">
         Search failed: @Model.SearchError

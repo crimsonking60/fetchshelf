@@ -449,6 +449,9 @@ MAM is a private tracker with rules about automated access, and Fetchshelf runs 
 people's accounts. When you work on anything that talks to MAM:
 
 - Keep the existing politeness: rate-limit back-off, pauses between search pages, and one MAM job at a time.
+- Everything that calls the MAM client takes `MamAccessGate`, naming itself. A job waits for it; a page action
+  takes it through `MamPageGate`, with a short wait, and says which job is busy rather than queueing behind a long
+  run.
 - Test with the fake HTTP handlers in `tests/Fetchshelf.Clients.Mam.Tests`, not with repeated live
   requests.
 - When you do try a change live, use your own account, make as few requests as you can, and stop at the
