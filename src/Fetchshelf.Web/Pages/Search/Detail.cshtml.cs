@@ -14,7 +14,7 @@ namespace Fetchshelf.Web.Pages.Search;
 /// </summary>
 public class DetailModel(
     MamClient mamClient, MamClientOptions mamOptions, FetchshelfDbContext dbContext, QBittorrentPresenceCache qbittorrentPresence,
-    ILogger<DetailModel> logger) : PageModel
+    MamPageGate pageGate, ILogger<DetailModel> logger) : PageModel
 {
     /// <summary>The search to go back to.</summary>
     [BindProperty(SupportsGet = true)]
@@ -28,6 +28,12 @@ public class DetailModel(
     public TorrentMetadata? Metadata { get; private set; }
 
     public string? Error { get; private set; }
+
+    /// <summary>Set when a job held the MAM gate past <see cref="MamPageGate.Wait"/>, so nothing was looked up; says which job.</summary>
+    public string? Busy { get; private set; }
+
+    /// <summary>True when the details are shown in the Search page's dialog rather than on a page of their own.</summary>
+    public bool InDialog { get; private set; }
 
     public string? Description { get; private set; }
 
@@ -60,6 +66,7 @@ public class DetailModel(
     /// <summary>Only the details, for the dialog the Search page opens over its results.</summary>
     public async Task<IActionResult> OnGetPartialAsync(long mamId)
     {
+        InDialog = true;
         await LoadAsync(mamId);
         return Partial("_HitDetailsPartial", this);
     }
@@ -70,6 +77,13 @@ public class DetailModel(
         qbittorrentPresence.Warm();
         try
         {
+            using var gate = await pageGate.TryEnterAsync("Search page", HttpContext.RequestAborted);
+            if (gate is null)
+            {
+                Busy = pageGate.BusyMessage;
+                return;
+            }
+
             Record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnThumbnail = true, ReturnMediaInfo = true })).Data
                 .FirstOrDefault();
         }
@@ -119,7 +133,11 @@ public class DetailModel(
         }
     }
 
-    /// <summary>The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.</summary>
+    /// <summary>
+    /// The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.
+    /// It doesn't take the MAM gate: it is an image from MAM's image host, not a call to its API, which the browser would
+    /// make itself if it were logged in to MAM.
+    /// </summary>
     public async Task<IActionResult> OnGetCoverAsync(long mamId, string? url)
     {
         if (!mamClient.IsMamAddress(url))
