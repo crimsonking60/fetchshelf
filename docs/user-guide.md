@@ -1689,9 +1689,12 @@ read from Hardcover. Lists removed from the configuration are shown below, with 
 A list's page shows its books in Hardcover's order. For each format the list looks for, it says what
 Fetchshelf found: *In the library* (linked to the torrent), *Selected for download*, *Not found on MAM*,
 *On MAM, but it costs more than the list's grab blocks allow*, *Not wanted* (the list prefers the other
-format) or *Not searched for yet*. Every book has a **Search MAM** link, a link to the book on Hardcover,
-and **Mark done**, which stops Fetchshelf searching for it; **Undo done** takes that back. Show only the
-books missing a format with the dropdown, and tick **Include books no longer on the list** to see those too.
+format) or *Not searched for yet*. A book still missing a format says when it is next searched, and since when
+MAM has had nothing for it: such a book is searched daily for a week, then weekly. Every book has a **Search MAM**
+link, a link to the book on Hardcover, and **Mark done**, which stops Fetchshelf searching for it; **Undo done** takes
+that back. A book still missing a format also has **Search again**, which has the list's next run search MAM for it
+whenever it was last searched. Show only the books missing a format with the dropdown, and tick **Include books no
+longer on the list** to see those too.
 
 ### Config
 

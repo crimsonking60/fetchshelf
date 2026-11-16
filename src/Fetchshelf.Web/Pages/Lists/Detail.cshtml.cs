@@ -86,7 +86,17 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
 
     public Task<IActionResult> OnPostUndoDoneAsync(string id, string externalId) => SetDoneAsync(id, externalId, null);
 
-    private async Task<IActionResult> SetDoneAsync(string id, string externalId, DateTimeOffset? doneAt)
+    /// <summary>Has the list's next run search MAM for the book, whenever it was last searched.</summary>
+    public Task<IActionResult> OnPostSearchAgainAsync(string id, string externalId) => ChangeAsync(id, externalId, item => item.LastSearchedAt = null);
+
+    private Task<IActionResult> SetDoneAsync(string id, string externalId, DateTimeOffset? doneAt) => ChangeAsync(id, externalId, item =>
+    {
+        item.MarkedDoneAt = doneAt;
+        // A book marked done is no longer missing; undone, it starts again at daily searches.
+        item.MissingSince = null;
+    });
+
+    private async Task<IActionResult> ChangeAsync(string id, string externalId, Action<ListItemEntity> change)
     {
         var item = await dbContext.ListItems.FindAsync(id, externalId);
         if (item is null)
@@ -94,7 +104,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
             return NotFound();
         }
 
-        item.MarkedDoneAt = doneAt;
+        change(item);
         await dbContext.SaveChangesAsync();
         var values = RouteValues();
         values["id"] = id;
@@ -150,6 +160,12 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
             Ebook = entity.AllowEbook ? Side(entity.EbookStatus, entity.EbookMamId, "ebook", torrentIds) : null,
             MarkedDone = entity.MarkedDoneAt is not null,
             Removed = entity.RemovedAt is not null,
+            CanSearchAgain = entity.LastSearchedAt is not null && entity.RemovedAt is null
+                && (Missing(entity.AllowAudio, entity.AudioStatus, entity) || Missing(entity.AllowEbook, entity.EbookStatus, entity)),
+            NextSearch = entity.RemovedAt is null && entity.MarkedDoneAt is null
+                ? ListSearchSchedule.NextSearch(entity.LastSearchedAt, entity.MissingSince, DateTimeOffset.UtcNow)
+                : null,
+            MissingSince = entity.MissingSince,
         };
     }
 

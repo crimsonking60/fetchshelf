@@ -335,10 +335,16 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("EbookStatus")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("IdentifiersJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset?>("LastSearchedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("MarkedDoneAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("MissingSince")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Position")

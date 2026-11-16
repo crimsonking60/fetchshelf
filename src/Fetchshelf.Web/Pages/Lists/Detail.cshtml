@@ -71,12 +71,41 @@ else
                         <text> · </text><a href="@item.BookUrl" target="_blank" rel="noreferrer">On Hardcover</a>
                     }
                 </p>
-                <form method="post" asp-page-handler="@(item.MarkedDone ? "UndoDone" : "MarkDone")" asp-all-route-data="Model.RouteValues()">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="externalId" value="@item.ExternalId" />
-                    <input type="hidden" name="PageNumber" value="@Model.Pager.PageNumber" />
-                    <button type="submit">@(item.MarkedDone ? "Undo done" : "Mark done")</button>
-                </form>
+                @if (item.NextSearch is { } next)
+                {
+                    <p class="muted next-search">
+                        @if (item.MissingSince is { } missing)
+                        {
+                            <text>Not on MAM since <local-time value="missing" />. </text>
+                        }
+                        @if (next > DateTimeOffset.UtcNow)
+                        {
+                            <text>Next search: <local-time value="next" /></text>
+                        }
+                        else
+                        {
+                            <text>Next search: on the list's next run.</text>
+                        }
+                    </p>
+                }
+                <div class="toolbar">
+                    <form method="post" asp-page-handler="@(item.MarkedDone ? "UndoDone" : "MarkDone")" asp-all-route-data="Model.RouteValues()">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="externalId" value="@item.ExternalId" />
+                        <input type="hidden" name="PageNumber" value="@Model.Pager.PageNumber" />
+                        <button type="submit">@(item.MarkedDone ? "Undo done" : "Mark done")</button>
+                    </form>
+                    @if (item.CanSearchAgain)
+                    {
+                        @* The list's next run searches it, whenever it was last searched. *@
+                        <form method="post" asp-page-handler="SearchAgain" asp-all-route-data="Model.RouteValues()">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="externalId" value="@item.ExternalId" />
+                            <input type="hidden" name="PageNumber" value="@Model.Pager.PageNumber" />
+                            <button type="submit" title="The list's next run searches MAM for this book">Search again</button>
+                        </form>
+                    }
+                </div>
             </div>
         </div>
     }

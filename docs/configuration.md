@@ -575,17 +575,28 @@ categories = { ebook = false }
 What each run does:
 
 1. **Reads the list** from Hardcover: title, authors (not narrators or illustrators), series and cover of each
-   book. A book that has left the list is no longer searched for; one that comes back is searched again.
+   book, and the ISBNs and ASINs of its 20 most read editions and its default audiobook, ebook and print editions.
+   A book that has left the list is no longer searched for; one that comes back is searched again.
 2. **Checks the library.** A book Fetchshelf already has, as an audiobook or an ebook, counts as found in that
    format, including books recorded by a snatch list.
-3. **Searches MAM** by title and author for each format still missing, with each `grab` block in turn. The
-   closest result must match the title and an author well enough, and the block's `cost` must accept it: a
+3. **Searches MAM** by title and author for each format still missing, with each `grab` block in turn. A
+   result whose ISBN or ASIN is one of the book's is the book, however its title is written, as for a translation
+   or a subtitle; ISBN-10 and ISBN-13 count as the same. Otherwise the closest result must match the title and an
+   author well enough. When the first 100 results hold nothing like the book, as for a title of very common words,
+   the next 100 are read once. Either way, the block's `cost` must accept the result: a
    `free` block takes only a VIP, freeleech or personal-freeleech torrent and leaves any other to the next
    block. The torrent then goes through the same selection rules as an autograb's: duplicates, preferred file
    types, the unsatisfied-snatch budget and the [buffers](#top-level-settings). A book that only blocks with too
    low a cost found shows as *costs more than the list's grab blocks allow* on the **Lists** page.
 4. **Waits a day** before searching again for a book that is still missing a format, so a long list doesn't
-   mean a MAM search for every book on every run. New books are searched for on the next run.
+   mean a MAM search for every book on every run. Once MAM has had nothing for a book for a week, it waits a week
+   instead: a book that matches but costs too much, or that was left out for the other format, counts as found.
+   New books are searched for on the next run, and **Search again** on the **Lists** page has the next run search
+   one book whenever it was last searched.
+5. **Looks again for what went away.** A format whose selection was taken out of the **Selected** queue before it
+   was downloaded (a stale link, MAM no longer having the torrent, or removed by hand) is searched for again, as is
+   one whose copy is no longer in the library (its record removed). A format the selection's duplicate check marked
+   as selected or in the library, because another copy of the book was, stays as it is.
 
 - A format the grab blocks never look for (for example `categories = { ebook = false }` in every block) is
   not searched for at all.

@@ -23,6 +23,11 @@ public sealed record HardcoverBook
 
     public string? CoverUrl { get; init; }
 
+    /// <summary>
+    /// The ISBN-13s, ISBN-10s and ASINs of the book's most read editions and its default ones, as Hardcover writes them.
+    /// </summary>
+    public IReadOnlyList<string> Identifiers { get; init; } = [];
+
     public string? Url => Slug is null ? null : $"https://hardcover.app/books/{Uri.EscapeDataString(Slug)}";
 }
 

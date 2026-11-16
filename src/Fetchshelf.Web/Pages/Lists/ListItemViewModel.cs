@@ -29,4 +29,13 @@ public sealed record ListItemViewModel
     public bool MarkedDone { get; init; }
 
     public bool Removed { get; init; }
+
+    /// <summary>Whether **Search again** is offered: the book was searched before, and a format is still missing.</summary>
+    public bool CanSearchAgain { get; init; }
+
+    /// <summary>When the list's runs next search MAM for the book, if a format is still missing and it was searched before.</summary>
+    public DateTimeOffset? NextSearch { get; init; }
+
+    /// <summary>Since when MAM has had nothing for the book; null when the last search found something.</summary>
+    public DateTimeOffset? MissingSince { get; init; }
 }

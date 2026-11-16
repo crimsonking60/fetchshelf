@@ -93,6 +93,43 @@ public sealed class HardcoverClientTests
     }
 
     [Fact]
+    public async Task GetBooksWithStatusAsync_ReadsTheEditionsIdentifiers()
+    {
+        (string Query, JsonElement Variables)? body = null;
+        var client = CreateClient(request =>
+        {
+            body = ReadBody(request);
+            return Json("""
+                { "data": { "user_books": [ { "book": {
+                  "id": 1, "title": "The Way of Kings", "slug": "the-way-of-kings", "contributions": [], "book_series": [], "image": null,
+                  "editions": [
+                    { "isbn_10": "0765326353", "isbn_13": "9780765326355", "asin": null },
+                    { "isbn_10": null, "isbn_13": null, "asin": "B003P2WO5E" },
+                    { "isbn_10": null, "isbn_13": "9780765326355", "asin": "" }
+                  ],
+                  "default_audio_edition": { "isbn_10": null, "isbn_13": "9781427211767", "asin": " b003p2wo5e " },
+                  "default_ebook_edition": null,
+                  "default_physical_edition": { "isbn_10": "0765326353", "isbn_13": "9780765326355", "asin": null }
+                } } ] } }
+                """);
+        });
+
+        var book = Assert.Single(await client.GetBooksWithStatusAsync(42, HardcoverReadingStatus.WantToRead));
+
+        Assert.Contains("editions(limit: 20, order_by: {users_count: desc}) { isbn_10 isbn_13 asin }", body!.Value.Query, StringComparison.Ordinal);
+        Assert.Contains("default_audio_edition { isbn_10 isbn_13 asin }", body.Value.Query, StringComparison.Ordinal);
+        Assert.Equal(["9780765326355", "0765326353", "B003P2WO5E", "9781427211767"], book.Identifiers);
+    }
+
+    [Fact]
+    public async Task GetBooksWithStatusAsync_BookWithoutEditions_HasNoIdentifiers()
+    {
+        var client = CreateClient(_ => Json($$"""{ "data": { "user_books": [ { "book": {{DuneBook}} } ] } }"""));
+
+        Assert.Empty(Assert.Single(await client.GetBooksWithStatusAsync(42, HardcoverReadingStatus.WantToRead)).Identifiers);
+    }
+
+    [Fact]
     public async Task GetBooksWithStatusAsync_ReadsAFullPageAndAsksForTheNext()
     {
         var offsets = new List<int>();
