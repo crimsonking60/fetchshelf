@@ -25,6 +25,15 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// </param>
 public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null, bool StoppedByMam = false);
 
+/// <summary>The settings the Download job runs by.</summary>
+/// <param name="MinRatio">`min_ratio`: no download may take the account's ratio below it.</param>
+/// <param name="AddTorrentsStopped">`add_torrents_stopped`: torrents are added to qBittorrent stopped.</param>
+/// <param name="FinishAfterCancel">
+/// How long a torrent being added gets to finish once the run is cancelled; null is
+/// <see cref="DownloadRunner.DefaultFinishAfterCancel"/>. Set by tests only.
+/// </param>
+public sealed record DownloadRunnerOptions(double MinRatio, bool AddTorrentsStopped, TimeSpan? FinishAfterCancel = null);
+
 /// <summary>
 /// Runs the downloader: ratio/unsat/wedge safety checks, dedup against every configured client and
 /// the library, and handing an approved grab to qBittorrent.
@@ -35,11 +44,9 @@ public sealed class DownloadRunner(
     MamClient mamClient,
     MamAccessGate accessGate,
     IReadOnlyList<QBittorrentClient> qbClients,
-    double minRatio,
-    bool addTorrentsStopped,
+    DownloadRunnerOptions options,
     SafetyBuffers safetyBuffers,
-    ILogger<DownloadRunner>? logger = null,
-    TimeSpan? finishAfterCancel = null)
+    ILogger<DownloadRunner>? logger = null)
 {
     private readonly ILogger<DownloadRunner> _logger = logger ?? NullLogger<DownloadRunner>.Instance;
 
@@ -50,7 +57,7 @@ public sealed class DownloadRunner(
     /// </summary>
     public static readonly TimeSpan DefaultFinishAfterCancel = TimeSpan.FromSeconds(5);
 
-    private readonly TimeSpan _finishAfterCancel = finishAfterCancel ?? DefaultFinishAfterCancel;
+    private readonly TimeSpan _finishAfterCancel = options.FinishAfterCancel ?? DefaultFinishAfterCancel;
 
     /// <summary>
     /// Starts queued selections within the account's limits. A failure on one torrent is logged and the run
@@ -75,9 +82,9 @@ public sealed class DownloadRunner(
         var bytesInFlight = await SelectionQueue.InFlightBytesAsync(dbContext, cancellationToken);
         var budget = new DownloadRunBudget(
             account.UnsatLimit, account.UnsatCount, account.Wedges,
-            DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
+            DownloadBudget.ComputeRatioBudgetBytes(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, options.MinRatio));
         _logger.LogInformation(
-            "{RatioBudget}", DownloadBudget.DescribeRatioBudget(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, minRatio));
+            "{RatioBudget}", DownloadBudget.DescribeRatioBudget(account.UploadedBytes, account.DownloadedBytes, bytesInFlight, options.MinRatio));
 
         var (startedCount, failedCount) = (0, 0);
         var (overRatio, noSlot) = (0, 0);
@@ -131,7 +138,7 @@ public sealed class DownloadRunner(
                 ratioLimit ??= string.Create(
                     System.Globalization.CultureInfo.InvariantCulture,
                     $"the ratio budget left is {DownloadBudget.FormatBytes(budget.RatioBudgetBytes)}, less than the "
-                    + $"{DownloadBudget.FormatBytes(TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes)} the first of them needs (min_ratio {minRatio})");
+                    + $"{DownloadBudget.FormatBytes(TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes)} the first of them needs (min_ratio {options.MinRatio})");
             }
             else if (outcome == DownloadOutcome.NoUnsatSlot)
             {
@@ -504,7 +511,7 @@ public sealed class DownloadRunner(
             : System.Text.Json.JsonSerializer.Deserialize<List<string>>(selected.TagsJson) ?? [];
 
         var client = qbClients[0];
-        await client.AddTorrentAsync(torrentBytes, selected.Category ?? string.Empty, tags, addTorrentsStopped, cancellationToken);
+        await client.AddTorrentAsync(torrentBytes, selected.Category ?? string.Empty, tags, options.AddTorrentsStopped, cancellationToken);
 
         // qBittorrent has it now, so it is recorded whatever the cancellation: the next run would find it there and
         // record it as already downloading, without the grab, its cost or its wedge.

@@ -56,7 +56,7 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
         var client = OrganizerTestSupport.CreateQBittorrentClient(data.ClientTorrents, new Dictionary<string, List<QBittorrentFile>>());
         var lookup = new CountingMetadataLookup();
         using var context = OrganizerTestSupport.CreateContext(DbPath);
-        var runner = new LinkRunner(context, new EventStore(context), lookup, Libraries(), Formats, excludeNarratorInLibraryDir: false);
+        var runner = new LinkRunner(context, new EventStore(context), lookup, Libraries(), Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
         var stopwatch = Stopwatch.StartNew();
         var summary = await runner.RunAsync(new QBittorrentConnection(), client);
@@ -78,7 +78,7 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
         var changed = clientTorrents.Count(t => t.State == "stoppedUP" && data.Torrents.Any(d => d.Id == t.Hash));
         var client = OrganizerTestSupport.CreateQBittorrentClient(clientTorrents, new Dictionary<string, List<QBittorrentFile>>());
         using var context = OrganizerTestSupport.CreateContext(DbPath);
-        var runner = new LinkRunner(context, new EventStore(context), new CountingMetadataLookup(), Libraries(), Formats, excludeNarratorInLibraryDir: false);
+        var runner = new LinkRunner(context, new EventStore(context), new CountingMetadataLookup(), Libraries(), Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
         var stopwatch = Stopwatch.StartNew();
         await runner.RunAsync(new QBittorrentConnection(), client);

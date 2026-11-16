@@ -36,7 +36,7 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup, IReadOnlyList<Library> libraries) =>
-        new(context, new EventStore(context), lookup, libraries, Formats, excludeNarratorInLibraryDir: false);
+        new(context, new EventStore(context), lookup, libraries, Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
     private static Library CreateLibrary(string libraryDir, string category = "audiobooks") => new()
     {

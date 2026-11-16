@@ -186,9 +186,8 @@ if (settings.Audiobookshelf is { } absSettings)
     builder.Services.AddHttpClient("abs");
     builder.Services.AddSingleton(sp => new AbsClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));
-    builder.Services.AddScoped(sp => new AbsMatcher(
-        sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<AbsClient>(), sp.GetRequiredService<ILogger<AbsMatcher>>(),
-        absSettings.FetchshelfToAbsMapping()));
+    builder.Services.AddSingleton(new AbsMatcherOptions(absSettings.FetchshelfToAbsMapping()));
+    builder.Services.AddScoped<AbsMatcher>();
 }
 
 if (settings.Hardcover is { } hardcoverSettings)
@@ -212,96 +211,43 @@ var formatPreferenceLists = new FormatPreferenceLists
         .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes), StringComparer.Ordinal),
 };
 builder.Services.AddSingleton(formatPreferenceLists);
-builder.Services.AddScoped(sp => new LinkRunner(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<EventStore>(),
-    sp.GetRequiredService<IMetadataLookup>(),
-    settings.Library,
-    formatPreferenceLists,
-    settings.ExcludeNarratorInLibraryDir,
-    sp.GetService<AbsClient>(),
-    sp.GetRequiredService<ILogger<LinkRunner>>()));
-builder.Services.AddScoped(sp => new DownloadProgressChecker(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
-    sp.GetRequiredService<TimeProvider>()));
-builder.Services.AddScoped(sp => new Cleaner(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), formatPreferenceLists, settings.Library,
-    sp.GetService<AbsClient>(), sp.GetRequiredService<ILogger<Cleaner>>()));
+// The values the runners are built with, each registered once, so every runner takes them by type, not by position.
+builder.Services.AddSingleton<IReadOnlyList<Library>>(settings.Library);
+builder.Services.AddScoped<IReadOnlyList<QBittorrentClient>>(sp =>
+    QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList());
+builder.Services.AddSingleton(new LinkRunnerOptions(settings.ExcludeNarratorInLibraryDir));
+builder.Services.AddScoped<LinkRunner>();
+builder.Services.AddScoped<DownloadProgressChecker>();
+builder.Services.AddScoped<Cleaner>();
 
-var tagRules = settings.Tag
+builder.Services.AddSingleton<IReadOnlyList<TagRule>>(settings.Tag
     .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
-    .ToList();
-builder.Services.AddScoped(sp => new SelectionRunner(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<EventStore>(), tagRules, formatPreferenceLists));
-builder.Services.AddScoped(sp => new AutograbberRunner(
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    sp.GetRequiredService<SelectionRunner>(),
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<ILogger<AutograbberRunner>>(),
-    sp.GetRequiredService<INotificationSink>()));
-builder.Services.AddScoped(sp => new SnatchlistImporter(
-    sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<MamClient>(), sp.GetRequiredService<MamAccessGate>(),
-    sp.GetRequiredService<ILogger<SnatchlistImporter>>()));
+    .ToList());
+builder.Services.AddScoped<SelectionRunner>();
+builder.Services.AddScoped<AutograbberRunner>();
+builder.Services.AddScoped<SnatchlistImporter>();
 if (settings.Hardcover is not null)
 {
-    builder.Services.AddScoped(sp => new HardcoverListImporter(
-        sp.GetRequiredService<FetchshelfDbContext>(),
-        sp.GetRequiredService<MamClient>(),
-        sp.GetRequiredService<MamAccessGate>(),
-        sp.GetRequiredService<SelectionRunner>(),
-        sp.GetRequiredService<IHardcoverBookSource>(),
-        formatPreferenceLists,
-        logger: sp.GetRequiredService<ILogger<HardcoverListImporter>>()));
+    builder.Services.AddScoped<HardcoverListImporter>();
 }
 
 if (settings.Follow is { } followSettings)
 {
     builder.Services.AddSingleton(followSettings);
-    builder.Services.AddScoped(sp => new FollowRunner(
-        sp.GetRequiredService<FetchshelfDbContext>(),
-        sp.GetRequiredService<MamClient>(),
-        sp.GetRequiredService<MamAccessGate>(),
-        sp.GetRequiredService<SelectionRunner>(),
-        sp.GetRequiredService<LibraryQueries>(),
-        followSettings,
-        formatPreferenceLists,
-        sp.GetRequiredService<TimeProvider>(),
-        logger: sp.GetRequiredService<ILogger<FollowRunner>>()));
-    builder.Services.AddScoped(sp => new FollowService(
-        sp.GetRequiredService<FetchshelfDbContext>(),
-        sp.GetRequiredService<MamClient>(),
-        sp.GetRequiredService<MamAccessGate>(),
-        sp.GetRequiredService<SelectionRunner>(),
-        followSettings,
-        sp.GetRequiredService<TimeProvider>()));
+    builder.Services.AddScoped<FollowRunner>();
+    builder.Services.AddScoped<FollowService>();
 }
 
 if (settings.Upgrade is { } upgradeSettings)
 {
-    builder.Services.AddScoped(sp => new UpgradeRunner(
-        sp.GetRequiredService<FetchshelfDbContext>(),
-        sp.GetRequiredService<MamClient>(),
-        sp.GetRequiredService<MamAccessGate>(),
-        sp.GetRequiredService<SelectionRunner>(),
-        upgradeSettings,
-        settings.Library,
-        formatPreferenceLists,
-        sp.GetRequiredService<TimeProvider>(),
-        logger: sp.GetRequiredService<ILogger<UpgradeRunner>>()));
+    builder.Services.AddSingleton(upgradeSettings);
+    builder.Services.AddScoped<UpgradeRunner>();
 }
 
 if (settings.Bonus is { } bonusSettings)
 {
-    builder.Services.AddScoped(sp => new BonusRunner(
-        sp.GetRequiredService<FetchshelfDbContext>(),
-        sp.GetRequiredService<EventStore>(),
-        sp.GetRequiredService<MamClient>(),
-        sp.GetRequiredService<MamAccessGate>(),
-        bonusSettings,
-        sp.GetRequiredService<TimeProvider>(),
-        sp.GetRequiredService<ILogger<BonusRunner>>()));
+    builder.Services.AddSingleton(bonusSettings);
+    builder.Services.AddScoped<BonusRunner>();
 }
 
 // The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
@@ -309,21 +255,9 @@ builder.Services.AddSingleton(new SafetyBuffers(
     settings.UnsatBuffer, settings.WedgeBuffer,
     settings.Autograb.Where(a => a.Name is not null).Select(a => new AutograbBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer)).ToList()));
 builder.Services.AddScoped<Fetchshelf.Web.Pages.Account.AccountSummaryBuilder>();
-builder.Services.AddScoped(sp => new DownloadRunner(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<EventStore>(),
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList(),
-    settings.MinRatio,
-    settings.AddTorrentsStopped,
-    sp.GetRequiredService<SafetyBuffers>(),
-    sp.GetRequiredService<ILogger<DownloadRunner>>()));
-builder.Services.AddScoped(sp => new RetroactiveTagApplier(
-    sp.GetRequiredService<FetchshelfDbContext>(),
-    sp.GetRequiredService<MamClient>(),
-    sp.GetRequiredService<MamAccessGate>(),
-    QBittorrentConnections.Build(settings, sp.GetRequiredService<QBittorrentClientFactory>()).Select(c => c.Client).ToList()));
+builder.Services.AddSingleton(new DownloadRunnerOptions(settings.MinRatio, settings.AddTorrentsStopped));
+builder.Services.AddScoped<DownloadRunner>();
+builder.Services.AddScoped<RetroactiveTagApplier>();
 
 if (settings.BackgroundJobsEnabled)
 {

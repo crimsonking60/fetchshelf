@@ -104,6 +104,21 @@ public sealed class ContainerResolutionTests
     }
 
     [Fact]
+    public async Task OptionRecords_CarryTheConfiguredValues()
+    {
+        using var fixture = Fixture(Everything);
+        await fixture.CreateClient().GetAsync("/health");
+        using var scope = fixture.CreateScope();
+
+        Assert.Equal(new DownloadRunnerOptions(MinRatio: 1.5, AddTorrentsStopped: true), scope.ServiceProvider.GetRequiredService<DownloadRunnerOptions>());
+        Assert.True(scope.ServiceProvider.GetRequiredService<LinkRunnerOptions>().ExcludeNarratorInLibraryDir);
+        Assert.Equal("/abs", scope.ServiceProvider.GetRequiredService<AbsMatcherOptions>().FetchshelfToAbsPaths["/library/audiobooks"]);
+        Assert.Equal("Audiobooks", Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Data.Configuration.Library>>()).Name);
+        Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Core.AutoDownloader.TagRule>>());
+        Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Clients.QBittorrent.QBittorrentClient>>());
+    }
+
+    [Fact]
     public async Task MinimalConfiguration_EveryPageModelResolves()
     {
         using var fixture = Fixture("mam_id = \"test-mam-id\"\n");
