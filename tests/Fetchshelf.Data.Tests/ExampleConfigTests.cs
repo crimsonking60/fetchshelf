@@ -59,5 +59,6 @@ public sealed class ExampleConfigTests
         Assert.NotNull(settings.Search.WedgeOver);
         Assert.Equal(2, settings.Notify.Count);
         Assert.NotNull(settings.WebUrl);
+        Assert.NotNull(settings.Backup);
     }
 }

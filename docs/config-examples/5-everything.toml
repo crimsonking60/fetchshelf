@@ -302,6 +302,16 @@ max_purchases_per_run = 10
 dry_run = true                # log what would be bought, buy nothing
 
 # =====================================================================================================
+# [backup]: optional. Copies the database safely while Fetchshelf runs, and before an upgrade changes it.
+# Without this section Fetchshelf takes no backups.
+# =====================================================================================================
+[backup]
+folder = "backups"            # relative to the database's folder (/database/backups in Docker); another disk is safer
+interval = 1440               # minutes between backups; 0 = only before upgrades and from the Jobs page
+keep = 7                      # scheduled backups kept; the oldest go first
+before_upgrade = true         # back up when a new version is about to change the database; the last 3 are kept
+
+# =====================================================================================================
 # [[tag]]: repeatable. The shared filter plus a qBittorrent category and tags for matching downloads.
 # Category: first matching rule that sets one. Tags: union over all matching rules.
 # Tag rules do NOT use the top-level 'languages': a rule without its own 'languages' matches every

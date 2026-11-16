@@ -1589,6 +1589,12 @@ reported, so they cannot be chosen by hand.
     save path.
 - **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
+- **Export.** **CSV** and **JSON** next to **Check qBittorrent** download the list as it is searched, filtered
+  and sorted, every page of it: MAM id, title, authors, narrators, series, media type, language, the linked
+  format, the torrent's size in bytes, library, folder, status, and when it was added and last linked, in UTC.
+  In the CSV, lists are joined with `; `, and a text that starts with `=`, `+`, `-` or `@` gets a leading `'`,
+  so a spreadsheet doesn't take an uploaded title for a formula. The JSON has the same names as keys, with lists
+  as arrays.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
   where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
@@ -1699,6 +1705,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
+| Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
 
 Autograb, snatchlist and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
 `snatchlist[1]`, `hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
@@ -1743,7 +1750,7 @@ interval after its start counts instead, and a container that keeps restarting c
 often than its interval.
 
 A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
-MAM at once: Link (and Audiobookshelf) after 30 seconds, then each autograb, snatchlist and Hardcover list in
+MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb, snatchlist and Hardcover list in
 the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
 shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
 
@@ -1811,7 +1818,10 @@ Before you update:
 1. Read [RELEASES.md](../RELEASES.md). It lists what changed in each release and anything you must do when
    upgrading.
 2. Back up your config and database folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
-   backup until you are happy with the new version: it is the only way back.
+   backup until you are happy with the new version: it is the only way back. With a
+   [`[backup]`](configuration.md#backup) section, Fetchshelf also backs up the database itself when the new
+   version starts, before it changes anything, as `data-<date>-before-<version>.db`; `config.toml` still needs a
+   copy of your own.
 
 With Docker:
 
@@ -1869,9 +1879,35 @@ What matters:
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
 small.
 
-To back up, **stop the container**, copy both folders, then start it again. A copy of `data.db` taken while
-Fetchshelf writes to it can be unusable. With [`database_wal = true`](database-setup.md#database_wal), the
-latest changes are also kept in a `data.db-wal` file next to `data.db` while Fetchshelf runs, so a copy
+### Backups while Fetchshelf runs
+
+With a [`[backup]`](configuration.md#backup) section, Fetchshelf backs up `data.db` itself, safely while it
+runs: once a day by default, keeping the last 7, and before a new version changes the database, keeping the
+last 3. **Run now** on the **Backup** job takes one straight away. Put the folder on another disk if you can,
+mounted into the container, so a failing disk doesn't take the database and its backups together:
+
+```toml
+[backup]
+folder = "/backups/fetchshelf"
+```
+
+`config.toml` isn't part of these backups; keep a copy of it as well.
+
+To restore one:
+
+1. Stop Fetchshelf.
+2. In the database folder, move `data.db` aside, and delete `data.db-wal` and `data.db-shm` if they are there:
+   they belong to the old `data.db`, and SQLite would apply them to the restored one.
+3. Copy the backup into the database folder as `data.db`, owned by the same `PUID` / `PGID` as before.
+4. Start the version that made the backup, or a newer one. A `before-<version>` backup was made by the version
+   before `<version>`: restoring it is how to go back after an upgrade (see
+   [Updating Fetchshelf](#updating-fetchshelf) for what restoring winds back).
+
+### Copying the folders by hand
+
+Without a `[backup]` section, or to take `config.toml` along, **stop the container**, copy both folders, then
+start it again. A copy of `data.db` taken while Fetchshelf writes to it can be unusable. With
+[`database_wal = true`](database-setup.md#database_wal), the latest changes are also kept in a `data.db-wal` file next to `data.db` while Fetchshelf runs, so a copy
 taken then can be missing them. When the container stops, they are written into `data.db` and the extra
 files are removed. If `data.db-wal` or `data.db-shm` are still there after a stop, for example after a
 crash, copy them as well and keep them next to `data.db`. See [Database setup](database-setup.md) for where

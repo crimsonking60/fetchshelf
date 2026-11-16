@@ -134,6 +134,9 @@ public sealed class FetchshelfSettings
     /// <summary>Optional `[bonus]` section. Null when not configured, and then no bonus points are ever spent.</summary>
     public BonusSettings? Bonus { get; set; }
 
+    /// <summary>Optional `[backup]` section. Null when not configured, and then Fetchshelf takes no backups.</summary>
+    public BackupSettings? Backup { get; set; }
+
     /// <summary>Repeatable `[[notify]]` entries: where to send messages about what Fetchshelf does.</summary>
     public List<NotifyEntry> Notify { get; set; } = [];
 

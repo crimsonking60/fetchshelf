@@ -127,6 +127,21 @@ internal static partial class ConfigValueValidator
             }
         }
 
+        if (settings.Backup is { } backup)
+        {
+            const string label = "the [backup] section";
+            if (string.IsNullOrWhiteSpace(backup.Folder))
+            {
+                throw Invalid($"{label} needs a 'folder' to put the backups in, such as \"backups\" or a folder on another disk.");
+            }
+
+            CheckInterval("interval", backup.Interval, label);
+            if (backup.Keep is < 1 or > BackupSettings.MaxKeep)
+            {
+                throw Invalid($"'keep' in {label} must be between 1 and {BackupSettings.MaxKeep}; got {backup.Keep}.");
+            }
+        }
+
         if (settings.Follow is { } follow)
         {
             const string label = "the [follow] section";

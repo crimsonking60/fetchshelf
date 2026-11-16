@@ -29,6 +29,7 @@ to `5-everything.toml`, which uses every option.
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
 - [`[bonus]`](#bonus)
+- [`[backup]`](#backup)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
 - [`[[notify]]`](#notify)
@@ -373,7 +374,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among all three (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `snatchlist[0]`, ... on the Jobs page. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among all three (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `snatchlist[0]`, ... on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
@@ -715,6 +716,41 @@ next run. Every purchase is on the **Events** page, and can be [notified](#notif
 keep_points = 55000          # keep a wedge's worth of points, plus 5,000
 upload_amounts = [100, 50]
 wedge_every = 24             # one wedge a day
+```
+
+## `[backup]`
+
+Optional. Backs up the database while Fetchshelf runs, with SQLite's online backup, which takes a consistent copy
+even while jobs write, with or without [`database_wal`](database-setup.md#database_wal). Also backs up before a new
+version changes the database. Without this section Fetchshelf takes no backups. See
+[Backups and moving to a new machine](user-guide.md#backups-and-moving-to-a-new-machine) for restoring one.
+
+| Setting | Default | Description |
+|---|---|---|
+| `folder` | (required) | Where backups go. A relative path is relative to the database's folder, so `folder = "backups"` is `/database/backups` in Docker. It can't be the database's own folder. A folder on another disk is safer: a backup on the same disk is lost with it. |
+| `interval` | `1440` | Minutes between runs of the **Backup** job, `0` to 43200 (30 days). `0`: backups only before upgrades and from the Jobs page. |
+| `keep` | `7` | How many of the Backup job's backups are kept, `1` to `365`. After each one, the oldest beyond that are deleted. |
+| `before_upgrade` | `true` | Back up at startup when the new version is about to change the database. These are kept apart from `keep`: the last 3. |
+
+- **Names.** Each backup is one file, `data-<UTC date and time>-<reason>.db`: `data-20261111-031500-scheduled.db`
+  from the Backup job, `data-20261111-031500-before-2026.11.10.db` before upgrading to 2026.11.10. It holds
+  everything and needs no `-wal` or `-shm` file next to it. Fetchshelf only ever deletes files named like this, so
+  the folder can hold other files too.
+- **Checked before it counts.** A backup is written under a temporary name, checked with SQLite's integrity check,
+  and only then given its name. One that fails is deleted, and the Backup job's run fails, which
+  [`job_failing`](#notification-events) reports like any other job.
+- **Before an upgrade.** At startup, before the database is changed, Fetchshelf backs it up when a new version has
+  changes to make to it. A new database, or one the version already knows, isn't backed up. If that backup fails,
+  Fetchshelf doesn't start, and the log says why: upgrading without the promised copy would be worse. To start
+  anyway, set `before_upgrade = false`.
+- **Checked at startup.** A missing `folder`, the database's own folder, and `interval` or `keep` out of range stop
+  Fetchshelf from starting, and [`--check-config`](#checking-a-configuration) reports them.
+- **Not backed up:** `config.toml`, the libraries and the downloads.
+
+```toml
+[backup]
+folder = "/backups/fetchshelf"   # another disk, mounted into the container
+keep = 14
 ```
 
 ## `[[tag]]`

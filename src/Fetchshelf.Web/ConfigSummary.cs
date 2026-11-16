@@ -45,6 +45,12 @@ public static class ConfigSummary
             text.AppendLine(opds.Libraries.Count == 0 ? "OPDS: the ebooks of every library" : $"OPDS: {string.Join(", ", opds.Libraries)}");
         }
 
+        if (settings.Backup is { } backup)
+        {
+            text.AppendLine(CultureInfo.InvariantCulture,
+                $"Backup: to {backup.Folder}, {Schedule(backup.Interval)}, keep {backup.Keep}{(backup.BeforeUpgrade ? ", and before upgrades" : "")}");
+        }
+
         AppendNotifications(text, settings);
 
         return text.ToString();
