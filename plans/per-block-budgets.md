@@ -12,7 +12,7 @@ Two things in how the budgets apply don't hold for every kind of block.
 - at download, per torrent: `SafetyBuffers.UnsatBufferFor(grabberName)` / `WedgeBufferFor(grabberName)` look the
   selection's `GrabberName` up among the autograbs (`AutograbBuffers`).
 
-`[[hardcover_list]]`, `[follow]` and `[upgrade]` have none of the three. `Program.cs` passes the global
+`[[hardcover_list]]`, `[follow]` and `[upgrade]` have none of the three. `Hosting/FetchshelfJobs.cs` passes the global
 `settings.UnsatBuffer` to their runners, and each calls `SelectionBudget.Compute(…, maxActiveDownloads: null, …)`.
 A Hardcover list of 300 books can fill every slot down to the global buffer, and its wedge downloads use the global
 `wedge_buffer`. The planned `[[file_list]]` (`plans/file-based-lists.md`) would inherit the same gap.
@@ -33,7 +33,7 @@ finishes.
 - `AutograbBuffers` becomes `BlockBuffers(string GrabberName, int? UnsatBuffer, int? WedgeBuffer)`, and
   `SafetyBuffers` takes a list of them plus a prefix rule for Follow: a selection whose grabber name starts with
   `Follow: ` (`FollowRunner.GrabberName`) uses `[follow]`'s buffers. Exact names are matched first.
-- `Program.cs` builds the list from `[[autograb]]` (name), `[[hardcover_list]]` (its job name), `[[file_list]]` when
+- `AddAutoDownloader` (`Hosting/RunnerServices.cs`) builds the list from `[[autograb]]` (name), `[[hardcover_list]]` (its job name), `[[file_list]]` when
   that exists, `[upgrade]` (`JobNames.Upgrade`) and `[follow]` (the prefix).
 
 ### 2. Settings
@@ -47,7 +47,7 @@ job name is unique already, and `[follow]` and `[upgrade]` have one each.
 - `SelectionQueue.ActiveForAutograbAsync` becomes `ActiveForGrabberAsync(IReadOnlyCollection<string> names | prefix)`:
   selections not removed and not started, for those grabber names. For Follow, every `Follow: …` name together.
 - The list importer, `FollowRunner` and `UpgradeRunner` take their block's buffer and cap (falling back to the global
-  buffer, as `AutograbberRunner` does) and pass them to `SelectionBudget.Compute`/`Explain`. `Program.cs` stops
+  buffer, as `AutograbberRunner` does) and pass them to `SelectionBudget.Compute`/`Explain`. `FetchshelfJobs` stops
   handing them `settings.UnsatBuffer` directly.
 
 ### 4. `wedge` downloads outside the ratio budget

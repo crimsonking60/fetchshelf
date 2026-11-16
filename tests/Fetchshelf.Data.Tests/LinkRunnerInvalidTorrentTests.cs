@@ -31,7 +31,7 @@ public sealed class LinkRunnerInvalidTorrentTests : IDisposable
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup) =>
         new(context, new EventStore(context), lookup,
             [new Library { LibraryDir = Path.Combine(_root, "library"), Category = "audiobooks", Method = LibraryLinkMethod.Hardlink }],
-            Formats, excludeNarratorInLibraryDir: false);
+            Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
     private sealed class UnreadableLookup : IMetadataLookup
     {

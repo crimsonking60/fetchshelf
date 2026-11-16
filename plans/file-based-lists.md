@@ -28,7 +28,7 @@ exports, a spreadsheet, or a list typed by hand. It needs no API and no account.
 - `HardcoverListImporter` becomes `ListImporter`, taking a `ListDefinition` and an `IListBookSource`. Its logic is
   unchanged; the log lines say "List {Name}" instead of "Hardcover list {Name}".
 - `HardcoverListRunSummary` becomes `ListRunSummary`; `JobOutcomes.HardcoverList` becomes `JobOutcomes.List`.
-- In `Program.cs` the importer is registered whenever any list is configured, not only with `[hardcover]`.
+- In `Hosting/RunnerServices.cs` (`AddAutoDownloader`) the importer is registered whenever any list is configured, not only with `[hardcover]`.
 
 This is a rename and a seam, and is its own commit: the Hardcover tests keep passing with only names changed.
 

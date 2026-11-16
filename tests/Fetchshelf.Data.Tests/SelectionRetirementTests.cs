@@ -29,7 +29,7 @@ public sealed class SelectionRetirementTests : IDisposable
     private static LinkRunner LinkRunnerFor(FetchshelfDbContext context) => new(
         context, new EventStore(context), new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [],
         new FormatPreferenceLists { AudioTypes = ["m4b"], EbookTypes = ["epub"], MusicTypes = [], RadioTypes = [] },
-        excludeNarratorInLibraryDir: false);
+        new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
     private static QBittorrentClient ClientWith(params QBittorrentTorrent[] torrents) =>
         OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>());

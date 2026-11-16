@@ -52,7 +52,7 @@ public sealed class LinkRunnerAbsPushTests : IDisposable
     }
 
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup, IReadOnlyList<Library> libraries, AbsClient? absClient) =>
-        new(context, new EventStore(context), lookup, libraries, Formats, excludeNarratorInLibraryDir: false, absClient);
+        new(context, new EventStore(context), lookup, libraries, Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false), absClient);
 
     private static Library CreateLibrary(string libraryDir, string category = "audiobooks") => new()
     {

@@ -16,8 +16,8 @@ What stands in the way today (found by reading the code):
 
 - Hardlinks call the POSIX `link()` in libc (`src/Fetchshelf.Data/Organizer/FileLinker.cs:103`). On Windows that
   throws `DllNotFoundException`, which the `hardlink_or_copy` fallback does not catch.
-- `Program.cs` is one block of top-level statements ending in a blocking `app.Run()`; nothing can start or stop
-  the host from a tray UI. Config and data default to the working directory, which for an app started at login
+- The host is built and run by `Hosting/FetchshelfApp` (since `plans/composition-root.md`), but `RunAsync` ends in a
+  blocking `app.RunAsync()`; nothing can start or stop the host from a tray UI yet. Config and data default to the working directory, which for an app started at login
   is `C:\Windows\System32`. Without `FETCHSHELF_LOG_DIR` there is no log file, and a tray app has no console.
 - Path comparisons assume Linux: case-sensitive, `/` only, and raw string prefixes (`PathMapper.cs:12`,
   `LibraryMatcher.cs:48`, `LibraryMismatchState.cs:27,32`, `AbsMatcher.cs:130-134`,
@@ -50,20 +50,16 @@ running app.
 
 ### 2. Make the host reusable (no change on Linux)
 
-Move `Program.cs` into `src/Fetchshelf.Web/Hosting/`:
+`plans/composition-root.md` (done) split `Program.cs` into `src/Fetchshelf.Web/Hosting/`: `FetchshelfPaths.Resolve(getEnv,
+defaultDirectory)`, `FetchshelfApp.Build(args, options)` and `RunAsync(args)`, `FetchshelfJobs`, and one registration
+method per area. `JobNames` and `AutoDownloaderJobNames` stayed in `Fetchshelf.Data`, since the config validation and
+several runners use them. What is left for Windows:
 
-- `FetchshelfPaths.Resolve(getEnv, defaultDirectory)`: pure and tested. It reads `FETCHSHELF_CONFIG_FILE`,
-  `FETCHSHELF_DATA_FILE` and `FETCHSHELF_LOG_DIR`. `defaultDirectory` is `null` on Linux (today's defaults) and
-  `%LOCALAPPDATA%\Fetchshelf` on Windows, where the log folder defaults to `logs\`. An empty `FETCHSHELF_LOG_DIR`
-  still means no log file, as in Docker.
-- `FetchshelfApp.Build(args, options)`: everything from `CreateBuilder` to the middleware, with an optional
-  content root (Windows: `AppContext.BaseDirectory`) and the log hint for the Error page.
-  - Returns either the app or the configuration error.
-  - Keeps `builder.Build()` on the main path, which `WebApplicationFactory` relies on.
-- `FetchshelfApp.RunAsync(args)`: today's flow. It handles `--healthcheck`, logging, `--update-search-title` and
-  then runs the web server.
-- `FetchshelfJobs`: the job registration, `JobNames` and `AutoDownloaderJobNames`, moved out of `Program.cs`.
-- `Program.cs` becomes `return await FetchshelfApp.RunAsync(args); public partial class Program;`.
+- `FetchshelfPaths.Resolve` is called with `defaultDirectory` = `%LOCALAPPDATA%\Fetchshelf` on Windows (it is `null`
+  on Linux, today's defaults), and the log folder defaults to `logs\` there. An empty `FETCHSHELF_LOG_DIR` still means
+  no log file, as in Docker.
+- `FetchshelfAppOptions` gains an optional content root (Windows: `AppContext.BaseDirectory`) and the log hint for
+  the Error page, which `FetchshelfApp.Build` passes on.
 - `ConfigLoader.EnsureConfigFileExists(path, initialContent)` becomes public and reports whether it created the
   file.
 - `Pages/Error.cshtml`: the "`docker logs fetchshelf`" hint comes from the host instead of being written into
@@ -213,7 +209,7 @@ Each step is one commit on `develop`, with build, tests and format passing.
 2. `PathText`, `FileNameRules` and the path fixes, with tests.
 3. Windows hardlinks and the wider fallback in `FileLinker`, with tests.
 4. Tests made cross-platform, and the Windows job in `checks.yml`.
-5. The `Program.cs` refactor (`FetchshelfPaths`, `FetchshelfApp`, `FetchshelfJobs`) and the Error-page hint.
+5. The Windows defaults in `FetchshelfPaths`, the content root in `FetchshelfAppOptions`, and the Error-page hint.
 6. The two targets in the csproj, the Dockerfile `-f net10.0`, and the command updates.
 7. The tray app: program, tray menu, single instance, start at login, startup dialog, icon, first config.
 8. `publish-windows.ps1`, the develop artifact and the release workflow.
@@ -224,8 +220,8 @@ The first release with the zip follows the normal release branch and pull reques
 ## Risks
 
 - **Static files and Razor under the Windows target**, with the renamed assembly: the spike settles this first.
-- **The `Program.cs` refactor and the web tests:** `builder.Build()` stays on the main path, and no catch-all is
-  wrapped around it.
+- **The host and the web tests:** `builder.Build()` stays on the main path (it is called from `FetchshelfApp.Build`),
+  and no catch-all is wrapped around it.
 - **Deadlocks between the tray's UI thread and the host:** the host is stopped from a background task.
 - **Unsigned exe:** SmartScreen and some antivirus products warn. This is documented; code signing can come
   later.
@@ -241,7 +237,7 @@ The first release with the zip follows the normal release branch and pull reques
   - `docker compose up --build` starts and `/health` answers;
   - `dotnet run --project src/Fetchshelf.Web -f net10.0` works.
 - **New unit tests, run on Linux:**
-  - `FetchshelfPaths.Resolve` and `BrowserUrl`;
+  - `FetchshelfPaths.Resolve` with the Windows default directory, and `BrowserUrl`;
   - `PathText` with both comparisons and both separators;
   - `FileNameRules.Windows` with `:`, `?`, trailing dots, `CON` and `nul.txt`;
   - `FolderNameComputer` with both rule sets, with the Posix output unchanged.

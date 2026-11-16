@@ -28,6 +28,10 @@ public enum RefreshOutcome
     NotFoundOnMam,
 }
 
+/// <summary>The settings the Link job links by, besides the libraries and the format lists.</summary>
+/// <param name="ExcludeNarratorInLibraryDir">`exclude_narrator_in_library_dir`: folder names leave out the narrator.</param>
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir);
+
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
 /// </summary>
@@ -37,7 +41,7 @@ public sealed class LinkRunner(
     IMetadataLookup metadataLookup,
     IReadOnlyList<Library> libraries,
     FormatPreferenceLists formatPreferenceLists,
-    bool excludeNarratorInLibraryDir,
+    LinkRunnerOptions options,
     AbsClient? absClient = null,
     ILogger<LinkRunner>? logger = null)
 {
@@ -373,7 +377,7 @@ public sealed class LinkRunner(
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
     {
-        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
+        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists);
         var linkedFiles = new List<LinkedFileRecord>();
         var outcomes = new List<LinkOutcome>();
         var placedUnderOtherName = new List<string>();
@@ -460,7 +464,7 @@ public sealed class LinkRunner(
         {
             var library = libraries[matchedIndex.Value];
             recomputedLibraryDir = library.LibraryDir;
-            recomputedFullPath = FolderNameComputer.Compute(library.LibraryDir, metadata, excludeNarratorInLibraryDir, Directory.Exists);
+            recomputedFullPath = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists);
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);

@@ -13,6 +13,13 @@ namespace Fetchshelf.Data.Organizer;
 /// </summary>
 public sealed record AbsMatchSummary(int Matched, int NotFoundYet, int Failed);
 
+/// <summary>The settings the Audiobookshelf job matches by.</summary>
+/// <param name="FetchshelfToAbsPaths">
+/// `[audiobookshelf] path_mapping` turned around: a path prefix as Fetchshelf sees it to the same place as
+/// Audiobookshelf sees it.
+/// </param>
+public sealed record AbsMatcherOptions(IReadOnlyDictionary<string, string> FetchshelfToAbsPaths);
+
 /// <summary>
 /// Matches linked torrents to their Audiobookshelf library item. Distinct from the
 /// metadata-push hooks in <see cref="LinkRunner"/>, which act only once a torrent already has a
@@ -22,9 +29,9 @@ public sealed class AbsMatcher(
     FetchshelfDbContext dbContext,
     AbsClient absClient,
     ILogger<AbsMatcher>? logger = null,
-    IReadOnlyDictionary<string, string>? fetchshelfToAbsPaths = null)
+    AbsMatcherOptions? options = null)
 {
-    private readonly IReadOnlyDictionary<string, string> _fetchshelfToAbsPaths = fetchshelfToAbsPaths ?? new Dictionary<string, string>();
+    private readonly IReadOnlyDictionary<string, string> _fetchshelfToAbsPaths = options?.FetchshelfToAbsPaths ?? new Dictionary<string, string>();
     private readonly ILogger<AbsMatcher> _logger = logger ?? NullLogger<AbsMatcher>.Instance;
 
     public async Task<AbsMatchSummary> RunAsync(CancellationToken cancellationToken = default)

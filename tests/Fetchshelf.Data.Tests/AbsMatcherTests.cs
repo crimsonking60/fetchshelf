@@ -209,7 +209,7 @@ public sealed class AbsMatcherTests : IDisposable
             new Dictionary<string, (string, string)> { ["Brandon Sanderson"] = ("a1", "Brandon Sanderson") },
             new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/audiobooks/Sanderson/Book") });
         var pathMapping = new Dictionary<string, string> { ["/mnt/Data/media/abs/audiobooks"] = "/audiobooks" };
-        var matcher = new AbsMatcher(context, absClient, new ListLogger<AbsMatcher>(), pathMapping);
+        var matcher = new AbsMatcher(context, absClient, new ListLogger<AbsMatcher>(), new AbsMatcherOptions(pathMapping));
 
         var summary = await matcher.RunAsync();
 
@@ -228,7 +228,7 @@ public sealed class AbsMatcherTests : IDisposable
             [], [("f1", "/ebooks")], new Dictionary<string, (string, string)>(), new Dictionary<string, (string, string)>());
         var pathMapping = new Dictionary<string, string> { ["/mnt/Data/media/abs"] = "/media" };
         var logger = new ListLogger<AbsMatcher>();
-        var matcher = new AbsMatcher(context, absClient, logger, pathMapping);
+        var matcher = new AbsMatcher(context, absClient, logger, new AbsMatcherOptions(pathMapping));
 
         var summary = await matcher.RunAsync();
 
