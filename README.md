@@ -51,7 +51,6 @@ setup. If you use one, please report how it went, good or bad (see
 - `[bonus]`: spending bonus points on wedges, VIP and upload credit. VIP top-ups are the least known: MAM's
   answer to them has not been seen yet.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
-- `[backup]`: backups while running and before upgrades, and restoring one.
 - **Export** on the Torrents page.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
