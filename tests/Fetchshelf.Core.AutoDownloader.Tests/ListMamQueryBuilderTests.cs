@@ -27,6 +27,53 @@ public class ListMamQueryBuilderTests
     }
 
     [Fact]
+    public void Build_TitleWithTildes_LeavesNoNotOperator()
+    {
+        // Two torrents in the live library: MAM answered "Your search is only not" to the tildes.
+        var query = ListMamQueryBuilder.Build("Encyclopaedia Eorzea ~The World of Final Fantasy XIV~ Volume I", ["Square Enix"]);
+
+        Assert.Equal("@title Encyclopaedia Eorzea  The World of Final Fantasy XIV  Volume I @author (\"Square Enix\")", query);
+    }
+
+    [Theory]
+    [InlineData("~Tilde~", " Tilde ")]
+    [InlineData("Yes! No!", "Yes  No ")]
+    [InlineData("-ish", " ish")]
+    [InlineData("Twenty -One", "Twenty  One")]
+    [InlineData("Spider-Man", "Spider-Man")]
+    [InlineData("The \"Real\" Story", "The  Real  Story")]
+    [InlineData("A | B", "A   B")]
+    [InlineData("@home", " home")]
+    [InlineData("x^2 = y", "x 2   y")]
+    [InlineData("<Tag> $5", " Tag   5")]
+    [InlineData("Back\\slash", "Back slash")]
+    [InlineData("Open (bracket", "Open  bracket")]
+    [InlineData("Close] bracket", "Close  bracket")]
+    [InlineData("{Curly}", " Curly ")]
+    public void BuildTitleQuery_SearchOperators_AreTakenOut(string title, string expected)
+    {
+        Assert.Equal(expected, ListMamQueryBuilder.BuildTitleQuery(title));
+    }
+
+    [Fact]
+    public void BuildTitleQuery_StarStillMatchesLiterally()
+    {
+        Assert.Equal("Catch\"*\"22", ListMamQueryBuilder.BuildTitleQuery("Catch*22"));
+    }
+
+    [Fact]
+    public void BuildTitleQuery_QuotesInATitleWithAColon_DontBreakThePhrases()
+    {
+        Assert.Equal("(\"The  Last \"|\"The  Last : Part One\")", ListMamQueryBuilder.BuildTitleQuery("The \"Last\": Part One"));
+    }
+
+    [Fact]
+    public void Build_QuotesInAnAuthorsName_AreTakenOut()
+    {
+        Assert.Equal("@title Book @author (\"Dwayne  The Rock  Johnson\")", ListMamQueryBuilder.Build("Book", ["Dwayne \"The Rock\" Johnson"]));
+    }
+
+    [Fact]
     public void BuildTitleQuery_AndExpandedToAlternation()
     {
         var query = ListMamQueryBuilder.BuildTitleQuery("Pride and Prejudice");
