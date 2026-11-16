@@ -117,6 +117,11 @@ public static class JobOutcomes
         };
     }
 
+    public static JobOutcome Backup(Data.DatabaseBackupRunSummary summary) => new(
+        $"Backed up {Core.AutoDownloader.DownloadBudget.FormatBytes(summary.Backup.SizeBytes)} to {Path.GetFileName(summary.Backup.Path)}; "
+            + $"{summary.Kept} kept",
+        new Dictionary<string, long> { ["bytes"] = summary.Backup.SizeBytes, ["kept"] = summary.Kept });
+
     public static JobOutcome Download(DownloadRunSummary summary) => Finish(
         summary.Queued == 0
             ? "No selected torrents waiting to be downloaded"

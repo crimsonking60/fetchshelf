@@ -290,6 +290,28 @@
 </section>
 
 <section>
+    <h3>Backups</h3>
+    @if (settings.Backup is not { } backup)
+    {
+        <p class="empty">No [backup] section configured: Fetchshelf takes no backups of its database.</p>
+    }
+    else
+    {
+        <table id="backup-settings">
+            <thead><tr><th>Folder</th><th>Interval</th><th>Keep</th><th>Before upgrades</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@backup.Folder</td>
+                    <td>@(backup.Interval == 0 ? "Jobs page only" : $"{backup.Interval} minutes")</td>
+                    <td>@backup.Keep</td>
+                    <td>@(backup.BeforeUpgrade ? $"yes, the last {Fetchshelf.Data.Configuration.BackupSettings.KeepBeforeUpgrade} kept" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Notifications</h3>
     @if (Model.NotifyTargets.Count == 0)
     {

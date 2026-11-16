@@ -22,6 +22,8 @@ public static class ConfigCheck
         try
         {
             var settings = ConfigLoader.Load(configFilePath);
+            // Checked against the data file startup would use, as a relative backup folder is under its folder.
+            settings.Backup?.ResolveFolder(Environment.GetEnvironmentVariable("FETCHSHELF_DATA_FILE") ?? "data.db");
             var mamIdFromEnvironment = Environment.GetEnvironmentVariable("FETCHSHELF_CONF_mam_id") is not null;
             output.Write(ConfigSummary.Build(settings, configFilePath, mamIdFromEnvironment));
             return 0;

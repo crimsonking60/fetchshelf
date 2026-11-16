@@ -276,7 +276,66 @@ public class IndexModel(
         return values;
     }
 
+    /// <summary>The address of the export in <paramref name="format"/>, with the search, filters and sort in use.</summary>
+    public Dictionary<string, string> ExportRouteValues(string format)
+    {
+        // In the same dictionary: asp-all-route-data replaces a separate asp-route-format.
+        var values = Query.ToRouteValues();
+        values["format"] = format;
+        return values;
+    }
+
+    /// <summary>
+    /// Downloads the list as it is filtered, searched and sorted now, every page of it, as `csv` or `json`. The rows are
+    /// written to the response one at a time.
+    /// </summary>
+    public async Task<IActionResult> OnGetExportAsync(string? format)
+    {
+        var json = string.Equals(format, "json", StringComparison.OrdinalIgnoreCase);
+        var (ordered, metadataById) = await FilterAsync();
+        var linkedAt = (await dbContext.Events.AsNoTracking()
+                .Where(e => e.Kind == EventKind.Linked && e.TorrentId != null)
+                .Select(e => new { e.TorrentId, e.OccurredAt })
+                .ToListAsync(HttpContext.RequestAborted))
+            .GroupBy(e => e.TorrentId!)
+            .ToDictionary(group => group.Key, group => group.Max(e => e.OccurredAt));
+        var rows = ordered.Select(t => LibraryExportRow.From(
+            t,
+            metadataById.GetValueOrDefault(t.Id) ?? TorrentMetadataSerializer.Deserialize(t.MetadataJson),
+            TorrentListFilters.StatusValue(TorrentListFilters.StatusOf(t)),
+            linkedAt.TryGetValue(t.Id, out var linked) ? linked : null));
+
+        var fileName = $"fetchshelf-torrents-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{(json ? "json" : "csv")}";
+        Response.ContentType = json ? "application/json; charset=utf-8" : "text/csv; charset=utf-8";
+        Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
+        if (json)
+        {
+            await LibraryExport.WriteJsonAsync(rows, Response.Body, HttpContext.RequestAborted);
+        }
+        else
+        {
+            // With a byte order mark, so a spreadsheet opens the UTF-8 titles and names as UTF-8.
+            await using var writer = new StreamWriter(Response.Body, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            await LibraryExport.WriteCsvAsync(rows, writer, HttpContext.RequestAborted);
+        }
+
+        return new EmptyResult();
+    }
+
     private async Task<List<TorrentListItemViewModel>> LoadAsync()
+    {
+        var (ordered, metadataById) = await FilterAsync();
+        (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
+        return entities
+            .Select(t => TorrentListItemViewModel.From(t, metadataById.GetValueOrDefault(t.Id)) with { UpgradeNote = UpgradeNote.For(t, formatPreferenceLists) })
+            .ToList();
+    }
+
+    /// <summary>
+    /// The torrents the search and filters let through, in the chosen order, with the metadata read for the search
+    /// (by torrent id) so no row's JSON is read twice. Also fills in the filter choices and <see cref="TotalCount"/>.
+    /// </summary>
+    private async Task<(IEnumerable<TorrentEntity> Ordered, Dictionary<string, TorrentMetadata> MetadataById)> FilterAsync()
     {
         // The filters on columns and on the author and series rows run in SQL. Status, problems, the search text and
         // the sort still run in memory on what is left: the SQLite EF Core provider cannot translate an ORDER BY over a
@@ -351,11 +410,7 @@ public class IndexModel(
         };
 
         TotalCount = matched.Count;
-
-        (var entities, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
-        return entities
-            .Select(t => TorrentListItemViewModel.From(t, metadataById.GetValueOrDefault(t.Id)) with { UpgradeNote = UpgradeNote.For(t, formatPreferenceLists) })
-            .ToList();
+        return (ordered, metadataById);
     }
 
     /// <summary>

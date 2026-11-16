@@ -134,6 +134,24 @@ public sealed class ConfigCheckTests : IDisposable
     }
 
     [Fact]
+    public void Run_BackupSection_IsSummedUp()
+    {
+        var (exitCode, output) = Check("mam_id = \"\"\n[backup]\nfolder = \"backups\"\nkeep = 14\n");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Backup: to backups, every 1440 min, keep 14, and before upgrades", output);
+    }
+
+    [Fact]
+    public void Run_BackupFolderIsTheDatabasesOwnFolder_ExitsWithOne()
+    {
+        var (exitCode, output) = Check("mam_id = \"\"\n[backup]\nfolder = \".\"\n");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("[backup] 'folder' is the database's own folder", output);
+    }
+
+    [Fact]
     public void Run_MissingFile_ExitsWithOneWithoutCreatingIt()
     {
         var (exitCode, output) = Check(toml: null);

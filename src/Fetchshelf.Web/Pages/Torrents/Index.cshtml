@@ -92,6 +92,13 @@
         <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
         <button type="submit">Check qBittorrent</button>
     </form>
+
+    @* Every page of the list as it is searched, filtered and sorted now. *@
+    <div class="toolbar" id="export-links">
+        Export:
+        <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("csv")'>CSV</a>
+        <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("json")'>JSON</a>
+    </div>
 </div>
 
 @* Outside the filter form: a form can't hold another. *@

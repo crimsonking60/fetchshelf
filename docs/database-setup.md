@@ -23,10 +23,19 @@ interface responsive while a long job writes to the database. The setting is off
 startup, and turning it off again switches an existing database back to SQLite's normal mode.
 
 While it is on, SQLite keeps two working files next to the database: `data.db-wal` and `data.db-shm`. Leave
-them in place, and stop Fetchshelf before copying the database as a backup, so the copy is complete.
+them in place, and stop Fetchshelf before copying the database as a backup, so the copy is complete. The
+[`[backup]`](configuration.md#backup) section's backups don't need that: they are complete copies taken while
+Fetchshelf runs, without `-wal` or `-shm` files.
 
 **Never set `database_wal = true` when the database is on a network share. The write-ahead log depends on
 memory shared through the `data.db-shm` file, which doesn't work across a network, and it WILL lead to
 corruption of the database.**
 
 See [`database_wal`](configuration.md#top-level-settings) in the configuration reference.
+
+## Where the backups go
+
+The [`[backup]`](configuration.md#backup) section's `folder` can't be the database's own folder, so a backup is
+never mistaken for `data.db` when the folder is copied or restored. A subfolder such as `backups` works, but a
+folder on another disk or mount is better: a backup on the same disk is lost with the database when that disk
+fails.

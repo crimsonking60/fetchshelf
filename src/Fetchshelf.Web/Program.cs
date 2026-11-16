@@ -65,6 +65,23 @@ if (!string.IsNullOrEmpty(dataFileDirectory))
     Directory.CreateDirectory(dataFileDirectory);
 }
 
+// The backup folder can only be checked once the data file's place is known: a relative one is under its folder.
+string? backupFolder = null;
+if (settings.Backup is { } configuredBackup)
+{
+    try
+    {
+        backupFolder = configuredBackup.ResolveFolder(dataFilePath);
+    }
+    catch (ConfigurationException ex)
+    {
+        Log.Fatal("Cannot start with {ConfigFile}: {Reason:l}", configFilePath, ex.Message);
+        await Log.CloseAndFlushAsync();
+        Environment.ExitCode = 1;
+        return;
+    }
+}
+
 // Keep the keys that encrypt antiforgery cookies next to the database: the default location is inside the
 // container, so a new container (every image update) would otherwise reject the cookie browsers still hold.
 builder.Services.AddDataProtection()
@@ -327,6 +344,12 @@ if (settings.BackgroundJobsEnabled)
     var startupPosition = 1;
     AddScheduler(JobNames.Link, settings.LinkInterval, startupPosition);
 
+    if (settings.Backup is { Interval: > 0 } scheduledBackup)
+    {
+        // The Backup job talks to no other service, so it starts alongside Link.
+        AddScheduler(JobNames.Backup, scheduledBackup.Interval, startupPosition);
+    }
+
     if (settings.Audiobookshelf is { } scheduledAbsSettings)
     {
         // Audiobookshelf doesn't talk to MAM, so it starts alongside Link.
@@ -377,8 +400,29 @@ var app = builder.Build();
 
 using (var startupScope = app.Services.CreateScope())
 {
-    DatabaseMigrator.Migrate(
-        startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.DatabaseWal, message => Log.Information("{Upgrade}", message));
+    var startupDbContext = startupScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+    if (settings.Backup is { BeforeUpgrade: true } && backupFolder is not null)
+    {
+        try
+        {
+            if (DatabaseBackup.BeforeUpgrade(startupDbContext, dataFilePath, backupFolder, AppVersion.Current,
+                    BackupSettings.KeepBeforeUpgrade, DateTimeOffset.UtcNow) is { } backup)
+            {
+                Log.Information("Backed up the database to {Backup} before upgrading it", backup.Path);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Upgrading without the copy [backup] promises would be worse than not starting.
+            Log.Fatal(ex, "Cannot back up the database before upgrading it, so Fetchshelf does not start: {Reason:l}. "
+                + "To start without that backup, set before_upgrade = false in [backup]", ex.Message);
+            await Log.CloseAndFlushAsync();
+            Environment.ExitCode = 1;
+            return;
+        }
+    }
+
+    DatabaseMigrator.Migrate(startupDbContext, settings.DatabaseWal, message => Log.Information("{Upgrade}", message));
 }
 
 if (args.Contains("--update-search-title"))
@@ -394,7 +438,7 @@ if (args.Contains("--update-search-title"))
 
 if (settings.BackgroundJobsEnabled)
 {
-    RegisterOrganizerJobs(app.Services, settings);
+    RegisterOrganizerJobs(app.Services, settings, dataFilePath, backupFolder);
     RegisterAutoDownloaderJobs(app.Services, settings);
 }
 
@@ -444,7 +488,7 @@ if (settings.Opds is not null)
 
 await app.RunAsync();
 
-static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings settings)
+static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings settings, string dataFilePath, string? backupFolder)
 {
     var jobRegistry = services.GetRequiredService<IJobRegistry>();
     var scopeFactory = services.GetRequiredService<IServiceScopeFactory>();
@@ -482,6 +526,14 @@ static void RegisterOrganizerJobs(IServiceProvider services, FetchshelfSettings 
             var matcher = scope.ServiceProvider.GetRequiredService<AbsMatcher>();
             return JobOutcomes.Audiobookshelf(await matcher.RunAsync(ct));
         }, "Matches linked torrents to their Audiobookshelf library item.");
+    }
+
+    if (settings.Backup is { } backupSettings && backupFolder is not null)
+    {
+        var timeProvider = services.GetRequiredService<TimeProvider>();
+        jobRegistry.Register(JobNames.Backup, ct => Task.Run(
+            () => (JobOutcome?)JobOutcomes.Backup(DatabaseBackup.RunScheduled(dataFilePath, backupFolder, backupSettings.Keep, timeProvider.GetUtcNow())), ct),
+            "Copies the database into the [backup] folder while Fetchshelf runs, and keeps the newest ones.");
     }
 }
 

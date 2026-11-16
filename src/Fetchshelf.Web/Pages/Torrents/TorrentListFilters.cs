@@ -56,6 +56,16 @@ public static class TorrentListFilters
         : torrent.ReplacedWithTorrentId is not null ? TorrentLinkStatus.Replaced
         : TorrentLinkStatus.Waiting;
 
+    /// <summary>A status as the Status filter's value names it (<c>linked</c>, <c>metadata-only</c>), as the export writes it.</summary>
+    public static string StatusValue(TorrentLinkStatus status) => status switch
+    {
+        TorrentLinkStatus.Linked => "linked",
+        TorrentLinkStatus.Waiting => "waiting",
+        TorrentLinkStatus.Replaced => "replaced",
+        TorrentLinkStatus.Unlinked => "unlinked",
+        _ => "metadata-only",
+    };
+
     public static bool MatchesStatus(TorrentEntity torrent, string? status) => status switch
     {
         "linked" => StatusOf(torrent) == TorrentLinkStatus.Linked,
