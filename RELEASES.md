@@ -5,6 +5,47 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.10 - 2026-11-16
+
+Fetchshelf can back up its own database while it runs, and does so before an upgrade changes it, and the
+**Torrents** page exports its list as CSV or JSON. A download from the Search page can no longer queue a book twice
+alongside an automatic search.
+
+### Upgrading
+
+- No database change: going back to 2026.11.9 is possible.
+- A configured block named `Backup` (an `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` with
+  `name = "Backup"`) stops startup, as `Backup` is now the name of a built-in job. Rename it.
+- To have backups taken, add a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.10/configuration/#backup)
+  section with a `folder`. Without one, nothing changes. From then on, an upgrade that changes the database is
+  backed up first.
+
+### Added
+
+- `[backup]`: the optional Backup job copies the database safely while Fetchshelf runs, once a day by default,
+  keeping the last 7, and a backup is taken before every upgrade that changes the database, keeping the last 3. A
+  backup that fails before an upgrade stops startup rather than upgrading without it. See
+  [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.10/configuration/#backup) and
+  [Backups while Fetchshelf runs](https://fetchshelf.readthedocs.io/en/v2026.11.10/user-guide/#backups-while-fetchshelf-runs),
+  which also says how to restore one (#65).
+- **Torrents** page: **Export** as **CSV** or **JSON** downloads the list as it is searched, filtered and sorted,
+  every page of it (#65).
+
+### Changed
+
+- While a job is talking to MAM, a search, a **Download** or an **Import** on the Search page, and a search
+  result's details, wait up to 10 seconds for it, then say which job is busy and offer **Try again**, instead of
+  talking to MAM alongside it (#67).
+
+### Fixed
+
+- A download from the Search page could run its selection at the same time as an autograb's, so the same book
+  could be queued twice (#67).
+- The Upgrade job and Hardcover lists sent MAM characters its search reads as operators, such as `~` or a leading
+  `-`: a title like "Encyclopaedia Eorzea ~The World of Final Fantasy XIV~ Volume I" made the search fail with
+  "Your search is only not". A book whose search failed this way is searched again after `search_again_after`
+  (#68).
+
 ## 2026.11.9 - 2026-11-15
 
 Fetchshelf can spend MAM bonus points before they pass the cap: on a wedge a day, VIP and upload credit. Unlinking
