@@ -13,6 +13,7 @@ using Fetchshelf.Data.Notifications;
 using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web;
+using Fetchshelf.Web.Hosting;
 using Fetchshelf.Web.Jobs;
 using Fetchshelf.Web.Notifications;
 using Fetchshelf.Web.Opds;
@@ -21,30 +22,28 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
 
+var paths = FetchshelfPaths.FromEnvironment();
 if (args.Contains(HealthProbe.Argument))
 {
-    Environment.ExitCode = await HealthProbe.RunAsync(
-        Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath(),
-        TimeSpan.FromSeconds(5));
+    Environment.ExitCode = await HealthProbe.RunAsync(paths.ConfigFile, TimeSpan.FromSeconds(5));
     return;
 }
 
 if (args.Contains(ConfigCheck.Argument))
 {
-    Environment.ExitCode = ConfigCheck.Run(
-        Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath(), Console.Out);
+    Environment.ExitCode = ConfigCheck.Run(paths.ConfigFile, Console.Out);
     return;
 }
 
 Log.Logger = FetchshelfLogging
-    .Build(Environment.GetEnvironmentVariable("FETCHSHELF_LOG_DIR"), Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
+    .Build(paths.LogFolder, Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
     .CreateLogger();
 Log.Information("Fetchshelf {Version} starting", AppVersion.Current);
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(dispose: true);
 
-var configFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? ConfigLoader.ResolveDefaultConfigFilePath();
+var configFilePath = paths.ConfigFile;
 FetchshelfSettings settings;
 try
 {
@@ -58,12 +57,9 @@ catch (ConfigurationException ex)
     return;
 }
 
-var dataFilePath = Environment.GetEnvironmentVariable("FETCHSHELF_DATA_FILE") ?? "data.db";
-var dataFileDirectory = Path.GetDirectoryName(Path.GetFullPath(dataFilePath));
-if (!string.IsNullOrEmpty(dataFileDirectory))
-{
-    Directory.CreateDirectory(dataFileDirectory);
-}
+var dataFilePath = paths.DataFile;
+var dataFileDirectory = paths.DataFolder;
+Directory.CreateDirectory(dataFileDirectory);
 
 // The backup folder can only be checked once the data file's place is known: a relative one is under its folder.
 string? backupFolder = null;
@@ -86,11 +82,11 @@ if (settings.Backup is { } configuredBackup)
 // container, so a new container (every image update) would otherwise reject the cookie browsers still hold.
 builder.Services.AddDataProtection()
     .SetApplicationName("Fetchshelf")
-    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory ?? ".", "keys")));
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataFileDirectory, "keys")));
 
 // The two cookies those keys encrypt are named after this installation, so a second Fetchshelf on the same host
 // (browsers share cookies across ports) can't overwrite them and fail every form with HTTP 400.
-var instanceId = InstanceId.LoadOrCreate(dataFileDirectory ?? ".");
+var instanceId = InstanceId.LoadOrCreate(dataFileDirectory);
 builder.Services.AddAntiforgery(options => options.Cookie.Name = $".Fetchshelf.Antiforgery.{instanceId}");
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>(
     options => options.Cookie.Name = $".Fetchshelf.TempData.{instanceId}");
@@ -158,7 +154,7 @@ if (settings.Opds is not null)
     builder.Services.AddSingleton<OpdsCatalogCache>();
     // Covers read out of the books live next to the database, like the form keys, so they survive a new container.
     builder.Services.AddSingleton(sp => new OpdsCoverCache(
-        Path.Combine(dataFileDirectory ?? ".", "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
+        Path.Combine(dataFileDirectory, "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
 }
 
 builder.Services.AddSingleton(new MamClientOptions { MamId = settings.MamId, UserAgent = $"Fetchshelf/{AppVersion.Current}" });
