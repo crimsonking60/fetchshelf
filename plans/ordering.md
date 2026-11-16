@@ -1,14 +1,16 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-16, for the 26 plans in `plans/` (not `plans/done/`). Since the first version,
-`bonus-points.md` (PR #62) and `database-backup-and-export.md` (PR #65) were built and moved to `plans/done/`. Three
+Written 2026-11-11 and updated 2026-11-16, for the 25 plans in `plans/` (not `plans/done/`). Since the first version,
+`bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65) and `composition-root.md` (PR #66) were built
+and moved to `plans/done/`. Three
 plans are new: `language-aware-books.md`, `series-layout-for-comics.md` and `collection-torrents.md`, the last of them
 parked. The order follows four rules:
 
 1. **Protect first.** Ten of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
-2. **Make room before building.** Almost every plan adds settings or registrations to `Program.cs`. Splitting it
-   first spares each later plan the 600-line file, and the merge conflicts between them.
+2. **Make room before building.** Almost every plan adds settings or registrations. Since `composition-root.md`
+   (PR #66) they go into `Hosting/`, one registration method per area, and a runner's new setting into its options
+   record, so later plans no longer meet in one 600-line `Program.cs`.
 3. **Fix what exists before adding to it.** Bugs and wrong budgets in current features come before new features.
 4. **Respect the dependencies** listed at the end. Where two plans touch the same code, the one that changes how it
    works goes first, so the other builds on the result.
@@ -33,21 +35,19 @@ or how, so they are worth doing before the plans come up:
 
 ## Phase 1: foundations
 
-1. **`composition-root.md`** — no behaviour change; everything after it registers its runner, settings and jobs in
-   `Hosting/` instead of `Program.cs`. It also does step 2 of the Windows plan.
-2. **`mam-gate-on-pages.md`** — fixes a race that can queue the same book twice, and adds the page gate the bookmark
+1. **`mam-gate-on-pages.md`** — fixes a race that can queue the same book twice, and adds the page gate the bookmark
    toggle uses later.
 
 ## Phase 2: correctness of what is there
 
-3. **`hardcover-matching.md`** — fixes a real bug (a list book whose selection is removed is never searched again),
+2. **`hardcover-matching.md`** — fixes a real bug (a list book whose selection is removed is never searched again),
    and adds ISBN/ASIN matching and the back-off. Done before file lists, so they inherit all three through the shared
    importer.
-4. **`per-block-budgets.md`** — `wedge` downloads are held back by a ratio budget they never spend, which since the
+3. **`per-block-budgets.md`** — `wedge` downloads are held back by a ratio budget they never spend, which since the
    budget fix often stops them entirely.
-5. **`link-and-tag-details.md`** — the hardlink fallback hides the real error; the Link backlog is invisible; tag
+4. **`link-and-tag-details.md`** — the hardlink fallback hides the real error; the Link backlog is invisible; tag
    rules apply without a preview.
-6. **`safe-folder-names.md`** — long names fail to link; shared and Windows-formatted disks get mangled names. Before
+5. **`safe-folder-names.md`** — long names fail to link; shared and Windows-formatted disks get mangled names. Before
    the language-aware folders, the series layout, the library check and the Windows build, which all build on the
    folder-name rules.
 
@@ -55,57 +55,57 @@ or how, so they are worth doing before the plans come up:
 
 ## Phase 3: seeing and protecting
 
-7. **`account-snapshots.md`** — small, and its history only starts on the day it ships, so the earlier the better.
-8. **`allowed-hosts-and-opds-login.md`** — small security hardening.
-9. **`seeding-obligations.md`** — shows which torrents are unsatisfied and holds `on_cleaned` back for them: the
+6. **`account-snapshots.md`** — small, and its history only starts on the day it ships, so the earlier the better.
+7. **`allowed-hosts-and-opds-login.md`** — small security hardening.
+8. **`seeding-obligations.md`** — shows which torrents are unsatisfied and holds `on_cleaned` back for them: the
     thing that keeps accounts out of hit-and-run trouble.
-10. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
+9. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
     series sync, the per-language Follow searches) easy to try without editing the config twice and restarting.
-11. **`email-notifications.md`** — small and self-contained.
+10. **`email-notifications.md`** — small and self-contained.
 
 **Release point.**
 
 ## Phase 4: growing the library
 
-12. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
-13. **`mam-bookmarks-list.md`** — needs the shared importer from step 12.
-14. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
-15. **`language-aware-books.md`** — after step 14, since both change the Follow job, and after `safe-folder-names.md`,
+11. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
+12. **`mam-bookmarks-list.md`** — needs the shared importer from step 11.
+13. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
+14. **`language-aware-books.md`** — after step 13, since both change the Follow job, and after `safe-folder-names.md`,
     whose template can then express `language_in_folder = "other"`, so only the clash rule is new. After
     `jobs-page-dry-run.md` too: the first searches after the upgrade can list many other-language finds, and a dry
     run from the Jobs page shows them first.
-16. **`search-bookmark-and-more-like-this.md`** — "more like this" always; the bookmark toggle if step 0 found the
-    endpoint. Needs the page gate from step 2.
-17. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
+15. **`search-bookmark-and-more-like-this.md`** — "more like this" always; the bookmark toggle if step 0 found the
+    endpoint. Needs the page gate from step 1.
+16. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
     the other blocks; before other download clients, which reuse its client names.
 
 **Release point.**
 
-18. **`series-layout-for-comics.md`** — after `safe-folder-names.md` (the series layout uses its name rules, and
+17. **`series-layout-for-comics.md`** — after `safe-folder-names.md` (the series layout uses its name rules, and
     refuses its `folder_template`) and `link-and-tag-details.md`, which change the same part of the Link job. Before
     the covers, so they can be written in Komga's names in a series folder rather than as one `cover.jpg` per book
     folder, and before the library check, which has to compute series folders too. No migration.
-19. **`covers-from-mam.md`** — after `safe-folder-names.md`, `link-and-tag-details.md` and the series layout, which
+18. **`covers-from-mam.md`** — after `safe-folder-names.md`, `link-and-tag-details.md` and the series layout, which
     change the same part of the Link job.
-20. **`statistics-and-metrics.md`** — after `allowed-hosts-and-opds-login.md` (`/metrics` follows `allowed_hosts`)
+19. **`statistics-and-metrics.md`** — after `allowed-hosts-and-opds-login.md` (`/metrics` follows `allowed_hosts`)
     and `account-snapshots.md` (the page links to the history).
-21. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
+20. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
 
 **Release point.**
 
 ## Phase 5: the large ones
 
-22. **`25-Library-check.md`** (#25) — after `safe-folder-names.md` and the series layout, since it compares folders
+21. **`25-Library-check.md`** (#25) — after `safe-folder-names.md` and the series layout, since it compares folders
     with the names the Link job would compute, templates and series folders included. Its open questions have
     proposed answers to confirm first.
-23. **`5-Windows-version.md`** (#5) — its step 2 is done by `composition-root.md`, and its folder-name rules by
+22. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
     `safe-folder-names.md`. Its step 3 widens the hardlink fallback for Windows, while `link-and-tag-details.md`
     narrowed it on Linux to the errors that mean "not possible here": the Windows errors join that list rather than
     the fallback catching everything again.
-24. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
+23. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
     code and nobody has asked for it yet.
-25. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
+24. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
     after the rest; build only if the answer is yes.
 
 ## Parked
@@ -122,8 +122,8 @@ or how, so they are worth doing before the plans come up:
 |---|---|---|
 | `mam-bookmarks-list.md` | `file-based-lists.md` | |
 | `search-bookmark-and-more-like-this.md` | `mam-gate-on-pages.md` | |
-| `other-download-clients.md` | `download-client-and-save-path.md` | `composition-root.md`, `collection-torrents.md` (if unparked) |
-| `5-Windows-version.md` | | `composition-root.md`, `safe-folder-names.md`, `link-and-tag-details.md` |
+| `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` (if unparked) |
+| `5-Windows-version.md` | | `safe-folder-names.md`, `link-and-tag-details.md` |
 | `25-Library-check.md` | | `safe-folder-names.md`, `link-and-tag-details.md`, `series-layout-for-comics.md` |
 | `file-based-lists.md` | | `hardcover-matching.md`, `per-block-budgets.md` |
 | `download-client-and-save-path.md` | | `file-based-lists.md` |
@@ -132,8 +132,6 @@ or how, so they are worth doing before the plans come up:
 | `language-aware-books.md` | | `safe-folder-names.md`, `follow-audiobookshelf-series.md`, `jobs-page-dry-run.md` |
 | `series-layout-for-comics.md` | | `safe-folder-names.md`, `link-and-tag-details.md` |
 | `collection-torrents.md` | | `series-layout-for-comics.md`, `language-aware-books.md` |
-| `jobs-page-dry-run.md` | | `composition-root.md` |
-| every plan that adds settings or jobs | | `composition-root.md` |
 
 ## Plans that touch the same code
 
