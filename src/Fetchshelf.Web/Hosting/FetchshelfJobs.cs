@@ -111,7 +111,7 @@ public static class FetchshelfJobs
             {
                 using var scope = scopeFactory.CreateScope();
                 var importer = scope.ServiceProvider.GetRequiredService<HardcoverListImporter>();
-                var summary = await importer.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
+                var summary = await importer.RunAsync(entry, jobName, settings.UnsatBuffer, ignoreTorrents, ct);
                 if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
                 {
                     await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);

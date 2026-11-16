@@ -166,6 +166,45 @@ public sealed class UpgradeRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ItsOwnUnsatBuffer_LowersTheRunsLimit()
+    {
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")));
+        Add(harness, Copy("hash1"));
+        var settings = Settings();
+        settings.UnsatBuffer = 20; // the account has 20 slots, none in use
+
+        var summary = await harness.RunAsync(settings);
+
+        Assert.Equal((0, 0), (summary.Searched, summary.Selected));
+        Assert.Empty(harness.Searches);
+    }
+
+    [Fact]
+    public async Task ItsMaxActiveDownloads_StopsSelectingOnceThatManyWait()
+    {
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")));
+        Add(harness, Copy("hash1"));
+        harness.Context.SelectedTorrents.Add(new SelectedTorrentEntity
+        {
+            MamId = 99,
+            DownloadLink = "dl99",
+            CostDecision = "GlobalFreeleech",
+            MetadataJson = Stored(harness, "hash1").MetadataJson,
+            NormalizedTitleKey = "other",
+            GrabberName = "Upgrade",
+            CreatedAt = Now,
+        });
+        harness.Context.SaveChanges();
+        var settings = Settings();
+        settings.MaxActiveDownloads = 1;
+
+        var summary = await harness.RunAsync(settings);
+
+        Assert.Equal(0, summary.Selected);
+        Assert.Empty(harness.Searches);
+    }
+
+    [Fact]
     public async Task NoBetterCopy_SameFormatWorseOrAnotherBook_SelectsNothing_ButCountsAsSearched()
     {
         var harness = CreateHarness(Results(

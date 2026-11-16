@@ -71,12 +71,21 @@ public static class RunnerServices
         }
 
         // The buffers each queued torrent is held to: the Download job checks them, the Account page shows what they leave.
-        services.AddSingleton(new SafetyBuffers(
-            settings.UnsatBuffer, settings.WedgeBuffer,
-            settings.Autograb.Where(a => a.Name is not null).Select(a => new AutograbBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer)).ToList()));
+        services.AddSingleton(new SafetyBuffers(settings.UnsatBuffer, settings.WedgeBuffer, BlockBuffersOf(settings)));
         services.AddSingleton(new DownloadRunnerOptions(settings.MinRatio, settings.AddTorrentsStopped));
         services.AddScoped<DownloadRunner>();
         services.AddScoped<RetroactiveTagApplier>();
         return services;
     }
+
+    /// <summary>
+    /// Every block's own buffers, under the grabber name its selections carry: a named autograb's name, a Hardcover
+    /// list's job name, `Upgrade`, and every "Follow: …" name for `[follow]`.
+    /// </summary>
+    public static IReadOnlyList<BlockBuffers> BlockBuffersOf(FetchshelfSettings settings) =>
+        settings.Autograb.Where(a => a.Name is not null).Select(a => new BlockBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer))
+            .Concat(settings.HardcoverList.Select((list, i) => new BlockBuffers(AutoDownloaderJobNames.HardcoverList(list, i), list.UnsatBuffer, list.WedgeBuffer)))
+            .Concat(settings.Upgrade is { } upgrade ? [new BlockBuffers(JobNames.Upgrade, upgrade.UnsatBuffer, upgrade.WedgeBuffer)] : [])
+            .Concat(settings.Follow is { } follow ? [new BlockBuffers(FollowRunner.GrabberPrefix, follow.UnsatBuffer, follow.WedgeBuffer, IsPrefix: true)] : [])
+            .ToList();
 }

@@ -17,11 +17,14 @@ public sealed class DownloadRunBudget(long unsatLimit, long unsatCount, long wed
     /// <summary>MAM spends the wedge when the torrent file is fetched, whatever happens to the torrent after that.</summary>
     public void WedgeSpent() => WedgesAvailable--;
 
-    /// <summary>A started torrent takes an unsatisfied-snatch slot and, unless it is free, part of the ratio budget.</summary>
-    public void Started(SelectedTorrentCost cost, long sizeBytes)
+    /// <summary>
+    /// A started torrent takes an unsatisfied-snatch slot and, when it may spend ratio and wasn't started with a wedge,
+    /// part of the ratio budget.
+    /// </summary>
+    public void Started(SelectedTorrentCost cost, long sizeBytes, bool withWedge = false)
     {
         UnsatCount++;
-        if (DownloadBudget.SpendsRatio(cost))
+        if (DownloadBudget.SpendsRatio(cost) && !withWedge)
         {
             RatioBudgetBytes -= sizeBytes;
         }

@@ -26,6 +26,15 @@ public sealed class FollowSettings
 
     public bool DryRun { get; set; }
 
+    /// <summary>Overrides the top-level `unsat_buffer` for what this block selects, as an autograb's does.</summary>
+    public int? UnsatBuffer { get; set; }
+
+    /// <summary>Overrides the top-level `wedge_buffer` for what this block selects, as an autograb's does.</summary>
+    public int? WedgeBuffer { get; set; }
+
+    /// <summary>The most selections this block may have waiting to be downloaded; unset means no cap.</summary>
+    public int? MaxActiveDownloads { get; set; }
+
     public List<GrabEntry> Grab { get; set; } = [];
 
     public const int DefaultSearchesPerRun = 10;

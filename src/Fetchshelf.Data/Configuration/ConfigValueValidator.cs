@@ -87,13 +87,16 @@ internal static partial class ConfigValueValidator
         for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
             var list = settings.HardcoverList[i];
-            CheckInterval("search_interval", list.SearchInterval, Label("hardcover_list", list.Name, i));
+            var label = Label("hardcover_list", list.Name, i);
+            CheckInterval("search_interval", list.SearchInterval, label);
+            CheckBlockBudgets(list.UnsatBuffer, list.WedgeBuffer, list.MaxActiveDownloads, label);
         }
 
         if (settings.Upgrade is { } upgrade)
         {
             const string label = "the [upgrade] section";
             CheckInterval("search_interval", upgrade.SearchInterval, label);
+            CheckBlockBudgets(upgrade.UnsatBuffer, upgrade.WedgeBuffer, upgrade.MaxActiveDownloads, label);
             CheckAtLeast("searches_per_run", upgrade.SearchesPerRun, 1, label);
             if (upgrade.SearchAgainAfter is < 1 or > UpgradeSettings.MaxSearchAgainAfterDays)
             {
@@ -146,6 +149,7 @@ internal static partial class ConfigValueValidator
         {
             const string label = "the [follow] section";
             CheckInterval("search_interval", follow.SearchInterval, label);
+            CheckBlockBudgets(follow.UnsatBuffer, follow.WedgeBuffer, follow.MaxActiveDownloads, label);
             CheckAtLeast("searches_per_run", follow.SearchesPerRun, 1, label);
             if (follow.SearchAgainAfter is < 1 or > FollowSettings.MaxSearchAgainAfterHours)
             {
@@ -385,6 +389,14 @@ internal static partial class ConfigValueValidator
         {
             throw Invalid($"{Where(setting, label)} must be between 0 (run only from the Jobs page) and {MaxIntervalMinutes} minutes (30 days); got {minutes}.");
         }
+    }
+
+    /// <summary>A block's own `unsat_buffer`, `wedge_buffer` and `max_active_downloads`, as an autograb's are checked.</summary>
+    private static void CheckBlockBudgets(int? unsatBuffer, int? wedgeBuffer, int? maxActiveDownloads, string label)
+    {
+        CheckAtLeast("unsat_buffer", unsatBuffer, 0, label);
+        CheckAtLeast("wedge_buffer", wedgeBuffer, 0, label);
+        CheckAtLeast("max_active_downloads", maxActiveDownloads, 1, label);
     }
 
     private static void CheckAtLeast(string setting, long? value, long minimum, string? label)

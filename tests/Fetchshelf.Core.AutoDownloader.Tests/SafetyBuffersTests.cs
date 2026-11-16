@@ -8,8 +8,10 @@ public class SafetyBuffersTests
         globalUnsatBuffer: 5,
         globalWedgeBuffer: 2,
         [
-            new AutograbBuffers("Own both", UnsatBuffer: 20, WedgeBuffer: 0),
-            new AutograbBuffers("Own unsat only", UnsatBuffer: 15, WedgeBuffer: null),
+            new BlockBuffers("Own both", UnsatBuffer: 20, WedgeBuffer: 0),
+            new BlockBuffers("Own unsat only", UnsatBuffer: 15, WedgeBuffer: null),
+            new BlockBuffers("Follow: ", UnsatBuffer: 30, WedgeBuffer: 4, IsPrefix: true),
+            new BlockBuffers("Follow: The Expanse", UnsatBuffer: 40, WedgeBuffer: null),
         ]);
 
     [Theory]
@@ -18,6 +20,10 @@ public class SafetyBuffersTests
     [InlineData(null, 5, 2)]
     [InlineData("Own both", 20, 0)]
     [InlineData("Own unsat only", 15, 2)]
+    [InlineData("Follow: Discworld", 30, 4)]
+    [InlineData("Follow: The Expanse", 40, 2)]
+    [InlineData("Follow:Discworld", 5, 2)]
+    [InlineData("follow: Discworld", 5, 2)]
     public void For_GrabberName_GivesItsOwnBuffersOrTheGlobalOnes(string? grabberName, int unsat, int wedge) =>
         Assert.Equal((unsat, wedge), (Buffers.UnsatBufferFor(grabberName), Buffers.WedgeBufferFor(grabberName)));
 }

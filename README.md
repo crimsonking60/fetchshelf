@@ -53,6 +53,8 @@ setup. If you use one, please report how it went, good or bad (see
 - `on_invalid_torrent` in `[[qbittorrent]]`.
 - `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
   for a selection that was removed.
+- `unsat_buffer`, `wedge_buffer` and `max_active_downloads` in `[[hardcover_list]]`, `[follow]` and `[upgrade]`, and
+  `cost = "wedge"` downloads starting while the ratio budget is spent.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.

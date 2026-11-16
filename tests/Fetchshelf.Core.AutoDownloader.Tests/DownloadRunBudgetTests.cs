@@ -42,11 +42,26 @@ public class DownloadRunBudgetTests
 
     [Theory]
     [InlineData(SelectedTorrentCost.Ratio, true)]
-    [InlineData(SelectedTorrentCost.UseWedge, true)]
+    [InlineData(SelectedTorrentCost.UseWedge, false)]
     [InlineData(SelectedTorrentCost.TryWedge, true)]
     [InlineData(SelectedTorrentCost.Vip, false)]
     [InlineData(SelectedTorrentCost.PersonalFreeleech, false)]
     [InlineData(SelectedTorrentCost.GlobalFreeleech, false)]
-    public void SpendsRatio_EachCost_MatchesWhetherItIsFree(SelectedTorrentCost cost, bool expected) =>
+    public void SpendsRatio_EachCost_MatchesWhetherItMayDownloadOnRatio(SelectedTorrentCost cost, bool expected) =>
         Assert.Equal(expected, DownloadBudget.SpendsRatio(cost));
+
+    [Theory]
+    [InlineData(SelectedTorrentCost.Ratio, false, 900)]
+    [InlineData(SelectedTorrentCost.TryWedge, false, 900)]
+    [InlineData(SelectedTorrentCost.TryWedge, true, 1000)]
+    [InlineData(SelectedTorrentCost.UseWedge, true, 1000)]
+    [InlineData(SelectedTorrentCost.GlobalFreeleech, false, 1000)]
+    public void Started_TakesTheRatioBudgetOnlyForATorrentOnRatio(SelectedTorrentCost cost, bool withWedge, long budgetLeft)
+    {
+        var budget = new DownloadRunBudget(unsatLimit: 10, unsatCount: 0, wedgesAvailable: 5, ratioBudgetBytes: 1000);
+
+        budget.Started(cost, sizeBytes: 100, withWedge);
+
+        Assert.Equal((1L, budgetLeft), (budget.UnsatCount, budget.RatioBudgetBytes));
+    }
 }

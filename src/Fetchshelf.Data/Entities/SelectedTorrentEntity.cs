@@ -25,5 +25,8 @@ public sealed class SelectedTorrentEntity
 
     public DateTimeOffset? StartedAt { get; set; }
 
+    /// <summary>Whether the Download job started it with a freeleech wedge, so it costs no ratio while it downloads.</summary>
+    public bool StartedWithWedge { get; set; }
+
     public DateTimeOffset? RemovedAt { get; set; }
 }

@@ -91,7 +91,7 @@ public sealed class HardcoverListImporterTests : IDisposable
         public List<string> Searches => searches;
 
         public Task<HardcoverListRunSummary> RunAsync(HardcoverListEntry entry) =>
-            createImporter(context).RunAsync(entry, unsatBuffer: 0, ignoreTorrents: []);
+            createImporter(context).RunAsync(entry, grabberName: "Want to Read", unsatBuffer: 0, ignoreTorrents: []);
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
@@ -546,6 +546,41 @@ public sealed class HardcoverListImporterTests : IDisposable
 
         Assert.Single(harness.Searches);
         Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_ListsOwnUnsatBuffer_LowersTheRunsLimit()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune")];
+        var entry = Entry(grab: AudioOnly());
+        entry.UnsatBuffer = 20; // the account has 20 slots, none in use
+
+        var summary = await harness.RunAsync(entry);
+
+        Assert.Equal((0, 0), (summary.Selected, summary.Searched));
+        Assert.Empty(harness.Searches);
+    }
+
+    [Fact]
+    public async Task RunAsync_ListsMaxActiveDownloads_StopsSelectingOnceThatManyWait()
+    {
+        var harness = CreateHarness(body => body.Contains("Messiah", StringComparison.Ordinal)
+            ? Results(Record(12, "Dune Messiah", "Frank Herbert"))
+            : Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune"), Book(2, "Dune Messiah")];
+        var entry = Entry(grab: AudioOnly());
+        entry.MaxActiveDownloads = 1;
+
+        var summary = await harness.RunAsync(entry);
+
+        Assert.Equal(1, summary.Selected);
+        var selected = Assert.Single(harness.Context.SelectedTorrents);
+        Assert.Equal((11L, "Want to Read"), (selected.MamId, selected.GrabberName));
+
+        // The next run finds its one selection still waiting, so it selects nothing more.
+        harness.Clock.Now += TimeSpan.FromDays(1);
+        Assert.Equal(0, (await harness.RunAsync(entry)).Selected);
     }
 
     [Fact]

@@ -178,6 +178,46 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ItsOwnUnsatBuffer_LowersTheRunsLimit()
+    {
+        var harness = CreateHarness(Results(Record(2, "Caliban's War", series: "The Expanse", number: "2")));
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
+        var settings = Settings();
+        settings.UnsatBuffer = 20; // the account has 20 slots, none in use
+
+        var summary = await harness.RunAsync(settings);
+
+        Assert.Equal(0, summary.Selected);
+        Assert.Empty(harness.Searches);
+        Assert.Empty(harness.Context.SelectedTorrents.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task ItsMaxActiveDownloads_CountsTheWaitingSelectionsOfEveryFollow()
+    {
+        var harness = CreateHarness(Results(Record(2, "Caliban's War", series: "The Expanse", number: "2")));
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
+        harness.Context.SelectedTorrents.Add(new SelectedTorrentEntity
+        {
+            MamId = 99,
+            DownloadLink = "dl99",
+            CostDecision = "GlobalFreeleech",
+            MetadataJson = TorrentMetadataSerializer.Serialize(MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 99, title: "The Colour of Magic", authorName: "Terry Pratchett"))),
+            NormalizedTitleKey = "colour of magic",
+            GrabberName = "Follow: Discworld",
+            CreatedAt = Now,
+        });
+        harness.Context.SaveChanges();
+        var settings = Settings();
+        settings.MaxActiveDownloads = 1;
+
+        var summary = await harness.RunAsync(settings);
+
+        Assert.Equal(0, summary.Selected);
+        Assert.Single(harness.Context.SelectedTorrents.AsNoTracking());
+    }
+
+    [Fact]
     public async Task SeriesFollow_LogsWhereTheResultsWent_SuchAsToAnOwnedCollection()
     {
         var logger = new ListLogger<FollowRunner>();

@@ -95,8 +95,17 @@ public class DownloadBudgetTests
     }
 
     [Fact]
-    public void ChangeableByHand_EveryCost_OffersExactlyTheCostsThatSpendRatio() =>
+    public void ChangeableByHand_EveryCost_OffersExactlyTheCostsThatAreNotFree() =>
         Assert.Equal(
-            Enum.GetValues<SelectedTorrentCost>().Where(DownloadBudget.SpendsRatio).Order(),
+            Enum.GetValues<SelectedTorrentCost>().Where(cost => !DownloadBudget.IsFreeCost(cost)).Order(),
             SelectedTorrentCosts.ChangeableByHand.Order());
+
+    [Theory]
+    [InlineData(SelectedTorrentCost.UseWedge, true)]
+    [InlineData(SelectedTorrentCost.Vip, true)]
+    [InlineData(SelectedTorrentCost.GlobalFreeleech, true)]
+    [InlineData(SelectedTorrentCost.TryWedge, false)]
+    [InlineData(SelectedTorrentCost.Ratio, false)]
+    public void FitsRatioBudget_ABudgetOfNothing_HoldsBackOnlyWhatMaySpendRatio(SelectedTorrentCost cost, bool fits) =>
+        Assert.Equal(fits, DownloadBudget.FitsRatioBudget(cost, torrentSizeBytes: 1_000_000, ratioBudgetBytes: 0));
 }

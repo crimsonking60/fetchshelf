@@ -16,10 +16,11 @@ public static class DownloadBudget
     public static bool IsFreeCost(SelectedTorrentCost cost) => FreeCosts.Contains(cost);
 
     /// <summary>
-    /// Whether a download at this cost counts against the ratio budget. Wedge costs count too: a TryWedge may end up
-    /// downloading without one, and the budget stays on the safe side for UseWedge.
+    /// Whether a download at this cost may spend ratio, and so counts against the ratio budget: Ratio, and TryWedge,
+    /// which downloads without a wedge when none is left above `wedge_buffer`. UseWedge never does: it spends a wedge or
+    /// stays queued.
     /// </summary>
-    public static bool SpendsRatio(SelectedTorrentCost cost) => !IsFreeCost(cost);
+    public static bool SpendsRatio(SelectedTorrentCost cost) => !IsFreeCost(cost) && cost != SelectedTorrentCost.UseWedge;
 
     /// <summary>
     /// Ratio budget = uploaded / minRatio − downloaded − bytes already in flight: the largest x for which
@@ -69,11 +70,11 @@ public static class DownloadBudget
     }
 
     /// <summary>
-    /// A Ratio-cost torrent must not exceed the remaining ratio budget, so no download pushes the ratio
-    /// below `min_ratio`; free costs ignore the budget entirely.
+    /// A torrent that may spend ratio (<see cref="SpendsRatio"/>) must not exceed the remaining ratio budget, so no
+    /// download pushes the ratio below `min_ratio`; free costs and UseWedge ignore the budget entirely.
     /// </summary>
     public static bool FitsRatioBudget(SelectedTorrentCost cost, long torrentSizeBytes, long ratioBudgetBytes) =>
-        IsFreeCost(cost) || torrentSizeBytes <= ratioBudgetBytes;
+        !SpendsRatio(cost) || torrentSizeBytes <= ratioBudgetBytes;
 
     /// <summary>
     /// A torrent's own unsat buffer requirement must leave at least that many free unsat slots after

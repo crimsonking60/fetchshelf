@@ -1163,15 +1163,16 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb with a `name` can override `unsat_buffer` and `wedge_buffer` for itself. The values are
-checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
+Each autograb with a `name`, each `[[hardcover_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
+`wedge_buffer` for what it selects. The values are checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
 apply to torrents already waiting on the **Selected** page.
 
 How a run works out how much it may download:
 
 - **Slots:** your unsatisfied limit, minus the torrents already unsatisfied, minus the buffer. That is the
   most torrents one run may select.
-- **Ratio:** free torrents cost nothing. For the others, the size must fit within
+- **Ratio:** free torrents cost nothing, and neither do `wedge` downloads, which use a wedge or wait for one. For
+  the others, the size must fit within
   `uploaded / min_ratio − downloaded − data still being downloaded`: the most that can be downloaded while
   the ratio stays at `min_ratio`. With 100 GB uploaded, 40 GB downloaded and `min_ratio = 2`, that is
   10 GB. An account at or below `min_ratio` gets no ratio budget at all. The Download job logs the budget
@@ -1183,7 +1184,8 @@ next run.
 
 Other safeguards:
 
-- `max_active_downloads` caps unfinished downloads per autograb.
+- `max_active_downloads` caps, per autograb, Hardcover list, `[follow]` or `[upgrade]`, how many of its
+  selections may wait to be downloaded.
 - `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
   before they start.
@@ -1505,12 +1507,13 @@ Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Err
 **What Fetchshelf works out from it**, each with its formula:
 
 - **Ratio budget:** how much more ratio-cost downloading `min_ratio` allows: uploaded / `min_ratio` −
-  downloaded − torrents started but not finished at a cost that spends ratio, which MAM doesn't count as
-  downloaded yet. At 0, the ratio is at or below `min_ratio`, and only free torrents start.
+  downloaded − torrents started but not finished at a cost that spends ratio and without a wedge, which MAM
+  doesn't count as downloaded yet. At 0, the ratio is at or below `min_ratio`, and only free torrents and
+  `wedge` downloads start.
 - **Selection slots:** how many more torrents an autograb or Hardcover list may select: the unsatisfied-snatch
-  limit − those in use − `unsat_buffer`. An autograb with its own `unsat_buffer` or `max_active_downloads`
-  gets a line of its own.
-- **Wedges to spend:** wedges − `wedge_buffer`, and a line for each autograb with its own `wedge_buffer`.
+  limit − those in use − `unsat_buffer`. An autograb, Hardcover list, Follow or Upgrade with its own
+  `unsat_buffer` or `max_active_downloads` gets a line of its own.
+- **Wedges to spend:** wedges − `wedge_buffer`, and a line for each block with its own `wedge_buffer`.
 - **Queue:** how many torrents wait on the **Selected** page, and how many of them these numbers would let
   the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
   or no longer free.
