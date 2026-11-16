@@ -377,7 +377,7 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
 | `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, snatchlist imports. |
-| `Fetchshelf.Web` | The ASP.NET Core host: dependency injection setup and background job scheduling in `Program.cs`, and the Razor Pages UI under `Pages/`. |
+| `Fetchshelf.Web` | The ASP.NET Core host, built and run in `Hosting/`: dependency injection setup, the jobs and their scheduling. The Razor Pages UI is under `Pages/`. `Program.cs` only calls `FetchshelfApp.RunAsync`. |
 
 Each `src` project has a matching test project under `tests/` once it has tests.
 
@@ -386,9 +386,14 @@ A few things are useful to know before you change them:
 - **Configuration** is TOML only. Setting names are part of the user-facing contract: don't rename them,
   and remember that unknown keys are rejected on purpose. Document every new setting in
   [configuration.md](configuration.md).
-- **Background jobs** are registered by name in the job registry in `Program.cs`. One runner class per job
-  does the work, and a scheduler triggers it on its interval. An interval of `0` means "only when started
-  from the UI".
+- **Background jobs** are registered by name in the job registry in `Hosting/FetchshelfJobs.cs`, and the
+  schedulers in `Hosting/JobServices.cs`. One runner class per job does the work, and a scheduler triggers it
+  on its interval. An interval of `0` means "only when started from the UI".
+- **Services** are registered in `Hosting/`, one extension method per area, such as `AddOrganizer` and
+  `AddAutoDownloader` in `RunnerServices.cs`. Runners are registered by type and get their dependencies through
+  their constructors. A setting a runner needs goes into its options record, such as `DownloadRunnerOptions`,
+  not into a new constructor parameter of its own. `ContainerResolutionTests` checks that every runner and page
+  resolves.
 - **Only one job talks to MAM at a time.** Any new code that calls the MAM client from a job must take the
   `MamAccessGate`.
 - **The event log is append-only.** Events are never updated or deleted. To record a correction, append a

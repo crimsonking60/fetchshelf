@@ -30,8 +30,8 @@ allowed_hosts = ["fetchshelf.lan", "books.example.org"]
 - Validation at load: each entry is a host name or IP address without a scheme, port or path; an entry with any of
   them is refused with "allowed_hosts: write `fetchshelf.lan`, not `http://fetchshelf.lan:3157/`".
 - `--check-config` lists them; the Config page shows them.
-- `appsettings.json` keeps `"AllowedHosts": "*"`; the setting overrides it in `Program.cs` (in
-  `AddFetchshelfWeb()` once `plans/composition-root.md` is done).
+- `appsettings.json` keeps `"AllowedHosts": "*"`; the setting overrides it in `FetchshelfApp.Build`
+  (`Hosting/FetchshelfApp.cs`).
 
 ### 2. A login for `/opds`
 
