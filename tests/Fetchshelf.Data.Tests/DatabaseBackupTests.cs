@@ -98,6 +98,9 @@ public sealed class DatabaseBackupTests : IDisposable
     {
         SeedDatabase(writeAheadLog, torrents: 0);
         using var stop = new CancellationTokenSource();
+        // The backups start once the writer has written, so they overlap its writes even when a busy test run starts
+        // the writer late.
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var writes = Task.Run(() =>
         {
             using var context = CreateContext();
@@ -107,10 +110,16 @@ public sealed class DatabaseBackupTests : IDisposable
                 written++;
                 context.Torrents.Add(Torrent($"hash{written}", written));
                 context.SaveChanges();
+                writing.TrySetResult();
             }
 
             return written;
         });
+        await Task.WhenAny(writing.Task, writes).WaitAsync(TimeSpan.FromSeconds(30));
+        if (writes.IsCompleted)
+        {
+            await writes; // the writer failed before writing anything: show why
+        }
 
         var backups = new List<DatabaseBackupFile>();
         for (var i = 0; i < 5; i++)
