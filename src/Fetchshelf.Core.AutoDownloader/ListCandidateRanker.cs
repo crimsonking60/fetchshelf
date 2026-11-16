@@ -14,13 +14,26 @@ public sealed record ListCandidate<T>
 }
 
 /// <summary>
-/// Ranks MAM search results against a list item's title, authors and series: a fuzzy score for each, keeping
-/// those within a fixed margin of the best, then preferring the user's file types, then fewer files, then larger
-/// size.
+/// Ranks MAM search results against a list item. First by identifier: results whose ISBN or ASIN is one of the book's
+/// (<see cref="IdentifierMatches"/>) are the book for certain. Otherwise by a fuzzy score for the title, authors and
+/// series, keeping those within a fixed margin of the best (<see cref="RankAndFilter"/>). Either way, the user's file
+/// types come first, then fewer files, then larger size.
 /// </summary>
 public static class ListCandidateRanker
 {
     private const int ScoreMargin = 100;
+
+    /// <summary>
+    /// The candidates whose ISBN or ASIN is among <paramref name="identifiers"/> (keys from
+    /// <see cref="BookIdentifiers"/>), best format first. Empty when the book has no identifiers or none matches.
+    /// </summary>
+    public static IReadOnlyList<ListCandidate<T>> IdentifierMatches<T>(
+        IReadOnlyList<ListCandidate<T>> candidates, IReadOnlySet<string> identifiers, IReadOnlyList<string> preferredFileTypes) =>
+        identifiers.Count == 0
+            ? []
+            : OrderByFormat(
+                candidates.Where(c => BookIdentifiers.From([c.Metadata.Isbn, c.Metadata.Asin]).Overlaps(identifiers)),
+                preferredFileTypes);
 
     /// <summary>
     /// Returns candidates within <see cref="ScoreMargin"/> of the best fuzzy score, ordered best
@@ -47,14 +60,17 @@ public static class ListCandidateRanker
         var maxScore = scored[0].Score;
         var withinMargin = scored.Where(s => s.Score > maxScore - ScoreMargin);
 
-        return withinMargin
-            .Select(s => (s.Candidate, Rank: FormatRanker.Rank(preferredFileTypes, s.Candidate.Metadata.FileTypes)))
+        return OrderByFormat(withinMargin.Select(s => s.Candidate), preferredFileTypes);
+    }
+
+    private static List<ListCandidate<T>> OrderByFormat<T>(IEnumerable<ListCandidate<T>> candidates, IReadOnlyList<string> preferredFileTypes) =>
+        candidates
+            .Select(c => (Candidate: c, Rank: FormatRanker.Rank(preferredFileTypes, c.Metadata.FileTypes)))
             .OrderBy(s => s.Rank)
             .ThenBy(s => s.Candidate.Metadata.FileCount)
             .ThenByDescending(s => s.Candidate.Metadata.TotalSizeBytes)
             .Select(s => s.Candidate)
             .ToList();
-    }
 
     private static int Score(TorrentMetadata metadata, string title, IReadOnlyList<string> authors, (string Name, double Number)? series)
     {

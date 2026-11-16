@@ -18,13 +18,21 @@ public sealed class HardcoverClient
     /// <summary>The longest <c>Retry-After</c> worth waiting for before giving up on a rate-limited request.</summary>
     private static readonly TimeSpan MaxRetryAfter = TimeSpan.FromMinutes(2);
 
-    private const string BookFields = """
+    private const string EditionIdentifiers = "isbn_10 isbn_13 asin";
+
+    // The editions read for their ISBNs and ASINs are the 20 most read ones: that keeps a page of 100 books at 2,000
+    // editions, inside Hardcover's 5,000 rows per query. The default editions are read as well, in case they aren't among them.
+    private const string BookFields = $$"""
         id
         title
         slug
         contributions { contribution author { name } }
         book_series { position series { name } }
         image { url }
+        editions(limit: 20, order_by: {users_count: desc}) { {{EditionIdentifiers}} }
+        default_audio_edition { {{EditionIdentifiers}} }
+        default_ebook_edition { {{EditionIdentifiers}} }
+        default_physical_edition { {{EditionIdentifiers}} }
         """;
 
     private const string MeQuery = "query Me { me { id username } }";
@@ -159,6 +167,16 @@ public sealed class HardcoverClient
                 s.Entry.TryGetProperty("position", out var position) && position.ValueKind == JsonValueKind.Number ? position.GetDouble() : null))
             .ToList(),
         CoverUrl = book.TryGetProperty("image", out var image) && image.ValueKind == JsonValueKind.Object ? StringOrNull(image, "url") : null,
+        Identifiers = Array(book, "editions")
+            .Concat(new[] { "default_audio_edition", "default_ebook_edition", "default_physical_edition" }
+                .Select(name => book.TryGetProperty(name, out var edition) ? edition : default)
+                .Where(edition => edition.ValueKind == JsonValueKind.Object))
+            .SelectMany(edition => new[] { StringOrNull(edition, "isbn_13"), StringOrNull(edition, "isbn_10"), StringOrNull(edition, "asin") })
+            .OfType<string>()
+            .Select(value => value.Trim())
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList(),
     };
 
     private static IEnumerable<JsonElement> Array(JsonElement element, string name) =>

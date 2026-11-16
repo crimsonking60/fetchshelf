@@ -189,4 +189,63 @@ public class ListsPagesTests
         using var undone = await client.PostAsync($"{url}?handler=UndoDone&Show=any", new FormUrlEncodedContent(form));
         Assert.Null((await ReadItemAsync(fixture, "1")).MarkedDoneAt);
     }
+
+    [Fact]
+    public async Task Detail_BookMissingFromMam_SaysSince_WhenItIsNextSearched_AndOffersSearchAgain()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+        var searched = DateTimeOffset.UtcNow.AddDays(-2);
+        var missing = Item("1", "Dune");
+        (missing.AudioStatus, missing.EbookStatus, missing.LastSearchedAt, missing.MissingSince) =
+            (ListItemSideStatus.NotFound, ListItemSideStatus.NotFound, searched, searched.AddDays(-10));
+        var found = Item("2", "Dune Messiah", position: 1);
+        (found.AudioStatus, found.EbookStatus, found.LastSearchedAt) = (ListItemSideStatus.Selected, ListItemSideStatus.Existing, searched);
+        await SeedAsync(fixture, missing, found);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/Lists/Detail/{Uri.EscapeDataString(ListId)}");
+
+        Assert.Contains("Not on MAM since", html);
+        Assert.Contains("Next search:", html);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, ">Search again</button>"));
+    }
+
+    [Fact]
+    public async Task SearchAgain_ClearsTheLastSearch_SoTheNextRunSearches()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+        var item = Item("1", "Dune");
+        (item.AudioStatus, item.LastSearchedAt, item.MissingSince) = (ListItemSideStatus.NotFound, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-10));
+        await SeedAsync(fixture, item);
+        var client = fixture.CreateNoRedirectClient();
+        var url = $"/Lists/Detail/{Uri.EscapeDataString(ListId)}";
+        var html = await client.GetStringAsync(url);
+        var token = System.Text.RegularExpressions.Regex.Match(html, @"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]+)""").Groups[1].Value;
+
+        using var response = await client.PostAsync($"{url}?handler=SearchAgain",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["externalId"] = "1", ["__RequestVerificationToken"] = token }));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var stored = await ReadItemAsync(fixture, "1");
+        Assert.Null(stored.LastSearchedAt);
+        Assert.NotNull(stored.MissingSince);
+    }
+
+    [Fact]
+    public async Task MarkDone_ClearsTheBackOff()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+        var item = Item("1", "Dune");
+        (item.LastSearchedAt, item.MissingSince) = (DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-10));
+        await SeedAsync(fixture, item);
+        var client = fixture.CreateNoRedirectClient();
+        var url = $"/Lists/Detail/{Uri.EscapeDataString(ListId)}";
+        var html = await client.GetStringAsync(url);
+        var token = System.Text.RegularExpressions.Regex.Match(html, @"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]+)""").Groups[1].Value;
+
+        using var _ = await client.PostAsync($"{url}?handler=MarkDone",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["externalId"] = "1", ["__RequestVerificationToken"] = token }));
+
+        Assert.Null((await ReadItemAsync(fixture, "1")).MissingSince);
+    }
 }

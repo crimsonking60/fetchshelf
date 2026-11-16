@@ -87,8 +87,20 @@ public sealed class ListItemEntity
 
     public DateTimeOffset? EbookAt { get; set; }
 
+    /// <summary>
+    /// The book's ISBNs and ASINs at the list's service, as a JSON array of <c>BookIdentifiers</c> keys; null when it has
+    /// none, or the list was last read before they were kept. A MAM upload with one of them is the book for certain.
+    /// </summary>
+    public string? IdentifiersJson { get; set; }
+
     /// <summary>When MAM was last searched for this book, so a book that wasn't found is not searched again too soon.</summary>
     public DateTimeOffset? LastSearchedAt { get; set; }
+
+    /// <summary>
+    /// Since when every search found nothing for any format the book still needs; null once one found something. A book
+    /// missing for a week is searched only weekly (<c>ListSearchSchedule</c>).
+    /// </summary>
+    public DateTimeOffset? MissingSince { get; set; }
 
     public required DateTimeOffset CreatedAt { get; set; }
 

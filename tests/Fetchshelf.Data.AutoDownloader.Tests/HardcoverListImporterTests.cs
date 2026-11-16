@@ -31,10 +31,10 @@ public sealed class HardcoverListImporterTests : IDisposable
 
     private const string EmptyResultJson = """{"perpage":100,"start":0,"total":0,"found":0,"data":[]}""";
 
-    private static string Record(long mamId, string title, string author, bool ebook = false, bool free = true) => $$"""
+    private static string Record(long mamId, string title, string author, bool ebook = false, bool free = true, string? isbn = null) => $$"""
         {
             "id": {{mamId}}, "title": "{{title}}", "author_info": "{\"1\":\"{{author}}\"}",
-            "narrator_info": "{}", "series_info": "{}", "isbn": null, "description": null,
+            "narrator_info": "{}", "series_info": "{}", "isbn": {{(isbn is null ? "null" : $"\"{isbn}\"")}}, "description": null,
             "mediatype": {{(ebook ? 2 : 1)}}, "main_cat": {{(ebook ? 14 : 13)}}, "maincat": 1, "category": {{(ebook ? 60 : 39)}}, "categories": "[]",
             "language": 1, "browseflags": 0, "filetype": "{{(ebook ? "epub" : "m4b")}}", "numfiles": 1, "size": "100 MiB",
             "tags": "", "owner": 1, "owner_name": "uploader", "added": "2026-01-01 00:00:00",
@@ -47,7 +47,7 @@ public sealed class HardcoverListImporterTests : IDisposable
     private static string Results(params string[] records) =>
         $$"""{"perpage":100,"start":0,"total":{{records.Length}},"found":{{records.Length}},"data":[{{string.Join(",", records)}}]}""";
 
-    private static HardcoverBook Book(long id, string title, string author = "Frank Herbert") => new()
+    private static HardcoverBook Book(long id, string title, string author = "Frank Herbert", params string[] identifiers) => new()
     {
         Id = id,
         Title = title,
@@ -55,7 +55,12 @@ public sealed class HardcoverListImporterTests : IDisposable
         Authors = [author],
         Series = [],
         CoverUrl = $"https://assets.example/{id}.jpg",
+        Identifiers = identifiers,
     };
+
+    /// <summary>A full page of results for other books: 100 of them.</summary>
+    private static string FullPageOfOtherBooks() =>
+        Results(Enumerable.Range(1, 100).Select(i => Record(1000 + i, $"Other Book {i}", "Someone Else")).ToArray());
 
     private sealed class FakeBookSource : IHardcoverBookSource
     {
@@ -318,6 +323,229 @@ public sealed class HardcoverListImporterTests : IDisposable
         harness.Clock.Now += TimeSpan.FromHours(2);
         await harness.RunAsync(Entry(grab: AudioOnly()));
         Assert.Equal(2, harness.Searches.Count);
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadWithTheBooksIsbn_IsSelected_HoweverFarItsTitleIs()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Der Weg der Koenige", "Brandon Sanderson", isbn: "0-7653-2635-3")));
+        harness.Books.Books = [Book(1, "The Way of Kings", "Brandon Sanderson", "9780765326355")];
+
+        var summary = await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(11, Assert.Single(harness.Context.SelectedTorrents).MamId);
+        Assert.Equal("[\"0765326353\",\"9780765326355\"]", Item(harness, 1).IdentifiersJson);
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadWithAnotherIsbn_IsLeftToTheTitleMatch()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Der Weg der Koenige", "Brandon Sanderson", isbn: "9780306406157")));
+        harness.Books.Books = [Book(1, "The Way of Kings", "Brandon Sanderson", "9780765326355")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Empty(harness.Context.SelectedTorrents);
+        Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookWithoutIdentifiers_KeepsNone()
+    {
+        var harness = CreateHarness(_ => EmptyResultJson);
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Null(Item(harness, 1).IdentifiersJson);
+    }
+
+    [Fact]
+    public async Task RunAsync_FullFirstPageWithoutTheBook_SearchesTheSecondPageOnce()
+    {
+        var harness = CreateHarness(body => body.Contains("\"startNumber\":100", StringComparison.Ordinal)
+            ? Results(Record(11, "Dune", "Frank Herbert"))
+            : FullPageOfOtherBooks());
+        harness.Books.Books = [Book(1, "Dune")];
+
+        var summary = await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Equal(2, harness.Searches.Count);
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(11, Assert.Single(harness.Context.SelectedTorrents).MamId);
+    }
+
+    [Fact]
+    public async Task RunAsync_FullSecondPageWithoutTheBook_ReadsNoThirdPage()
+    {
+        var harness = CreateHarness(_ => FullPageOfOtherBooks());
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Equal(2, harness.Searches.Count);
+        Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_ShortFirstPageWithoutTheBook_ReadsNoSecondPage()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Something Else Entirely", "Someone Else")));
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Single(harness.Searches);
+    }
+
+    [Fact]
+    public async Task RunAsync_FullFirstPageWithTheBook_ReadsNoSecondPage()
+    {
+        var harness = CreateHarness(_ => Results([.. Enumerable.Range(1, 99).Select(i => Record(1000 + i, $"Other Book {i}", "Someone Else")), Record(11, "Dune", "Frank Herbert")]));
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Single(harness.Searches);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookMissingFromMamForAWeek_IsSearchedOnlyWeekly()
+    {
+        var harness = CreateHarness(_ => EmptyResultJson);
+        harness.Books.Books = [Book(1, "Dune")];
+        var start = harness.Clock.Now;
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal(start, Item(harness, 1).MissingSince);
+
+        harness.Clock.Now = start.AddDays(7);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal(2, harness.Searches.Count);
+
+        harness.Clock.Now = start.AddDays(9);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal(2, harness.Searches.Count);
+
+        harness.Clock.Now = start.AddDays(14);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal(3, harness.Searches.Count);
+        Assert.Equal(start, Item(harness, 1).MissingSince);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookFoundAfterBeingMissing_IsNoLongerMissing()
+    {
+        var onMam = false;
+        var harness = CreateHarness(_ => onMam ? Results(Record(11, "Dune", "Frank Herbert", free: false)) : EmptyResultJson);
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        onMam = true;
+        harness.Clock.Now += TimeSpan.FromDays(1);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        var item = Item(harness, 1);
+        Assert.Equal(ListItemSideStatus.Wanted, item.AudioStatus);
+        Assert.Null(item.MissingSince);
+    }
+
+    [Fact]
+    public async Task RunAsync_SelectionRemovedFromTheQueue_IsSearchedForAndSelectedAgain()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune")];
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        var selection = await harness.Context.SelectedTorrents.SingleAsync();
+        selection.RemovedAt = harness.Clock.Now;
+        await harness.Context.SaveChangesAsync();
+
+        harness.Clock.Now += TimeSpan.FromHours(1);
+        var summary = await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Equal(2, harness.Searches.Count);
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(ListItemSideStatus.Selected, Item(harness, 1).AudioStatus);
+        Assert.Single(harness.Context.SelectedTorrents.AsNoTracking(), s => s.RemovedAt == null);
+    }
+
+    [Fact]
+    public async Task RunAsync_SelectionThatWasDownloaded_StaysSelected()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune")];
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        var selection = await harness.Context.SelectedTorrents.SingleAsync();
+        selection.RemovedAt = harness.Clock.Now;
+        harness.Context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash11",
+            MamId = 11,
+            NormalizedTitleKey = TitleNormalizer.Normalize("Dune"),
+            Title = "Dune",
+            MetadataJson = TorrentMetadataSerializer.Serialize(MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 11, title: "Dune", authorName: "Frank Herbert"))),
+            CreatedAt = harness.Clock.Now,
+        });
+        await harness.Context.SaveChangesAsync();
+
+        harness.Clock.Now += TimeSpan.FromDays(3);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Single(harness.Searches);
+        Assert.Equal(ListItemSideStatus.Selected, Item(harness, 1).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_SelectedAsADuplicateOfAnotherSelection_IsNotSearchedAgain()
+    {
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
+        var other = MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 12, title: "Dune", authorName: "Frank Herbert"));
+        harness.Context.SelectedTorrents.Add(new SelectedTorrentEntity
+        {
+            MamId = 12,
+            DownloadLink = "dl12",
+            CostDecision = "Ratio",
+            MetadataJson = TorrentMetadataSerializer.Serialize(other),
+            NormalizedTitleKey = TitleNormalizer.Normalize("Dune"),
+            CreatedAt = harness.Clock.Now,
+        });
+        await harness.Context.SaveChangesAsync();
+        harness.Books.Books = [Book(1, "Dune")];
+
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal((ListItemSideStatus.Selected, 11L), (Item(harness, 1).AudioStatus, Item(harness, 1).AudioMamId));
+
+        harness.Clock.Now += TimeSpan.FromDays(3);
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Single(harness.Searches);
+    }
+
+    [Fact]
+    public async Task RunAsync_LibraryCopyWhoseRecordWasRemoved_IsSearchedForAgain()
+    {
+        var harness = CreateHarness(_ => EmptyResultJson);
+        harness.Context.Torrents.Add(new TorrentEntity
+        {
+            Id = "hash1",
+            MamId = 5,
+            NormalizedTitleKey = TitleNormalizer.Normalize("Dune"),
+            Title = "Dune",
+            MetadataJson = TorrentMetadataSerializer.Serialize(MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 5, title: "Dune", authorName: "Frank Herbert"))),
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await harness.Context.SaveChangesAsync();
+        harness.Books.Books = [Book(1, "Dune")];
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+        Assert.Equal(ListItemSideStatus.Existing, Item(harness, 1).AudioStatus);
+
+        harness.Context.Torrents.Remove(await harness.Context.Torrents.SingleAsync());
+        await harness.Context.SaveChangesAsync();
+        await harness.RunAsync(Entry(grab: AudioOnly()));
+
+        Assert.Single(harness.Searches);
+        Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).AudioStatus);
     }
 
     [Fact]

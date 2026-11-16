@@ -30,8 +30,9 @@ public sealed record HardcoverListRunSummary(int Selected, int Failed, int Books
 /// </summary>
 /// <remarks>
 /// Hardcover is read before the MAM gate is taken, so a slow or failing Hardcover never holds up other MAM jobs. A
-/// book that is still missing a format is searched for again at most once per <see cref="SearchAgainAfter"/>. A dry
-/// run writes nothing: list rows are only built in memory.
+/// book that is still missing a format is searched for again a day later, or a week later once MAM has had nothing for
+/// it for a week (<see cref="ListSearchSchedule"/>). A format whose selection was removed, or whose copy is gone from the
+/// library, is looked for again. A dry run writes nothing: list rows are only built in memory.
 /// </remarks>
 public sealed class HardcoverListImporter(
     FetchshelfDbContext dbContext,
@@ -44,9 +45,10 @@ public sealed class HardcoverListImporter(
     Func<TimeSpan, CancellationToken, Task>? delay = null,
     ILogger<HardcoverListImporter>? logger = null)
 {
-    public static readonly TimeSpan SearchAgainAfter = TimeSpan.FromDays(1);
-
     private static readonly TimeSpan PolitenessDelay = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>Where the second page of results starts: MAM's page holds 100.</summary>
+    private const long SecondPageOffset = 100;
 
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, ct));
@@ -76,6 +78,7 @@ public sealed class HardcoverListImporter(
         var allowAudio = grabFilters.Any(f => AllowsSide(f.Categories, FilterMainType.Audio));
         var allowEbook = grabFilters.Any(f => AllowsSide(f.Categories, FilterMainType.Ebook));
         var items = await SyncItemsAsync(entry, name, books, allowAudio, allowEbook, cancellationToken);
+        await ReopenLostSidesAsync(entry, name, items, cancellationToken);
 
         using var _ = await accessGate.AcquireAsync($"Hardcover list {name}", cancellationToken);
 
@@ -191,6 +194,8 @@ public sealed class HardcoverListImporter(
             item.SeriesNumber = series?.Position;
             item.CoverUrl = book.CoverUrl;
             item.BookUrl = book.Url;
+            var identifiers = BookIdentifiers.From(book.Identifiers).Order(StringComparer.Ordinal).ToList();
+            item.IdentifiersJson = identifiers.Count == 0 ? null : JsonSerializer.Serialize(identifiers);
             item.PreferFormat = preferFormat;
             item.AllowAudio = allowAudio;
             item.AllowEbook = allowEbook;
@@ -208,6 +213,87 @@ public sealed class HardcoverListImporter(
         }
 
         return existing.Values.ToList();
+    }
+
+    /// <summary>
+    /// Looks again for a format whose result no longer holds, so the list doesn't keep saying *selected* or *in the
+    /// library* about something that is gone:
+    /// <list type="bullet">
+    /// <item>*Selected*: the list's own selection of that torrent was removed from the queue, and no torrent of it was
+    /// recorded, so it was never downloaded. A side the selection's duplicate check set, which never had a selection of
+    /// its own, is left alone.</item>
+    /// <item>*Existing*: no torrent of that MAM id is recorded, none is noted as its duplicate, and the library no
+    /// longer has the book by its title either.</item>
+    /// </list>
+    /// Such a side goes back to not looked for (its MAM id kept as the last one seen), and the book is searched on this run.
+    /// </summary>
+    private async Task ReopenLostSidesAsync(HardcoverListEntry entry, string name, List<ListItemEntity> items, CancellationToken cancellationToken)
+    {
+        var active = items.Where(i => i.RemovedAt is null && i.MarkedDoneAt is null).ToList();
+        var mamIds = active
+            .SelectMany(i => new[] { (i.AudioStatus, i.AudioMamId), (i.EbookStatus, i.EbookMamId) })
+            .Where(side => side.Item1 is ListItemSideStatus.Selected or ListItemSideStatus.Existing && side.Item2 is not null)
+            .Select(side => side.Item2!.Value)
+            .Distinct()
+            .ToList();
+        if (mamIds.Count == 0)
+        {
+            return;
+        }
+
+        var selections = await dbContext.SelectedTorrents.AsNoTracking()
+            .Where(s => mamIds.Contains(s.MamId))
+            .Select(s => new { s.MamId, Active = s.RemovedAt == null })
+            .ToListAsync(cancellationToken);
+        var everSelected = selections.Select(s => s.MamId).ToHashSet();
+        var stillSelected = selections.Where(s => s.Active).Select(s => s.MamId).ToHashSet();
+        var recorded = (await dbContext.Torrents.AsNoTracking().Where(t => mamIds.Contains(t.MamId)).Select(t => t.MamId).ToListAsync(cancellationToken)).ToHashSet();
+        var duplicates = (await dbContext.DuplicateTorrents.AsNoTracking().Where(d => mamIds.Contains(d.MamId)).Select(d => d.MamId).ToListAsync(cancellationToken)).ToHashSet();
+
+        foreach (var item in active)
+        {
+            var authors = JsonSerializer.Deserialize<List<string>>(item.AuthorsJson) ?? [];
+            foreach (var side in new[] { FilterMainType.Audio, FilterMainType.Ebook })
+            {
+                var (status, mamId) = side == FilterMainType.Audio ? (item.AudioStatus, item.AudioMamId) : (item.EbookStatus, item.EbookMamId);
+                if (mamId is not { } id)
+                {
+                    continue;
+                }
+
+                var lost = status switch
+                {
+                    ListItemSideStatus.Selected => everSelected.Contains(id) && !stillSelected.Contains(id) && !recorded.Contains(id),
+                    ListItemSideStatus.Existing => !recorded.Contains(id) && !duplicates.Contains(id)
+                        && await FindLibraryMatchAsync(item, authors, side, cancellationToken) is null,
+                    _ => false,
+                };
+                if (!lost)
+                {
+                    continue;
+                }
+
+                if (side == FilterMainType.Audio)
+                {
+                    item.AudioStatus = null;
+                }
+                else
+                {
+                    item.EbookStatus = null;
+                }
+
+                (item.LastSearchedAt, item.MissingSince) = (null, null);
+                _logger.LogInformation(
+                    "Hardcover list {Name}: \"{Title}\": the {Format} {What} MAM torrent {MamId} is gone; searching for it again",
+                    name, item.BookTitle, side == FilterMainType.Audio ? "audiobook" : "ebook",
+                    status == ListItemSideStatus.Selected ? "selection of" : "copy from", id);
+            }
+        }
+
+        if (!entry.DryRun)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task<(int Selected, bool Searched)> ProcessItemAsync(
@@ -233,10 +319,13 @@ public sealed class HardcoverListImporter(
         }
 
         var now = _time.GetUtcNow();
-        if ((!needAudio && !needEbook) || item.LastSearchedAt > now - SearchAgainAfter)
+        if ((!needAudio && !needEbook) || !ListSearchSchedule.IsDue(item.LastSearchedAt, item.MissingSince, now))
         {
             return (0, false);
         }
+
+        var identifiers = (item.IdentifiersJson is { } json ? JsonSerializer.Deserialize<List<string>>(json) : null)?
+            .ToHashSet(StringComparer.Ordinal) ?? [];
 
         var series = item.SeriesName is null || item.SeriesNumber is null
             ? ((string, double)?)null
@@ -255,40 +344,53 @@ public sealed class HardcoverListImporter(
         for (var i = 0; i < entry.Grab.Count && ((needAudio && audioWinner is null) || (needEbook && ebookWinner is null)); i++)
         {
             var filter = ListGrabSearchTranslator.NarrowToNeededSides(grabFilters[i], needAudio && audioWinner is null, needEbook && ebookWinner is null);
-            var result = await mamClient.SearchAsync(ListGrabSearchTranslator.ToSearchQuery(filter, queryText, pageOffset: 0), cancellationToken);
-            await _delay(PolitenessDelay, cancellationToken);
-
-            var candidates = result.Data
-                .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
-                .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata!)))
-                .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
-                .ToList();
-
-            // A block only takes a torrent its own cost accepts. The search isn't limited by cost, so a free block also
-            // sees uploads that aren't free; those are left for the later blocks, which may pay for them.
             var grab = entry.Grab[i];
-            var affordable = candidates.Where(c => GrabMatching.Accepts(grab.Cost, c.Payload)).ToList();
-            if (needAudio && audioWinner is null)
-            {
-                if (Best(affordable, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes) is { } audio)
-                {
-                    (audioWinner, audioGrab) = (audio, grab);
-                }
-                else
-                {
-                    audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, preferenceLists.AudioTypes);
-                }
-            }
 
-            if (needEbook && ebookWinner is null)
+            // A full first page that holds nothing like the book: very common title words. The second page is read once.
+            for (var pageOffset = 0L; pageOffset <= SecondPageOffset; pageOffset += SecondPageOffset)
             {
-                if (Best(affordable, FilterMainType.Ebook, item, authors, series, preferenceLists.EbookTypes) is { } ebook)
+                var query = ListGrabSearchTranslator.ToSearchQuery(filter, queryText, pageOffset);
+                var result = await mamClient.SearchAsync(query, cancellationToken);
+                await _delay(PolitenessDelay, cancellationToken);
+
+                var candidates = result.Data
+                    .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
+                    .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata!)))
+                    .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
+                    .ToList();
+
+                // A block only takes a torrent its own cost accepts. The search isn't limited by cost, so a free block also
+                // sees uploads that aren't free; those are left for the later blocks, which may pay for them.
+                var affordable = candidates.Where(c => GrabMatching.Accepts(grab.Cost, c.Payload)).ToList();
+                if (needAudio && audioWinner is null)
                 {
-                    (ebookWinner, ebookGrab) = (ebook, grab);
+                    if (Best(affordable, FilterMainType.Audio, item, authors, series, identifiers, preferenceLists.AudioTypes) is { } audio)
+                    {
+                        (audioWinner, audioGrab) = (audio, grab);
+                    }
+                    else
+                    {
+                        audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, identifiers, preferenceLists.AudioTypes);
+                    }
                 }
-                else
+
+                if (needEbook && ebookWinner is null)
                 {
-                    ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, preferenceLists.EbookTypes);
+                    if (Best(affordable, FilterMainType.Ebook, item, authors, series, identifiers, preferenceLists.EbookTypes) is { } ebook)
+                    {
+                        (ebookWinner, ebookGrab) = (ebook, grab);
+                    }
+                    else
+                    {
+                        ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, identifiers, preferenceLists.EbookTypes);
+                    }
+                }
+
+                var stillLooking = (needAudio && audioWinner is null && audioTooExpensive is null)
+                    || (needEbook && ebookWinner is null && ebookTooExpensive is null);
+                if (!stillLooking || result.Data.Count < query.PerPage)
+                {
+                    break;
                 }
             }
         }
@@ -318,6 +420,10 @@ public sealed class HardcoverListImporter(
             selected += await RecordSideAsync(entry, name, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ebookTooExpensive, ignoreTorrents, cancellationToken);
         }
 
+        // Missing from MAM only when nothing turned up for any format looked for: a match too dear, or one left out for
+        // the preferred format, is still something.
+        var sidesLookedFor = new[] { (needAudio, item.AudioStatus), (needEbook, item.EbookStatus) }.Where(s => s.Item1).ToList();
+        item.MissingSince = sidesLookedFor.All(s => s.Item2 == ListItemSideStatus.NotFound) ? item.MissingSince ?? now : null;
         item.LastSearchedAt = now;
         return (selected, true);
     }
@@ -368,9 +474,15 @@ public sealed class HardcoverListImporter(
 
     private static ListCandidate<MamTorrentRecord>? Best(
         IReadOnlyList<ListCandidate<MamTorrentRecord>> candidates, FilterMainType side, ListItemEntity item,
-        IReadOnlyList<string> authors, (string Name, double Number)? series, IReadOnlyList<string> preferredTypes)
+        IReadOnlyList<string> authors, (string Name, double Number)? series, IReadOnlySet<string> identifiers, IReadOnlyList<string> preferredTypes)
     {
         var ofSide = candidates.Where(c => FilterMainTypeMapper.FromMediaType(c.Metadata.MediaType) == side).ToList();
+        // An upload with one of the book's ISBNs or ASINs is the book, however far its title is from the list's.
+        if (ListCandidateRanker.IdentifierMatches(ofSide, identifiers, preferredTypes) is [var byIdentifier, ..])
+        {
+            return byIdentifier;
+        }
+
         // The ranker keeps the closest results; the library matcher's thresholds then make sure it is the same book.
         var ranked = ListCandidateRanker.RankAndFilter(ofSide, item.BookTitle, authors, series, preferredTypes);
         return ranked.FirstOrDefault(c => ListLibraryMatcher.FindMatch(item.BookTitle, authors, side, [c]) is not null);
@@ -378,22 +490,27 @@ public sealed class HardcoverListImporter(
 
     private async Task<bool> TryMatchLibraryAsync(ListItemEntity item, IReadOnlyList<string> authors, FilterMainType side, CancellationToken cancellationToken)
     {
+        if (await FindLibraryMatchAsync(item, authors, side, cancellationToken) is not { } mamId)
+        {
+            return false;
+        }
+
+        SetSide(item, side, ListItemSideStatus.Existing, mamId);
+        return true;
+    }
+
+    /// <summary>The MAM id of a recorded torrent that is the book in this format, by its title; null when there is none.</summary>
+    private async Task<long?> FindLibraryMatchAsync(ListItemEntity item, IReadOnlyList<string> authors, FilterMainType side, CancellationToken cancellationToken)
+    {
         var normalizedTitle = TitleNormalizer.Normalize(item.BookTitle);
         var candidates = await dbContext.Torrents.AsNoTracking()
             .Where(t => t.NormalizedTitleKey == normalizedTitle)
             .Select(t => new { t.MamId, t.MetadataJson })
             .ToListAsync(cancellationToken);
 
-        var match = ListLibraryMatcher.FindMatch(
+        return ListLibraryMatcher.FindMatch(
             item.BookTitle, authors, side,
-            candidates.Select(c => new ListCandidate<long> { Metadata = TorrentMetadataSerializer.Deserialize(c.MetadataJson), Payload = c.MamId }));
-        if (match is null)
-        {
-            return false;
-        }
-
-        SetSide(item, side, ListItemSideStatus.Existing, match.Payload);
-        return true;
+            candidates.Select(c => new ListCandidate<long> { Metadata = TorrentMetadataSerializer.Deserialize(c.MetadataJson), Payload = c.MamId }))?.Payload;
     }
 
     private void SetSide(ListItemEntity item, FilterMainType side, string status, long? mamId)
