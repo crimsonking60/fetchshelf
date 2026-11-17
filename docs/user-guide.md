@@ -589,6 +589,33 @@ To use the same method for all your libraries, set it once at the top of the fil
 link_method = "hardlink"
 ```
 
+### Folder names
+
+Books go into `Author/Series/Series #1 - Title {Narrator}` folders by default. Two settings per library
+change that; see [folder naming](configuration.md#folder-naming) for the details.
+
+- `folder_names = "portable"` keeps out the characters Windows refuses, such as `:` and `?`
+  (`Dune: Part One` becomes `Dune - Part One`). Choose it when the library is on an SMB share or a NAS
+  that Windows machines use, on an exFAT or NTFS disk, or synced to Windows or Android by a sync tool. On
+  a library only Linux programs read, the default `posix` is fine.
+- `folder_template` sets the layout. A comics library, for example, is easier to browse by series than
+  by author:
+
+  ```toml
+  [[library]]
+  name = "Comics"
+  category = "comics"
+  library_dir = "/media/library/comics"
+  folder_names = "portable"
+  folder_template = "{series}/[{series_number} - ]{title} ({year})"
+  ```
+
+Folder names longer than the file system allows (255 bytes) are shortened, keeping the series number,
+edition and narrator.
+
+Changing either setting on a library that has books in it flags the books it affects as *Different
+folder*. Tick them on the **Torrents** page and use **Relink selected** to move them.
+
 ## Connecting to Audiobookshelf
 
 Skip this section if you do not use Audiobookshelf. It is the one app Fetchshelf talks to directly, but

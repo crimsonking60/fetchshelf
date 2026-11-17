@@ -379,7 +379,7 @@ public sealed class LinkRunner(
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
     {
-        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists);
+        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists, library.Layout, library.FolderNames);
         var linkedFiles = new List<LinkedFileRecord>();
         var outcomes = new List<LinkOutcome>();
         var placedUnderOtherName = new List<string>();
@@ -466,7 +466,15 @@ public sealed class LinkRunner(
         {
             var library = libraries[matchedIndex.Value];
             recomputedLibraryDir = library.LibraryDir;
-            recomputedFullPath = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists);
+            // The book's own folder is no collision: a book linked without its narrator would otherwise be told to move.
+            var linkedPath = existing.LibraryPath!;
+            recomputedFullPath = FolderNameComputer.Compute(
+                library.LibraryDir,
+                metadata,
+                options.ExcludeNarratorInLibraryDir,
+                path => !string.Equals(path, linkedPath, StringComparison.Ordinal) && Directory.Exists(path),
+                library.Layout,
+                library.FolderNames);
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);

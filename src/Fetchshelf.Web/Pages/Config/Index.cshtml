@@ -89,7 +89,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th></tr></thead>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Folder template</th></tr></thead>
             <tbody>
                 @foreach (var library in settings.Library)
                 {
@@ -100,6 +100,8 @@
                         <td>@library.DownloadDir</td>
                         <td>@library.Method</td>
                         <td>@MetadataFiles(library)</td>
+                        <td>@Fetchshelf.Data.Configuration.EnumYamlConverter.NameOf(library.FolderNames)</td>
+                        <td>@(library.FolderTemplate ?? "default")</td>
                     </tr>
                 }
             </tbody>

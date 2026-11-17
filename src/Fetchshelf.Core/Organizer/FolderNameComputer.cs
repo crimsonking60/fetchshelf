@@ -6,7 +6,8 @@ namespace Fetchshelf.Core.Organizer;
 public static class FolderNameComputer
 {
     /// <summary>
-    /// Computes the full destination folder under <paramref name="libraryDir"/>.
+    /// Computes the full destination folder under <paramref name="libraryDir"/>, laid out by <paramref name="layout"/>
+    /// (<see cref="FolderLayout.Default"/> when null) with names cleaned by <paramref name="rules"/>.
     /// <paramref name="directoryExists"/> is consulted only for the narrator-exclusion collision
     /// fallback, so this remains a pure function of its inputs (no direct file-system access).
     /// </summary>
@@ -14,70 +15,45 @@ public static class FolderNameComputer
         string libraryDir,
         TorrentMetadata metadata,
         bool excludeNarratorInLibraryDir,
-        Func<string, bool> directoryExists)
+        Func<string, bool> directoryExists,
+        FolderLayout? layout = null,
+        FileNameRules rules = FileNameRules.Posix)
     {
-        var author = metadata.Authors.Count > 0 ? metadata.Authors[0] : string.Empty;
-        var series = SelectSeries(metadata.Series);
+        layout ??= FolderLayout.Default;
+        var values = Values(metadata);
+        string Path(IReadOnlyDictionary<string, string> tokens) =>
+            System.IO.Path.Combine([libraryDir, .. layout.Render(tokens, rules)]);
 
-        var titleComponent = BuildTitleComponent(metadata, series);
-        var titleWithEdition = metadata.Edition is { } edition
-            ? $"{titleComponent}, {edition.Label}"
-            : titleComponent;
-
-        string finalTitleComponent;
-        if (metadata.Narrators.Count == 0)
+        if (excludeNarratorInLibraryDir && metadata.Narrators.Count > 0)
         {
-            finalTitleComponent = titleWithEdition;
-        }
-        else if (!excludeNarratorInLibraryDir)
-        {
-            finalTitleComponent = WithNarrator(titleWithEdition, metadata.Narrators[0]);
-        }
-        else
-        {
-            var narratorlessPath = JoinSanitized(libraryDir, BuildComponents(author, series?.Name, titleWithEdition));
-            finalTitleComponent = directoryExists(narratorlessPath)
-                ? WithNarrator(titleWithEdition, metadata.Narrators[0])
-                : titleWithEdition;
+            var narratorless = Path(new Dictionary<string, string>(values) { ["narrator"] = string.Empty });
+            if (!directoryExists(narratorless))
+            {
+                return narratorless;
+            }
         }
 
-        return JoinSanitized(libraryDir, BuildComponents(author, series?.Name, finalTitleComponent));
+        return Path(values);
     }
 
-    private static string WithNarrator(string titleComponent, string narrator) => $"{titleComponent} {{{narrator}}}";
+    /// <summary>Each <see cref="FolderLayout.Tokens"/> token's value for <paramref name="metadata"/>, empty when the book has none.</summary>
+    public static Dictionary<string, string> Values(TorrentMetadata metadata)
+    {
+        var series = SelectSeries(metadata.Series);
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["author"] = metadata.Authors.Count > 0 ? metadata.Authors[0] : string.Empty,
+            ["authors"] = string.Join(", ", metadata.Authors),
+            ["series"] = series?.Name ?? string.Empty,
+            ["series_number"] = series is null ? string.Empty : string.Join(", ", series.SortedEntries.Select(e => e.Display)),
+            ["title"] = metadata.Title,
+            ["edition"] = metadata.Edition?.Label ?? string.Empty,
+            ["narrator"] = metadata.Narrators.Count > 0 ? metadata.Narrators[0] : string.Empty,
+            ["language"] = LanguageNameResolver.DisplayName(metadata.Language),
+            ["year"] = metadata.UploadTime.Year.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+    }
 
     private static Series? SelectSeries(IReadOnlyList<Series> series) =>
         series.FirstOrDefault(s => s.Entries.Count > 0) ?? series.FirstOrDefault();
-
-    private static string BuildTitleComponent(TorrentMetadata metadata, Series? series)
-    {
-        if (series is null || series.Entries.Count == 0)
-        {
-            return metadata.Title;
-        }
-
-        var entriesDisplay = string.Join(", ", series.SortedEntries.Select(e => e.Display));
-        return $"{series.Name} #{entriesDisplay} - {metadata.Title}";
-    }
-
-    private static List<string> BuildComponents(string author, string? seriesName, string titleComponent)
-    {
-        var components = new List<string> { author };
-        if (seriesName is not null)
-        {
-            components.Add(seriesName);
-        }
-
-        components.Add(titleComponent);
-        return components;
-    }
-
-    private static string JoinSanitized(string libraryDir, IEnumerable<string> components) =>
-        Path.Combine([libraryDir, .. components.Select(Sanitize)]);
-
-    private static string Sanitize(string component)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        return new string(component.Where(c => !invalid.Contains(c)).ToArray()).Trim();
-    }
 }
