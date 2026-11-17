@@ -54,6 +54,9 @@ public sealed class HardcoverListImporter(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, ct));
     private readonly ILogger<HardcoverListImporter> _logger = logger ?? NullLogger<HardcoverListImporter>.Instance;
 
+    /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
+    private bool _dryRun;
+
     /// <summary>The list row's id: one per reading status or Hardcover list.</summary>
     public static string ListIdFor(HardcoverListEntry entry) =>
         entry.List is { } slug ? $"hardcover:list:{slug}" : $"hardcover:status:{StatusName(entry.Status!.Value)}";
@@ -70,11 +73,13 @@ public sealed class HardcoverListImporter(
     /// <param name="ignoreTorrents">`ignore_torrents`.</param>
     /// <param name="cancellationToken">Stops the run.</param>
     public async Task<HardcoverListRunSummary> RunAsync(
-        HardcoverListEntry entry, string grabberName, int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
+        HardcoverListEntry entry, string grabberName, int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default,
+        bool? dryRun = null)
     {
+        _dryRun = dryRun ?? entry.DryRun;
         var name = DisplayNameFor(entry);
         var books = await bookSource.GetBooksAsync(entry, cancellationToken);
-        if (entry.DryRun)
+        if (_dryRun)
         {
             _logger.LogInformation("Hardcover list {Name}: dry run, nothing will be selected or written", name);
         }
@@ -99,13 +104,13 @@ public sealed class HardcoverListImporter(
             _logger.LogInformation(
                 "Hardcover list {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
                 name, Books(books.Count), explanation);
-            return new HardcoverListRunSummary(0, 0, books.Count, 0, entry.DryRun);
+            return new HardcoverListRunSummary(0, 0, books.Count, 0, _dryRun);
         }
 
         var selected = 0;
         var failed = 0;
         var searched = 0;
-        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.HardcoverList, entry.DryRun, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.HardcoverList, _dryRun, cancellationToken);
         foreach (var item in items.Where(i => i.RemovedAt is null && i.MarkedDoneAt is null).OrderBy(i => i.Position))
         {
             if (selected >= budget)
@@ -133,9 +138,9 @@ public sealed class HardcoverListImporter(
 
         _logger.LogInformation(
             "Hardcover list {Name}: {Books}, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
-            name, Books(books.Count), searched, selected, entry.DryRun ? "would have been selected (dry run)" : "selected",
+            name, Books(books.Count), searched, selected, _dryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
-        return new HardcoverListRunSummary(selected, failed, books.Count, searched, entry.DryRun);
+        return new HardcoverListRunSummary(selected, failed, books.Count, searched, _dryRun);
     }
 
     private static string ErrorKey(ListItemEntity item) => ErrorLog.ListItemKey(item.ListId, item.ExternalId);
@@ -149,7 +154,7 @@ public sealed class HardcoverListImporter(
     {
         var listId = ListIdFor(entry);
         var now = _time.GetUtcNow();
-        var tracked = !entry.DryRun;
+        var tracked = !_dryRun;
         var query = tracked ? dbContext.ListItems.AsQueryable() : dbContext.ListItems.AsNoTracking();
         var existing = await query.Where(i => i.ListId == listId).ToDictionaryAsync(i => i.ExternalId, cancellationToken);
 
@@ -299,7 +304,7 @@ public sealed class HardcoverListImporter(
             }
         }
 
-        if (!entry.DryRun)
+        if (!_dryRun)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -434,7 +439,7 @@ public sealed class HardcoverListImporter(
             // The audiobook took the run's last selection: the ebook waits, and isn't recorded as not found.
             leftForNextRun = true;
             _logger.Log(
-                Detail(entry), "Hardcover list {Name}: \"{Title}\": the ebook is left for the next run, which has room to select it",
+                Detail(), "Hardcover list {Name}: \"{Title}\": the ebook is left for the next run, which has room to select it",
                 name, item.BookTitle);
         }
         else if (needEbook)
@@ -467,7 +472,7 @@ public sealed class HardcoverListImporter(
         {
             SetSide(item, side, ListItemSideStatus.Wanted, tooExpensive.Payload.MamId);
             _logger.Log(
-                Detail(entry), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId} matches, but no grab block's cost accepts it",
+                Detail(), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId} matches, but no grab block's cost accepts it",
                 name, item.BookTitle, format, tooExpensive.Payload.MamId);
             return 0;
         }
@@ -475,13 +480,13 @@ public sealed class HardcoverListImporter(
         if (winner is null)
         {
             SetSide(item, side, ListItemSideStatus.NotFound, mamId: null);
-            _logger.Log(Detail(entry), "Hardcover list {Name}: \"{Title}\": no {Format} on MAM matches", name, item.BookTitle, format);
+            _logger.Log(Detail(), "Hardcover list {Name}: \"{Title}\": no {Format} on MAM matches", name, item.BookTitle, format);
             return 0;
         }
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
             winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: entry.Category, grabberName: grabberName,
-            dryRun: entry.DryRun, cancellationToken: cancellationToken);
+            dryRun: _dryRun, cancellationToken: cancellationToken);
         var status = outcome switch
         {
             SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade or SelectionOutcome.DuplicateOfSelected or SelectionOutcome.RefreshedSelected => ListItemSideStatus.Selected,
@@ -491,15 +496,15 @@ public sealed class HardcoverListImporter(
         };
         SetSide(item, side, status, winner.Payload.MamId);
         _logger.Log(
-            Detail(entry), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId}: {Outcome}",
-            name, item.BookTitle, format, winner.Payload.MamId, outcome.Describe(entry.DryRun));
+            Detail(), "Hardcover list {Name}: \"{Title}\": {Format} MAM torrent {MamId}: {Outcome}",
+            name, item.BookTitle, format, winner.Payload.MamId, outcome.Describe(_dryRun));
         return outcome.IsSelected() ? 1 : 0;
     }
 
     private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
 
 
-    private static LogLevel Detail(HardcoverListEntry entry) => entry.DryRun ? LogLevel.Information : LogLevel.Debug;
+    private LogLevel Detail() => _dryRun ? LogLevel.Information : LogLevel.Debug;
 
     private static ListCandidate<MamTorrentRecord>? Best(
         IReadOnlyList<ListCandidate<MamTorrentRecord>> candidates, FilterMainType side, ListItemEntity item,

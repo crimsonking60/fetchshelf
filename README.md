@@ -61,6 +61,7 @@ setup. If you use one, please report how it went, good or bad (see
 - `allowed_hosts`, and the `[opds]` login.
 - `[seeding]`: the Seeding job's estimate, `tag_unsatisfied`, the held-back `on_cleaned` and the
   `unsatisfied_not_seeding` notification.
+- **Dry run** on the Jobs page, and the lines under each run in a job's history.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.

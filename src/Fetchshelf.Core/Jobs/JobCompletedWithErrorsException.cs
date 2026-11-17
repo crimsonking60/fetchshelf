@@ -6,8 +6,12 @@ namespace Fetchshelf.Core.Jobs;
 /// <see cref="JobRunResult.CompletedWithErrors"/> rather than <see cref="JobRunResult.Failure"/>, with the message
 /// as the run's summary.
 /// </summary>
-public sealed class JobCompletedWithErrorsException(string message, IReadOnlyDictionary<string, long>? counts = null) : Exception(message)
+public sealed class JobCompletedWithErrorsException(
+    string message, IReadOnlyDictionary<string, long>? counts = null, IReadOnlyList<string>? details = null) : Exception(message)
 {
     /// <summary>The run's numbers by name, as in <see cref="JobOutcome.Counts"/>.</summary>
     public IReadOnlyDictionary<string, long>? Counts { get; } = counts;
+
+    /// <summary>What the run did one by one, as in <see cref="JobOutcome.Details"/>.</summary>
+    public IReadOnlyList<string>? Details { get; } = details;
 }

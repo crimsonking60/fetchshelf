@@ -40,6 +40,9 @@ public sealed class AutograbberRunner(
     private readonly ILogger<AutograbberRunner> _logger = logger ?? NullLogger<AutograbberRunner>.Instance;
     private readonly EventStore _eventStore = new(dbContext, notifications);
 
+    /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
+    private bool _dryRun;
+
     /// <summary>
     /// Searches, and selects what passes the filter. A dry run selects nothing; what it would have selected is logged
     /// and counted in the summary.
@@ -48,8 +51,10 @@ public sealed class AutograbberRunner(
         AutograbEntry entry,
         int globalUnsatBuffer,
         IReadOnlyList<long> ignoreTorrents,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool? dryRun = null)
     {
+        _dryRun = dryRun ?? entry.DryRun;
         var name = entry.Name ?? entry.Type?.Kind ?? "autograb";
         using var _ = await accessGate.AcquireAsync($"Autograb {name}", cancellationToken);
 
@@ -66,15 +71,15 @@ public sealed class AutograbberRunner(
         {
             _logger.LogInformation(
                 "Autograb {Name}: nothing to do, this run's limit is 0 selections ({BudgetExplanation})", name, budgetExplanation);
-            return new AutograbRunSummary(0, 0, entry.DryRun, $"this run's limit is 0 selections ({budgetExplanation})");
+            return new AutograbRunSummary(0, 0, _dryRun, $"this run's limit is 0 selections ({budgetExplanation})");
         }
 
-        if (entry.DryRun)
+        if (_dryRun)
         {
             _logger.LogInformation("Autograb {Name}: dry run, nothing will be selected or written", name);
         }
 
-        var detailLevel = entry.DryRun ? LogLevel.Information : LogLevel.Debug;
+        var detailLevel = _dryRun ? LogLevel.Information : LogLevel.Debug;
         var filter = SharedFilterConfigMapper.ToTorrentFilter(entry);
         var selectedCount = 0;
         var resultCount = 0;
@@ -123,10 +128,10 @@ public sealed class AutograbberRunner(
 
                 var outcome = await selectionRunner.ProcessCandidateAsync(
                     record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name,
-                    dryRun: entry.DryRun, cancellationToken: cancellationToken);
+                    dryRun: _dryRun, cancellationToken: cancellationToken);
                 _logger.Log(
                     detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",
-                    name, record.MamId, metadata.Title, outcome.Describe(entry.DryRun));
+                    name, record.MamId, metadata.Title, outcome.Describe(_dryRun));
 
                 if (outcome.IsSelected())
                 {
@@ -149,13 +154,13 @@ public sealed class AutograbberRunner(
         var (checkedForRemoval, markedRemoved) = (0, 0);
         if (entry.MarkRemoved && returnedMamIds.Count > 0 && entry.Type?.Kind != AutograbType.Bookmarks.Kind)
         {
-            (checkedForRemoval, markedRemoved) = await MarkRemovedAsync(name, entry.DryRun, returnedMamIds, cancellationToken);
+            (checkedForRemoval, markedRemoved) = await MarkRemovedAsync(name, _dryRun, returnedMamIds, cancellationToken);
         }
 
         _logger.LogInformation(
             "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
-            name, resultCount, selectedCount, entry.DryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
-        return new AutograbRunSummary(resultCount, selectedCount, entry.DryRun, limitNote, checkedForRemoval, markedRemoved);
+            name, resultCount, selectedCount, _dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
+        return new AutograbRunSummary(resultCount, selectedCount, _dryRun, limitNote, checkedForRemoval, markedRemoved);
     }
 
     /// <summary>The most stored torrents one run asks MAM about for `mark_removed`.</summary>

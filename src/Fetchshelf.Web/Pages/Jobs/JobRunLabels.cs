@@ -23,6 +23,7 @@ public static class JobRunLabels
         JobTrigger.Startup => "Startup",
         JobTrigger.Manual => "Manual",
         JobTrigger.Chained => "Another job",
+        JobTrigger.DryRun => "Dry run",
         _ => "Unknown",
     };
 

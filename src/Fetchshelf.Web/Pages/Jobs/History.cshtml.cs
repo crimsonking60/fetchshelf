@@ -9,8 +9,17 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Jobs;
 
 /// <summary>One job's runs, newest first.</summary>
-public class HistoryModel(FetchshelfDbContext dbContext) : PageModel
+public partial class HistoryModel(FetchshelfDbContext dbContext) : PageModel
 {
+    /// <summary>A run's detail line, and the MAM id at its end ("… - MAM 123456"), which the page links; null without one.</summary>
+    public static (string Text, long? MamId) SplitDetail(string line) =>
+        MamIdAtEnd().Match(line) is { Success: true } match
+            ? (line[..match.Index], long.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture))
+            : (line, null);
+
+    [System.Text.RegularExpressions.GeneratedRegex(@" - MAM (\d+)$")]
+    private static partial System.Text.RegularExpressions.Regex MamIdAtEnd();
+
     public const int DefaultPageSize = 50;
 
     [BindProperty(SupportsGet = true)]

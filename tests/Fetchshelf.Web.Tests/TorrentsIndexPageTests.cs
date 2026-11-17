@@ -697,7 +697,8 @@ public class TorrentsIndexPageTests
             ["category"] = "fetchshelf-ebooks",
             ["__RequestVerificationToken"] = token,
         });
-        var html = System.Net.WebUtility.HtmlDecode(await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync());
+        (await client.PostAsync("/torrents?handler=Bulk", form)).EnsureSuccessStatusCode();
+        var html = System.Net.WebUtility.HtmlDecode(await BulkOperationsEndedAsync(fixture, client));
 
         Assert.Contains(categoriesSet, c => c.Contains("hashes=hash1", StringComparison.Ordinal) && c.Contains("category=fetchshelf-ebooks", StringComparison.Ordinal));
         Assert.Contains("Set the category to fetchshelf-ebooks for 1 torrent.", html);

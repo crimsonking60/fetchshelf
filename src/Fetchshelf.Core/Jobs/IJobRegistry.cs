@@ -5,8 +5,13 @@ namespace Fetchshelf.Core.Jobs;
 /// </summary>
 public interface IJobRegistry
 {
-    /// <summary>Registers a job whose run returns what it did, or null when there is nothing to say.</summary>
-    void Register(string name, Func<CancellationToken, Task<JobOutcome?>> runAsync, string? description = null);
+    /// <summary>
+    /// Registers a job whose run returns what it did, or null when there is nothing to say. With
+    /// <paramref name="dryRunAsync"/>, the job also has a dry run, which <see cref="JobTrigger.DryRun"/> starts.
+    /// </summary>
+    void Register(
+        string name, Func<CancellationToken, Task<JobOutcome?>> runAsync, string? description = null,
+        Func<CancellationToken, Task<JobOutcome?>>? dryRunAsync = null);
 
     /// <summary>Registers a job that reports nothing beyond how its run ended.</summary>
     void Register(string name, Func<CancellationToken, Task> runAsync, string? description = null);

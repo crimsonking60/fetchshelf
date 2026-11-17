@@ -1,6 +1,5 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
-using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -370,6 +369,52 @@ public sealed class SelectionRunnerTests : IDisposable
 
         Assert.Equal(SelectionOutcome.CostNotFree, outcome);
         Assert.Empty(context.SelectedTorrents);
+    }
+
+    [Fact]
+    public async Task Details_ListWhatWasSelected_AndWhatWasTurnedDownForAReasonWorthSeeing()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        await Process(runner, SelectionTestSupport.BuildRecord(mamId: 1, title: "Free Book", isFree: true));
+        await Process(runner, SelectionTestSupport.BuildRecord(mamId: 2, title: "Paid Book"));
+        await Process(runner, SelectionTestSupport.BuildRecord(mamId: 3, title: "Odd Format", fileTypes: ["xyz"], isFree: true));
+        await runner.ProcessCandidateAsync(SelectionTestSupport.BuildRecord(mamId: 4), MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 4)), [4], ConfiguredCost.Free, null, null);
+
+        Assert.Equal(
+            [
+                "Selected: Free Book by Brandon Sanderson (m4b, 100.0 MiB) - MAM 1",
+                "Skipped, not free: Paid Book by Brandon Sanderson (m4b, 100.0 MiB) - MAM 2",
+                "Skipped, no preferred format: Odd Format by Brandon Sanderson (xyz, 100.0 MiB) - MAM 3",
+            ],
+            runner.Details);
+    }
+
+    [Fact]
+    public async Task Details_InADryRun_SayWouldSelect()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        await DryRun(runner, SelectionTestSupport.BuildRecord(mamId: 1, title: "Free Book", isFree: true));
+
+        Assert.Equal(["Would select: Free Book by Brandon Sanderson (m4b, 100.0 MiB) - MAM 1"], runner.Details);
+    }
+
+    [Fact]
+    public async Task Details_TurnedDownAreCappedAt50_AndTheRestCounted()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = CreateRunner(context);
+
+        for (var i = 1; i <= 60; i++)
+        {
+            await Process(runner, SelectionTestSupport.BuildRecord(mamId: i, title: $"Paid {i}"));
+        }
+
+        Assert.Equal(51, runner.Details.Count);
+        Assert.Equal("And 10 more not listed.", runner.Details[^1]);
     }
 
     private static Task<SelectionOutcome> DryRun(SelectionRunner runner, MamTorrentRecord record, ConfiguredCost cost = ConfiguredCost.Ratio) =>

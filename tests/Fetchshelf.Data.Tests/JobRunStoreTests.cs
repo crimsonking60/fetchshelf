@@ -29,6 +29,21 @@ public sealed class JobRunStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task FinishedAsync_DetailsAndTheDryRunTrigger_AreReadBack()
+    {
+        var id = await _store.StartedAsync("Upgrade", Start, JobTrigger.DryRun);
+        await _store.FinishedAsync(id, new JobRunRecord(Start, JobRunResult.Success, "Dry run: 1 would have been selected", Start.AddSeconds(5), JobTrigger.DryRun, Details: ["Would select: A - MAM 1"]));
+        var plain = await _store.StartedAsync("Link", Start, JobTrigger.Schedule);
+        await _store.FinishedAsync(plain, new JobRunRecord(Start, JobRunResult.Success, "Nothing new to link", Start.AddSeconds(5), JobTrigger.Schedule));
+
+        var runs = await _store.RecentRunsAsync();
+
+        Assert.Equal(JobTrigger.DryRun, runs["Upgrade"][^1].Trigger);
+        Assert.Equal(["Would select: A - MAM 1"], runs["Upgrade"][^1].Details!);
+        Assert.Null(runs["Link"][^1].Details);
+    }
+
+    [Fact]
     public async Task FinishedAsync_ARun_IsReadBackAsItsJobsLastRun()
     {
         var id = await _store.StartedAsync("Link", Start, JobTrigger.Startup);

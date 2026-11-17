@@ -993,18 +993,21 @@ blocks above.
 
 ### Trying a block out safely
 
-- `dry_run = true` runs the whole search and selection but selects, records and downloads nothing. It only
-  logs what it would do. To try out a new block:
+- **Dry run** on the **Jobs** page runs an autograb, a Hardcover list, Follow or Upgrade once as a dry run: the
+  whole search and selection, but nothing is selected, recorded or downloaded. To try out a new block:
 
-  1. Add `dry_run = true` to the block and restart Fetchshelf.
-  2. On the **Jobs** page, press **Run now** for the block, so you do not have to wait for its interval.
-  3. Read the log (`docker logs fetchshelf`). There is a line for each search result that passes the
-     filter, saying whether it would be selected or why it would be skipped (for example a duplicate, or
-     not free), and a last line with how many would have been selected. Results the filter rejects are
-     only listed at the `debug` log level.
-  4. If the list is not what you want, change the block's settings, restart and run it again.
-  5. When it is, remove `dry_run`, restart, and press **Run now** to start the first real run, or wait
-     for the block's interval.
+  1. Add the block with `search_interval = 0`, so it doesn't run by itself yet, and restart Fetchshelf.
+  2. On the **Jobs** page, press **Dry run** for it.
+  3. Open the job's history (its name on the **Jobs** page) and unfold the run's lines: each torrent it
+     would select, and each one it would turn down for a reason worth seeing (a duplicate, no preferred
+     format, not free), with links to their details. The log has them too, with the results the filter
+     rejects at the `debug` level.
+  4. If the list is not what you want, change the block's settings, restart and press **Dry run** again.
+  5. When it is, remove `search_interval = 0` (or press **Run now**), and it runs for real.
+
+  `dry_run = true` in the block does the same on every run, also on its schedule; such a block has no
+  separate **Dry run** button. A dry run doesn't count for the failing streak or notifications, and never
+  starts a Download run.
 
   "Would be selected" means the torrent would be queued. Your ratio, unsatisfied-snatch slots and wedges
   are only checked when a download starts, so a queued torrent can still wait on the **Selected** page.
@@ -1814,6 +1817,11 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
 *Hardcover list is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
+- **Dry run**, for autograbs, Hardcover lists, Follow and Upgrade, runs the job once without selecting or
+  writing anything (see [Trying a block out safely](#trying-a-block-out-safely)).
+- **The history** of a job, opened from its name, lists its runs. Under a run of an autograb, a Hardcover list,
+  Follow or Upgrade, its lines say what it selected, or would have in a dry run, and what it turned down, at most
+  100 of them.
 - **Cancel** replaces **Run now** while a job runs, and stops it. It asks for no confirmation, because
   nothing is lost that the next run doesn't redo: each job stops only where nothing is left half done.
   Download stops before a torrent's file is fetched, when nothing has been spent; a torrent whose file was

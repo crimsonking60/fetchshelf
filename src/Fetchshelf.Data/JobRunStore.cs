@@ -40,6 +40,7 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
         run.Summary = finished.Summary;
         run.CountsJson = finished.Counts is null ? null : JsonSerializer.Serialize(finished.Counts);
         run.FailureKind = finished.FailureKind;
+        run.DetailsJson = finished.Details is { Count: > 0 } details ? JsonSerializer.Serialize(details) : null;
         await context.SaveChangesAsync();
 
         // Ids grow with every run, so the newest runs are the highest ids.
@@ -76,7 +77,10 @@ public sealed class JobRunStore(IDbContextFactory<FetchshelfDbContext> contextFa
     }
 
     public static JobRunRecord ToRecord(JobRunEntity run) =>
-        new(run.StartedAt, run.Result, run.Summary, run.FinishedAt, run.Trigger, ReadCounts(run.CountsJson), run.FailureKind);
+        new(run.StartedAt, run.Result, run.Summary, run.FinishedAt, run.Trigger, ReadCounts(run.CountsJson), run.FailureKind, ReadDetails(run.DetailsJson));
+
+    public static IReadOnlyList<string>? ReadDetails(string? detailsJson) =>
+        detailsJson is null ? null : JsonSerializer.Deserialize<List<string>>(detailsJson);
 
     public static IReadOnlyDictionary<string, long>? ReadCounts(string? countsJson) =>
         countsJson is null ? null : JsonSerializer.Deserialize<Dictionary<string, long>>(countsJson);
