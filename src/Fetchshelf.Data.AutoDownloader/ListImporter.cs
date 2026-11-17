@@ -19,7 +19,12 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <param name="Searched">Books searched for on MAM.</param>
 /// <param name="DryRun">Whether the run was a dry run, which selects and writes nothing.</param>
 /// <param name="UnreadableLines">Lines of a list file that couldn't be read as a book.</param>
-public sealed record ListRunSummary(int Selected, int Failed, int Books = 0, int Searched = 0, bool DryRun = false, int UnreadableLines = 0)
+/// <param name="Bookmarks">
+/// Whether the list is the MAM bookmarks: its books are bookmarks, and <paramref name="Searched"/> counts those looked at,
+/// as none is searched for.
+/// </param>
+public sealed record ListRunSummary(
+    int Selected, int Failed, int Books = 0, int Searched = 0, bool DryRun = false, int UnreadableLines = 0, bool Bookmarks = false)
 {
     /// <summary>The selections now waiting to be downloaded: none in a dry run.</summary>
     public int SelectedForDownload => DryRun ? 0 : Selected;
@@ -71,6 +76,7 @@ public sealed class ListImporter(
         _dryRun = dryRun ?? list.DryRun;
         var name = list.DisplayName;
         var grabberName = list.JobName;
+        var bookmarks = list.ListType == ListDefinition.BookmarksListType;
         var books = await bookSource.GetBooksAsync(cancellationToken);
         var unreadableLines = bookSource.UnreadableLines;
         if (_dryRun)
@@ -81,7 +87,7 @@ public sealed class ListImporter(
         var grabFilters = list.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var allowAudio = grabFilters.Any(f => AllowsSide(f.Categories, FilterMainType.Audio));
         var allowEbook = grabFilters.Any(f => AllowsSide(f.Categories, FilterMainType.Ebook));
-        var items = await SyncItemsAsync(list, name, books, allowAudio, allowEbook, cancellationToken);
+        var items = await SyncItemsAsync(list, name, books, bookSource, allowAudio, allowEbook, cancellationToken);
         await ReopenLostSidesAsync(list, name, items, cancellationToken);
 
         using var _ = await accessGate.AcquireAsync($"List {name}", cancellationToken);
@@ -97,8 +103,8 @@ public sealed class ListImporter(
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, list.MaxActiveDownloads, currentActive);
             _logger.LogInformation(
                 "List {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
-                name, Books(books.Count), explanation);
-            return new ListRunSummary(0, 0, books.Count, 0, _dryRun, unreadableLines);
+                name, Books(books.Count, bookmarks), explanation);
+            return new ListRunSummary(0, 0, books.Count, 0, _dryRun, unreadableLines, bookmarks);
         }
 
         var selected = 0;
@@ -117,7 +123,9 @@ public sealed class ListImporter(
                 ErrorKey(item), item.BookTitle,
                 async () =>
                 {
-                    var outcome = await ProcessItemAsync(list, name, grabberName, grabFilters, item, ignoreTorrents, (int)(budget - selected), cancellationToken);
+                    var outcome = bookSource.KnownTorrent(item.ExternalId) is { } torrent
+                        ? await ProcessKnownTorrentAsync(list, name, grabberName, grabFilters, item, torrent, ignoreTorrents, cancellationToken)
+                        : await ProcessItemAsync(list, name, grabberName, grabFilters, item, ignoreTorrents, (int)(budget - selected), cancellationToken);
                     selected += outcome.Selected;
                     searched += outcome.Searched ? 1 : 0;
                 },
@@ -131,10 +139,10 @@ public sealed class ListImporter(
         }
 
         _logger.LogInformation(
-            "List {Name}: {Books}, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
-            name, Books(books.Count), searched, selected, _dryRun ? "would have been selected (dry run)" : "selected",
+            "List {Name}: {Books}, {Searched} {SearchedVerb}, {Selected} {Verb}{Failures}",
+            name, Books(books.Count, bookmarks), searched, bookmarks ? "looked at" : "searched on MAM", selected, _dryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
-        return new ListRunSummary(selected, failed, books.Count, searched, _dryRun, unreadableLines);
+        return new ListRunSummary(selected, failed, books.Count, searched, _dryRun, unreadableLines, bookmarks);
     }
 
     private static string ErrorKey(ListItemEntity item) => ErrorLog.ListItemKey(item.ListId, item.ExternalId);
@@ -144,7 +152,8 @@ public sealed class ListImporter(
     /// and books no longer on the shelf or list marked removed (and active again if they come back).
     /// </summary>
     private async Task<List<ListItemEntity>> SyncItemsAsync(
-        ListDefinition list, string name, IReadOnlyList<ListBook> books, bool allowAudio, bool allowEbook, CancellationToken cancellationToken)
+        ListDefinition list, string name, IReadOnlyList<ListBook> books, IListBookSource bookSource, bool allowAudio, bool allowEbook,
+        CancellationToken cancellationToken)
     {
         var listId = list.ListId;
         var now = _time.GetUtcNow();
@@ -204,8 +213,12 @@ public sealed class ListImporter(
             var identifiers = BookIdentifiers.From(book.Identifiers).Order(StringComparer.Ordinal).ToList();
             item.IdentifiersJson = identifiers.Count == 0 ? null : JsonSerializer.Serialize(identifiers);
             item.PreferFormat = preferFormat;
-            item.AllowAudio = allowAudio;
-            item.AllowEbook = allowEbook;
+            // A known torrent is of one format: the other is never looked for.
+            var side = bookSource.KnownTorrent(externalId) is { } torrent && GrabMatching.TryMap(torrent) is { } metadata
+                ? FilterMainTypeMapper.FromMediaType(metadata.MediaType)
+                : (FilterMainType?)null;
+            item.AllowAudio = allowAudio && side is null or FilterMainType.Audio;
+            item.AllowEbook = allowEbook && side is null or FilterMainType.Ebook;
             item.RemovedAt = null;
         }
 
@@ -455,6 +468,66 @@ public sealed class ListImporter(
         return (selected, true);
     }
 
+    /// <summary>
+    /// A book that is a known MAM torrent, such as a bookmark: that torrent is the only candidate, for its own format, and
+    /// goes to the first grab block whose filter takes it and whose cost accepts it. It is looked at on every run, as that
+    /// costs no search, so a torrent that turns freeleech is taken on the next run.
+    /// </summary>
+    private async Task<(int Selected, bool Searched)> ProcessKnownTorrentAsync(
+        ListDefinition list, string name, string grabberName, IReadOnlyList<TorrentFilter> grabFilters, ListItemEntity item,
+        MamTorrentRecord torrent, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
+    {
+        if (GrabMatching.TryMap(torrent) is not { } metadata)
+        {
+            return (0, false);
+        }
+
+        var side = FilterMainTypeMapper.FromMediaType(metadata.MediaType);
+        var (allowed, status) = side == FilterMainType.Audio ? (item.AllowAudio, item.AudioStatus) : (item.AllowEbook, item.EbookStatus);
+        if (!allowed || ListItemSideStatus.IsResolved(status))
+        {
+            return (0, false);
+        }
+
+        var authors = JsonSerializer.Deserialize<List<string>>(item.AuthorsJson) ?? [];
+        if (await TryMatchLibraryAsync(item, authors, side, cancellationToken))
+        {
+            return (0, false);
+        }
+
+        var candidate = new ListCandidate<MamTorrentRecord> { Metadata = metadata, Payload = torrent };
+        var filterCandidate = GrabMatching.ToFilterCandidate(torrent, metadata);
+        (ListCandidate<MamTorrentRecord>? Winner, GrabEntry? Grab) taken = (null, null);
+        ListCandidate<MamTorrentRecord>? tooExpensive = null;
+        for (var i = 0; i < list.Grab.Count && taken.Winner is null; i++)
+        {
+            if (!TorrentFilterMatcher.Matches(grabFilters[i], filterCandidate))
+            {
+                continue;
+            }
+
+            if (GrabMatching.Accepts(list.Grab[i].Cost, torrent))
+            {
+                taken = (candidate, list.Grab[i]);
+            }
+            else
+            {
+                tooExpensive ??= candidate;
+            }
+        }
+
+        (item.LastSearchedAt, item.MissingSince) = (_time.GetUtcNow(), null);
+        if (taken.Winner is null && tooExpensive is null)
+        {
+            SetSide(item, side, ListItemSideStatus.NoGrabBlock, torrent.MamId);
+            _logger.Log(
+                Detail(), "List {Name}: \"{Title}\": MAM torrent {MamId} doesn't pass any grab block's filter", name, item.BookTitle, torrent.MamId);
+            return (0, true);
+        }
+
+        return (await RecordSideAsync(list, name, grabberName, item, side, taken.Winner, taken.Grab, tooExpensive, ignoreTorrents, cancellationToken), true);
+    }
+
     private async Task<int> RecordSideAsync(
         ListDefinition list, string name, string grabberName, ListItemEntity item, FilterMainType side,
         ListCandidate<MamTorrentRecord>? winner, GrabEntry? grab, ListCandidate<MamTorrentRecord>? tooExpensive,
@@ -494,7 +567,8 @@ public sealed class ListImporter(
         return outcome.IsSelected() ? 1 : 0;
     }
 
-    private static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
+    private static string Books(int count, bool bookmarks) =>
+        bookmarks ? (count == 1 ? "1 bookmark" : $"{count} bookmarks") : count == 1 ? "1 book" : $"{count} books";
 
 
     private LogLevel Detail() => _dryRun ? LogLevel.Information : LogLevel.Debug;

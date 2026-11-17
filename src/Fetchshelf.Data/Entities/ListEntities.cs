@@ -35,6 +35,9 @@ public static class ListItemSideStatus
     /// <summary>MAM had nothing that matched when last searched.</summary>
     public const string NotFound = "NotFound";
 
+    /// <summary>A known torrent, such as a bookmark, that none of the list's grab blocks' filters takes.</summary>
+    public const string NoGrabBlock = "NoGrabBlock";
+
     /// <summary>Statuses after which the format is never searched for again.</summary>
     public static bool IsResolved(string? status) => status is Selected or Existing or NotWanted;
 }

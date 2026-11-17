@@ -131,6 +131,12 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void List_OfBookmarks_CountsBookmarksLookedAt() =>
+        Assert.Equal(
+            "Dry run: 40 bookmarks, 12 looked at, 2 would have been selected",
+            JobOutcomes.List(new ListRunSummary(2, 0, Books: 40, Searched: 12, DryRun: true, Bookmarks: true)).Summary);
+
+    [Fact]
     public void List_UnreadableLinesOfAFile_AreCountedInTheSummary()
     {
         var outcome = JobOutcomes.List(new ListRunSummary(1, 0, Books: 20, Searched: 12, UnreadableLines: 2));

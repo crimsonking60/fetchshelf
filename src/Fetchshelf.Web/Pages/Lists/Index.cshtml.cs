@@ -12,7 +12,7 @@ namespace Fetchshelf.Web.Pages.Lists;
 public sealed record ListSummaryViewModel(string Id, string Name, string Source, int Books, int Missing, DateTimeOffset? UpdatedAt);
 
 /// <summary>
-/// The Lists page: every configured `[[hardcover_list]]` and `[[file_list]]` with how many of its books still miss a format, plus any
+/// The Lists page: every configured `[[hardcover_list]]`, `[[file_list]]` and `[[bookmarks_list]]` with how many of its books still miss a format, plus any
 /// list in the database whose entry has been removed from the config, shown separately.
 /// </summary>
 public class IndexModel(FetchshelfDbContext dbContext, FetchshelfSettings settings) : PageModel

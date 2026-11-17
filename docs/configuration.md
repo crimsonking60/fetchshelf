@@ -26,6 +26,7 @@ to `5-everything.toml`, which uses every option.
 - [Cost](#cost)
 - [`[[hardcover_list]]`](#hardcover_list)
 - [`[[file_list]]`](#file_list)
+- [`[[bookmarks_list]]`](#bookmarks_list)
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
 - [`[bonus]`](#bonus)
@@ -58,7 +59,7 @@ to `5-everything.toml`, which uses every option.
   section` for one without a `name`).
 - **Filter values are checked at startup too.** The names and values in every
   [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
-  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]` and `[[file_list.grab]]` block and `[[tag]]`
+  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]`, `[[file_list.grab]]` and `[[bookmarks_list.grab]]` block and `[[tag]]`
   rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
 - **Checking a file before restarting.** See [Checking a configuration](#checking-a-configuration).
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
@@ -445,7 +446,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 
 | Value | Searches |
 |---|---|
-| `"bookmarks"` | Your MAM bookmarks. |
+| `"bookmarks"` | Your MAM bookmarks. A [`[[bookmarks_list]]`](#bookmarks_list) is the other way to download them. |
 | `"freeleech"` | The global freeleech list. |
 | `"new"` (alias `"torrents"`) | **All torrents** on MAM. The name refers to the default newest-first ordering, not to a separate set of torrents. |
 | `"mine"` | Your own uploads. |
@@ -661,6 +662,57 @@ Everything after reading the file is as for a [`[[hardcover_list]]`](#hardcover_
 MAM is searched with each `grab` block in turn, and a book still missing a format is searched for again a day
 later. The list is known by its `name`: renaming the file keeps the list's books and what was found for them,
 while renaming the list starts a new one.
+
+## `[[bookmarks_list]]`
+
+At most one. Shows the torrents bookmarked on MAM on the **Lists** page, with what happened to each, and
+downloads them through its `grab` blocks. A bookmark names a torrent rather than a book, so nothing is searched
+for: each run reads the bookmarks, newest first, and puts each torrent through the `grab` blocks and the usual
+selection rules.
+
+| Setting | Default | Description |
+|---|---|---|
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed, the list and its job are called `bookmarks_list`. |
+| `category` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `search_interval` | global `search_interval` | Minutes between runs. |
+| `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
+| `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
+| `max_active_downloads` | unset | Cap on torrents this list selected that are still waiting to be downloaded, at least 1. |
+| `dry_run` | `false` | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `grab` | (at least one) | Repeatable `[[bookmarks_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). A bookmark goes to the first block whose filter takes it and whose `cost` accepts it. `metadata_only` costs are not allowed. |
+
+`prefer_format` is refused: a bookmark is one torrent, so of one format already. An audiobook bookmark is
+looked at as an audiobook only, an ebook bookmark as an ebook only; a bookmark that is neither is left out.
+
+```toml
+[[bookmarks_list]]
+name = "MAM bookmarks"
+search_interval = 60
+
+[[bookmarks_list.grab]]            # free bookmarks first
+cost = "free"
+
+[[bookmarks_list.grab]]            # then small ones, paid with ratio
+cost = "ratio"
+max_size = "30 MiB"
+```
+
+What each run does:
+
+1. **Reads the bookmarks** from MAM, through its search, 100 to a page. A torrent that is no longer bookmarked
+   leaves the list; bookmarked again, it comes back.
+2. **Checks the library**, as a Hardcover list does: a book Fetchshelf already has in the torrent's format counts
+   as in the library.
+3. **Tries the `grab` blocks** in order. The torrent goes to the first block whose filter takes it and whose
+   `cost` accepts it, then through the same selection rules as an autograb's. A bookmark a filter takes but no
+   cost accepts shows as *costs more than the list's grab blocks allow*; one no filter takes shows as *none of the
+   list's grab blocks' filters takes it*.
+4. **Looks at every bookmark not yet selected or in the library again on the next run.** That costs no extra
+   search, so a bookmark that turns freeleech is taken on the next run.
+
+A `[[bookmarks_list]]` and an `[[autograb]]` with `type = "bookmarks"` can't both be configured: both would
+select the same torrents. Choose the list to see each bookmark's state on the **Lists** page, or the autograb for
+what only it has: `sort_by`, `max_pages`, a `query`, and one job per cost level.
 
 ## `[follow]`
 

@@ -5,11 +5,11 @@
 }
 
 <h2>Lists</h2>
-@await Html.PartialAsync("_PageExplanation", "This page shows the Hardcover shelves and lists, and the list files, Fetchshelf follows. Open one to see what was found on MAM for each of its books.")
+@await Html.PartialAsync("_PageExplanation", "This page shows the Hardcover shelves and lists, the list files and the MAM bookmarks Fetchshelf follows. Open one to see what was found on MAM for each of its books.")
 
 @if (Model.ConfiguredLists.Count == 0)
 {
-    <p id="no-lists-message" class="empty">No [[hardcover_list]] or [[file_list]] entries configured.</p>
+    <p id="no-lists-message" class="empty">No [[hardcover_list]], [[file_list]] or [[bookmarks_list]] entries configured.</p>
 }
 else
 {

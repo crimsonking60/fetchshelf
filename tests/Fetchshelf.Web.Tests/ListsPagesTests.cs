@@ -314,4 +314,52 @@ public class ListsPagesTests
 
         Assert.Contains("Fetchshelf has not read this list from its file yet.", html);
     }
+
+    private const string BookmarksToml = """
+        mam_id = ""
+
+        [[bookmarks_list]]
+        name = "Bookmarks"
+
+        [[bookmarks_list.grab]]
+        """;
+
+    [Fact]
+    public async Task BookmarksList_ShowsOnTheListsPage_AndItsRowsLinkToTheTorrentsDetails()
+    {
+        using var fixture = new FetchshelfWebAppFixture(BookmarksToml);
+        var wanted = Item("11", "Dune", listId: "mam:bookmarks");
+        wanted.AllowEbook = false;
+        wanted.AudioStatus = ListItemSideStatus.NoGrabBlock;
+        wanted.AudioMamId = 11;
+        wanted.LastSearchedAt = DateTimeOffset.UtcNow;
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Lists.Add(new ListEntity
+            {
+                Id = "mam:bookmarks",
+                Name = "Bookmarks",
+                ListType = "MAM bookmarks",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+            dbContext.ListItems.Add(wanted);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = fixture.CreateClient();
+        var index = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Lists"));
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync($"/Lists/Detail/{Uri.EscapeDataString("mam:bookmarks")}"));
+
+        Assert.Matches(@"Bookmarks</a></td>\s*<td>MAM bookmarks</td>\s*<td>1</td>", index);
+        Assert.Contains("the torrents bookmarked on MAM", html);
+        Assert.Contains("Last read from MAM", html);
+        Assert.Contains("<a href=\"/search/11\">Torrent details</a>", html);
+        Assert.DoesNotContain("Search MAM", html);
+        Assert.DoesNotContain("Next search", html);
+        Assert.DoesNotContain("Search again", html);
+        Assert.Contains("none of the list's grab blocks' filters takes it", html);
+        Assert.DoesNotContain("Ebook:", html);
+    }
 }

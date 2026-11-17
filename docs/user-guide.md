@@ -27,6 +27,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Automatic downloads](#automatic-downloads)
 - [Books you want, from Hardcover](#books-you-want-from-hardcover)
 - [Books you want, from a file](#books-you-want-from-a-file)
+- [Your MAM bookmarks as a list](#your-mam-bookmarks-as-a-list)
 - [Completing series and following authors](#completing-series-and-following-authors)
 - [Protecting your account](#protecting-your-account)
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
@@ -1148,6 +1149,33 @@ Matching works as for Hardcover lists, except that a file has no covers or links
 is matched on the title alone, which finds the wrong book more often. Use `dry_run = true` first. See
 [`[[file_list]]`](configuration.md#file_list) for every setting.
 
+## Your MAM bookmarks as a list
+
+An autograb with `type = "bookmarks"` downloads your MAM bookmarks, but what happened to each one is spread over
+the log, the **Selected** page and the **Duplicates** page. A `[[bookmarks_list]]` downloads them too, and shows
+every bookmark on the **Lists** page with what happened to it: selected, already in the library, costing more
+than its `grab` blocks allow, or taken by none of their filters.
+
+```toml
+[[bookmarks_list]]
+name = "MAM bookmarks"
+
+[[bookmarks_list.grab]]
+cost = "free"
+
+[[bookmarks_list.grab]]
+cost = "wedge"
+```
+
+Each run reads the bookmarks from MAM and puts every torrent through the `grab` blocks in order. A bookmark not
+yet selected or in the library is looked at again on every run, so one that turns freeleech is taken the next
+time the list runs. Each bookmark on the list's page links to the torrent's details on the **Search** page.
+
+Use either the list or a bookmarks autograb, not both: Fetchshelf refuses to start with both, as they would select
+the same torrents. To switch, replace the autograb with a `[[bookmarks_list]]`; its `cost` becomes the
+`cost` of a `grab` block, and its filter settings go into that block. See
+[`[[bookmarks_list]]`](configuration.md#bookmarks_list) for every setting.
+
 ## Completing series and following authors
 
 The **Series** page lists every series in the library: its authors, the books it has (*1–4, 6*), the books
@@ -1243,7 +1271,7 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb with a `name`, each `[[hardcover_list]]` and `[[file_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
+Each autograb with a `name`, each `[[hardcover_list]]`, `[[file_list]]` and `[[bookmarks_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
 `wedge_buffer` for what it selects. The values are checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
 apply to torrents already waiting on the **Selected** page.
 
@@ -1600,7 +1628,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
-| **Lists** | The books on your Hardcover lists and list files, and what was found for each. Only in the menu when a `[[hardcover_list]]` or `[[file_list]]` is configured. |
+| **Lists** | The books on your Hardcover lists and list files, and your MAM bookmarks, with what was found for each. Only in the menu when a `[[hardcover_list]]`, `[[file_list]]` or `[[bookmarks_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
 
 ### Account
@@ -1787,7 +1815,8 @@ updated while it keeps failing and disappears once the item succeeds. The jobs t
 - **Download**, **Link** and **Clean**, described below.
 - **Snatchlist**: a snatch list row that couldn't be imported, by MAM id, from before snatchlists were removed
   (see [`[[snatchlist]]` (removed)](configuration.md#snatchlist-removed)). Remove them once read.
-- **Hardcover list** and **File list**: a book a list couldn't search MAM for, linking to its list. A refusal
+- **Hardcover list**, **File list** and **Bookmarks list**: a book a list couldn't search MAM for, or a bookmark
+  it couldn't handle, linking to its list. A refusal
   from MAM that stops the whole run is a failing job instead, not an entry per book.
 - **Audiobookshelf**: a linked torrent that couldn't be matched to an Audiobookshelf item, such as one with no
   author or in a folder no Audiobookshelf library contains. A book Audiobookshelf hasn't scanned yet is not
@@ -1820,7 +1849,7 @@ longer need and use **Remove selected**.
 
 ### Lists
 
-One row per `[[hardcover_list]]` and `[[file_list]]`: where its books come from, how many it has, how many still
+One row per `[[hardcover_list]]`, `[[file_list]]` and `[[bookmarks_list]]`: where its books come from, how many it has, how many still
 miss a format, and when it was last read. Lists removed from the configuration are shown below, with what was found for them.
 
 A list's page shows its books in the order of the list. For each format the list looks for, it says what
@@ -1832,6 +1861,11 @@ link, for a Hardcover list a link to the book on Hardcover, and **Mark done**, w
 that back. A book still missing a format also has **Search again**, which has the list's next run search MAM for it
 whenever it was last searched. Show only the books missing a format with the dropdown, and tick **Include books no
 longer on the list** to see those too.
+
+The bookmarks list's page shows the bookmarks newest first. Each has one format, the torrent's own, and a
+**Torrent details** link to it on the **Search** page instead of **Search MAM**. A bookmark can also show *On MAM,
+but none of the list's grab blocks' filters takes it*. A bookmark has no search schedule, as it is looked at again
+on every run of the list.
 
 ### Config
 
@@ -1857,6 +1891,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
 | File list (one per `[[file_list]]`) | Reads the list file, then does what a Hardcover list does. | Same. |
+| Bookmarks list (`[[bookmarks_list]]`) | Reads the MAM bookmarks and selects those its `grab` blocks take. | Same. |
 | Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
@@ -1865,7 +1900,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Seeding | Estimates from qBittorrent's seeding time which torrents still need seeding (see [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)). | Every `[seeding]` `interval` minutes, hourly by default. |
 
 Autograb and list jobs are named after the block's `name`, or `autograb[0]`,
-`hardcover_list[0]`, `file_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
+`hardcover_list[0]`, `file_list[0]`, `bookmarks_list` and so on if it has none. Give your blocks names so the Jobs page is
 easy to read. Below the jobs, the page lists each kind of optional job you have not configured, such as
 *Hardcover list is not configured*.
 

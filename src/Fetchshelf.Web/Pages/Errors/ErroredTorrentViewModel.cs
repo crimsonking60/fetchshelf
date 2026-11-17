@@ -30,10 +30,15 @@ public sealed record ErroredTorrentViewModel(
         {
             case ErrorStage.Snatchlist:
                 return Plain(entity, "MAM id", entity.Key, torrentIdsByMamId.GetValueOrDefault(entity.Key));
-            case ErrorStage.HardcoverList or ErrorStage.FileList:
+            case ErrorStage.HardcoverList or ErrorStage.FileList or ErrorStage.BookmarksList:
                 // The key is the list's id and the book's id, joined with a space; book ids hold no spaces.
                 var split = entity.Key.LastIndexOf(' ');
-                var keyLabel = entity.Stage == ErrorStage.HardcoverList ? "Hardcover id" : "Book id";
+                var keyLabel = entity.Stage switch
+                {
+                    ErrorStage.HardcoverList => "Hardcover id",
+                    ErrorStage.BookmarksList => "MAM id",
+                    _ => "Book id",
+                };
                 return Plain(entity, keyLabel, split < 0 ? entity.Key : entity.Key[(split + 1)..], null) with
                 {
                     ListId = split < 0 ? null : entity.Key[..split],
@@ -79,6 +84,7 @@ public sealed record ErroredTorrentViewModel(
         ErrorStage.Snatchlist => "Snatchlist",
         ErrorStage.HardcoverList => "Hardcover list",
         ErrorStage.FileList => "File list",
+        ErrorStage.BookmarksList => "Bookmarks list",
         ErrorStage.Audiobookshelf => "Audiobookshelf",
         ErrorStage.Follow => "Follow",
         ErrorStage.Upgrade => "Upgrade",

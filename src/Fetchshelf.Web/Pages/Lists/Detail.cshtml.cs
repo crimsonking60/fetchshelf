@@ -40,6 +40,9 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
     /// <summary>Whether the list's books come from a file rather than Hardcover.</summary>
     public bool IsFile { get; private set; }
 
+    /// <summary>Whether the list is the MAM bookmarks, whose books are torrents: never searched for, looked at on every run.</summary>
+    public bool IsBookmarks { get; private set; }
+
     /// <summary>A configured file list's `path`.</summary>
     public string? FilePath { get; private set; }
 
@@ -65,7 +68,9 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         (ListId, ListName, UpdatedAt) = list is not null
             ? (list.Id, list.Name, list.UpdatedAt)
             : (id, configured!.DisplayName, (DateTimeOffset?)null);
-        IsFile = (list?.ListType ?? configured!.ListType) == "File";
+        var listType = list?.ListType ?? configured!.ListType;
+        IsFile = listType == "File";
+        IsBookmarks = listType == ListDefinition.BookmarksListType;
         FilePath = configured?.FilePath;
         PageSize = PageSizeCookie.Apply(HttpContext, "lists", PageSize);
 
@@ -86,7 +91,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         TotalCount = shown.Count;
         (var page, PageNumber, TotalPages) = Paging.Slice(shown, TotalCount, PageNumber, PageSize);
         var torrentIds = await TorrentIdsByMamIdAsync(page);
-        Items = page.Select(i => ToViewModel(i, torrentIds)).ToList();
+        Items = page.Select(i => ToViewModel(i, torrentIds, IsBookmarks)).ToList();
         return Page();
     }
 
@@ -150,7 +155,8 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         return torrents.GroupBy(t => t.MamId).ToDictionary(g => g.Key, g => g.First().Id);
     }
 
-    private static ListItemViewModel ToViewModel(ListItemEntity entity, Dictionary<long, string> torrentIds)
+    /// <param name="isBookmark">A bookmark is a torrent: its link is the torrent's details, and it has no search schedule.</param>
+    private static ListItemViewModel ToViewModel(ListItemEntity entity, Dictionary<long, string> torrentIds, bool isBookmark)
     {
         var authors = JsonSerializer.Deserialize<List<string>>(entity.AuthorsJson) ?? [];
         return new ListItemViewModel
@@ -164,13 +170,14 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
             CoverUrl = entity.CoverUrl,
             BookUrl = entity.BookUrl,
             MamSearchUrl = $"/?Q={Uri.EscapeDataString(ListMamQueryBuilder.Build(entity.BookTitle, authors))}",
+            TorrentDetailsUrl = isBookmark ? $"/search/{Uri.EscapeDataString(entity.ExternalId)}" : null,
             Audio = entity.AllowAudio ? Side(entity.AudioStatus, entity.AudioMamId, "audiobook", torrentIds) : null,
             Ebook = entity.AllowEbook ? Side(entity.EbookStatus, entity.EbookMamId, "ebook", torrentIds) : null,
             MarkedDone = entity.MarkedDoneAt is not null,
             Removed = entity.RemovedAt is not null,
-            CanSearchAgain = entity.LastSearchedAt is not null && entity.RemovedAt is null
+            CanSearchAgain = !isBookmark && entity.LastSearchedAt is not null && entity.RemovedAt is null
                 && (Missing(entity.AllowAudio, entity.AudioStatus, entity) || Missing(entity.AllowEbook, entity.EbookStatus, entity)),
-            NextSearch = entity.RemovedAt is null && entity.MarkedDoneAt is null
+            NextSearch = !isBookmark && entity.RemovedAt is null && entity.MarkedDoneAt is null
                 ? ListSearchSchedule.NextSearch(entity.LastSearchedAt, entity.MissingSince, DateTimeOffset.UtcNow)
                 : null,
             MissingSince = entity.MissingSince,
@@ -188,6 +195,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
             ListItemSideStatus.Wanted => new("On MAM, but it costs more than the list's grab blocks allow", null),
             ListItemSideStatus.NotWanted => new($"Not wanted: the list prefers the other format to the {format}", null),
             ListItemSideStatus.NotFound => new("Not found on MAM", null),
+            ListItemSideStatus.NoGrabBlock => new("On MAM, but none of the list's grab blocks' filters takes it", null),
             _ => new(status, null),
         };
     }

@@ -157,6 +157,15 @@ public sealed class ConfigCheckTests : IDisposable
         Assert.False(File.Exists(ConfigPath));
     }
 
+    [Fact]
+    public void Run_BookmarksList_IsAJob()
+    {
+        var (exitCode, output) = Check("mam_id = \"session\"\n[[bookmarks_list]]\nsearch_interval = 120\n[[bookmarks_list.grab]]\n");
+
+        Assert.Equal(0, exitCode);
+        Assert.Matches(@"bookmarks_list\s+MAM bookmarks, 1 grab block, every 120 min", output);
+    }
+
     private const string FileListConfig = """
         mam_id = "session"
 

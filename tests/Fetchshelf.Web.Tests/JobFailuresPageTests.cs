@@ -123,6 +123,21 @@ public partial class JobFailuresPageTests
     }
 
     [Fact]
+    public async Task ErrorsPage_BookmarksListError_ShowsItsMamId_AndLinksToTheList()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Errors");
+        await AddErrorAsync(fixture, ErrorStage.BookmarksList, "mam:bookmarks 11", "Dune");
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Errors"));
+
+        Assert.Contains("<td class=\"nowrap\">Bookmarks list</td>", html);
+        Assert.Contains("<a href=\"/Lists/Detail/mam%3Abookmarks\">Dune</a>", html);
+        Assert.Contains("MAM id 11", html);
+    }
+
+    [Fact]
     public async Task ErrorsPage_StageFilter_ShowsOnlyThatJobsRows()
     {
         using var fixture = new FetchshelfWebAppFixture();

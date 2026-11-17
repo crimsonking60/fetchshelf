@@ -131,6 +131,9 @@ public sealed class FetchshelfSettings
     /// <summary>Repeatable `[[file_list]]` entries.</summary>
     public List<FileListEntry> FileList { get; set; } = [];
 
+    /// <summary>Repeatable in form, `[[bookmarks_list]]`, but at most one.</summary>
+    public List<BookmarksListEntry> BookmarksList { get; set; } = [];
+
     /// <summary>Optional `[follow]` section. Null when not configured, and then series and authors can't be followed.</summary>
     public FollowSettings? Follow { get; set; }
 

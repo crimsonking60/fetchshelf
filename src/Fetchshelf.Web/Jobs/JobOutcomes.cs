@@ -108,10 +108,12 @@ public static class JobOutcomes
         return Finish(
             DryRun(
                 summary.DryRun,
-                $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "
+                (summary.Bookmarks
+                    ? $"{Count(summary.Books, "bookmark", "bookmarks")}, {summary.Searched} looked at, {summary.Selected} "
+                    : $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} ")
                     + (summary.DryRun ? "would have been selected" : "selected") + unreadable),
             summary.Failed,
-            "could not be searched for; see the Errors page",
+            summary.Bookmarks ? "could not be handled; see the Errors page" : "could not be searched for; see the Errors page",
             counts);
     }
 
