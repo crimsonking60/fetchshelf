@@ -66,14 +66,18 @@ code, kbd, samp, .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia M
 .theme-switcher label { color: var(--text-muted); font-size: 0.8125rem; }
 .theme-switcher select { padding: 0.2rem 0.4rem; }
 
+/* The content's widest: 90rem plus half the window beyond 90rem, so a wide screen's blank side margins are half what a
+   fixed 90rem would leave. A window narrower than 90rem is filled as before. */
+:root { --content-max-width: calc(50% + 45rem); }
+
 main {
-    max-width: 90rem;
+    max-width: var(--content-max-width);
     margin: 0 auto;
     padding: 1.25rem 1.25rem 2rem;
 }
 
 /* The footer lines up with the page's content: the line spans the content's width, not the window's. */
-.site-footer { max-width: 90rem; margin: 0 auto; padding: 0 1.25rem 1.5rem; }
+.site-footer { max-width: var(--content-max-width); margin: 0 auto; padding: 0 1.25rem 1.5rem; }
 .site-footer-row {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; flex-wrap: wrap;
     padding-top: 0.75rem; border-top: 1px solid var(--border);
