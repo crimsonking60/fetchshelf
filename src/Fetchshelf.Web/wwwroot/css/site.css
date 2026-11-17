@@ -459,6 +459,14 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .key-values { width: auto; }
 .key-values th { width: 14rem; vertical-align: top; font-weight: 600; }
 .key-values td { vertical-align: top; }
+
+/* The Account page's charts: small line charts in the accent color, side by side as room allows. */
+.history-charts { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; margin: 0.5rem 0 1rem; }
+.history-chart { margin: 0; }
+.history-chart figcaption { margin-bottom: 0.25rem; }
+.sparkline { display: block; max-width: 100%; height: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; }
+.sparkline polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.sparkline circle { fill: var(--accent); }
 .account-strip { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0 0 1rem; }
 .account-strip .notice { flex-basis: 100%; margin: 0; }
 

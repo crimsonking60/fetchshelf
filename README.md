@@ -58,6 +58,7 @@ setup. If you use one, please report how it went, good or bad (see
 - `hardlink_or_copy` and `hardlink_or_symlink` falling back only when a hardlink isn't possible there, and the tag-rule
   preview on the Config page.
 - `folder_names = "portable"` and `folder_template` in `[[library]]`, and folder names shortened to 255 bytes.
+- The Account page's "Over time" section: one snapshot of the account a day, its charts and the CSV download.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.

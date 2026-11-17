@@ -3,10 +3,13 @@ using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data;
+using Fetchshelf.Data.Account;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Hosting;
 
@@ -30,6 +33,15 @@ public static class ClientServices
         services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
         services.AddSingleton<MamAccessGate>();
         services.AddSingleton<MamPageGate>();
+        if (settings.BackgroundJobsEnabled)
+        {
+            services.AddSingleton(sp => new AccountSnapshotRecorder(
+                sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(),
+                sp.GetRequiredService<TimeProvider>(),
+                sp.GetRequiredService<ILogger<AccountSnapshotRecorder>>()));
+            services.AddHostedService<AccountSnapshotRecording>();
+        }
+
         return services;
     }
 

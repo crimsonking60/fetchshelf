@@ -337,6 +337,94 @@ public partial class AccountPageTests
         return await response.Content.ReadAsStringAsync();
     }
 
+    /// <summary>Waits for the recorder, which writes in the background, to have stored the day's snapshot.</summary>
+    private static async Task<List<AccountSnapshotEntity>> SnapshotsAsync(FetchshelfWebAppFixture fixture, int atLeast = 1)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            using var scope = fixture.CreateScope();
+            var rows = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().AccountSnapshots.ToList();
+            if (rows.Count >= atLeast || DateTime.UtcNow > deadline)
+            {
+                return rows;
+            }
+
+            await Task.Delay(20);
+        }
+    }
+
+    [Fact]
+    public async Task AccountPage_AnAccountRead_IsKeptAsTheDaysSnapshot_AndShownOverTime()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+
+        var snapshot = Assert.Single(await SnapshotsAsync(fixture));
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Equal(37, snapshot.Wedges);
+        Assert.Contains("<h3>Over time</h3>", html);
+        Assert.Contains("<svg class=\"sparkline\"", html);
+        Assert.Contains("aria-label=\"Wedges over the last 90 days, from 37 to 37\"", html);
+        Assert.Contains($"<td class=\"nowrap\">{snapshot.Day[..7]}</td>", html);
+        Assert.Contains("href=\"/Account?handler=SnapshotsCsv\"", html);
+    }
+
+    [Fact]
+    public async Task AccountPage_NoSnapshotYet_SaysWhenADayIsRecorded()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+        await SnapshotsAsync(fixture);
+        using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            db.AccountSnapshots.RemoveRange(db.AccountSnapshots);
+            await db.SaveChangesAsync();
+        }
+
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Contains("Nothing recorded yet. A day is recorded once any job has read the account that day.", html);
+        Assert.DoesNotContain("<svg class=\"sparkline\"", html);
+    }
+
+    [Fact]
+    public async Task AccountPage_BeforeAnyReadSinceStartup_StillShowsTheHistory()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs");
+        using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            db.AccountSnapshots.Add(new AccountSnapshotEntity { Day = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), TakenAt = DateTimeOffset.UtcNow, Ratio = 3, Wedges = 4 });
+            await db.SaveChangesAsync();
+        }
+
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Contains("id=\"no-account-read\"", html);
+        Assert.Contains("aria-label=\"Ratio over the last 90 days, from 3 to 3\"", html);
+    }
+
+    [Fact]
+    public async Task SnapshotsCsv_DownloadsEveryDay()
+    {
+        using var fixture = Fixture(MamAccountFixture.Json);
+        var client = await StartAndReadAccountAsync(fixture);
+        var day = Assert.Single(await SnapshotsAsync(fixture)).Day;
+
+        using var response = await client.GetAsync("/Account?handler=SnapshotsCsv");
+        var lines = (await response.Content.ReadAsStringAsync()).TrimEnd('\n').Split('\n');
+
+        Assert.Equal("text/csv", response.Content.Headers.ContentType!.MediaType);
+        Assert.Equal("fetchshelf-account-snapshots.csv", response.Content.Headers.ContentDisposition!.FileName);
+        Assert.Equal(2, lines.Length);
+        Assert.StartsWith(day + ",", lines[1]);
+    }
+
     [GeneratedRegex(@"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""")]
     private static partial Regex AntiforgeryToken();
 }

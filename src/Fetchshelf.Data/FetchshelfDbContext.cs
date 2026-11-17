@@ -30,6 +30,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<DatabaseInfoEntity> DatabaseInfo => Set<DatabaseInfoEntity>();
 
+    public DbSet<AccountSnapshotEntity> AccountSnapshots => Set<AccountSnapshotEntity>();
+
     public DbSet<TorrentPersonEntity> TorrentPeople => Set<TorrentPersonEntity>();
 
     public DbSet<TorrentSeriesEntity> TorrentSeries => Set<TorrentSeriesEntity>();
@@ -173,6 +175,11 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         {
             entity.ToTable("DatabaseInfo");
             entity.HasKey(i => i.Key);
+        });
+
+        modelBuilder.Entity<AccountSnapshotEntity>(entity =>
+        {
+            entity.HasKey(s => s.Day);
         });
 
         modelBuilder.Entity<JobRunEntity>(entity =>

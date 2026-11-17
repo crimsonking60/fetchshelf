@@ -1533,6 +1533,13 @@ Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Err
   the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
   or no longer free.
 
+**Over time:** Fetchshelf keeps one snapshot of the account a day: the last time any job read it that day,
+kept for two years. Nothing extra is asked of MAM, so a day without a read has no snapshot, and the history
+starts on the day the version that keeps it first runs. The section shows the last 90 days as small charts of
+the ratio, the upload, the bonus points and the wedges, a gap marking a day without a snapshot. Below them, a
+table gives each month's last snapshot with the change since the month before: uploaded, downloaded and bonus
+points. **Download every day as CSV** downloads every snapshot kept.
+
 **Bonus points:** with a `[bonus]` section, its settings, what the next run of the Bonus job would buy from
 the points as last read and why it would stop there, when the next wedge is due, and the last purchases.
 Without one, how much upload credit the points would buy. See

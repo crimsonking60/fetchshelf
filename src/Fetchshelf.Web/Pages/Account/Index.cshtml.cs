@@ -4,6 +4,7 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Account;
 
@@ -22,6 +23,9 @@ public class IndexModel(
     /// <summary>The Bonus points section; null until the page is built.</summary>
     public BonusView? Bonus { get; private set; }
 
+    /// <summary>The "Over time" section, from the daily snapshots.</summary>
+    public AccountHistory History { get; private set; } = new([], []);
+
     /// <summary>Who held the gate when Refresh gave up waiting for it; null unless that happened.</summary>
     [TempData]
     public string? BusyWith { get; set; }
@@ -34,6 +38,14 @@ public class IndexModel(
     {
         Summary = await summaryBuilder.BuildAsync(cancellationToken);
         Bonus = await BonusView.BuildAsync(settings.Bonus, Summary.Snapshot?.State.BonusPoints, dbContext, timeProvider, cancellationToken);
+        History = await AccountHistory.LoadAsync(dbContext, timeProvider.GetUtcNow(), cancellationToken);
+    }
+
+    /// <summary>Every daily snapshot as a CSV download.</summary>
+    public async Task<IActionResult> OnGetSnapshotsCsvAsync(CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.AccountSnapshots.AsNoTracking().OrderBy(s => s.Day).ToListAsync(cancellationToken);
+        return File(System.Text.Encoding.UTF8.GetBytes(AccountHistory.Csv(rows)), "text/csv; charset=utf-8", "fetchshelf-account-snapshots.csv");
     }
 
     /// <summary>
