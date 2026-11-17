@@ -33,8 +33,10 @@ public sealed class BackupTests
 
         Assert.Contains("Copies the database into the [backup] folder", html);
         var run = fixture.JobRegistry.Get("Backup")!.LastRun!;
-        Assert.Matches(@"^Backed up .+ to data-\d{8}-\d{6}-scheduled\.db; 1 kept$", run.Summary);
-        Assert.Matches(@"^data-\d{8}-\d{6}-scheduled\.db$", Assert.Single(Backups(fixture)));
+        // Startup recorded the running version in the database, so its backups are named after it.
+        var version = System.Text.RegularExpressions.Regex.Escape(AppVersion.Current.Replace('-', '_'));
+        Assert.Matches($@"^Backed up .+ to data-\d{{8}}-\d{{6}}-{version}-scheduled\.db; 1 kept$", run.Summary);
+        Assert.Matches($@"^data-\d{{8}}-\d{{6}}-{version}-scheduled\.db$", Assert.Single(Backups(fixture)));
     }
 
     [Fact]
@@ -81,6 +83,19 @@ public sealed class BackupTests
         using var copy = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>()
             .UseSqlite($"Data Source={Path.Combine(fixture.DataDirectory, "backups", backup)};Pooling=False").Options);
         Assert.Single(copy.Database.GetPendingMigrations());
+    }
+
+    [Fact]
+    public async Task Startup_RecordsTheRunningVersionInTheDatabase()
+    {
+        using var fixture = new FetchshelfWebAppFixture(BackupConfig);
+        using var client = fixture.CreateClient();
+
+        await client.GetStringAsync("/Jobs");
+
+        using var context = new FetchshelfDbContext(new DbContextOptionsBuilder<FetchshelfDbContext>()
+            .UseSqlite($"Data Source={Path.Combine(fixture.DataDirectory, "data.db")};Pooling=False").Options);
+        Assert.Equal(AppVersion.Current, FetchshelfVersionRecord.Read(context));
     }
 
     [Fact]

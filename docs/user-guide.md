@@ -1871,8 +1871,8 @@ Before you update:
 2. Back up your config and database folders (see [Backups](#backups-and-moving-to-a-new-machine)). Keep the
    backup until you are happy with the new version: it is the only way back. With a
    [`[backup]`](configuration.md#backup) section, Fetchshelf also backs up the database itself when the new
-   version starts, before it changes anything, as `data-<date>-before-<version>.db`; `config.toml` still needs a
-   copy of your own.
+   version starts, before it changes anything, as `data-<date>-<old version>-before-<new version>.db`;
+   `config.toml` still needs a copy of your own.
 
 With Docker:
 
@@ -1893,7 +1893,8 @@ docker compose up -d fetchshelf
 - The database is upgraded automatically when the new version starts.
 - **Going back to an older version is not supported.** The upgrade changes the database and nothing undoes
   those changes. An older version starts on the changed database without any warning, but can then fail.
-  To go back, stop Fetchshelf, restore the backup you took before upgrading, and start the older version.
+  To go back, stop Fetchshelf, restore the backup you took before upgrading, and start the older version. In the
+  releases after 2026.11.11, an older version that starts on a database a newer one has used says so in the log.
 
   Restoring the backup winds back only Fetchshelf's own records, in `data.db`, to the moment you took it.
   Everything outside it stays as it is: the downloads in qBittorrent, the files in your library,
@@ -1950,9 +1951,11 @@ To restore one:
 2. In the database folder, move `data.db` aside, and delete `data.db-wal` and `data.db-shm` if they are there:
    they belong to the old `data.db`, and SQLite would apply them to the restored one.
 3. Copy the backup into the database folder as `data.db`, owned by the same `PUID` / `PGID` as before.
-4. Start the version that made the backup, or a newer one. A `before-<version>` backup was made by the version
-   before `<version>`: restoring it is how to go back after an upgrade (see
-   [Updating Fetchshelf](#updating-fetchshelf) for what restoring winds back).
+4. Start the version named in the backup, or a newer one: `data-20261210-031500-2026.12.1-before-2026.12.2.db`
+   needs 2026.12.1. Restoring a `before-<version>` backup and starting the version named first is how to go back
+   after an upgrade (see [Updating Fetchshelf](#updating-fetchshelf) for what restoring winds back). A backup
+   without a version in its name is from 2026.11.11 or earlier; a `before-<version>` one of those was made by the
+   version before `<version>`.
 
 ### Copying the folders by hand
 

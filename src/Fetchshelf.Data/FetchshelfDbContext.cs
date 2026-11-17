@@ -28,6 +28,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<NotificationStateEntity> NotificationStates => Set<NotificationStateEntity>();
 
+    public DbSet<DatabaseInfoEntity> DatabaseInfo => Set<DatabaseInfoEntity>();
+
     public DbSet<TorrentPersonEntity> TorrentPeople => Set<TorrentPersonEntity>();
 
     public DbSet<TorrentSeriesEntity> TorrentSeries => Set<TorrentSeriesEntity>();
@@ -165,6 +167,12 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         modelBuilder.Entity<NotificationStateEntity>(entity =>
         {
             entity.HasKey(s => s.Key);
+        });
+
+        modelBuilder.Entity<DatabaseInfoEntity>(entity =>
+        {
+            entity.ToTable("DatabaseInfo");
+            entity.HasKey(i => i.Key);
         });
 
         modelBuilder.Entity<JobRunEntity>(entity =>
