@@ -267,4 +267,69 @@ public sealed class DatabaseBackupTests : IDisposable
                 "data-20261111-031500-before-2026.11.10.db"],
             Directory.GetFiles(BackupFolder).Select(Path.GetFileName).Order(StringComparer.Ordinal));
     }
+
+    [Fact]
+    public void Create_DatabaseWithAVersionOnRecord_PutsItInTheName()
+    {
+        SeedDatabase();
+        using (var context = CreateContext())
+        {
+            FetchshelfVersionRecord.RecordStartup(context, "2026.11.11", Now);
+        }
+
+        var backup = DatabaseBackup.Create(DataFile, BackupFolder, DatabaseBackup.ScheduledReason, Now);
+
+        Assert.Equal(Path.Combine(BackupFolder, "data-20261111-031500-2026.11.11-scheduled.db"), backup.Path);
+        using var copy = OpenBackup(backup.Path);
+        Assert.Equal("2026.11.11", FetchshelfVersionRecord.Read(copy));
+    }
+
+    [Theory]
+    [InlineData(null, "scheduled", "data-20261111-031500-scheduled.db")]
+    [InlineData("2026.11.11", "scheduled", "data-20261111-031500-2026.11.11-scheduled.db")]
+    [InlineData("2026.11.11", "before-2026.11.12", "data-20261111-031500-2026.11.11-before-2026.11.12.db")]
+    [InlineData("edge-abc123", "scheduled", "data-20261111-031500-edge_abc123-scheduled.db")]
+    [InlineData("a/b c", "scheduled", "data-20261111-031500-a_b_c-scheduled.db")]
+    public void FileName_HasTheVersionWhenThereIsOne(string? version, string reason, string expected) =>
+        Assert.Equal(expected, DatabaseBackup.FileName(Now, version, reason));
+
+    [Fact]
+    public void RunScheduled_CountsBackupsWithAndWithoutAVersionTogether()
+    {
+        SeedDatabase();
+        for (var day = 3; day <= 4; day++)
+        {
+            DatabaseBackup.Create(DataFile, BackupFolder, DatabaseBackup.ScheduledReason, Now.AddDays(-day));
+        }
+
+        using (var context = CreateContext())
+        {
+            FetchshelfVersionRecord.RecordStartup(context, "edge-abc123", Now);
+        }
+
+        DatabaseBackup.Create(DataFile, BackupFolder, DatabaseBackup.ScheduledReason, Now.AddDays(-2));
+        DatabaseBackup.Create(DataFile, BackupFolder, DatabaseBackup.BeforeUpgradeReason("2026.11.9"), Now.AddDays(-1));
+
+        var summary = DatabaseBackup.RunScheduled(DataFile, BackupFolder, keep: 2, Now);
+
+        Assert.Equal(2, summary.Kept);
+        Assert.Equal(
+            // Both backups named without a version were older than the two kept, so they are gone.
+            ["data-20261109-031500-edge_abc123-scheduled.db",
+                "data-20261110-031500-edge_abc123-before-2026.11.9.db", "data-20261111-031500-edge_abc123-scheduled.db"],
+            Directory.GetFiles(BackupFolder).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void BeforeUpgrade_NamesTheVersionTheDatabaseIsFor_AndTheOneItUpgradesTo()
+    {
+        SeedDatabase();
+        using var context = CreateContext();
+        FetchshelfVersionRecord.RecordStartup(context, "2026.11.11", Now);
+        context.Database.ExecuteSqlRaw("PRAGMA user_version = 1;");
+
+        var backup = DatabaseBackup.BeforeUpgrade(context, DataFile, BackupFolder, "2026.11.12", keep: 3, Now);
+
+        Assert.Equal(Path.Combine(BackupFolder, "data-20261111-031500-2026.11.11-before-2026.11.12.db"), backup!.Path);
+    }
 }

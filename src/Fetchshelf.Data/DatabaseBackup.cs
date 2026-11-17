@@ -13,8 +13,10 @@ public sealed record DatabaseBackupRunSummary(DatabaseBackupFile Backup, int Kep
 
 /// <summary>
 /// Copies the database with SQLite's online backup API, which takes a consistent copy while Fetchshelf reads and writes,
-/// with or without the write-ahead log. Backups are named <c>data-&lt;UTC yyyyMMdd-HHmmss&gt;-&lt;reason&gt;.db</c>, and
-/// pruning only ever deletes files of that shape.
+/// with or without the write-ahead log. Backups are named <c>data-&lt;UTC yyyyMMdd-HHmmss&gt;-&lt;version&gt;-&lt;reason&gt;.db</c>,
+/// where the version is the one that last started on the database (<see cref="FetchshelfVersionRecord"/>), the one to
+/// run on the backup. A database from before that record has no version in its backups' names. Pruning only ever
+/// deletes files of these shapes.
 /// </summary>
 public static partial class DatabaseBackup
 {
@@ -42,14 +44,16 @@ public static partial class DatabaseBackup
         }
 
         Directory.CreateDirectory(backupFolder);
-        var path = System.IO.Path.Combine(backupFolder, $"data-{now.UtcDateTime.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}-{reason}.db");
-        var partial = path + ".partial";
-        DeleteCopy(partial);
+        string? path = null;
+        string? partial = null;
         try
         {
             using (var source = Open(dataFile, SqliteOpenMode.ReadWrite))
-            using (var copy = Open(partial, SqliteOpenMode.ReadWriteCreate))
             {
+                path = System.IO.Path.Combine(backupFolder, FileName(now, FetchshelfVersionRecord.Read(source), reason));
+                partial = path + ".partial";
+                DeleteCopy(partial);
+                using var copy = Open(partial, SqliteOpenMode.ReadWriteCreate);
                 source.BackupDatabase(copy);
                 Execute(copy, "PRAGMA journal_mode=DELETE;");
                 using var check = copy.CreateCommand();
@@ -65,11 +69,27 @@ public static partial class DatabaseBackup
         }
         catch
         {
-            DeleteCopy(partial);
+            if (partial is not null)
+            {
+                DeleteCopy(partial);
+            }
+
             throw;
         }
 
         return new DatabaseBackupFile(path, new FileInfo(path).Length);
+    }
+
+    /// <summary>
+    /// <c>data-20261111-031500-2026.11.11-scheduled.db</c>, or without the version when the database has none on record.
+    /// A <c>-</c> in the version, as in <c>edge-&lt;commit&gt;</c>, becomes <c>_</c>, so the name reads back unambiguously.
+    /// </summary>
+    public static string FileName(DateTimeOffset now, string? version, string reason)
+    {
+        var stamp = now.UtcDateTime.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        return version is null
+            ? $"data-{stamp}-{reason}.db"
+            : $"data-{stamp}-{UnsafeNameCharacters().Replace(version, "_").Replace('-', '_')}-{reason}.db";
     }
 
     /// <summary>One run of the Backup job: a scheduled backup, then the oldest scheduled ones beyond <paramref name="keep"/> deleted.</summary>
@@ -158,7 +178,8 @@ public static partial class DatabaseBackup
         File.Delete(partial + "-journal");
     }
 
-    [GeneratedRegex(@"^data-\d{8}-\d{6}-(?<reason>[A-Za-z0-9._-]+)\.db$")]
+    /// <summary>A backup's name, with the version or, from before the version record, without it.</summary>
+    [GeneratedRegex(@"^data-\d{8}-\d{6}-(?:(?<version>[A-Za-z0-9._]+)-)?(?<reason>scheduled|before-[A-Za-z0-9._-]+)\.db$")]
     private static partial Regex BackupName();
 
     [GeneratedRegex(@"[^A-Za-z0-9._-]")]

@@ -754,10 +754,12 @@ version changes the database. Without this section Fetchshelf takes no backups. 
 | `keep` | `7` | How many of the Backup job's backups are kept, `1` to `365`. After each one, the oldest beyond that are deleted. |
 | `before_upgrade` | `true` | Back up at startup when the new version is about to change the database. These are kept apart from `keep`: the last 3. |
 
-- **Names.** Each backup is one file, `data-<UTC date and time>-<reason>.db`: `data-20261111-031500-scheduled.db`
-  from the Backup job, `data-20261111-031500-before-2026.11.10.db` before upgrading to 2026.11.10. It holds
-  everything and needs no `-wal` or `-shm` file next to it. Fetchshelf only ever deletes files named like this, so
-  the folder can hold other files too.
+- **Names.** Each backup is one file, `data-<UTC date and time>-<version>-<reason>.db`. The version is the one to
+  run on the backup: the version that last started on the database. `data-20261205-031500-2026.12.1-scheduled.db`
+  is from the Backup job, and `data-20261210-031500-2026.12.1-before-2026.12.2.db` was taken before upgrading from
+  2026.12.1 to 2026.12.2. A backup of a database no release after 2026.11.11 has started on has no version in
+  its name, as in `data-20261111-031500-scheduled.db`. A backup holds everything and needs no `-wal` or `-shm` file
+  next to it. Fetchshelf only ever deletes files named like this, so the folder can hold other files too.
 - **Checked before it counts.** A backup is written under a temporary name, checked with SQLite's integrity check,
   and only then given its name. One that fails is deleted, and the Backup job's run fails, which
   [`job_failing`](#notification-events) reports like any other job.

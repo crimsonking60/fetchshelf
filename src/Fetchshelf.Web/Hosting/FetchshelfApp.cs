@@ -190,6 +190,16 @@ public static class FetchshelfApp
         }
 
         DatabaseMigrator.Migrate(startupDbContext, settings.DatabaseWal, message => Log.Information("{Upgrade}", message));
+        if (FetchshelfVersionRecord.RecordStartup(startupDbContext, AppVersion.Current, DateTimeOffset.UtcNow) is { } newer)
+        {
+            // Going back to an older version needs the backup taken before the upgrade; this is the moment to say so.
+            Log.Warning(
+                "This database was last used by Fetchshelf {Recorded}, which is newer than this {Current}. A newer version "
+                + "may have changed the database in ways this one doesn't know, and that can fail later. To go back to "
+                + "{Current}, stop Fetchshelf and restore a backup whose name has {Current} or an older version in it",
+                newer, AppVersion.Current, AppVersion.Current);
+        }
+
         return true;
     }
 }
