@@ -3,6 +3,7 @@ using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Notifications;
 using Fetchshelf.Data;
+using Fetchshelf.Data.Account;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Notifications;
@@ -169,6 +170,16 @@ public static class FetchshelfJobs
 
             return JobOutcomes.Download(summary);
         }, "Sends queued, selected torrents to qBittorrent.");
+    }
+
+    /// <summary>
+    /// Hands every account read to <see cref="AccountSnapshotRecorder"/>, which keeps the day's snapshot. The handler runs
+    /// on the thread of the MAM call, so it only hands the read over.
+    /// </summary>
+    public static void ConnectAccountSnapshots(IServiceProvider services)
+    {
+        var recorder = services.GetRequiredService<AccountSnapshotRecorder>();
+        services.GetRequiredService<MamClient>().AccountStateRead += (previous, current) => recorder.Enqueue(current);
     }
 
     /// <summary>

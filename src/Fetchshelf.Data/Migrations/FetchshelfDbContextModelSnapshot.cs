@@ -17,6 +17,43 @@ namespace Fetchshelf.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.AccountSnapshotEntity", b =>
+                {
+                    b.Property<string>("Day")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("BonusPoints")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ClassName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DownloadedBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("Ratio")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTimeOffset>("TakenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UnsatCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UnsatLimit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UploadedBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Wedges")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Day");
+
+                    b.ToTable("AccountSnapshots");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.DatabaseInfoEntity", b =>
                 {
                     b.Property<string>("Key")

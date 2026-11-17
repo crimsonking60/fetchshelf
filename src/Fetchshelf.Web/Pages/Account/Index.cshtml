@@ -133,6 +133,57 @@ else
     </table>
 }
 
+@* Shown even before the first read since startup: the history is in the database. *@
+<h3>Over time</h3>
+<div id="account-history">
+    @if (Model.History.IsEmpty)
+    {
+        <p class="empty">Nothing recorded yet. A day is recorded once any job has read the account that day.</p>
+    }
+    else
+    {
+        <p class="muted">The last @Fetchshelf.Web.Pages.Account.AccountHistory.ChartDays days, one value a day: the account's last read that day. A day without any read is a gap.</p>
+        <div class="history-charts">
+            @foreach (var chart in Model.History.Charts)
+            {
+                <figure class="history-chart">
+                    <figcaption><strong>@chart.Title</strong>@if (chart.From is not null)
+                        {
+                            <span class="muted"> @chart.From → @chart.To</span>
+                        }</figcaption>
+                    @Html.Raw(chart.Svg)
+                </figure>
+            }
+        </div>
+        <table id="account-months">
+            <thead><tr><th>Month</th><th>Ratio</th><th>Uploaded</th><th>Downloaded</th><th>Bonus points</th><th>Wedges</th></tr></thead>
+            <tbody>
+                @foreach (var month in Model.History.Months)
+                {
+                    <tr>
+                        <td class="nowrap">@month.Month</td>
+                        <td>@month.Ratio.ToString("0.##", CultureInfo.InvariantCulture)</td>
+                        <td class="nowrap">@DownloadBudget.FormatBytes(month.UploadedBytes)@if (month.UploadedChange is { } uploaded)
+                            {
+                                <br /><span class="muted">+@DownloadBudget.FormatBytes(uploaded)</span>
+                            }</td>
+                        <td class="nowrap">@DownloadBudget.FormatBytes(month.DownloadedBytes)@if (month.DownloadedChange is { } downloaded)
+                            {
+                                <br /><span class="muted">+@DownloadBudget.FormatBytes(downloaded)</span>
+                            }</td>
+                        <td class="nowrap">@(month.BonusPoints is { } points ? points.ToString("N0", CultureInfo.InvariantCulture) : "")@if (month.BonusPointsChange is { } pointsChange)
+                            {
+                                <br /><span class="muted">@(pointsChange >= 0 ? "+" : "−")@Math.Abs(pointsChange).ToString("N0", CultureInfo.InvariantCulture)</span>
+                            }</td>
+                        <td>@month.Wedges.ToString("N0", CultureInfo.InvariantCulture)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="muted">Each month's last recorded day, and under it the change since the month before's. <a asp-page="/Account/Index" asp-page-handler="SnapshotsCsv">Download every day as CSV</a></p>
+    }
+</div>
+
 @if (Model.Bonus is { } bonusView)
 {
     <h3>Bonus points</h3>

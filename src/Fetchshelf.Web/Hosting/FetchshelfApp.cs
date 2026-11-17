@@ -136,6 +136,11 @@ public static class FetchshelfApp
             FetchshelfJobs.ConnectMamNotifications(app.Services);
         }
 
+        if (settings.BackgroundJobsEnabled)
+        {
+            FetchshelfJobs.ConnectAccountSnapshots(app.Services);
+        }
+
         // Before the schedulers start, which plan each job's first run from its last one.
         var jobRegistry = app.Services.GetRequiredService<IJobRegistry>();
         await jobRegistry.LoadLastRunsAsync();
