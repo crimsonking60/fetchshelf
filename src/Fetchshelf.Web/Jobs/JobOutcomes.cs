@@ -88,16 +88,6 @@ public static class JobOutcomes
         return new JobOutcome(DryRun(summary.DryRun, line), counts);
     }
 
-    public static JobOutcome Snatchlist(SnatchlistRunSummary summary) => Finish(
-        DryRun(
-            summary.DryRun,
-            summary.DryRun
-                ? $"{Count(summary.Rows, "row", "rows")} read, {summary.Recorded} would have been recorded, {summary.Updated} would have been updated"
-                : $"{Count(summary.Rows, "row", "rows")} read, {summary.Recorded} recorded, {summary.Updated} updated"),
-        summary.Failed,
-        "could not be imported; see the Errors page",
-        new() { ["rows"] = summary.Rows, ["recorded"] = summary.Recorded, ["updated"] = summary.Updated, ["failed"] = summary.Failed });
-
     public static JobOutcome HardcoverList(HardcoverListRunSummary summary) => Finish(
         DryRun(
             summary.DryRun,

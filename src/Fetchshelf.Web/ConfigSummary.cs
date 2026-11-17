@@ -139,14 +139,6 @@ public static class ConfigSummary
                 $"autograb {type}, cost {Underscored(entry.Cost.ToString())}, {Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }
 
-        for (var i = 0; i < settings.Snatchlist.Count; i++)
-        {
-            var entry = settings.Snatchlist[i];
-            rows.Add((AutoDownloaderJobNames.Snatchlist(entry, i),
-                $"snatchlist {Underscored(entry.Type.ToString())}, cost {Underscored(entry.Cost.ToString())}, " +
-                $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
-        }
-
         for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
             var entry = settings.HardcoverList[i];

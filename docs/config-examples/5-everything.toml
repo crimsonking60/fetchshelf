@@ -42,7 +42,7 @@ database_wal = true # SQLite write-ahead log, for a responsive UI during long jo
                     # only turn it on if the database is on a local disk, not a network share (NFS/SMB)
 
 # Intervals are in minutes. 0 means "only when started from the UI".
-search_interval = 30     # default for every autograb and snatchlist block
+search_interval = 30     # default for every autograb and Hardcover list
 link_interval = 10       # how often finished torrents are scanned and linked
 
 # MAM torrent ids that must never be selected, as strings.
@@ -132,7 +132,7 @@ password = "replace-with-your-qbittorrent-admin-password"
 # =====================================================================================================
 
 # This block sets every autograb option and every field of the shared torrent filter. The same filter
-# fields are available on [[tag]] and [[snatchlist]] (with limits).
+# fields are available on [[tag]].
 [[autograb]]
 # --- autograb-only options ---
 type = "new"           # "bookmarks", "freeleech", "new" (alias "torrents"), "mine", or { uploader = <id> }
@@ -202,21 +202,6 @@ name = "My uploads as metadata"
 type = "mine"
 cost = "metadata_only_add" # also creates a metadata-only entry for torrents not stored yet
 sort_by = "random"
-
-# =====================================================================================================
-# [[snatchlist]]: repeatable. Reads your snatch lists and refreshes stored torrents; with
-# "metadata_only_add" also records the rest as metadata-only entries. Never downloads.
-# 'languages', 'uploaded_after' and 'uploaded_before' are not allowed here; the rest of the shared
-# filter is.
-# =====================================================================================================
-[[snatchlist]]
-type = "unsat"           # unsat, inact_unsat, seed_unsat, seed_sat, inact_sat, uploads_active
-cost = "metadata_only"   # refresh stored torrents only; "metadata_only_add" also adds the rest
-max_pages = 20           # snatch list pages to read (default 50); MAM decides their size
-search_interval = 60     # overrides the global search_interval
-dry_run = false
-media_type = ["Audiobook", "Ebook"]
-max_size = "10 GiB"
 
 # =====================================================================================================
 # [opds]: optional. Serves the ebook libraries as an OPDS catalog at http://<fetchshelf>/opds, for

@@ -24,7 +24,6 @@ to `5-everything.toml`, which uses every option.
 - [The shared torrent filter](#the-shared-torrent-filter)
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
-- [`[[snatchlist]]`](#snatchlist)
 - [`[[hardcover_list]]`](#hardcover_list)
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
@@ -57,7 +56,7 @@ to `5-everything.toml`, which uses every option.
   section` for one without a `name`).
 - **Filter values are checked at startup too.** The names and values in every
   [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
-  dates) are checked for every `[[autograb]]`, `[[snatchlist]]`, `[[hardcover_list.grab]]` block and `[[tag]]`
+  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]` block and `[[tag]]`
   rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
 - **Checking a file before restarting.** See [Checking a configuration](#checking-a-configuration).
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
@@ -116,8 +115,6 @@ Fetchshelf has two halves that can be used independently.
 ```
 [[autograb]]        search MAM on a schedule        ───▶ selection ─▶ download ─▶ qBittorrent
                                                             ▲
-[[snatchlist]]      import what you already own             │ (metadata only, for duplicate detection)
-                                                            │
 [[hardcover_list]]  books you want, from Hardcover ─────────┤
                                                             │
 [follow]            followed series and authors ────────────┘
@@ -175,7 +172,7 @@ These go at the top of the file, before any section.
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
-| `search_interval` | `30` | Minutes between runs of each autograb and snatchlist block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
+| `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
 | `extra_categories` | `[]` | qBittorrent categories the web UI offers alongside the ones your `[[library]]` blocks use, such as `["seed-only"]`, for torrents that belong in no library. They appear, marked *no library*, in **Set category** and **Set category and tags** on the **Torrents** pages and in **Download into** on the Search page. A torrent in one is never linked, unless a library picks it up by its save path. |
@@ -195,7 +192,7 @@ Notes:
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
   `audio_types` and `ebook_types` for linking.
-- **Intervals** are per job: each `[[autograb]]` and `[[snatchlist]]` block runs on its own timer. A job
+- **Intervals** are per job: each `[[autograb]]` block runs on its own timer. A job
   with interval `0` is still listed on the Jobs page and can be started with **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
   you have 150 unsatisfied snatches and `unsat_buffer` is 10, a run may add at most 40 torrents.
@@ -369,13 +366,13 @@ category = "unlinked"
 
 ## The shared torrent filter
 
-`[[autograb]]`, `[[snatchlist]]` and `[[tag]]` share one
+`[[autograb]]` and `[[tag]]` share one
 set of optional filter fields. A torrent matches only if it satisfies **every** field that is set. A field
 that is not set imposes no restriction (except `categories`, which always has defaults).
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]`, `[[snatchlist]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among all three (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `snatchlist[0]`, ... on the Jobs page. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among them (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `hardcover_list[0]`, ... on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
@@ -496,9 +493,8 @@ in its range would look like a gap. Setting `mark_removed` on one stops startup 
 
 ## Cost
 
-`cost` appears on `[[autograb]]`, `[[snatchlist]]` and the `grab` blocks of `[[hardcover_list]]`, `[follow]` and
-`[upgrade]`. `[[snatchlist]]` only takes the two `metadata_only` values, and the `grab` blocks take every value
-except those two.
+`cost` appears on `[[autograb]]` and the `grab` blocks of `[[hardcover_list]]`, `[follow]` and `[upgrade]`. The
+`grab` blocks take every value except the two `metadata_only` ones.
 
 | Value | Meaning |
 |---|---|
@@ -517,29 +513,13 @@ except those two.
 - `metadata_only` and `metadata_only_add` never download anything, so ratio and unsat budgets do not apply
   to them.
 
-## `[[snatchlist]]`
+## `[[snatchlist]]` (removed)
 
-Repeatable. Reads one of your MAM snatch lists and refreshes the metadata of the torrents Fetchshelf already
-stores. With `cost = "metadata_only_add"` it also records the others as metadata-only entries, so that
-torrents you already have count as owned when Fetchshelf checks for duplicates. Nothing is downloaded.
-
-Takes the [shared filter](#the-shared-torrent-filter), except that **`languages`, `uploaded_after` and
-`uploaded_before` are not allowed** and cause an error.
-
-| Setting | Default | Description |
-|---|---|---|
-| `type` | `unsat` | Which snatch list: `unsat`, `inact_unsat`, `seed_unsat`, `seed_sat`, `inact_sat` or `uploads_active`. |
-| `cost` | `metadata_only` | `metadata_only` only refreshes torrents Fetchshelf already stores; `metadata_only_add` also records the others as metadata-only entries (see [cost](#cost)). No other cost is allowed. |
-| `max_pages` | 50 | Pages of the snatch list to read, at least 1. MAM decides how many rows a page holds; it has been seen sending 1000. Reading stops early when a page brings nothing new. |
-| `search_interval` | global `search_interval` | Minutes between runs. |
-| `dry_run` | `false` | Read the snatch list and work out every change, but record nothing. What would be recorded is logged. |
-
-- **Stored torrents** are refreshed from the snatch list itself, with no further request to MAM. The list
-  does not carry the language, media type, file count, upload date, description or ISBN, so those keep
-  their stored values. Metadata you edited by hand is kept; only its VIP status follows MAM.
-- **New torrents** (with `metadata_only_add`) are looked up on MAM one at a time, because the list does not
-  say which language they are in. The first run on a long list therefore takes a while; later runs only
-  look up what is new.
+`[[snatchlist]]` read MAM's snatch lists to refresh stored torrents and record the ones you own. It has been
+removed, to conform to MAM's rules for automation: the snatch lists aren't among the parts of MAM its API
+documentation authorizes automating. A config that still has a `[[snatchlist]]` section stops startup with a
+message saying so; remove the sections. The torrents they recorded are kept. To record your own uploads as owned,
+an `[[autograb]]` with `type = "mine"` and `cost = "metadata_only_add"` does it through the search.
 
 ## `[[hardcover_list]]`
 
@@ -583,7 +563,7 @@ What each run does:
    book, and the ISBNs and ASINs of its 20 most read editions and its default audiobook, ebook and print editions.
    A book that has left the list is no longer searched for; one that comes back is searched again.
 2. **Checks the library.** A book Fetchshelf already has, as an audiobook or an ebook, counts as found in that
-   format, including books recorded by a snatch list.
+   format, including books recorded as metadata only.
 3. **Searches MAM** by title and author for each format still missing, with each `grab` block in turn. A
    result whose ISBN or ASIN is one of the book's is the book, however its title is written, as for a translation
    or a subtitle; ISBN-10 and ISBN-13 count as the same. Otherwise the closest result must match the title and an

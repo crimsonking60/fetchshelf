@@ -179,12 +179,21 @@ public sealed class ConfigValidationTests : IDisposable
         Assert.Contains("the 2nd [[autograb]] section", message);
     }
 
-    [Theory]
-    [InlineData("[[snatchlist]]\ntype = \"unsat\"\nsearch_interval = -1", "'search_interval' in the 1st [[snatchlist]] section")]
-    [InlineData("[[snatchlist]]\ntype = \"unsat\"\nmax_pages = 0", "'max_pages' in the 1st [[snatchlist]] section")]
-    public void Load_SnatchlistValueOutOfRange_IsRejected(string block, string expected)
+    [Fact]
+    public void Load_SnatchlistSection_IsRefusedSayingWhyItWasRemoved()
     {
-        Assert.Contains(expected, Rejected("\n" + block + "\n"));
+        var message = Rejected("""
+
+            [[snatchlist]]
+            type = "unsat"
+            cost = "metadata_only"
+            """);
+
+        Assert.Equal(
+            "Invalid configuration: [[snatchlist]] has been removed, to conform to MAM's rules for automation: the snatch "
+            + "lists it read aren't among the parts of MAM its API documentation authorizes automating. Remove the "
+            + "[[snatchlist]] sections; the torrents they recorded are kept.",
+            message);
     }
 
     [Fact]
@@ -264,19 +273,6 @@ public sealed class ConfigValidationTests : IDisposable
             """);
 
         Assert.Equal($"Invalid configuration: the [[autograb]] 'Bookmarks': {expected}", message.TrimEnd('.').Split(", expected")[0]);
-    }
-
-    [Fact]
-    public void Load_BadFilterValueInASnatchlist_IsRejectedAtStartup()
-    {
-        var message = Rejected("""
-
-            [[snatchlist]]
-            type = "unsat"
-            media_type = ["audiobok"]
-            """);
-
-        Assert.Contains("the 1st [[snatchlist]] section: unrecognized media type 'audiobok'", message);
     }
 
     [Fact]

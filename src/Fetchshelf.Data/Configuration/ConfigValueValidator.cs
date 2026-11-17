@@ -76,14 +76,6 @@ internal static partial class ConfigValueValidator
             CheckDoesSomething("on_invalid_torrent", connection.OnInvalidTorrent, label);
         }
 
-        for (var i = 0; i < settings.Snatchlist.Count; i++)
-        {
-            var snatchlist = settings.Snatchlist[i];
-            var label = Label("snatchlist", snatchlist.Name, i);
-            CheckInterval("search_interval", snatchlist.SearchInterval, label);
-            CheckAtLeast("max_pages", snatchlist.MaxPages, 1, label);
-        }
-
         for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
             var list = settings.HardcoverList[i];
@@ -165,15 +157,14 @@ internal static partial class ConfigValueValidator
     }
 
     /// <summary>
-    /// Every <c>[[autograb]]</c>, <c>[[snatchlist]]</c> and <c>[[hardcover_list]]</c> becomes a job under its
-    /// <c>name</c>, and its selections carry that name. So names must be unique among all three, compared ignoring case,
+    /// Every <c>[[autograb]]</c> and <c>[[hardcover_list]]</c> becomes a job under its <c>name</c>, and its selections
+    /// carry that name. So names must be unique among them, compared ignoring case,
     /// and must not be a built-in job's, the Search page's grabber name or of the form a block without a name gets.
     /// Library names must be unique too: <c>[opds] libraries</c> and the page filters refer to libraries by name.
     /// </summary>
     public static void ValidateNames(FetchshelfSettings settings)
     {
         var blocks = settings.Autograb.Select((entry, i) => (entry.Name, Label: Label("autograb", entry.Name, i), JobName: AutoDownloaderJobNames.Autograb(entry, i)))
-            .Concat(settings.Snatchlist.Select((entry, i) => (entry.Name, Label: Label("snatchlist", entry.Name, i), JobName: AutoDownloaderJobNames.Snatchlist(entry, i))))
             .Concat(settings.HardcoverList.Select((entry, i) => (entry.Name, Label: Label("hardcover_list", entry.Name, i), JobName: AutoDownloaderJobNames.HardcoverList(entry, i))))
             .ToList();
 
@@ -187,7 +178,7 @@ internal static partial class ConfigValueValidator
 
             if (seen.TryGetValue(jobName, out var earlier))
             {
-                throw Invalid($"{earlier} and {label} have the same name; every autograb, snatchlist and Hardcover list needs its own.");
+                throw Invalid($"{earlier} and {label} have the same name; every autograb and Hardcover list needs its own.");
             }
 
             seen[jobName] = label;
@@ -295,11 +286,11 @@ internal static partial class ConfigValueValidator
         }
     }
 
-    [GeneratedRegex(@"^(autograb|snatchlist|hardcover_list)\[\d+\]$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(autograb|hardcover_list)\[\d+\]$", RegexOptions.IgnoreCase)]
     private static partial Regex GeneratedJobNamePattern();
 
     /// <summary>
-    /// Converts the filter of every <c>[[autograb]]</c>, <c>[[snatchlist]]</c>, <c>[[hardcover_list]]</c> grab block
+    /// Converts the filter of every <c>[[autograb]]</c> and <c>[[hardcover_list]]</c> grab block
     /// and <c>[[tag]]</c> rule as their jobs will, and checks its bounds. Runs after the top-level <c>languages</c> are
     /// handed down, so an inherited language is checked in each block it reaches.
     /// </summary>
@@ -308,11 +299,6 @@ internal static partial class ConfigValueValidator
         for (var i = 0; i < settings.Autograb.Count; i++)
         {
             ValidateFilter(settings.Autograb[i], Label("autograb", settings.Autograb[i].Name, i));
-        }
-
-        for (var i = 0; i < settings.Snatchlist.Count; i++)
-        {
-            ValidateFilter(settings.Snatchlist[i], Label("snatchlist", settings.Snatchlist[i].Name, i));
         }
 
         for (var i = 0; i < settings.HardcoverList.Count; i++)

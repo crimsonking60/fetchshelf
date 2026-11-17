@@ -45,7 +45,6 @@ public static class RunnerServices
             .ToList());
         services.AddScoped<SelectionRunner>();
         services.AddScoped<AutograbberRunner>();
-        services.AddScoped<SnatchlistImporter>();
         if (settings.Hardcover is not null)
         {
             services.AddScoped<HardcoverListImporter>();

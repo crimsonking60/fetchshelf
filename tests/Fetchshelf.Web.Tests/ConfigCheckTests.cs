@@ -54,9 +54,6 @@ public sealed class ConfigCheckTests : IDisposable
         search_interval = 0
         dry_run = true
 
-        [[snatchlist]]
-        type = "unsat"
-
         [hardcover]
         token = "secret-token"
 
@@ -95,7 +92,6 @@ public sealed class ConfigCheckTests : IDisposable
         Assert.Matches(@"Audiobookshelf\s+every 10 min", output);
         Assert.Matches(@"Bookmarks\s+autograb bookmarks, cost free, every 20 min", output);
         Assert.Matches(@"autograb\[1\]\s+autograb uploader 42, cost try_wedge, only from the Jobs page, dry run", output);
-        Assert.Matches(@"snatchlist\[0\]\s+snatchlist unsat, cost metadata_only, every 20 min", output);
         Assert.Matches(@"Want to read\s+Hardcover want_to_read, 1 grab block, every 20 min", output);
         Assert.Matches(@"Download\s+every 20 min, and after selections", output);
         Assert.Contains("Tag rules: 1", output);

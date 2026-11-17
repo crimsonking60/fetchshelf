@@ -14,7 +14,7 @@ public sealed class CategoriesConfig
 
 /// <summary>
 /// The shared torrent filter's config-shaped fields, embedded into
-/// `[[autograb]]`/`[[tag]]`/`[[snatchlist]]` blocks.
+/// `[[autograb]]`/`[[tag]]` blocks and `grab` blocks.
 /// </summary>
 public class SharedFilterConfig
 {

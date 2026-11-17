@@ -376,7 +376,7 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
-| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, snatchlist imports. |
+| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, Hardcover lists, Follow and Upgrade. |
 | `Fetchshelf.Web` | The ASP.NET Core host, built and run in `Hosting/`: dependency injection setup, the jobs and their scheduling. The Razor Pages UI is under `Pages/`. `Program.cs` only calls `FetchshelfApp.RunAsync`. |
 
 Each `src` project has a matching test project under `tests/` once it has tests.

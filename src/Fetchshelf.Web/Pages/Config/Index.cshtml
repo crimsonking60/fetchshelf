@@ -160,30 +160,6 @@
 </section>
 
 <section>
-    <h3>Snatchlists</h3>
-    @if (settings.Snatchlist.Count == 0)
-    {
-        <p class="empty">No [[snatchlist]] entries configured.</p>
-    }
-    else
-    {
-        <table>
-            <thead><tr><th>Name</th><th>Type</th><th>Cost</th></tr></thead>
-            <tbody>
-                @foreach (var entry in settings.Snatchlist)
-                {
-                    <tr>
-                        <td>@entry.Name</td>
-                        <td>@entry.Type</td>
-                        <td>@entry.Cost</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-</section>
-
-<section>
     <h3>Hardcover lists</h3>
     @if (settings.HardcoverList.Count == 0)
     {

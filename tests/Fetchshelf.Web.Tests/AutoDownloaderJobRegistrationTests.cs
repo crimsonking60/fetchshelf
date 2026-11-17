@@ -1,6 +1,6 @@
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The auto-downloader's jobs (one per `[[autograb]]`/`[[snatchlist]]` entry, plus "Download") are registered.</summary>
+/// <summary>The auto-downloader's jobs (one per `[[autograb]]` entry, plus "Download") are registered.</summary>
 public class AutoDownloaderJobRegistrationTests
 {
     private const string ConfigToml = """
@@ -13,14 +13,10 @@ public class AutoDownloaderJobRegistrationTests
         [[autograb]]
         type = "new"
         search_interval = 0
-
-        [[snatchlist]]
-        type = "unsat"
-        name = "my-snatchlist"
         """;
 
     [Fact]
-    public async Task HomePage_WithAutograbAndSnatchlistConfigured_RegistersExpectedJobs()
+    public async Task HomePage_WithAutograbsConfigured_RegistersExpectedJobs()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);
         var client = fixture.CreateClient();
@@ -30,7 +26,6 @@ public class AutoDownloaderJobRegistrationTests
         // The second entry is unnamed and has `search_interval = 0` - still registered (triggerable
         // on demand), just not auto-scheduled, under the synthesized name `autograb[1]`.
         Assert.NotNull(fixture.JobRegistry.Get("autograb[1]"));
-        Assert.NotNull(fixture.JobRegistry.Get("my-snatchlist"));
         Assert.NotNull(fixture.JobRegistry.Get("Download"));
     }
 

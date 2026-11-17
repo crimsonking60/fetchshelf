@@ -71,7 +71,7 @@ public partial class JobsPageTests
         var html = await client.GetStringAsync("/Jobs");
 
         var lines = Regex.Matches(html, "<p>([^<]+) is not configured</p>").Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(["Audiobookshelf", "Autograb", "Hardcover list", "Snatchlist"], lines);
+        Assert.Equal(["Audiobookshelf", "Autograb", "Hardcover list"], lines);
         Assert.True(html.IndexOf("id=\"unconfigured-jobs\"", StringComparison.Ordinal) > html.IndexOf("</table>", StringComparison.Ordinal));
     }
 
@@ -99,7 +99,7 @@ public partial class JobsPageTests
 
         Assert.DoesNotContain("Audiobookshelf is not configured", html);
         Assert.DoesNotContain("Autograb is not configured", html);
-        Assert.Contains("Snatchlist is not configured", html);
+        Assert.Contains("Hardcover list is not configured", html);
     }
 
     [Fact]

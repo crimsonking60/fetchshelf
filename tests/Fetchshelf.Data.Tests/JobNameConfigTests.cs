@@ -22,8 +22,6 @@ public sealed class JobNameConfigTests : IDisposable
         ? "\n[[autograb]]\ntype = \"new\"\n"
         : $"\n[[autograb]]\nname = \"{name}\"\ntype = \"new\"\n";
 
-    private static string Snatchlist(string name) => $"\n[[snatchlist]]\nname = \"{name}\"\ntype = \"unsat\"\n";
-
     private static string HardcoverList(string name) => $"""
 
         [hardcover]
@@ -44,7 +42,7 @@ public sealed class JobNameConfigTests : IDisposable
 
         Assert.Equal(
             "Invalid configuration: the [[autograb]] 'Bookmarks' and the [[autograb]] 'Bookmarks' have the same name; " +
-            "every autograb, snatchlist and Hardcover list needs its own.",
+            "every autograb and Hardcover list needs its own.",
             message);
     }
 
@@ -54,12 +52,6 @@ public sealed class JobNameConfigTests : IDisposable
         var message = Rejected(Autograb("Want to read") + HardcoverList("Want to read"));
 
         Assert.Contains("the [[autograb]] 'Want to read' and the [[hardcover_list]] 'Want to read' have the same name", message);
-    }
-
-    [Fact]
-    public void Load_SameNameOnAnAutograbAndASnatchlist_IsRejected()
-    {
-        Assert.Contains("have the same name", Rejected(Autograb("Mine") + Snatchlist("Mine")));
     }
 
     [Fact]
@@ -85,7 +77,6 @@ public sealed class JobNameConfigTests : IDisposable
     [Theory]
     [InlineData("autograb[0]")]
     [InlineData("autograb[1]")]
-    [InlineData("snatchlist[3]")]
     [InlineData("Hardcover_List[0]")]
     public void Load_NameOfTheGeneratedForm_IsRejectedEvenWithoutAClash(string name)
     {
@@ -105,7 +96,7 @@ public sealed class JobNameConfigTests : IDisposable
     [Fact]
     public void Load_UnnamedBlocksAndDistinctNames_Load()
     {
-        var settings = Load(Autograb(null) + Autograb(null) + Autograb("Bookmarks") + Snatchlist("Unsat") + HardcoverList("Want to read"));
+        var settings = Load(Autograb(null) + Autograb(null) + Autograb("Bookmarks") + HardcoverList("Want to read"));
 
         Assert.Equal(3, settings.Autograb.Count);
     }

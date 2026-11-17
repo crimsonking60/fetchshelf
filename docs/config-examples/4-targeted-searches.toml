@@ -1,11 +1,9 @@
 # Fetchshelf example 4 of 5: targeted searches
 #
 # Autograbs are not limited to bookmarks. This example watches MAM for new content by author, mines the
-# freeleech list, keeps an eye on one uploader, and imports your snatch lists so books you already own
-# are never downloaded twice.
+# freeleech list, keeps an eye on one uploader, and keeps the details of your own uploads up to date.
 #
-# Reference for every setting: docs/configuration.md (see "[[autograb]]", "The shared torrent filter"
-# and "[[snatchlist]]").
+# Reference for every setting: docs/configuration.md (see "[[autograb]]" and "The shared torrent filter").
 #
 # Builds on: 3-downloader.toml. Next step: 5-everything.toml.
 
@@ -92,21 +90,6 @@ name = "My uploads"
 type = "mine"
 cost = "metadata_only"
 mark_removed = true
-
-# --- Snatch lists -----------------------------------------------------------------------------------
-# Snatchlists never download anything. Cost can only be "metadata_only" (the default), which refreshes
-# the details of torrents Fetchshelf already stores, or "metadata_only_add", which also creates
-# metadata-only entries for the rest, so duplicate checks work for books that were not downloaded
-# through Fetchshelf. 'languages' and the upload-date filters are not allowed here.
-[[snatchlist]]
-type = "seed_unsat"       # seeding, still unsatisfied; only refreshes torrents already stored
-search_interval = 60
-
-[[snatchlist]]
-type = "seed_sat"         # seeding, satisfied
-cost = "metadata_only_add"
-max_pages = 20            # pages of 250 rows; the default is 50
-search_interval = 360
 
 [[tag]]
 categories = { audio = false, ebook = true }
