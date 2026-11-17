@@ -25,4 +25,16 @@ public sealed class TagRuleConfigTests : IDisposable
         Assert.Null(rule.Category);
         Assert.Equal(["fiction", "new"], rule.Tags);
     }
+
+    [Theory]
+    [InlineData("[[tag]]\nmedia_type = \"ComicBook\"\ncategory = \"comics\"\n", "media_type")]
+    [InlineData("audio_types = \"m4b\"\n", "audio_types")]
+    public void Load_StringWhereAListGoes_NamesTheSetting(string toml, string setting)
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n" + toml);
+
+        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal($"Invalid configuration: '{setting}' must be a list: write {setting} = [\"...\"], not {setting} = \"...\".", error.Message);
+    }
 }

@@ -237,19 +237,62 @@ public static class ConfigLoader
         {
             return deserializer.Deserialize<FetchshelfSettings>(yaml) ?? new FetchshelfSettings();
         }
-        catch (YamlException ex) when (ex.InnerException is ConfigurationException converterError)
+        // YamlDotNet wraps the cause as "Exception during deserialization", once for each section it is nested in.
+        catch (YamlException ex) when (Innermost(ex) is ConfigurationException converterError)
         {
-            // A type converter's own error; YamlDotNet wraps it as "Exception during deserialization".
+            // A type converter's own error.
             throw new ConfigurationException(converterError.Message, ex);
         }
-        catch (YamlException ex) when (ex.InnerException is FormatException or OverflowException)
+        catch (YamlException ex) when (Innermost(ex) is FormatException or OverflowException)
         {
-            throw new ConfigurationException($"Invalid configuration: {ex.InnerException.Message}", ex);
+            throw new ConfigurationException($"Invalid configuration: {Innermost(ex).Message}", ex);
+        }
+        catch (YamlException ex) when (Innermost(ex) is InvalidCastException cast)
+        {
+            throw new ConfigurationException(WrongType(yaml, ex, cast), ex);
         }
         catch (YamlException ex)
         {
             throw new ConfigurationException($"Invalid configuration: {ex.Message}", ex);
         }
+    }
+
+    private static Exception Innermost(Exception ex)
+    {
+        while (ex.InnerException is { } inner)
+        {
+            ex = inner;
+        }
+
+        return ex;
+    }
+
+    /// <summary>
+    /// Names the setting whose value has the wrong type, such as <c>media_type = "ComicBook"</c> for a list, from the line
+    /// of the YAML text YamlDotNet stopped at. The value itself is left out: it could be a secret.
+    /// </summary>
+    private static string WrongType(string yaml, YamlException ex, InvalidCastException cast)
+    {
+        var deepest = ex;
+        while (deepest.InnerException is YamlException inner)
+        {
+            deepest = inner;
+        }
+
+        var lines = yaml.Split('\n');
+        var index = (int)deepest.Start.Line - 1;
+        var match = index >= 0 && index < lines.Length
+            ? System.Text.RegularExpressions.Regex.Match(lines[index], @"^\s*(?:-\s+)?([A-Za-z0-9_]+):")
+            : System.Text.RegularExpressions.Match.Empty;
+        if (!match.Success)
+        {
+            return $"Invalid configuration: a setting has a value of the wrong type ({cast.Message}).";
+        }
+
+        var key = match.Groups[1].Value;
+        return cast.Message.Contains("List`1", StringComparison.Ordinal)
+            ? $"Invalid configuration: '{key}' must be a list: write {key} = [\"...\"], not {key} = \"...\"."
+            : $"Invalid configuration: '{key}' has a value of the wrong type.";
     }
 
     private static void ApplyEnvironmentOverrides(FetchshelfSettings settings)
