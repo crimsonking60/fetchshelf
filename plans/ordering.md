@@ -26,7 +26,7 @@ or how, so they are worth doing before the plans come up:
 | Check | Plan | Decides |
 |---|---|---|
 | Whether MAM's API reports freeleech windows | `freeleech-awareness.md` | a direct field or detection from search results |
-| MAM's bookmark endpoint; whether quotes make a phrase in author/series/narrator search | `search-bookmark-and-more-like-this.md` | whether the bookmark part is built |
+| Whether quotes make a phrase in author/series/narrator search (the bookmark endpoint: checked, there is none) | `search-bookmark-and-more-like-this.md` | whether names are quoted |
 | Audiobookshelf's `/api/libraries/{id}/series` answer | `follow-audiobookshelf-series.md` | the parser |
 | The fields Komga's `series.json` parser requires | `series-layout-for-comics.md` | what `MylarSeriesJsonBuilder` writes |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
@@ -77,8 +77,8 @@ Search page (PR #67), with the `MamPageGate` the bookmark toggle uses.
     already express `language_in_folder = "other"`, so only the clash rule is new. After
     `jobs-page-dry-run.md` too: the first searches after the upgrade can list many other-language finds, and a dry
     run from the Jobs page shows them first.
-11. **`search-bookmark-and-more-like-this.md`** — "more like this" always; the bookmark toggle if step 0 found the
-    endpoint. Takes MAM through `MamPageGate` (PR #67).
+11. **`search-bookmark-and-more-like-this.md`** — "more like this" only: MAM authorizes no bookmark endpoint, so the
+    bookmark toggle is dropped. Its searches take MAM through `MamPageGate` (PR #67).
 12. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
     the other blocks; before other download clients, which reuse its client names.
 

@@ -1,4 +1,4 @@
-# Search page: bookmark on MAM, and "more like this" — implementation plan
+# Search page: "more like this" — implementation plan
 
 ## Context
 
@@ -27,43 +27,32 @@ Fetchshelf doesn't use yet.
   **Check first** that MAM's search treats double quotes as a phrase in the author/series/narrator fields; if not,
   the name is sent as plain words.
 
-### 2. Bookmark on MAM
+### 2. Bookmark on MAM: not built
 
-**Check first:** MAM's API documentation for the bookmark endpoint (adding and removing a bookmark by torrent id),
-its parameters and answers, and that the search answer's `bookmarked` field (in the search JSON, not read today)
-says whether a torrent is bookmarked. If there is no documented endpoint, this part is not built.
-
-Then:
-
-- `SearchResponseParser` reads `bookmarked` into `MamTorrentRecord.IsBookmarked`.
-- `MamClient.SetBookmarkAsync(mamId, bool bookmarked)`: the documented call, through the normal request path (pause,
-  rate-limit handling, no retry).
-- The Search page row and the detail view get a ☆/★ toggle (htmx, swaps the row's status cell). It takes the MAM gate
-  as `Search page` with the short wait (`plans/mam-gate-on-pages.md`); busy → "MAM is busy …".
-- The row's statuses show *Bookmarked*.
-- The toggle is logged at Information ("Bookmarked MAM torrent 123456 from the Search page").
+Checked 2026-11-17: MAM's API documentation lists, under "Items listed here are the only parts of site you are
+authorized to automate", these endpoints and no others: the bonus points store (`/json/bonusBuy.php`), torrent
+download (`/tor/download.php`), dynamic seedbox IP (`/json/dynamicSeedbox.php`), IP and ASN lookup
+(`/json/jsonIp.php`), load user data (`/jsonLoad.php`), torrent search (`/tor/js/loadSearchJSONbasic.php`) and user
+bonus history (`/json/userBonusHistory.php`). There is no bookmark endpoint, so bookmarking from Fetchshelf isn't
+authorized, and this part is dropped. Reading bookmarks stays: the search endpoint searches them (type
+`bookmarks`), and its answer's `bookmarked` field says whether a torrent is bookmarked.
 
 ## Tests
 
 - `SearchQueryBuilderTests`: `MoreLike` for each field keeps languages and categories, resets the page, quotes
   names with spaces.
 - Search page markup: the links are there for authors, narrators and series.
-- `SearchResponseParserTests`: `bookmarked` read, missing field → false.
-- `MamClientTests`: the bookmark request as documented; no retry.
-- `IndexPageTests`: the toggle calls MAM once and returns the row with the new state; busy gate → message, no call.
 
 ## Documentation
 
-- `docs/user-guide.md`, Search page: names are links to more by the same author, narrator or series; the bookmark
-  toggle, and that a bookmark autograb then picks the torrent up.
+- `docs/user-guide.md`, Search page: names are links to more by the same author, narrator or series.
 
 ## Release notes
 
 - Added: authors, narrators and series on the Search page link to a search for more of the same.
-- Added: bookmark and unbookmark torrents on MAM from the Search page.
 - Upgrading: nothing to do.
 
 ## Out of scope
 
-- Removing the bookmark after a bookmark autograb downloaded the torrent (a setting on the autograb), which can
-  follow once the endpoint is in the client.
+- Bookmarking, and removing the bookmark after a bookmark autograb downloaded the torrent: MAM authorizes no
+  bookmark endpoint (see section 2).
