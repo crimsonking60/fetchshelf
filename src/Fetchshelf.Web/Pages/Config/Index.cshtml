@@ -5,6 +5,11 @@
     ViewData["Title"] = "Config";
     var settings = Model.Settings;
 
+    // A block's own unsat_buffer, wedge_buffer and max_active_downloads, or what applies without them.
+    string Buffer(int? own, int global) => own is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture) : $"global ({global})";
+    string Cap(int? own) => own is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "no cap";
+    const string BudgetHeaders = "<th>Unsat buffer</th><th>Wedge buffer</th><th>Max waiting</th>";
+
     string MetadataFiles(Library library) =>
         string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
             ? files
@@ -137,7 +142,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Type</th><th>Cost</th><th>Category</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Type</th><th>Cost</th><th>Category</th>@Html.Raw(BudgetHeaders)<th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Autograb.Count; i++)
                 {
@@ -147,6 +152,9 @@
                         <td>@entry.Type</td>
                         <td>@entry.Cost</td>
                         <td>@entry.Category</td>
+                        <td>@Buffer(entry.UnsatBuffer, settings.UnsatBuffer)</td>
+                        <td>@Buffer(entry.WedgeBuffer, settings.WedgeBuffer)</td>
+                        <td>@Cap(entry.MaxActiveDownloads)</td>
                         <td>
                             <form method="post" action="/Jobs?handler=Trigger">
                                 <input type="hidden" name="jobName" value="@AutoDownloaderJobNames.Autograb(entry, i)" />
@@ -170,7 +178,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th><th>Dry run</th></tr></thead>
+            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 @foreach (var entry in settings.HardcoverList)
                 {
@@ -180,6 +188,9 @@
                         <td>@(entry.PreferFormat?.ToString() ?? "-")</td>
                         <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
                         <td>@entry.Category</td>
+                        <td>@Buffer(entry.UnsatBuffer, settings.UnsatBuffer)</td>
+                        <td>@Buffer(entry.WedgeBuffer, settings.WedgeBuffer)</td>
+                        <td>@Cap(entry.MaxActiveDownloads)</td>
                         <td>@(entry.DryRun ? "yes" : "no")</td>
                     </tr>
                 }
@@ -197,7 +208,7 @@
     else
     {
         <table id="follow-settings">
-            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th><th>Dry run</th></tr></thead>
+            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 <tr>
                     <td>@follow.SearchesPerRun</td>
@@ -206,6 +217,9 @@
                     <td>@(follow.PreferFormat?.ToString() ?? "-")</td>
                     <td>@string.Join(", ", follow.Grab.Select(g => g.Cost))</td>
                     <td>@follow.Category</td>
+                    <td>@Buffer(follow.UnsatBuffer, settings.UnsatBuffer)</td>
+                    <td>@Buffer(follow.WedgeBuffer, settings.WedgeBuffer)</td>
+                    <td>@Cap(follow.MaxActiveDownloads)</td>
                     <td>@(follow.DryRun ? "yes" : "no")</td>
                 </tr>
             </tbody>
@@ -222,7 +236,7 @@
     else
     {
         <table id="upgrade-settings">
-            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Libraries</th><th>Grab costs</th><th>Dry run</th></tr></thead>
+            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Libraries</th><th>Grab costs</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 <tr>
                     <td>@upgrade.SearchesPerRun</td>
@@ -230,6 +244,9 @@
                     <td>@(upgrade.SearchInterval is { } interval ? $"{interval} minutes" : "global")</td>
                     <td>@(upgrade.Libraries.Count == 0 ? "all" : string.Join(", ", upgrade.Libraries))</td>
                     <td>@string.Join(", ", upgrade.Grab.Select(g => g.Cost))</td>
+                    <td>@Buffer(upgrade.UnsatBuffer, settings.UnsatBuffer)</td>
+                    <td>@Buffer(upgrade.WedgeBuffer, settings.WedgeBuffer)</td>
+                    <td>@Cap(upgrade.MaxActiveDownloads)</td>
                     <td>@(upgrade.DryRun ? "yes" : "no")</td>
                 </tr>
             </tbody>

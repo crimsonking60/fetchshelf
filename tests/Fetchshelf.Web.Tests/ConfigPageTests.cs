@@ -64,6 +64,49 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Get_ConfigPage_ShowsEachBlocksBuffersAndCap_OrWhatAppliesWithoutThem()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+            unsat_buffer = 12
+            wedge_buffer = 4
+
+            [[autograb]]
+            name = "Careful"
+            type = "bookmarks"
+            unsat_buffer = 30
+            max_active_downloads = 5
+
+            [hardcover]
+            token = "t"
+
+            [[hardcover_list]]
+            status = "want_to_read"
+            wedge_buffer = 9
+
+            [[hardcover_list.grab]]
+            cost = "free"
+
+            [follow]
+            max_active_downloads = 2
+
+            [[follow.grab]]
+            cost = "free"
+
+            [upgrade]
+            """);
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        Assert.Contains("<th>Unsat buffer</th><th>Wedge buffer</th><th>Max waiting</th>", html);
+        // The autograb, the Hardcover list, [follow] and [upgrade], in that order.
+        Assert.Matches(@"<td>30</td>\s*<td>global \(4\)</td>\s*<td>5</td>[\s\S]*"
+            + @"<td>global \(12\)</td>\s*<td>9</td>\s*<td>no cap</td>[\s\S]*"
+            + @"<td>global \(12\)</td>\s*<td>global \(4\)</td>\s*<td>2</td>[\s\S]*"
+            + @"<td>global \(12\)</td>\s*<td>global \(4\)</td>\s*<td>no cap</td>", html);
+    }
+
+    [Fact]
     public async Task Get_ConfigPage_ListsHardcoverLists_ButNeverTheToken()
     {
         using var fixture = new FetchshelfWebAppFixture("""
