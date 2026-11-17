@@ -11,6 +11,10 @@ MAM has a cover for most uploads. The Search page's detail view already shows it
 poster type, fetched with the session by `MamClient.DownloadImageAsync`, which only fetches MAM's own addresses
 (`IsMamAddress`).
 
+The cover image comes from MAM's CDN, which isn't among the parts of MAM its API documentation authorizes automating
+(the lookup itself uses the authorized search). This plan was kept by decision on 2026-11-17, like the Search page's
+covers, with the per-run limit lowered to 20 to keep those requests few.
+
 `cover.jpg` in a book's folder is already treated as Fetchshelf's own extra: `LibraryFileRemover` removes it with
 `metadata.json` and `metadata.opf` when the folder is no longer shared.
 
@@ -31,7 +35,7 @@ After the Link job places a book's files, and only when:
   the Data project can build the same address; the detail page uses them from there.
 - `MamCoverFetcher` (Data): looks the torrent up with `ReturnThumbnail` (one search by id, under `MamAccessGate` like
   `MamMetadataLookup`), builds the address as the detail page does, and fetches it with `DownloadImageAsync`.
-- At most 50 covers per Link run, so a large first import doesn't send thousands of requests; the rest are fetched
+- At most 20 covers per Link run, so a large first import doesn't send thousands of requests; the rest are fetched
   in later runs. Torrents still without a cover are found by `CoverFetchedAt` being null (new column, migration) and
   `write_cover` on their library.
 - Written as `cover.jpg` through a temporary name. A PNG or WebP answer is written with its own extension
