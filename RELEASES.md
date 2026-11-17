@@ -5,6 +5,62 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.12 - 2026-11-17
+
+The Account page keeps a daily snapshot of the account and shows the ratio, upload, bonus points and wedges over
+time. Bulk actions on the Torrents page run in the background with their progress shown, and keep going when the
+page is left. Backups are named after the version to run them on. `allowed_hosts` and an optional OPDS login close
+two openings. `[[snatchlist]]` is removed, to conform to MAM's rules for automation.
+
+### Upgrading
+
+- **`[[snatchlist]]` is removed, to conform to MAM's rules for automation.** MAM's API documentation lists the only
+  parts of the site that may be automated, and the snatch lists `[[snatchlist]]` read aren't among them. A
+  configuration that still has a `[[snatchlist]]` section stops startup, saying so: remove the sections. The
+  torrents they recorded are kept. To keep your own uploads recorded as owned, an `[[autograb]]` with
+  `type = "mine"` and `cost = "metadata_only_add"` does it through the search. See
+  [`[[snatchlist]]` (removed)](https://fetchshelf.readthedocs.io/en/v2026.11.12/configuration/#snatchlist-removed).
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.12/configuration/#backup) section, a backup is taken first; without one, back up your data folder
+  yourself. That first backup is still named the old way, without a version: the database records its version
+  from this release on.
+
+### Added
+
+- **Account** page: **Over time**, one snapshot of the account a day, from the reads the jobs make anyway. Charts
+  of the last 90 days show the ratio, upload, bonus points and wedges, and a table gives each month's change. Every
+  day can be downloaded as CSV (#78). See [Account](https://fetchshelf.readthedocs.io/en/v2026.11.12/user-guide/#account).
+- `allowed_hosts`: the host names Fetchshelf answers to. Any other name gets HTTP 400, which stops other web pages
+  using Fetchshelf through DNS rebinding. Left empty, any name is answered, as before (#80). See
+  [Security and privacy](https://fetchshelf.readthedocs.io/en/v2026.11.12/user-guide/#security-and-privacy).
+- `[opds]` `username`, plus `password` or `password_file`: an optional login for the OPDS catalog, which readers
+  send as HTTP Basic. The rest of Fetchshelf stays without a login (#80). See
+  [Reading on an e-reader](https://fetchshelf.readthedocs.io/en/v2026.11.12/user-guide/#reading-on-an-e-reader-opds).
+- An older version starting on a database a newer one has used says so in the log, and which backups it can use
+  (#76).
+
+### Changed
+
+- **Torrents** page: Clean, Refresh, Relink, Unlink and Set category run in the background, one torrent at a time.
+  The page comes back at once, and a panel above the list shows the progress, with **Cancel**, then how it went,
+  with each torrent's problem on its own line. The **Jobs** page lists them too. They take turns with the Link and
+  Clean jobs, one torrent at a time, so they never work on the same files at once (#79). See
+  [Torrents](https://fetchshelf.readthedocs.io/en/v2026.11.12/user-guide/#torrents).
+- Backups are named after the version to run them on: `data-<time>-2026.11.12-scheduled.db`, and
+  `data-<time>-2026.11.12-before-<new version>.db` before an upgrade (#76). See
+  [Backups while Fetchshelf runs](https://fetchshelf.readthedocs.io/en/v2026.11.12/user-guide/#backups-while-fetchshelf-runs).
+- On a wide screen, the blank margins left and right of the pages are half as wide, so tables such as the Torrents
+  list have room (#75).
+
+### Fixed
+
+- Leaving the **Torrents** page during a bulk relink, unlink or category change stopped it halfway (#79).
+
+### Removed
+
+- `[[snatchlist]]`, to conform to MAM's rules for automation: MAM's API documentation lists the only parts of the
+  site that may be automated, and the snatch lists aren't among them (#77).
+
 ## 2026.11.11 - 2026-11-17
 
 Hardcover lists find more books, by ISBN and ASIN, and stop searching every day for the ones MAM doesn't have. Every
