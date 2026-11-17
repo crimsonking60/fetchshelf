@@ -30,6 +30,14 @@ public sealed partial record QBittorrentTorrent
     public required string State { get; init; }
 
     /// <summary>The .torrent file's comment, which qBittorrent 5 reports. MAM writes "MID=&lt;torrent id&gt;,UID=&lt;user id&gt;" there.</summary>
+    /// <summary>Seconds spent seeding after it completed, in total.</summary>
+    [JsonPropertyName("seeding_time")]
+    public long SeedingTime { get; init; }
+
+    /// <summary>When qBittorrent added it, as Unix seconds.</summary>
+    [JsonPropertyName("added_on")]
+    public long AddedOn { get; init; }
+
     [JsonPropertyName("comment")]
     public string Comment { get; init; } = string.Empty;
 

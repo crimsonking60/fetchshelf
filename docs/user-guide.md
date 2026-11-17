@@ -1220,6 +1220,42 @@ Other safeguards:
 Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` or more,
 `wedge_buffer = 5`, `cost = "free"` on your first autograb, and `dry_run = true` until the log looks right.
 
+### Seeding torrents until MAM counts them as satisfied
+
+MAM counts a snatch as satisfied once it has been seeded long enough, and a torrent removed from qBittorrent before
+then becomes a hit-and-run; see MAM's own rules for the exact requirement. The **Account** page shows MAM's counts,
+but not which torrents they are: the lists that say so aren't among the parts of MAM that may be automated. With a
+[`[seeding]`](configuration.md#seeding) section, the Seeding job estimates it from qBittorrent's seeding time:
+
+```toml
+[seeding]
+tag_unsatisfied = "unsatisfied"   # optional: a qBittorrent tag on the torrents that still need seeding
+```
+
+Every hour by default, it reads each torrent's seeding time from qBittorrent and compares it with the requirement,
+`seed_hours` of seeding within `within_days` of the snatch (72 hours within 30 days unless you set them). It never
+asks MAM. Each of Fetchshelf's torrents then looks:
+
+- **satisfied**, once it has seeded long enough; it stays satisfied;
+- **unsatisfied**, seeding or not: it still needs seeding, by a date;
+- **past the period**, if it never got there in time: MAM likely counts it as a hit-and-run. Seeding it the rest
+  can still make up for it.
+
+Where it shows:
+
+- The **Account** page puts the estimate next to MAM's counts, linking to the torrents. The two can differ:
+  snatches from outside Fetchshelf or another client, torrents Fetchshelf only has as metadata, and seeding time
+  counted differently by MAM. MAM's counts are what matter.
+- The **Torrents** page has a *Seeding* filter, and the *Client status* column says how many hours a torrent still
+  needs.
+- A torrent's page says how far it has got and by when, from qBittorrent's numbers right then.
+- **Unlink** and **Remove from qBittorrent with data** on a torrent that isn't satisfied say so before you confirm.
+- The Clean job holds `on_cleaned` back for a retired copy that isn't satisfied, so a qBittorrent rule acting on that
+  category can't remove it too early, and the Seeding job applies it once the copy is satisfied.
+- `tag_unsatisfied` puts a tag on the torrents that still need seeding and takes it off once they don't, so
+  qBittorrent's own rules can keep them.
+- The `unsatisfied_not_seeding` notification says when a torrent stops seeding before it is satisfied.
+
 ### Spending bonus points
 
 MAM's bonus points stop at 99,999; points earned above that are lost. With a [`[bonus]`](configuration.md#bonus)
@@ -1527,7 +1563,9 @@ a restart, the page only offers **Refresh from MAM**.
 of the limit, wedges, and bonus points. Below them, **Snatches** lists every kind of snatch MAM counts, with
 MAM's own labels, the count and the size. Three kinds are shown first as warnings when there are any, with a
 link to the account's snatch lists on MAM: *Not Seeding - H&R - Not Yet Satisfied* (hit-and-runs), *Not Seeding - Not
-Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*.
+Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*. With a `[seeding]` section, a
+line below gives Fetchshelf's own estimate of which of its torrents those are (see
+[Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)).
 
 **What Fetchshelf works out from it**, each with its formula:
 
@@ -1768,6 +1806,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 | Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
+| Seeding | Estimates from qBittorrent's seeding time which torrents still need seeding (see [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)). | Every `[seeding]` `interval` minutes, hourly by default. |
 
 Autograb and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
 `hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is

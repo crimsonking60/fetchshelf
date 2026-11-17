@@ -43,6 +43,16 @@
                     <option value="@value" selected="@(Model.Problem == value)">@label</option>
                 }
             </select>
+            @if (Model.SeedingRequirement is not null)
+            {
+                <select name="Seeding" aria-label="Seeding" onchange="this.form.requestSubmit()">
+                    <option value="">Seeding or not</option>
+                    @foreach (var (value, label) in TorrentListFilters.SeedingOptions)
+                    {
+                        <option value="@value" selected="@(Model.Seeding == value)">@label</option>
+                    }
+                </select>
+            }
             <select name="MediaType" aria-label="Media type" onchange="this.form.requestSubmit()">
                 <option value="">Any media type</option>
                 @foreach (var mediaType in Model.MediaTypeOptions)

@@ -137,6 +137,26 @@ internal static partial class ConfigValueValidator
             }
         }
 
+        if (settings.Seeding is { } seeding)
+        {
+            const string label = "the [seeding] section";
+            CheckInterval("interval", seeding.Interval, label);
+            if (seeding.SeedHours is < 1 or > 24 * 365)
+            {
+                throw Invalid($"'seed_hours' in {label} must be between 1 and {24 * 365}; got {seeding.SeedHours}.");
+            }
+
+            if (seeding.WithinDays is < 1 or > 365)
+            {
+                throw Invalid($"'within_days' in {label} must be between 1 and 365; got {seeding.WithinDays}.");
+            }
+
+            if (seeding.TagUnsatisfied is { } tag && (string.IsNullOrWhiteSpace(tag) || tag.Contains(',', StringComparison.Ordinal)))
+            {
+                throw Invalid($"'tag_unsatisfied' in {label} must be one qBittorrent tag, not empty and without a comma; got '{tag}'.");
+            }
+        }
+
         if (settings.Follow is { } follow)
         {
             const string label = "the [follow] section";

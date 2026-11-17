@@ -33,6 +33,15 @@ public static class RunnerServices
         services.AddScoped<DownloadProgressChecker>();
         services.AddScoped<Cleaner>();
         services.AddSingleton<LibraryWriteGate>();
+        if (settings.Seeding is { } seeding)
+        {
+            services.AddSingleton(seeding);
+            services.AddScoped<SeedingRunner>();
+            if (seeding.WarnBeforeRemoval)
+            {
+                services.AddSingleton(new SeedingHold(seeding.Requirement));
+            }
+        }
 
         // The Torrents page's bulk actions, run in the background one at a time.
         services.AddSingleton<BulkOperationQueue>();

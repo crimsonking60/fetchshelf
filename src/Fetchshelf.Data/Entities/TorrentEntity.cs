@@ -64,4 +64,22 @@ public sealed class TorrentEntity
 
     /// <summary>When the Upgrade job last searched MAM for a better copy of this one; null when it never has.</summary>
     public DateTimeOffset? UpgradeSearchedAt { get; set; }
+
+    /// <summary>
+    /// How the torrent looks against MAM's seeding requirement (<c>SeedingState</c> enum name), as the Seeding job last
+    /// estimated it from qBittorrent; null when it never has.
+    /// </summary>
+    public string? SeedingState { get; set; }
+
+    /// <summary>How long it had seeded at that estimate: qBittorrent's <c>seeding_time</c>, in seconds.</summary>
+    public long? SeedingSeconds { get; set; }
+
+    /// <summary>When the seeding period started: when qBittorrent added the torrent.</summary>
+    public DateTimeOffset? SeedingSince { get; set; }
+
+    /// <summary>When the Seeding job last estimated it.</summary>
+    public DateTimeOffset? SeedingCheckedAt { get; set; }
+
+    /// <summary>The Clean job retired this copy but held `on_cleaned` back while it looked unsatisfied; the Seeding job applies it once it is satisfied.</summary>
+    public bool OnCleanedHeld { get; set; }
 }

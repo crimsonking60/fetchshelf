@@ -34,6 +34,31 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public string? Problem { get; set; }
 
+    /// <summary>The Seeding filter (<see cref="TorrentListFilters.SeedingOptions"/>); offered only with a `[seeding]` section.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Seeding { get; set; }
+
+    /// <summary>MAM's seeding requirement from `[seeding]`; null without the section, when nothing is estimated.</summary>
+    public SeedingRequirement? SeedingRequirement => settings.Seeding?.Requirement;
+
+    /// <summary>"needs 31 h", "not seeding, needs 31 h" or "past the period" for a torrent that isn't satisfied; null otherwise.</summary>
+    public string? SeedingNote(TorrentListItemViewModel torrent)
+    {
+        if (SeedingRequirement is not { } requirement || !Enum.TryParse<SeedingState>(torrent.SeedingState, out var state))
+        {
+            return null;
+        }
+
+        var needed = (long)Math.Ceiling(requirement.SeedHours - TimeSpan.FromSeconds(torrent.SeedingSeconds ?? 0).TotalHours);
+        return state switch
+        {
+            SeedingState.SeedingUnsatisfied => $"needs {needed} h",
+            SeedingState.NotSeedingUnsatisfied => $"not seeding, needs {needed} h",
+            SeedingState.PastThePeriod => "past the period",
+            _ => null,
+        };
+    }
+
     [BindProperty(SupportsGet = true)]
     public string? Language { get; set; }
 
@@ -64,7 +89,7 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
-    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series);
+    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding);
 
     /// <summary>The author, narrator and series filters in use, with the names they stand for.</summary>
     public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
@@ -320,6 +345,15 @@ public class IndexModel(
         if (!string.IsNullOrEmpty(MediaType))
         {
             torrents = torrents.Where(t => t.MediaType == MediaType);
+        }
+
+        if (Seeding == TorrentListFilters.LooksUnsatisfied)
+        {
+            torrents = torrents.Where(t => t.SeedingState == nameof(SeedingState.SeedingUnsatisfied) || t.SeedingState == nameof(SeedingState.NotSeedingUnsatisfied));
+        }
+        else if (!string.IsNullOrEmpty(Seeding))
+        {
+            torrents = torrents.Where(t => t.SeedingState == Seeding);
         }
 
         if (!string.IsNullOrEmpty(Author))

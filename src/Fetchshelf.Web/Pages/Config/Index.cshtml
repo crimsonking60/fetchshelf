@@ -280,6 +280,28 @@
 </section>
 
 <section>
+    <h3>Seeding</h3>
+    @if (settings.Seeding is not { } seeding)
+    {
+        <p class="empty">No [seeding] section configured, so no Seeding job estimates which torrents still need seeding.</p>
+    }
+    else
+    {
+        <table id="seeding-settings">
+            <thead><tr><th>Requirement</th><th>Interval</th><th>Tag unsatisfied</th><th>Warn before removal</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@seeding.SeedHours hours within @seeding.WithinDays days</td>
+                    <td>@(seeding.Interval == 0 ? "only from the Jobs page" : $"{seeding.Interval} minutes")</td>
+                    <td>@(seeding.TagUnsatisfied ?? "-")</td>
+                    <td>@(seeding.WarnBeforeRemoval ? "yes" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Backups</h3>
     @if (settings.Backup is not { } backup)
     {

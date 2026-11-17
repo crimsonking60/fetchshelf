@@ -22,6 +22,11 @@ public sealed record TorrentListItemViewModel(
     /// <summary>"mp3; m4b preferred" when a better format of this copy is possible (<see cref="Torrents.UpgradeNote"/>).</summary>
     public string? UpgradeNote { get; init; }
 
+    /// <summary>The Seeding job's last estimate (<c>SeedingState</c> name) and the seconds seeded then; null when never estimated.</summary>
+    public string? SeedingState { get; init; }
+
+    public long? SeedingSeconds { get; init; }
+
     /// <param name="metadata">The entity's metadata when the caller has already read it, so it isn't read twice.</param>
     public static TorrentListItemViewModel From(TorrentEntity entity, TorrentMetadata? metadata = null)
     {
@@ -38,7 +43,11 @@ public sealed record TorrentListItemViewModel(
             entity.RemovedFromMamAt is not null,
             entity.LibraryMismatchState,
             entity.UnlinkedAt is not null,
-            entity.CreatedAt);
+            entity.CreatedAt)
+        {
+            SeedingState = entity.SeedingState,
+            SeedingSeconds = entity.SeedingSeconds,
+        };
     }
 }
 

@@ -545,6 +545,9 @@ namespace Fetchshelf.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("OnCleanedHeld")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("QBittorrentCategory")
                         .HasColumnType("TEXT");
 
@@ -555,6 +558,18 @@ namespace Fetchshelf.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ReplacedWithTorrentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("SeedingCheckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("SeedingSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("SeedingSince")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeedingState")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
@@ -576,6 +591,8 @@ namespace Fetchshelf.Data.Migrations
                     b.HasIndex("MediaType");
 
                     b.HasIndex("NormalizedTitleKey");
+
+                    b.HasIndex("SeedingState");
 
                     b.ToTable("Torrents");
                 });

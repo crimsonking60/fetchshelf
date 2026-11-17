@@ -50,6 +50,14 @@ public static class ConfigSummary
                 + (opds.RequiresLogin ? $", login {opds.Username}" : ", no login"));
         }
 
+        if (settings.Seeding is { } seeding)
+        {
+            var tag = seeding.TagUnsatisfied is { } name ? $", tag {name}" : "";
+            var hold = seeding.WarnBeforeRemoval ? ", on_cleaned held back while unsatisfied" : "";
+            text.AppendLine(CultureInfo.InvariantCulture,
+                $"Seeding: {seeding.SeedHours} hours within {seeding.WithinDays} days, {Schedule(seeding.Interval)}{tag}{hold}");
+        }
+
         if (settings.Backup is { } backup)
         {
             text.AppendLine(CultureInfo.InvariantCulture,

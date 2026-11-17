@@ -1,8 +1,9 @@
 namespace Fetchshelf.Core.Notifications;
 
 /// <summary>
-/// Holds back bursts of <see cref="NotificationEvent.Grabbed"/> and <see cref="NotificationEvent.Linked"/> and merges
-/// each into one message: a Hardcover list run selecting 20 books sends one message, not 20. Every other event passes
+/// Holds back bursts of <see cref="NotificationEvent.Grabbed"/>, <see cref="NotificationEvent.Linked"/> and
+/// <see cref="NotificationEvent.UnsatisfiedNotSeeding"/> and merges each into one message: a Hardcover list run selecting
+/// 20 books sends one message, not 20. Every other event passes
 /// straight through. It has no clock or timer: the caller says what time it is, and asks what is ready.
 /// </summary>
 public sealed class NotificationBatcher
@@ -29,7 +30,8 @@ public sealed class NotificationBatcher
     private readonly List<Notification> _passed = [];
 
     /// <summary>Whether this event is merged when several arrive close together.</summary>
-    public static bool IsBatched(NotificationEvent notificationEvent) => notificationEvent is NotificationEvent.Grabbed or NotificationEvent.Linked;
+    public static bool IsBatched(NotificationEvent notificationEvent) =>
+        notificationEvent is NotificationEvent.Grabbed or NotificationEvent.Linked or NotificationEvent.UnsatisfiedNotSeeding;
 
     /// <summary>Takes a notification that arrived at <paramref name="now"/>.</summary>
     public void Add(Notification notification, DateTimeOffset now)
@@ -92,9 +94,13 @@ public sealed class NotificationBatcher
             return first;
         }
 
-        var verb = first.Event == NotificationEvent.Grabbed ? "Grabbed" : "Linked";
         var names = burst.Select(n => n.Item ?? n.Title).ToList();
-        var heading = $"{verb} {burst.Count} torrents";
+        var heading = first.Event switch
+        {
+            NotificationEvent.Grabbed => $"Grabbed {burst.Count} torrents",
+            NotificationEvent.Linked => $"Linked {burst.Count} torrents",
+            _ => $"{burst.Count} torrents stopped seeding before MAM's requirement was met",
+        };
 
         // Every item keeps its own fields (torrent and MAM ids among them), so a webhook can act on each.
         var items = burst.Select(n => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>(n.Fields ?? new Dictionary<string, object?>())
@@ -108,8 +114,8 @@ public sealed class NotificationBatcher
             $"{heading}: {NameList(names)}.",
             first.Time,
             new Dictionary<string, object?> { ["count"] = burst.Count, ["names"] = names, ["items"] = items },
-            // No one torrent's page: the Events page lists them all.
-            $"/Events?Type={first.Event}");
+            // No one torrent's page: the Events page, or for seeding the Torrents page filtered, lists them all.
+            first.Event == NotificationEvent.UnsatisfiedNotSeeding ? "/Torrents?Seeding=NotSeedingUnsatisfied" : $"/Events?Type={first.Event}");
     }
 
     /// <summary>"A and B", "A, B and C" or, past <see cref="NamesShown"/>, "A, B, C and 2 more".</summary>

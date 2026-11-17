@@ -134,6 +134,24 @@ public static class JobOutcomes
         };
     }
 
+    public static JobOutcome Seeding(SeedingRunSummary summary)
+    {
+        var line = $"{Count(summary.Checked, "torrent", "torrents")} checked: {summary.LookUnsatisfied} {(summary.LookUnsatisfied == 1 ? "looks" : "look")} unsatisfied"
+            + (summary.NotSeeding > 0 ? $" ({summary.NotSeeding} not seeding)" : "")
+            + (summary.PastThePeriod > 0 ? $", {summary.PastThePeriod} past the period" : "")
+            + (summary.NewlySatisfied > 0 ? $", {summary.NewlySatisfied} newly satisfied" : "")
+            + (summary.OnCleanedApplied > 0 ? $", on_cleaned applied to {summary.OnCleanedApplied}" : "");
+        return new JobOutcome(line, new Dictionary<string, long>
+        {
+            ["checked"] = summary.Checked,
+            ["unsatisfied"] = summary.LookUnsatisfied,
+            ["not_seeding"] = summary.NotSeeding,
+            ["past_the_period"] = summary.PastThePeriod,
+            ["newly_satisfied"] = summary.NewlySatisfied,
+            ["on_cleaned_applied"] = summary.OnCleanedApplied,
+        });
+    }
+
     public static JobOutcome Backup(Data.DatabaseBackupRunSummary summary) => new(
         $"Backed up {Core.AutoDownloader.DownloadBudget.FormatBytes(summary.Backup.SizeBytes)} to {Path.GetFileName(summary.Backup.Path)}; "
             + $"{summary.Kept} kept",

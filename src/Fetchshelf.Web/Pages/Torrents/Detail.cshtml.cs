@@ -4,6 +4,7 @@ using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,23 @@ public class DetailModel(
     public string? UpgradeNote { get; private set; }
 
     public TorrentDetailViewModel? Torrent { get; private set; }
+
+    /// <summary>
+    /// How the torrent looks against MAM's seeding requirement: from qBittorrent's seeding time now when qBittorrent has
+    /// it, else as the Seeding job last found it. Null without a `[seeding]` section, or when it was never estimated.
+    /// </summary>
+    public SeedingEstimate? Seeding { get; private set; }
+
+    public SeedingRequirement? SeedingRequirement => settings.Seeding?.Requirement;
+
+    /// <summary>
+    /// The Unlink and Remove confirmations start with this when the torrent isn't satisfied yet and `warn_before_removal`
+    /// is on: removing it from qBittorrent before then can make it a hit-and-run.
+    /// </summary>
+    public string? RemovalWarning =>
+        settings.Seeding is { WarnBeforeRemoval: true } seeding && Seeding is { State: not SeedingState.Satisfied } estimate
+            ? $"It has seeded {Math.Floor(estimate.Seeded.TotalHours)} of the {seeding.SeedHours} hours MAM requires; removing it from qBittorrent before then can make it a hit-and-run. "
+            : null;
 
     /// <summary>Whether the details were edited by hand, which Refresh would replace with MAM's.</summary>
     public bool EditedByHand => Torrent is { } torrent && HandEdits.AreIn(torrent.Metadata);
@@ -266,6 +284,27 @@ public class DetailModel(
             // qBittorrent unreachable: the detail page still shows the stored state.
         }
 
+        Seeding = EstimateSeeding(entity, clientState);
         return TorrentDetailViewModel.From(entity, events, clientState, settings.Audiobookshelf?.Url, mamOptions.BaseUrl);
+    }
+
+    private SeedingEstimate? EstimateSeeding(TorrentEntity entity, QBittorrentTorrent? clientState)
+    {
+        if (settings.Seeding is not { } seeding)
+        {
+            return null;
+        }
+
+        var previous = Enum.TryParse<SeedingState>(entity.SeedingState, out var parsed) ? parsed : (SeedingState?)null;
+        if (clientState is { IsFinished: true } live)
+        {
+            return SeedingEstimator.Estimate(
+                TimeSpan.FromSeconds(live.SeedingTime), DateTimeOffset.FromUnixTimeSeconds(live.AddedOn), SeedingEstimator.IsSeeding(live.State),
+                previous, DateTimeOffset.UtcNow, seeding.Requirement);
+        }
+
+        return previous is not null && entity.SeedingSince is { } since
+            ? SeedingEstimator.Estimate(TimeSpan.FromSeconds(entity.SeedingSeconds ?? 0), since, seedingNow: false, previous, DateTimeOffset.UtcNow, seeding.Requirement)
+            : null;
     }
 }

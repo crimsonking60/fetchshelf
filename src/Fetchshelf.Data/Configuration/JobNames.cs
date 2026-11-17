@@ -11,12 +11,13 @@ public static class JobNames
     public const string Upgrade = "Upgrade";
     public const string Bonus = "Bonus";
     public const string Backup = "Backup";
+    public const string Seeding = "Seeding";
 
     /// <summary>The grabber name of downloads started from the Search page, as stored on their selections and events.</summary>
     public const string ManualSearchGrabber = "Manual search";
 
     /// <summary>Names a configured block can't have: the built-in jobs, and the Search page's grabber name.</summary>
-    public static IReadOnlyList<string> Reserved { get; } = [Link, Clean, Download, Audiobookshelf, Follow, Upgrade, Bonus, Backup, ManualSearchGrabber];
+    public static IReadOnlyList<string> Reserved { get; } = [Link, Clean, Download, Audiobookshelf, Follow, Upgrade, Bonus, Backup, Seeding, ManualSearchGrabber];
 }
 
 /// <summary>

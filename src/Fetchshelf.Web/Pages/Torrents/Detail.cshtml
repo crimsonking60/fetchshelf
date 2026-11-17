@@ -60,6 +60,13 @@
     {
         <p id="removed-from-mam" class="notice">MAM no longer has this torrent (found <local-time value="removedFromMamAt" />). It keeps seeding and stays linked; what to do with it is up to you.</p>
     }
+    @if (Model.Seeding is { } seedingEstimate && Model.SeedingRequirement is { } seedingRequirement)
+    {
+        <p id="seeding-state" class="@(seedingEstimate.State == Fetchshelf.Core.Organizer.SeedingState.Satisfied ? "" : "notice")">
+            @Fetchshelf.Core.Organizer.SeedingEstimator.Describe(seedingEstimate, seedingRequirement)
+            <span class="muted">An estimate from qBittorrent's seeding time; the Account page has MAM's own counts.</span>
+        </p>
+    }
     @if (torrent.MamLink is not null)
     {
         <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
@@ -120,11 +127,11 @@
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
         @if (torrent.UnlinkedAt is null)
         {
-            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it.')">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
+            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it."))">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
         }
         <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
         <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm('Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.')">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone."))">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
         @if (torrent.ReplacedWithTorrentId is not null)
         {
             <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>

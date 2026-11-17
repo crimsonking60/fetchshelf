@@ -205,6 +205,17 @@ cost = "metadata_only_add" # also creates a metadata-only entry for torrents not
 sort_by = "random"
 
 # =====================================================================================================
+# [seeding]: optional. Estimates from qBittorrent's seeding time which torrents still need seeding before MAM
+# counts them as satisfied, shows it on the Account, Torrents and torrent pages, and holds on_cleaned back.
+# =====================================================================================================
+[seeding]
+seed_hours = 72          # hours of seeding MAM requires; check MAM's rules
+within_days = 30         # days after the snatch to reach them in
+interval = 60            # minutes between runs; 0 = only from the Jobs page
+tag_unsatisfied = "unsatisfied"   # a qBittorrent tag on torrents that still need seeding; left out = no tag
+warn_before_removal = true        # ask before Unlink and Remove, and hold on_cleaned back, while unsatisfied
+
+# =====================================================================================================
 # [opds]: optional. Serves the ebook libraries as an OPDS catalog at http://<fetchshelf>/opds, for
 # e-readers and reading apps. Leave it out to serve nothing; an empty [opds] serves the ebooks in every
 # library. Audiobooks are never served.
