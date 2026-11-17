@@ -5,13 +5,6 @@
     ViewData["Title"] = "Config";
     var settings = Model.Settings;
 
-    string Describe(CategoryListOrBool value) => value.Names switch
-    {
-        null => "all",
-        { Count: 0 } => "none",
-        var names => string.Join(", ", names),
-    };
-
     string MetadataFiles(Library library) =>
         string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
             ? files
@@ -353,16 +346,19 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Categories</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Tag.Count; i++)
                 {
                     var entry = settings.Tag[i];
                     <tr>
                         <td>@entry.Name</td>
-                        <td>
-                            audio: @Describe(entry.Categories.Audio); ebook: @Describe(entry.Categories.Ebook);
-                            musicology: @Describe(entry.Categories.Musicology); radio: @Describe(entry.Categories.Radio)
+                        <td class="tag-rule-filter">
+                            @* Every condition of the rule's filter, so it is clear which torrents get the category and tags. *@
+                            @foreach (var line in Fetchshelf.Web.Pages.Config.FilterDescription.Describe(entry))
+                            {
+                                @line<br />
+                            }
                         </td>
                         <td>@entry.Category</td>
                         <td>@string.Join(", ", entry.Tags)</td>

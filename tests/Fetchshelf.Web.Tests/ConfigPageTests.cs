@@ -160,6 +160,27 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Get_TagRule_ShowsItsWholeFilter_NotOnlyItsCategories()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[tag]]
+            name = "Comics"
+            media_type = ["ComicBook", "Manga"]
+            languages = ["English"]
+            category = "comics"
+            """);
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        Assert.Contains("<th>Matches</th>", html);
+        Assert.Contains("Media types: ComicBook, Manga<br />", html);
+        Assert.Contains("Languages: English<br />", html);
+        Assert.Contains("Categories: audio (all), ebook (all)<br />", html);
+    }
+
+    [Fact]
     public async Task Post_PreviewTagRule_UnknownRule_IsNotFound()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);
