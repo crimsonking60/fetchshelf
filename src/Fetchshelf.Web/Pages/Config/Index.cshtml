@@ -29,6 +29,7 @@
             <tr><th>mam_id_file</th><td>@settings.MamIdFile</td></tr>
             <tr><th>web_host</th><td>@settings.WebHost</td></tr>
             <tr><th>web_url</th><td>@settings.WebUrl</td></tr>
+            <tr><th>allowed_hosts</th><td>@(settings.AllowedHosts.Count == 0 ? "any host" : string.Join(", ", settings.AllowedHosts))</td></tr>
             <tr><th>web_port</th><td>@settings.WebPort</td></tr>
             <tr><th>min_ratio</th><td>@settings.MinRatio</td></tr>
             <tr><th>unsat_buffer</th><td>@settings.UnsatBuffer</td></tr>
@@ -121,6 +122,7 @@
             <tbody>
                 <tr><th>Catalog address</th><td><code id="opds-url">@($"{ViewContext.HttpContext.Request.Scheme}://{ViewContext.HttpContext.Request.Host}/opds")</code></td></tr>
                 <tr><th>libraries</th><td>@(opds.Libraries.Count == 0 ? "all" : string.Join(", ", opds.Libraries))</td></tr>
+                <tr><th>login</th><td>@(opds.RequiresLogin ? $"username {opds.Username}, password {IndexModel.HiddenPlaceholder}" : "none: anyone who can reach it")</td></tr>
             </tbody>
         </table>
     }

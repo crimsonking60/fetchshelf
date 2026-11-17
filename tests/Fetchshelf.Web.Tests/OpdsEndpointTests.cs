@@ -23,15 +23,69 @@ public sealed class OpdsEndpointTests : IDisposable
 
     public void Dispose() => Directory.Delete(_library, recursive: true);
 
-    private string Config(bool opds = true) => $"""
+    private string Config(bool opds = true, string opdsSettings = "") => $"""
         mam_id = ""
 
         [[library]]
         name = "Ebooks"
         category = "ebooks"
         library_dir = "{_library}"
-        {(opds ? "\n[opds]\n" : string.Empty)}
+        {(opds ? "\n[opds]\n" + opdsSettings : string.Empty)}
         """;
+
+    private static async Task<HttpResponseMessage> GetAsync(FetchshelfWebAppFixture fixture, string path, string? login = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        if (login is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(login)));
+        }
+
+        return await fixture.CreateClient().SendAsync(request);
+    }
+
+    [Fact]
+    public async Task Login_Set_AsksForItOnEveryOpdsAddress()
+    {
+        using var fixture = new FetchshelfWebAppFixture(Config(opdsSettings: "username = \"reader\"\npassword = \"s3cret\"\n"));
+        await SeedAsync(fixture, "hash1", "Ancillary Justice");
+
+        using var none = await GetAsync(fixture, "/opds");
+        using var wrong = await GetAsync(fixture, "/opds/libraries", "reader:wrong");
+        using var otherUser = await GetAsync(fixture, "/opds", "someone:s3cret");
+        using var right = await GetAsync(fixture, "/opds", "reader:s3cret");
+        using var file = await GetAsync(fixture, "/opds/books/hash1/files/0");
+        using var ui = await GetAsync(fixture, "/Jobs");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, none.StatusCode);
+        Assert.Equal("Basic realm=\"Fetchshelf OPDS\", charset=\"UTF-8\"", none.Headers.WwwAuthenticate.ToString());
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, otherUser.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, right.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, file.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, ui.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_NotSet_AnswersWithoutOne()
+    {
+        using var fixture = new FetchshelfWebAppFixture(Config());
+
+        using var response = await GetAsync(fixture, "/opds");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfigPage_ShowsTheOpdsUsername_NeverThePassword()
+    {
+        using var fixture = new FetchshelfWebAppFixture(Config(opdsSettings: "username = \"reader\"\npassword = \"s3cret-password\"\n"));
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        Assert.Contains("username reader", html);
+        Assert.DoesNotContain("s3cret-password", html);
+    }
 
     /// <summary>Puts a book's file in the library folder and records the torrent the way the Link job would.</summary>
     private async Task SeedAsync(

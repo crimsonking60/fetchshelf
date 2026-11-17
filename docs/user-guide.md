@@ -680,7 +680,7 @@ browse a library and download books: KOReader, Moon+ Reader, Thorium, Panels, Ky
    `http://192.168.1.20:3157/opds`.
 3. **Add it to your reader.** In KOReader: **Search → OPDS catalog → +**, with the catalog address as the
    URL. In other apps, look for "Add catalog", "OPDS" or "Library server". Leave the username and password
-   empty, unless you put a reverse proxy with a login in front (see below).
+   empty, unless you set a login (see below).
 
 The catalog offers:
 
@@ -700,9 +700,19 @@ What it serves: every linked book in a served library whose MAM media type is Eb
 Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked
 book appears within a minute.
 
-The catalog has no login, like the rest of Fetchshelf: anyone who can reach it can browse and download your
-books. Use it on your home network, or, to read away from home, put it behind a reverse proxy that asks for
-a username and password. OPDS readers can send those. See [Security and privacy](#security-and-privacy).
+Without a login, anyone who can reach the catalog can browse and download your books. To ask for one, set a
+username and password in `[opds]`, and give your reader the same two:
+
+```toml
+[opds]
+username = "reader"
+password_file = "/run/secrets/opds_password"   # or password = "..."
+```
+
+Only the catalog asks for the login; the rest of Fetchshelf doesn't. The reader sends it with every request as
+HTTP Basic, which anyone listening on the network can read, so to read away from home, reach the catalog over
+HTTPS through a reverse proxy, and keep the rest of Fetchshelf behind that proxy's own login or off the internet.
+See [Security and privacy](#security-and-privacy).
 
 ## Finding and downloading books
 
@@ -1974,9 +1984,15 @@ fix the ownership of the copied files.
 
 - **There is no login.** Anyone who can open the web interface can start downloads, remove records and, with
   the torrent page actions, delete data from qBittorrent. Only expose Fetchshelf on a trusted network, or
-  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet. The same
-  goes for the OPDS catalog, which lets anyone who can reach it download your books.
-- **Secrets in `config.toml`:** `mam_id` and the qBittorrent and Audiobookshelf credentials.
+  put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet. The OPDS
+  catalog lets anyone who can reach it download your books, unless `[opds]` sets a `username` and `password`
+  (see [Reading on an e-reader](#reading-on-an-e-reader-opds)).
+- **Set `allowed_hosts`.** A web page open in a browser on your network can point a name it controls at
+  Fetchshelf's address and use Fetchshelf as if it were you, a trick called DNS rebinding. With
+  `allowed_hosts` set to the names you reach Fetchshelf by, such as `["fetchshelf.lan"]`, any other name is
+  refused with HTTP 400 before a page runs. Reaching it by IP address needs that address listed too (see
+  [`allowed_hosts`](configuration.md#top-level-settings)).
+- **Secrets in `config.toml`:** `mam_id`, the qBittorrent and Audiobookshelf credentials, and the OPDS password.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
   in its own file instead; protect that file the same way.

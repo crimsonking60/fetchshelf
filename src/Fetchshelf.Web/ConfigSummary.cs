@@ -25,6 +25,10 @@ public static class ConfigSummary
         text.AppendLine(CultureInfo.InvariantCulture,
             $"Safety: min_ratio {settings.MinRatio.ToString(CultureInfo.InvariantCulture)}, unsat_buffer {settings.UnsatBuffer}, wedge_buffer {settings.WedgeBuffer}");
 
+        text.AppendLine(settings.AllowedHosts.Count == 0
+            ? "Allowed hosts: any (allowed_hosts not set)"
+            : $"Allowed hosts: {string.Join(", ", settings.AllowedHosts)}, and localhost");
+
         AppendQBittorrent(text, settings);
         AppendLibraries(text, settings);
         AppendJobs(text, settings);
@@ -42,7 +46,8 @@ public static class ConfigSummary
 
         if (settings.Opds is { } opds)
         {
-            text.AppendLine(opds.Libraries.Count == 0 ? "OPDS: the ebooks of every library" : $"OPDS: {string.Join(", ", opds.Libraries)}");
+            text.AppendLine((opds.Libraries.Count == 0 ? "OPDS: the ebooks of every library" : $"OPDS: {string.Join(", ", opds.Libraries)}")
+                + (opds.RequiresLogin ? $", login {opds.Username}" : ", no login"));
         }
 
         if (settings.Backup is { } backup)
