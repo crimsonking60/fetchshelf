@@ -55,6 +55,8 @@ setup. If you use one, please report how it went, good or bad (see
   for a selection that was removed.
 - `unsat_buffer`, `wedge_buffer` and `max_active_downloads` in `[[hardcover_list]]`, `[follow]` and `[upgrade]`, and
   `cost = "wedge"` downloads starting while the ratio budget is spent.
+- `hardlink_or_copy` and `hardlink_or_symlink` falling back only when a hardlink isn't possible there, and the tag-rule
+  preview on the Config page.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.
