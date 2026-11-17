@@ -29,13 +29,10 @@ Fetchshelf doesn't use yet.
 
 ### 2. Bookmark on MAM: not built
 
-Checked 2026-11-17: MAM's API documentation lists, under "Items listed here are the only parts of site you are
-authorized to automate", these endpoints and no others: the bonus points store (`/json/bonusBuy.php`), torrent
-download (`/tor/download.php`), dynamic seedbox IP (`/json/dynamicSeedbox.php`), IP and ASN lookup
-(`/json/jsonIp.php`), load user data (`/jsonLoad.php`), torrent search (`/tor/js/loadSearchJSONbasic.php`) and user
-bonus history (`/json/userBonusHistory.php`). There is no bookmark endpoint, so bookmarking from Fetchshelf isn't
-authorized, and this part is dropped. Reading bookmarks stays: the search endpoint searches them (type
-`bookmarks`), and its answer's `bookmarked` field says whether a torrent is bookmarked.
+Checked 2026-11-17: MAM's API documentation lists the only parts of the site that may be automated, and no bookmark
+endpoint is among them. So bookmarking from Fetchshelf isn't authorized, and this part is dropped. Reading bookmarks
+stays: the search endpoint searches them (type `bookmarks`), and its answer's `bookmarked` field says whether a
+torrent is bookmarked.
 
 ## Tests
 

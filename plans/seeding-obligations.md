@@ -11,10 +11,8 @@ is what turns it into a hit-and-run.
 
 An earlier version of this plan read MAM's snatch lists (`/json/loadUserDetailsTorrents.php`, types `seedUnsat` and
 `inactUnsat`), which name exactly those torrents. That endpoint isn't among the parts of MAM its API documentation
-authorizes automating ("Items listed here are the only parts of site you are authorized to automate": the bonus
-store, torrent download, dynamic seedbox IP, IP lookups, `jsonLoad.php`, the torrent search and the bonus history).
-`[[snatchlist]]`, which used it, was removed for that reason (PR #77). This plan uses only what is authorized and what
-qBittorrent knows:
+authorizes automating. `[[snatchlist]]`, which used it, was removed for that reason (PR #77). This plan uses only
+what is authorized and what qBittorrent knows:
 
 - **qBittorrent** (`/api/v2/torrents/info`, already read by the Link job) gives each torrent's `seeding_time`
   (seconds spent seeding after it completed), `completion_on` and `added_on`, which Fetchshelf doesn't read yet.
