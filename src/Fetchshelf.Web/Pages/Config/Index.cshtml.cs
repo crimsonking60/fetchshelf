@@ -79,17 +79,17 @@ public class IndexModel(
             return NotFound();
         }
 
-        var ruleName = settings.Tag[ruleIndex].Name ?? $"tag rule {ruleIndex + 1}";
+        var entry = settings.Tag[ruleIndex];
         TagRulePreviewViewModel preview;
         try
         {
-            preview = new TagRulePreviewViewModel(ruleIndex, ruleName, await retroactiveTagApplier.PreviewAsync(rule, HttpContext.RequestAborted), Error: null);
+            preview = new TagRulePreviewViewModel(ruleIndex, entry, await retroactiveTagApplier.PreviewAsync(rule, HttpContext.RequestAborted), Error: null);
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
         {
             logger.LogWarning(ex, "Previewing tag rule {RuleIndex} failed", ruleIndex);
             preview = new TagRulePreviewViewModel(
-                ruleIndex, ruleName, Preview: null, $"Previewing the tag rule failed: {MamErrorDescriber.DescribeAmong(ex, "MAM or qBittorrent")}");
+                ruleIndex, entry, Preview: null, $"Previewing the tag rule failed: {MamErrorDescriber.DescribeAmong(ex, "MAM or qBittorrent")}");
         }
 
         if (Request.Headers.ContainsKey("HX-Request"))

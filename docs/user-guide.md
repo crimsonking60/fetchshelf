@@ -1708,12 +1708,13 @@ longer on the list** to see those too.
 Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
 runs that block once. Each `[[tag]]` rule shows every condition of its filter under *Matches*: its categories, media
 types, languages, flags, sizes and so on, each part it sets on a line of its own. For each rule there is
-**Preview applying to existing torrents**, which opens a dialog over the page that lists
-the torrents you already have whose category or tags the rule would change, with their category now and after,
-and the tags it would add. It changes nothing; **Apply to these N torrents** below the list then does. A torrent
-that already has the rule's category and tags, or that qBittorrent doesn't have, is only counted. A new category on
-a linked book can move it to another library, which the list points out: the book may be flagged *Different
-library*. For each `[[notify]]` block there is **Send a test message**.
+**Preview applying to existing torrents**, which opens a dialog over the page. It starts with the rule it is for,
+called by its number in the table's first column (and its `name`, if it has one), with what it matches and applies.
+Below that it lists the torrents you already have whose category or tags the rule would change, with their category
+now and after, and the tags it would add. It changes nothing; **Apply to these N torrents** below the list then does.
+A torrent that already has the rule's category and tags, or that qBittorrent doesn't have, is only counted. A new
+category on a linked book can move it to another library, which the list points out: the book may be flagged
+*Different library*. For each `[[notify]]` block there is **Send a test message**.
 
 ## Background jobs
 

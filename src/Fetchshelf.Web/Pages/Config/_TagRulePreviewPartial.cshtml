@@ -2,7 +2,23 @@
 @* What applying one [[tag]] rule to the existing torrents would change, with the button that applies it. Shown in the
    Config page's dialog, or on the page itself when it was asked for without htmx. *@
 <div id="tag-rule-preview">
-    <h4>Applying @Model.RuleName to existing torrents</h4>
+    <h4>Applying @Model.Title to existing torrents</h4>
+    @* The rule's row as the table shows it, which the dialog covers. *@
+    <table id="tag-rule-preview-rule">
+        <thead><tr><th>Matches</th><th>Category applied</th><th>Tags applied</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>
+                    @foreach (var line in Fetchshelf.Web.Pages.Config.FilterDescription.Describe(Model.Rule))
+                    {
+                        @line<br />
+                    }
+                </td>
+                <td>@Model.Rule.Category</td>
+                <td>@string.Join(", ", Model.Rule.Tags)</td>
+            </tr>
+        </tbody>
+    </table>
     @if (Model.Error is { } error)
     {
         <p class="notice error" role="alert">@error</p>

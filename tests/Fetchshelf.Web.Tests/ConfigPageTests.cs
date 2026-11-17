@@ -174,7 +174,8 @@ public class ConfigPageTests
 
         var html = await fixture.CreateClient().GetStringAsync("/config");
 
-        Assert.Contains("<th>Matches</th>", html);
+        Assert.Contains("<th>#</th><th>Name</th><th>Matches</th>", html);
+        Assert.Matches(@"<td>1</td>\s*<td>Comics</td>", html);
         Assert.Contains("Media types: ComicBook, Manga<br />", html);
         Assert.Contains("Languages: English<br />", html);
         Assert.Contains("Categories: audio (all), ebook (all)<br />", html);
@@ -202,6 +203,11 @@ public class ConfigPageTests
         response.EnsureSuccessStatusCode();
         Assert.StartsWith("<div id=\"tag-rule-preview\">", body.TrimStart());
         Assert.DoesNotContain("<html", body);
+        // The rule it is for comes first, since the dialog covers the table: unnamed, it is called by its number.
+        Assert.Contains("<h4>Applying tag rule 1 to existing torrents</h4>", body);
+        var rule = body[body.IndexOf("id=\"tag-rule-preview-rule\"", StringComparison.Ordinal)..];
+        Assert.Contains("Categories: audio (all), ebook (all)<br />", rule);
+        Assert.Contains("<td>retro-applied</td>", rule);
         Assert.Contains("1 torrent would change.", body);
         Assert.Contains("Apply to this torrent", body);
         var action = System.Text.RegularExpressions.Regex.Match(body, @"<form[^>]*action=""([^""]*ApplyTagRule[^""]*)""").Groups[1].Value;
@@ -225,6 +231,35 @@ public class ConfigPageTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful answers
         Assert.Contains("Previewing the tag rule failed: MAM or qBittorrent could not be reached", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_NamedRule_IsCalledByItsNumberAndName()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[tag]]
+            tags = ["first"]
+
+            [[tag]]
+            name = "Comics"
+            media_type = ["ComicBook"]
+            category = "comics"
+            """);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=1")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = await (await client.SendAsync(request)).Content.ReadAsStringAsync();
+
+        Assert.Contains("<h4>Applying tag rule 2 (Comics) to existing torrents</h4>", body);
+        Assert.Contains("Media types: ComicBook<br />", body);
+        Assert.Contains("<td>comics</td>", body);
     }
 
     [Fact]

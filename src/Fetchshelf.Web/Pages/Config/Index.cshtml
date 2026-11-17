@@ -346,12 +346,14 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Tag.Count; i++)
                 {
                     var entry = settings.Tag[i];
                     <tr>
+                        @* The number the preview calls an unnamed rule by: "tag rule 4". *@
+                        <td>@(i + 1)</td>
                         <td>@entry.Name</td>
                         <td class="tag-rule-filter">
                             @* Every condition of the rule's filter, so it is clear which torrents get the category and tags. *@
