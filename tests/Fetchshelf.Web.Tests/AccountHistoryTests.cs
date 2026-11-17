@@ -26,10 +26,24 @@ public sealed class AccountHistoryTests
     {
         var history = AccountHistory.Build([Row("2026-05-01", ratio: 9), Row("2026-10-01", ratio: 1.5), Row("2026-11-17", ratio: 2.25)], Today);
 
-        Assert.Equal(["Ratio", "Uploaded", "Bonus points", "Wedges"], history.Charts.Select(c => c.Title));
+        Assert.Equal(["Ratio", "Uploaded", "Bonus points", "Wedges", "Unsatisfied"], history.Charts.Select(c => c.Title));
         var ratio = history.Charts[0];
         Assert.Equal(("1.5", "2.25"), (ratio.From, ratio.To));
         Assert.Contains("Ratio over the last 90 days, from 1.5 to 2.25", ratio.Svg);
+    }
+
+    [Fact]
+    public void Build_UnsatisfiedChart_ShowsTheUnsatisfiedCount()
+    {
+        var first = Row("2026-11-01");
+        first.UnsatCount = 12;
+        var last = Row("2026-11-17");
+        last.UnsatCount = 19;
+
+        var unsatisfied = AccountHistory.Build([first, last], Today).Charts.Single(c => c.Title == "Unsatisfied");
+
+        Assert.Equal(("12", "19"), (unsatisfied.From, unsatisfied.To));
+        Assert.Contains("Unsatisfied over the last 90 days, from 12 to 19", unsatisfied.Svg);
     }
 
     [Fact]
