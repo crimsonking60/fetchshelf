@@ -116,8 +116,14 @@ public static class ConfigSummary
         var libraries = settings.Library.Select((library, index) =>
         {
             var match = !string.IsNullOrWhiteSpace(library.Category) ? $"category {library.Category}" : $"download_dir {library.DownloadDir}";
-            var metadataFiles = new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>();
-            var details = string.Join(", ", new[] { Underscored(library.Method.ToString()) }.Concat(metadataFiles));
+            var metadataFiles = new[]
+            {
+                library.MetadataJson ? "metadata.json" : null,
+                library.MetadataOpf ? "metadata.opf" : null,
+                library.IsSeriesLayout && library.SeriesJson ? "series.json" : null,
+            }.OfType<string>();
+            var layout = library.IsSeriesLayout ? $"series layout (one-shots in {library.OneshotsDir})" : null;
+            var details = string.Join(", ", new[] { Underscored(library.Method.ToString()), layout }.OfType<string>().Concat(metadataFiles));
             return (Name: library.Name ?? $"library {index + 1}", Match: match, Target: $"-> {library.LibraryDir}  {details}");
         }).ToList();
         var matchWidth = libraries.Max(library => library.Match.Length);

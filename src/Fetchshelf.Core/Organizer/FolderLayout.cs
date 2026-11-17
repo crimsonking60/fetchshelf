@@ -50,20 +50,37 @@ public sealed class FolderLayout
                 continue;
             }
 
-            names.Add(RenderPart(part, Value, rules));
+            names.Add(RenderPart(part, Value, rules, FileNameCleaner.MaxComponentBytes));
         }
 
         return names;
     }
 
-    private static string RenderPart(Part part, Func<string, string> value, FileNameRules rules)
+    /// <summary>
+    /// One name from <paramref name="template"/>, a template without <c>/</c> that needn't hold <c>{title}</c>, cleaned and
+    /// shortened as a folder's: for names that aren't a book's folder, such as the series layout's series folders and
+    /// file names. <paramref name="reserveBytes"/> are kept free of the limit, for an extension added after it.
+    /// </summary>
+    /// <exception cref="FormatException">The template can't be read, or holds a <c>/</c>.</exception>
+    public static string RenderName(string template, IReadOnlyDictionary<string, string> values, FileNameRules rules, int reserveBytes = 0)
+    {
+        var layout = ParseCore(template, requireTitle: false);
+        if (layout._parts is not [var part])
+        {
+            throw new FormatException("a name is one folder or file, so it can't hold a '/'");
+        }
+
+        return RenderPart(part, token => values.TryGetValue(token, out var value) ? value : string.Empty, rules, FileNameCleaner.MaxComponentBytes - reserveBytes);
+    }
+
+    private static string RenderPart(Part part, Func<string, string> value, FileNameRules rules, int maxBytes)
     {
         var full = part.Render(value);
-        var over = OverLimit(full, rules);
+        var over = OverLimit(full, rules, maxBytes);
         var title = value("title");
         if (over <= 0 || title.Length == 0 || !part.Segments.Any(s => s.Tokens.Contains("title")))
         {
-            return FileNameCleaner.Clean(full, rules);
+            return CleanWithin(full, rules, maxBytes);
         }
 
         // The longest start of the title that fits, found by halving: cleaning can lengthen it (a colon becomes " -"),
@@ -74,7 +91,7 @@ public sealed class FolderLayout
         {
             var keep = (shortest + longest) / 2;
             var candidate = WithTitle(part, value, FileNameCleaner.CutToBytes(title, keep).TrimEnd().TrimEnd(CutPunctuation) + "…");
-            if (OverLimit(candidate, rules) <= 0)
+            if (OverLimit(candidate, rules, maxBytes) <= 0)
             {
                 best = candidate;
                 shortest = keep + 1;
@@ -85,7 +102,14 @@ public sealed class FolderLayout
             }
         }
 
-        return FileNameCleaner.Clean(best ?? full, rules);
+        return CleanWithin(best ?? full, rules, maxBytes);
+    }
+
+    /// <summary>The name cleaned, and cut at the end if it is still longer than <paramref name="maxBytes"/>.</summary>
+    private static string CleanWithin(string name, FileNameRules rules, int maxBytes)
+    {
+        var cleaned = FileNameCleaner.Clean(name, rules);
+        return Encoding.UTF8.GetByteCount(cleaned) <= maxBytes ? cleaned : FileNameCleaner.CutToBytes(cleaned, maxBytes).TrimEnd();
     }
 
     /// <summary>Punctuation left dangling where a title is cut, dropped before the <c>…</c>.</summary>
@@ -94,12 +118,14 @@ public sealed class FolderLayout
     private static string WithTitle(Part part, Func<string, string> value, string title) =>
         part.Render(token => token == "title" ? title : value(token));
 
-    /// <summary>How many bytes <paramref name="name"/> passes the limit by once its characters are cleaned.</summary>
-    private static int OverLimit(string name, FileNameRules rules) =>
-        Encoding.UTF8.GetByteCount(FileNameCleaner.CleanCharacters(name, rules)) - FileNameCleaner.MaxComponentBytes;
+    /// <summary>How many bytes <paramref name="name"/> passes <paramref name="maxBytes"/> by once its characters are cleaned.</summary>
+    private static int OverLimit(string name, FileNameRules rules, int maxBytes) =>
+        Encoding.UTF8.GetByteCount(FileNameCleaner.CleanCharacters(name, rules)) - maxBytes;
 
     /// <summary>Parses a <c>folder_template</c>; a <see cref="FormatException"/> says what is wrong with it.</summary>
-    public static FolderLayout Parse(string template)
+    public static FolderLayout Parse(string template) => ParseCore(template, requireTitle: true);
+
+    private static FolderLayout ParseCore(string template, bool requireTitle)
     {
         if (string.IsNullOrWhiteSpace(template))
         {
@@ -214,7 +240,7 @@ public sealed class FolderLayout
         }
 
         parts.Add(new Part(segments));
-        if (!parts.Any(p => p.Segments.Any(s => s.Tokens.Contains("title"))))
+        if (requireTitle && !parts.Any(p => p.Segments.Any(s => s.Tokens.Contains("title"))))
         {
             throw new FormatException("it has no {title}, so books by the same author would share a folder");
         }

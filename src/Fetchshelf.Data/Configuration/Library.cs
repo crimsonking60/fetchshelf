@@ -37,7 +37,34 @@ public sealed class Library
 
     /// <summary><see cref="FolderTemplate"/> parsed, read once when the configuration is loaded.</summary>
     [YamlIgnore]
-    public FolderLayout Layout { get; set; } = FolderLayout.Default;
+    public FolderLayout TemplateLayout { get; set; } = FolderLayout.Default;
+
+    /// <summary>`layout`: one folder per book, or one per series for comic servers such as Komga.</summary>
+    public LibraryLayout Layout { get; set; } = LibraryLayout.Book;
+
+    private string? _oneshotsDir;
+    private bool? _seriesJson;
+
+    /// <summary>`oneshots_dir`: series layout only, the folder under <see cref="LibraryDir"/> that books without a series go into.</summary>
+    public string OneshotsDir
+    {
+        get => _oneshotsDir ?? "_oneshots";
+        set => _oneshotsDir = value;
+    }
+
+    /// <summary>`series_json`: series layout only, write a Mylar `series.json` into each series folder.</summary>
+    public bool SeriesJson
+    {
+        get => _seriesJson ?? true;
+        set => _seriesJson = value;
+    }
+
+    /// <summary>True when `oneshots_dir` or `series_json` is set, which only a series library may.</summary>
+    internal bool HasSeriesSettings => _oneshotsDir is not null || _seriesJson is not null;
+
+    /// <summary>True for a library with <c>layout = "series"</c>.</summary>
+    [YamlIgnore]
+    public bool IsSeriesLayout => Layout == LibraryLayout.Series;
 
     public List<string> AllowTags { get; set; } = [];
 

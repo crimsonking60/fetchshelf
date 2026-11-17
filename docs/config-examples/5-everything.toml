@@ -395,6 +395,16 @@ metadata_opf = true                      # also write a metadata.opf (Calibre's 
 metadata_json = false                    # leave out metadata.json (Audiobookshelf's format); default true
 
 [[library]]
+name = "Comics"
+category = "comics"
+library_dir = "/data/library/comics"
+layout = "series"                        # one folder per series, one renamed file per book, for Komga;
+                                         # default "book": one folder per book
+oneshots_dir = "_oneshots"               # series layout: where books without a series go (default)
+series_json = true                       # series layout: a Mylar series.json per series folder (default)
+folder_names = "portable"                # keep out characters Windows refuses, such as ':' and '?'
+
+[[library]]
 name = "Everything else"
 download_dir = "/data/torrents/manual"   # match torrents saved under this folder instead
 library_dir = "/data/library/other"

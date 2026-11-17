@@ -11,9 +11,17 @@
     const string BudgetHeaders = "<th>Unsat buffer</th><th>Wedge buffer</th><th>Max waiting</th>";
 
     string MetadataFiles(Library library) =>
-        string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
+        string.Join(", ", new[]
+        {
+            library.MetadataJson ? "metadata.json" : null,
+            library.MetadataOpf ? "metadata.opf" : null,
+            library.IsSeriesLayout && library.SeriesJson ? "series.json" : null,
+        }.OfType<string>()) is { Length: > 0 } files
             ? files
             : "none";
+
+    string Layout(Library library) =>
+        library.IsSeriesLayout ? $"series; books without a series in {library.OneshotsDir}" : library.FolderTemplate ?? "book, default template";
 }
 
 <h2>Config</h2>
@@ -96,7 +104,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Folder template</th></tr></thead>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Layout</th></tr></thead>
             <tbody>
                 @foreach (var library in settings.Library)
                 {
@@ -108,7 +116,7 @@
                         <td>@library.Method</td>
                         <td>@MetadataFiles(library)</td>
                         <td>@Fetchshelf.Data.Configuration.EnumYamlConverter.NameOf(library.FolderNames)</td>
-                        <td>@(library.FolderTemplate ?? "default")</td>
+                        <td>@Layout(library)</td>
                     </tr>
                 }
             </tbody>

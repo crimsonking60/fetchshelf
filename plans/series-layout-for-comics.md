@@ -216,3 +216,25 @@ feature branch and one pull request into `main`.
 - A series layout for Kavita: its expected `Series/files` shape is close, but it hasn't been checked; the docs
   mention only Komga until it is.
 - Reading direction for manga: Komga takes it from `ComicInfo.xml` only.
+
+## As built
+
+- **Names reuse the folder renderer from `safe-folder-names.md` (PR #73).** `SeriesLayoutNamer` renders its names with
+  `FolderLayout.RenderName`, a one-name form of the `folder_template` renderer that needn't hold `{title}`. So the
+  library's `folder_names` rules and the 255-byte limit apply, with the title shortened first. A file name leaves room
+  for its extension.
+- **`folder_template` with `layout = "series"` is refused**, as the plan foresaw for after PR #73.
+- **`Library.Layout` is now the `layout` setting.** The parsed `folder_template` that had that name is `TemplateLayout`.
+- **`series.json`.** Komga's reader (`MylarMetadata` in Komga's source) fails without `type`, `publisher`, `name`,
+  `comicid`, `year`, `booktype`, `comic_image`, `total_issues`, `publication_run` or `status`, so every one is written.
+  The unknown ones are empty or 0, and `status` is `Continuing`. `booktype` is always `Print`: Komga requires it but
+  doesn't use it, and the media type says nothing about it. Komga takes the title, status, publisher and
+  `total_issues` from the file, so the docs say how to keep what Komga reads from the books instead.
+- **Mismatch.** A single linked file's name is compared too. The `name (2).ext` a clash gives counts as the expected
+  name, so a second copy of a volume isn't flagged forever.
+- **Torrent page.** It already lists each torrent's linked files under its library path, so it is unchanged.
+- **Removing.** `series.json` joined `LibraryFileRemover`'s extras. The shared-folder test drives `LibraryFileRemover`
+  with `FolderUseByOthersAsync` directly, the path the Clean job, Unlink and Relink all take, rather than through
+  `CleanerTests`.
+- **Manual check.** The Komga part of the manual check is left to the PR's test run.
+- **Release notes** are left for the release PR.

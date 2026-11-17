@@ -963,6 +963,9 @@ library, in file order, that accepts it is used.
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 | `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
 | `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
+| `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |
+| `oneshots_dir` | `"_oneshots"` | Series layout only: the folder under `library_dir` that books without a series go into. Komga's One-Shots directory setting must name the same folder. |
+| `series_json` | `true` | Series layout only: write a Mylar `series.json` into each series folder. |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
@@ -996,7 +999,7 @@ library, in file order, that accepts it is used.
   books and imports from. See [`metadata.opf`](user-guide.md#metadataopf) in the user guide.
 - Changing either setting affects books linked from then on. To apply it to books already in the library,
   relink them: tick them on the **Torrents** page and use **Relink selected**.
-- A torrent without any author cannot be linked and is reported on the Errors page.
+- A torrent without any author cannot be linked and is reported on the Errors page, except into a series library.
 
 ### Folder naming
 
@@ -1067,7 +1070,7 @@ The default layout written as a template:
 folder_template = "{author}/{series}/[{series} #{series_number} - ]{title}[, {edition}][ {{{narrator}}}]"
 ```
 
-A comics library ordered by series:
+A comics library ordered by series, still one folder per book (for Komga, use the [series layout](#series-layout)):
 
 ```toml
 [[library]]
@@ -1080,6 +1083,55 @@ folder_template = "{series}/[{series_number} - ]{title} ({year})"
 A template that can't be used stops startup with the reason: an unknown token, a `{` or `[` without its closing
 `}` or `]`, an empty folder (`a//b`), a leading `/`, or no `{title}`.
 
+### Series layout
+
+Comic servers read a library the other way round from Audiobookshelf. Komga makes a series of every folder that
+holds files, at any depth, and a book of each file in it, so the book layout's one folder per book shows every
+volume as a series of its own. `layout = "series"` links a library in the shape Komga reads:
+
+```
+comics/Saga/Saga #001 - Saga, Volume 1.cbz
+comics/Saga/Saga #002 - Saga, Volume 2.cbz
+comics/Saga/Saga #003 - Saga, Volume 3.cbz
+comics/Saga/series.json
+comics/_oneshots/Some Standalone Graphic Novel.cbz
+```
+
+```toml
+[[library]]
+name = "Comics"
+category = "comics"
+library_dir = "/data/comics"
+layout = "series"
+folder_names = "portable"
+```
+
+- **Folders.** One per series, named after it: the first series with a number, otherwise the first series. A book
+  without a series goes into `oneshots_dir`. The author is left out: MAM lists writers and artists together, and
+  writers change within a long series.
+- **Files.** A torrent with one file of the chosen format is renamed `<Series> #<number> - <Title>[, <Edition>]`, or
+  `<Series> - <Title>` without a number, keeping its extension; in the one-shots folder, `<Title>[, <Edition>]`.
+  Numbers are padded to three digits so the names sort in series order: `1` is `001`, `1.5` is `001.5`, `1-6` is
+  `001-006`, `2p1` is `002p1`. A torrent with several files, such as a pack, keeps its own file names in the series
+  folder, as their numbering can't be told apart.
+- **Another book's file at the name**, such as a second copy of a volume, makes this one `<name> (2).<ext>`.
+- **Formats.** Only the ebook side is linked: comics, manga and other ebooks. A torrent with only audio files is a
+  Link error: *This library's series layout links only ebook formats*.
+- **No author needed.** A torrent without an author is linked.
+- **`series.json`.** With `series_json`, the default, each series folder gets a Mylar `series.json` with the series'
+  name as MAM has it, so a `:` that `folder_names = "portable"` took out of the folder name is back in Komga's title.
+  Fetchshelf doesn't know the rest (publisher, status, issue count), so it writes those empty, and `Continuing` as the
+  status; set `series_json = false`, or turn off Komga's *Import Mylar series.json* option, to keep what Komga reads
+  from the books instead. The last book leaving a folder takes `series.json` with it.
+- **No per-book files.** `metadata_json` and `metadata_opf` can't be set: a series folder holds many books. The
+  top-level ones don't apply to a series library.
+- **No `folder_template`.** The series layout names its folders and files itself.
+- **Not for Audiobookshelf.** Audiobookshelf takes a folder for one item, so the Audiobookshelf job leaves a series
+  library's books alone.
+- Names are cleaned and shortened as the book layout's are; a file name leaves room for its extension.
+- No `ComicInfo.xml` is written into the archives: with hardlinks, changing the archive changes the file being
+  seeded.
+
 ### When folder names change
 
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
@@ -1087,7 +1139,9 @@ it as a mismatch (*No library*, *Different library* or *Different folder*). **Re
 torrent's page, or **Relink selected** on the Torrents page, links the book again from its download into
 the library and folder it now belongs in. Changing `folder_names`, `folder_template` or
 `exclude_narrator_in_library_dir` flags the books whose folder it changes as *Different folder* until they are
-relinked.
+relinked. In a series library, a book's file name counts too: a corrected title or number flags it, and relinking
+renames the file, leaving the series' other books alone. Switching a library's `layout` flags every book in it;
+**Relink selected** moves them, and the book layout's folders go with their last file.
 
 ## `[[notify]]`
 

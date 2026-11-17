@@ -176,6 +176,32 @@ public sealed class AbsMatcherTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BookInASeriesLibrary_IsLeftOut()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "/data/comics/Saga", ["Brian K. Vaughan"]);
+        var calledPaths = new List<string>();
+        var absClient = CreateAbsClient(
+            calledPaths,
+            [("f1", "/data/comics")],
+            new Dictionary<string, (string, string)> { ["Brian K. Vaughan"] = ("a1", "Brian K. Vaughan") },
+            new Dictionary<string, (string, string)> { ["a1"] = ("item1", "/data/comics/Saga") });
+        var library = new Fetchshelf.Data.Configuration.Library
+        {
+            LibraryDir = "/data/comics",
+            Category = "comics",
+            Layout = Fetchshelf.Data.Configuration.LibraryLayout.Series,
+        };
+        var matcher = new AbsMatcher(context, absClient, libraries: [library]);
+
+        var summary = await matcher.RunAsync();
+
+        Assert.Null((await context.Torrents.SingleAsync()).AbsId);
+        Assert.Empty(calledPaths);
+        Assert.Equal(new AbsMatchSummary(0, 0, 0), summary);
+    }
+
+    [Fact]
     public async Task RunAsync_NoLibraryFolderPrefixesTorrentPath_NoMatchAndNoSearchCall()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

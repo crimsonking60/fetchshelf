@@ -7,11 +7,11 @@ namespace Fetchshelf.Data.Organizer;
 /// <summary>Removes what Fetchshelf placed in a book's library folder, and nothing else.</summary>
 public static class LibraryFileRemover
 {
-    private static readonly string[] Extras = ["cover.jpg", "metadata.json", "metadata.opf"];
+    private static readonly string[] Extras = ["cover.jpg", "metadata.json", "metadata.opf", "series.json"];
 
     /// <summary>
     /// Removes <paramref name="linkedFiles"/> from <paramref name="libraryPath"/>, then `cover.jpg`, `metadata.json`,
-    /// `metadata.opf`, sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
+    /// `metadata.opf`, a series folder's `series.json`, sub-folders (such as `Disc 1`) left empty, and the folder itself when empty. Files already gone are skipped.
     /// Returns the relative paths of the linked files that were removed.
     /// </summary>
     /// <param name="libraryDir">
@@ -20,8 +20,8 @@ public static class LibraryFileRemover
     /// library's own folder never is. Null removes nothing above <paramref name="libraryPath"/>.
     /// </param>
     /// <param name="folderSharedWithAnotherTorrent">
-    /// True when another linked torrent still uses the folder, such as a better format of the same book; its
-    /// `cover.jpg`, `metadata.json` and `metadata.opf` are then left in place.
+    /// True when another linked torrent still uses the folder, such as a better format of the same book or another book
+    /// of the series; its `cover.jpg`, `metadata.json`, `metadata.opf` and `series.json` are then left in place.
     /// </param>
     /// <param name="filesUsedByOthers">
     /// Relative paths another linked torrent in the same folder also lists (<see cref="FolderUseByOthersAsync"/>). They

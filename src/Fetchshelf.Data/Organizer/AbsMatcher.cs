@@ -1,5 +1,6 @@
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,22 +24,26 @@ public sealed record AbsMatcherOptions(IReadOnlyDictionary<string, string> Fetch
 /// <summary>
 /// Matches linked torrents to their Audiobookshelf library item. Distinct from the
 /// metadata-push hooks in <see cref="LinkRunner"/>, which act only once a torrent already has a
-/// stored id.
+/// stored id. Books in a library with <c>layout = "series"</c> are left out: Audiobookshelf takes a folder for one item,
+/// and every book of a series shares one.
 /// </summary>
 public sealed class AbsMatcher(
     FetchshelfDbContext dbContext,
     AbsClient absClient,
     ILogger<AbsMatcher>? logger = null,
-    AbsMatcherOptions? options = null)
+    AbsMatcherOptions? options = null,
+    IReadOnlyList<Library>? libraries = null)
 {
     private readonly IReadOnlyDictionary<string, string> _fetchshelfToAbsPaths = options?.FetchshelfToAbsPaths ?? new Dictionary<string, string>();
     private readonly ILogger<AbsMatcher> _logger = logger ?? NullLogger<AbsMatcher>.Instance;
 
     public async Task<AbsMatchSummary> RunAsync(CancellationToken cancellationToken = default)
     {
-        var candidates = await dbContext.Torrents
+        var candidates = (await dbContext.Torrents
             .Where(t => t.LibraryPath != null && t.AbsId == null)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken))
+            .Where(t => !InSeriesLibrary(t.LibraryPath!))
+            .ToList();
         var erroredKeys = await ErrorLog.KeysAsync(dbContext, ErrorStage.Audiobookshelf, cancellationToken);
         await ClearErrorsOfBooksNoLongerMatchedAsync(erroredKeys, candidates, cancellationToken);
 
@@ -198,4 +203,7 @@ public sealed class AbsMatcher(
 
         return null;
     }
+
+    private bool InSeriesLibrary(string libraryPath) =>
+        libraries is not null && LibraryFolders.IndexContaining(libraries, libraryPath) is { } index && libraries[index].IsSeriesLayout;
 }

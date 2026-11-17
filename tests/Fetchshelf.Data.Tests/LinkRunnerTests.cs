@@ -615,7 +615,7 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Equal(nameof(LibraryMismatchState.NewPath), (await context.Torrents.SingleAsync()).LibraryMismatchState);
 
         var templated = CreateLibrary(LibraryDir);
-        templated.Layout = FolderLayout.Parse("{title}");
+        templated.TemplateLayout = FolderLayout.Parse("{title}");
         await CreateRunner(context, new FakeMetadataLookup(), [templated]).RunAsync(new QBittorrentConnection(), client);
         Assert.Equal(nameof(LibraryMismatchState.NewPath), (await context.Torrents.SingleAsync()).LibraryMismatchState);
     }
