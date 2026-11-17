@@ -59,6 +59,7 @@ setup. If you use one, please report how it went, good or bad (see
   preview on the Config page.
 - `folder_names = "portable"` and `folder_template` in `[[library]]`, and folder names shortened to 255 bytes.
 - The Account page's "Over time" section: one snapshot of the account a day, its charts and the CSV download.
+- Bulk actions on the Torrents page running in the background, with their progress panel and **Cancel**.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.

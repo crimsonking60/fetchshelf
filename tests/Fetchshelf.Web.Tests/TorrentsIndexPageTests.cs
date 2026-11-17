@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
+using Fetchshelf.Web.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -438,9 +439,10 @@ public class TorrentsIndexPageTests
             var response = await client.PostAsync("/torrents?handler=Bulk", form);
 
             response.EnsureSuccessStatusCode();
-            var html = System.Net.WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+            var html = System.Net.WebUtility.HtmlDecode(await BulkOperationsEndedAsync(fixture, client));
+            Assert.Contains("Relinked 1 of 2 torrents.", html);
             Assert.Contains(
-                "Relinked 1 of 2 torrents. Gone From Client: Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.",
+                "<li>Gone From Client: Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.</li>",
                 html);
             Assert.True(File.Exists(Path.Combine(libraryDir, "Brandon Sanderson", "The Way of Kings", "book.m4b")));
         }
@@ -470,9 +472,105 @@ public class TorrentsIndexPageTests
         var response = await client.PostAsync("/torrents?handler=Bulk", form);
 
         response.EnsureSuccessStatusCode();
-        var html = await response.Content.ReadAsStringAsync();
+        var html = await BulkOperationsEndedAsync(fixture, client);
         Assert.Contains("Unlinked 2 torrents.", html);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, @"\(unlinked\)").Count);
+    }
+
+    [Fact]
+    public async Task Post_BulkAction_ComesBackAtOnce_ShowsItsProgress_AndCanBeCancelled()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("First Book"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Second Book"));
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/torrents"));
+        using var scope = fixture.CreateScope();
+        // The Link job holding the gate: the operation starts, then waits at its first torrent.
+        using var held = await scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.LibraryWriteGate>().AcquireAsync();
+        var queue = scope.ServiceProvider.GetRequiredService<BulkOperationQueue>();
+
+        using var form = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("selectedIds", "hash1"),
+            new KeyValuePair<string, string>("selectedIds", "hash2"),
+            new KeyValuePair<string, string>("action", "relink"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+        ]);
+        (await client.PostAsync("/torrents?handler=Bulk", form)).EnsureSuccessStatusCode();
+        var operation = Assert.Single(queue.Active());
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (operation.State != BulkOperationState.Running && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        var page = await client.GetStringAsync("/torrents");
+        Assert.Contains("hx-trigger=\"every 2s\"", page[page.IndexOf("id=\"bulk-operations\"", StringComparison.Ordinal)..]);
+        Assert.Contains("Relinking 1 of 2: First Book", page);
+        Assert.Contains("Relinking 1 of 2: First Book", await client.GetStringAsync("/Jobs"));
+
+        using var cancel = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["operationId"] = operation.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(page),
+        });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/torrents?handler=CancelBulk") { Content = cancel };
+        request.Headers.Add("HX-Request", "true");
+        (await client.SendAsync(request)).EnsureSuccessStatusCode();
+        while (!operation.HasEnded && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        var panel = await client.GetStringAsync("/torrents?handler=BulkOperations");
+        Assert.Contains("Relinked 0 of 2 torrents. Cancelled after 0; the other 2 were left as they were.", panel);
+        Assert.DoesNotContain("hx-trigger=\"every 2s\"", panel);
+        Assert.DoesNotContain("bulk-operations-running", await client.GetStringAsync("/Jobs"));
+    }
+
+    [Fact]
+    public async Task Post_DismissBulk_HidesTheEndedOperation()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("First Book"));
+        var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/torrents");
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["selectedIds"] = "hash1",
+            ["action"] = "clean",
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(page),
+        });
+        (await client.PostAsync("/torrents?handler=Bulk", form)).EnsureSuccessStatusCode();
+        page = await BulkOperationsEndedAsync(fixture, client);
+        Assert.Contains("Cleaned 1 torrent.", page);
+        using var scope = fixture.CreateScope();
+        var operation = Assert.Single(scope.ServiceProvider.GetRequiredService<BulkOperationQueue>().Shown());
+
+        using var dismiss = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["operationId"] = operation.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(page),
+        });
+        (await client.PostAsync("/torrents?handler=DismissBulk", dismiss)).EnsureSuccessStatusCode();
+
+        Assert.DoesNotContain("Cleaned 1 torrent.", await client.GetStringAsync("/torrents"));
+    }
+
+    /// <summary>Waits for every queued bulk action to end, then gets the Torrents page, whose panel shows how they went.</summary>
+    private static async Task<string> BulkOperationsEndedAsync(FetchshelfWebAppFixture fixture, HttpClient client)
+    {
+        using var scope = fixture.CreateScope();
+        var queue = scope.ServiceProvider.GetRequiredService<BulkOperationQueue>();
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (queue.Active().Count > 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.Empty(queue.Active());
+        return await client.GetStringAsync("/torrents");
     }
 
     private static string ExtractAntiforgeryToken(string html)
@@ -557,7 +655,8 @@ public class TorrentsIndexPageTests
             ["category"] = "seed-only",
             ["__RequestVerificationToken"] = token,
         });
-        var html = System.Net.WebUtility.HtmlDecode(await (await client.PostAsync("/torrents?handler=Bulk", form)).Content.ReadAsStringAsync());
+        (await client.PostAsync("/torrents?handler=Bulk", form)).EnsureSuccessStatusCode();
+        var html = System.Net.WebUtility.HtmlDecode(await BulkOperationsEndedAsync(fixture, client));
 
         Assert.Contains(categoriesSet, c => c.Contains("category=seed-only", StringComparison.Ordinal));
         Assert.Contains("Set the category to seed-only for 1 torrent.", html);

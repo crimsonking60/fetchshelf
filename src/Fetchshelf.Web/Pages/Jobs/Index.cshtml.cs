@@ -1,16 +1,22 @@
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Web.Jobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fetchshelf.Web.Pages.Jobs;
 
-public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings, Account.AccountSummaryBuilder accountSummaryBuilder) : PageModel
+public class IndexModel(
+    IJobRegistry jobRegistry, FetchshelfSettings settings, Account.AccountSummaryBuilder accountSummaryBuilder, BulkOperationQueue bulkOperations)
+    : PageModel
 {
     public IReadOnlyList<JobStatusViewModel> Jobs { get; private set; } = [];
 
     /// <summary>Kinds of optional job with nothing configured, listed below the jobs.</summary>
     public IReadOnlyList<string> Unconfigured { get; private set; } = [];
+
+    /// <summary>The Torrents page's bulk actions running or waiting: not jobs, but work going on all the same.</summary>
+    public IReadOnlyList<BulkOperation> BulkOperations { get; private set; } = [];
 
     /// <summary>The account numbers above the job list; null without a `mam_id`, when there is no account to show.</summary>
     public Account.AccountSummary? Account { get; private set; }
@@ -19,6 +25,7 @@ public class IndexModel(IJobRegistry jobRegistry, FetchshelfSettings settings, A
     {
         Jobs = BuildJobViewModels();
         Unconfigured = UnconfiguredJobs.For(settings);
+        BulkOperations = bulkOperations.Active();
         Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildStripAsync(cancellationToken) : null;
     }
 

@@ -45,9 +45,11 @@ public sealed class LinkRunner(
     FormatPreferenceLists formatPreferenceLists,
     LinkRunnerOptions options,
     AbsClient? absClient = null,
-    ILogger<LinkRunner>? logger = null)
+    ILogger<LinkRunner>? logger = null,
+    LibraryWriteGate? writeGate = null)
 {
     private readonly ILogger<LinkRunner> _logger = logger ?? NullLogger<LinkRunner>.Instance;
+    private readonly LibraryWriteGate _writeGate = writeGate ?? new LibraryWriteGate();
     private int _linked;
     private int _failed;
 
@@ -101,6 +103,16 @@ public sealed class LinkRunner(
             foreach (var torrent in finished)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                // One torrent at a time with a bulk action or the Clean job. Waiting for the gate can take a while, so the
+                // batch is committed first: its transaction would hold the database's write lock that the holder needs.
+                var gate = _writeGate.TryAcquire();
+                if (gate is null)
+                {
+                    await CommitBatchAsync();
+                    gate = await _writeGate.AcquireAsync(cancellationToken);
+                }
+
+                using var heldGate = gate;
                 _batch ??= await dbContext.Database.BeginTransactionAsync(cancellationToken);
                 try
                 {

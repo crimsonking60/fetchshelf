@@ -14,9 +14,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Torrents;
 
 public class IndexModel(
-    FetchshelfDbContext dbContext, LibraryQueries libraryQueries, FormatPreferenceLists formatPreferenceLists, LinkRunner linkRunner, Cleaner cleaner,
+    FetchshelfDbContext dbContext, LibraryQueries libraryQueries, FormatPreferenceLists formatPreferenceLists,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, ClientStatusChecker clientStatusChecker,
-    ILogger<IndexModel> logger) : PageModel
+    BulkOperationQueue bulkOperations) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
@@ -91,7 +91,7 @@ public class IndexModel(
         new("/Torrents/Index", Query.ToRouteValues(), PageNumber, TotalPages, Torrents.Count, TotalCount, PageSize, "torrent-pager", "Torrent pages");
 
     /// <summary>
-    /// The outcome of a "Check qBittorrent" or a bulk relink or unlink, shown above the list; set by the htmx
+    /// The outcome of a "Check qBittorrent", or why a bulk action wasn't queued, shown above the list; set by the htmx
     /// response itself or, after a redirect, read back from TempData.
     /// </summary>
     public string? CheckMessage { get; private set; }
@@ -153,115 +153,62 @@ public class IndexModel(
     /// <summary>The categories the bulk category dropdown offers: the libraries', then `extra_categories`.</summary>
     public IReadOnlyList<LibraryCategory> CategoryOptions => LibraryCategories.For(settings);
 
+    /// <summary>
+    /// A bulk action on the torrents ticked. Remove record is one database delete and is done here; the others are queued
+    /// for <see cref="BulkOperationWorker"/>, whose progress the page shows above the list, and the page comes back at once.
+    /// </summary>
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds, string? category)
     {
-        switch (action)
+        BulkAction? queued = action switch
         {
-            case "setCategory" when !LibraryCategories.IsOffered(settings, category):
-                TempData["CheckMessage"] = "Choose a category first.";
-                TempData["CheckFailed"] = true;
-                break;
-            case "setCategory":
-                await RunEachAsync(selectedIds, $"Set the category to {category} for", "Setting the category", async (id, connections) =>
-                {
-                    var client = await QBittorrentConnectionResolver.ResolveAsync(
-                        connections.Select(c => c.Client).ToList(), id, HttpContext.RequestAborted);
-                    if (client is null)
-                    {
-                        return (false, "qBittorrent doesn't have it.");
-                    }
-
-                    await client.SetCategoryAsync(id, category!, HttpContext.RequestAborted);
-                    // Shown in the list straight away; the Link job keeps it in step with qBittorrent from now on.
-                    var torrent = await dbContext.Torrents.FirstAsync(t => t.Id == id, HttpContext.RequestAborted);
-                    torrent.QBittorrentCategory = category;
-                    await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
-                    return (true, string.Empty);
-                });
-                break;
-            case "clean":
-                var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
-                foreach (var id in selectedIds)
-                {
-                    await cleaner.CleanOneAsync(id, connections);
-                }
-
-                break;
-            case "refresh":
-                foreach (var id in selectedIds)
-                {
-                    await linkRunner.RefreshAsync(id);
-                }
-
-                break;
-            case "relink":
-                await RunEachAsync(selectedIds, "Relinked", "Relinking", async (id, connections) =>
-                {
-                    var result = await linkRunner.RelinkAsync(id, connections, HttpContext.RequestAborted);
-                    return (result.Succeeded, result.Message);
-                });
-                break;
-            case "unlink":
-                await RunEachAsync(selectedIds, "Unlinked", "Unlinking", async (id, connections) =>
-                {
-                    var result = await cleaner.UnlinkAsync(id, connections, HttpContext.RequestAborted);
-                    return (result.Succeeded, result.Message);
-                });
-                break;
-            case "removeRecord":
-                var toRemove = await dbContext.Torrents.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
-                dbContext.Torrents.RemoveRange(toRemove);
-                await dbContext.SaveChangesAsync();
-                break;
+            "relink" => BulkAction.Relink,
+            "unlink" => BulkAction.Unlink,
+            "refresh" => BulkAction.Refresh,
+            "clean" => BulkAction.Clean,
+            "setCategory" => BulkAction.SetCategory,
+            _ => null,
+        };
+        if (queued == BulkAction.SetCategory && !LibraryCategories.IsOffered(settings, category))
+        {
+            TempData["CheckMessage"] = "Choose a category first.";
+            TempData["CheckFailed"] = true;
+        }
+        else if (queued is { } bulkAction && selectedIds.Count > 0)
+        {
+            bulkOperations.Enqueue(bulkAction, selectedIds.Distinct(StringComparer.Ordinal).ToList(), bulkAction == BulkAction.SetCategory ? category : null);
+        }
+        else if (action == "removeRecord")
+        {
+            var toRemove = await dbContext.Torrents.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
+            dbContext.Torrents.RemoveRange(toRemove);
+            await dbContext.SaveChangesAsync();
         }
 
         return RedirectToPage(CurrentPageRouteValues());
     }
 
-    /// <summary>
-    /// Runs a relink or unlink on each torrent in turn and leaves a summary for the page; one that is refused or fails
-    /// is reported and the rest still run.
-    /// </summary>
-    private async Task RunEachAsync(
-        List<string> ids, string doneVerb, string failedVerb,
-        Func<string, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)>, Task<(bool Succeeded, string Message)>> action)
-    {
-        var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
-        var titles = await dbContext.Torrents.AsNoTracking()
-            .Where(t => ids.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id, t => t.Title, HttpContext.RequestAborted);
-        var done = 0;
-        var problems = new List<string>();
-        foreach (var id in ids.Where(titles.ContainsKey))
-        {
-            try
-            {
-                var (succeeded, message) = await action(id, connections);
-                if (succeeded)
-                {
-                    done++;
-                }
-                else
-                {
-                    problems.Add($"{titles[id]}: {message}");
-                }
-            }
-            catch (Exception ex) when (!HttpContext.RequestAborted.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "{Action} {TorrentId} failed", failedVerb, id);
-                // What the failed attempt changed must not be saved along with the next torrent.
-                dbContext.DiscardPendingChanges();
-                problems.Add($"{titles[id]}: {failedVerb} failed: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent or Audiobookshelf")}");
-            }
-        }
+    /// <summary>The bulk actions running, waiting or ended, for the panel above the list.</summary>
+    public IReadOnlyList<BulkOperation> BulkOperations => bulkOperations.Shown();
 
-        var total = done + problems.Count;
-        var torrents = total == 1 ? "1 torrent" : $"{total} torrents";
-        TempData["CheckMessage"] = problems.Count == 0
-            ? $"{doneVerb} {torrents}."
-            : $"{doneVerb} {done} of {torrents}. {string.Join(" ", problems)}";
-        TempData["CheckFailed"] = problems.Count > 0;
+    /// <summary>The panel above the list, which polls itself while an operation runs or waits.</summary>
+    public PartialViewResult OnGetBulkOperations() => Partial("_BulkOperationsPartial", BulkOperations);
+
+    /// <summary><b>Cancel</b> on an operation: one waiting never starts, one running stops after its current torrent.</summary>
+    public IActionResult OnPostCancelBulk(int operationId)
+    {
+        bulkOperations.Cancel(operationId);
+        return BulkPanelOrPage();
     }
+
+    /// <summary><b>Dismiss</b> on an ended operation: its summary is no longer shown.</summary>
+    public IActionResult OnPostDismissBulk(int operationId)
+    {
+        bulkOperations.Dismiss(operationId);
+        return BulkPanelOrPage();
+    }
+
+    private IActionResult BulkPanelOrPage() =>
+        Request.Headers.ContainsKey("HX-Request") ? OnGetBulkOperations() : RedirectToPage(CurrentPageRouteValues());
 
     /// <summary>The search, filters, sort and page, so a redirect comes back to the same list.</summary>
     private RouteValueDictionary CurrentPageRouteValues()
