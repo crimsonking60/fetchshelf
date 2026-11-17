@@ -278,6 +278,24 @@ cost = "free"
 languages = ["English"]
 
 # =====================================================================================================
+# [[bookmarks_list]]: at most one. Shows the MAM bookmarks on the Lists page with what happened to each,
+# and selects them through its grab blocks. Commented out here because it can't be configured together
+# with the type = "bookmarks" autograb above: both would select the same torrents. Choose one.
+# =====================================================================================================
+# [[bookmarks_list]]
+# name = "MAM bookmarks"
+# category = "audiobooks"
+# search_interval = 60
+# max_active_downloads = 5
+# dry_run = false
+#
+# [[bookmarks_list.grab]]   # tried in order; a bookmark goes to the first block that takes it
+# cost = "free"
+#
+# [[bookmarks_list.grab]]
+# cost = "wedge"
+
+# =====================================================================================================
 # [follow]: optional. Lets series and authors be followed from the Series page, a torrent's page and the
 # Torrents page; the Follow job then searches MAM for their missing and new books, and downloads them for those
 # set to Auto. What is followed, and what is on Auto, is chosen in the web UI, not here.

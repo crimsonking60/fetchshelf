@@ -170,6 +170,13 @@ public static class ConfigSummary
                 $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }
 
+        foreach (var entry in settings.BookmarksList)
+        {
+            rows.Add((AutoDownloaderJobNames.BookmarksList(entry),
+                $"MAM bookmarks, {entry.Grab.Count} grab block{(entry.Grab.Count == 1 ? "" : "s")}, " +
+                $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
+        }
+
         var afterSelections = settings.DownloadAfterSelection ? ", and after selections" : "";
         rows.Add((JobNames.Download, settings.SearchInterval > 0
             ? $"every {settings.SearchInterval} min{afterSelections}"

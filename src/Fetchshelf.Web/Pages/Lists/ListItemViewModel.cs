@@ -20,6 +20,9 @@ public sealed record ListItemViewModel
 
     public required string MamSearchUrl { get; init; }
 
+    /// <summary>For a bookmark, the torrent's details on the Search page, shown instead of a MAM search.</summary>
+    public string? TorrentDetailsUrl { get; init; }
+
     /// <summary>Null when the list's grab blocks never look for audiobooks.</summary>
     public ListItemSideViewModel? Audio { get; init; }
 

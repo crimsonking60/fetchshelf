@@ -114,6 +114,16 @@ public static class FetchshelfJobs
                 "Searches MAM for the books in a list file and queues them for download.");
         }
 
+        foreach (var entry in settings.BookmarksList)
+        {
+            var list = ListDefinition.ForBookmarks(entry);
+            RegisterList(jobRegistry, scopeFactory, settings, ignoreTorrents, list,
+                scope => new MamBookmarksSource(
+                    scope.ServiceProvider.GetRequiredService<MamClient>(), scope.ServiceProvider.GetRequiredService<MamAccessGate>(),
+                    list.DisplayName, logger: scope.ServiceProvider.GetRequiredService<ILogger<MamBookmarksSource>>()),
+                "Reads the torrents bookmarked on MAM and queues those its grab blocks take for download.");
+        }
+
         if (settings.Follow is { } follow)
         {
             RegisterSelecting(jobRegistry, scopeFactory, settings, JobNames.Follow, follow.DryRun, async (scope, dryRun, ct) =>

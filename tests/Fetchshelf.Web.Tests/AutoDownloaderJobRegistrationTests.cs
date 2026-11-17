@@ -83,4 +83,21 @@ public class AutoDownloaderJobRegistrationTests
         Assert.NotNull(configuredDryRun);
         Assert.Null(configuredDryRun.DryRunAsync);
     }
+
+    [Fact]
+    public async Task HomePage_WithABookmarksListConfigured_RegistersItsJob()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = "test-mam-id"
+
+            [[bookmarks_list]]
+            search_interval = 0
+
+            [[bookmarks_list.grab]]
+            """);
+        var client = fixture.CreateClient();
+        await client.GetAsync("/");
+
+        Assert.NotNull(fixture.JobRegistry.Get("bookmarks_list")?.DryRunAsync);
+    }
 }

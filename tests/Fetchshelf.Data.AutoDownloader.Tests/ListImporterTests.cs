@@ -80,8 +80,13 @@ public sealed class ListImporterTests : IDisposable
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class Harness(FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, ListImporter> createImporter)
+    private sealed class Harness(
+        FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, ListImporter> createImporter,
+        MamClient mamClient)
     {
+        /// <summary>The MAM bookmarks, read through the harness's MAM: a search with <c>"searchIn":"bookmarks"</c>.</summary>
+        public MamBookmarksSource Bookmarks { get; } = new(mamClient, new MamAccessGate(), "MAM bookmarks", delay: (_, _) => Task.CompletedTask);
+
         public FetchshelfDbContext Context => context;
 
         public FakeBookSource Books => books;
@@ -131,7 +136,7 @@ public sealed class ListImporterTests : IDisposable
             ctx, mamClient, new MamAccessGate(),
             new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists),
             SelectionTestSupport.PreferenceLists, clock,
-            delay: (_, _) => Task.CompletedTask));
+            delay: (_, _) => Task.CompletedTask), mamClient);
     }
 
     private static HardcoverListEntry Entry(FilterMainType? preferFormat = null, bool dryRun = false, params GrabEntry[] grab) => new()
@@ -776,5 +781,80 @@ public sealed class ListImporterTests : IDisposable
         Assert.Equal("List file not found: lists/gone.csv", error.Message);
         Assert.Empty(harness.Searches);
         Assert.Empty(harness.Context.Lists);
+    }
+
+    private static bool IsBookmarksSearch(string body) => body.Contains("\"searchIn\":\"bookmarks\"", StringComparison.Ordinal);
+
+    private static readonly ListDefinition BookmarksList = ListDefinition.ForBookmarks(new BookmarksListEntry { Grab = [new GrabEntry { Cost = ConfiguredCost.Free }] });
+
+    [Fact]
+    public async Task RunAsync_Bookmark_IsSelected_WithoutSearchingForIt()
+    {
+        var harness = CreateHarness(body => IsBookmarksSearch(body) ? Results(Record(11, "Dune", "Frank Herbert")) : EmptyResultJson);
+
+        var summary = await harness.RunAsync(BookmarksList, harness.Bookmarks);
+
+        Assert.Equal((1, 1, 1, true), (summary.Selected, summary.Books, summary.Searched, summary.Bookmarks));
+        Assert.Single(harness.Searches);
+        var list = Assert.Single(harness.Context.Lists);
+        Assert.Equal(("mam:bookmarks", "bookmarks_list", "MAM bookmarks"), (list.Id, list.Name, list.ListType));
+        var item = Item(harness, 11);
+        Assert.Equal((ListItemSideStatus.Selected, 11L), (item.AudioStatus, item.AudioMamId!.Value));
+        Assert.True(item.AllowAudio);
+        Assert.False(item.AllowEbook);
+        Assert.Equal("bookmarks_list", Assert.Single(harness.Context.SelectedTorrents).GrabberName);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookmarkCostingMore_IsWanted_AndTakenOnTheNextRunOnceItIsFree()
+    {
+        var free = false;
+        var harness = CreateHarness(body => IsBookmarksSearch(body) ? Results(Record(11, "Dune", "Frank Herbert", free: free)) : EmptyResultJson);
+
+        await harness.RunAsync(BookmarksList, harness.Bookmarks);
+        Assert.Equal(ListItemSideStatus.Wanted, Item(harness, 11).AudioStatus);
+
+        free = true;
+        var summary = await harness.RunAsync(BookmarksList, harness.Bookmarks);
+
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(ListItemSideStatus.Selected, Item(harness, 11).AudioStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_BookmarkNoGrabBlockTakes_SaysSo()
+    {
+        var harness = CreateHarness(body => IsBookmarksSearch(body) ? Results(Record(11, "Dune", "Frank Herbert")) : EmptyResultJson);
+        var german = ListDefinition.ForBookmarks(new BookmarksListEntry { Grab = [new GrabEntry { Cost = ConfiguredCost.Free, Languages = ["German"] }] });
+
+        var summary = await harness.RunAsync(german, harness.Bookmarks);
+
+        Assert.Equal(0, summary.Selected);
+        Assert.Equal((ListItemSideStatus.NoGrabBlock, 11L), (Item(harness, 11).AudioStatus, Item(harness, 11).AudioMamId!.Value));
+        Assert.Empty(harness.Context.SelectedTorrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_EbookBookmark_IsLookedForAsAnEbookOnly()
+    {
+        var harness = CreateHarness(body => IsBookmarksSearch(body) ? Results(Record(12, "Hyperion", "Dan Simmons", ebook: true)) : EmptyResultJson);
+
+        await harness.RunAsync(BookmarksList, harness.Bookmarks);
+
+        var item = Item(harness, 12);
+        Assert.Equal((false, true, ListItemSideStatus.Selected), (item.AllowAudio, item.AllowEbook, item.EbookStatus));
+    }
+
+    [Fact]
+    public async Task RunAsync_BookmarkRemovedOnMam_LeavesTheList()
+    {
+        var bookmarked = true;
+        var harness = CreateHarness(body => IsBookmarksSearch(body) && bookmarked ? Results(Record(11, "Dune", "Frank Herbert", free: false)) : EmptyResultJson);
+        await harness.RunAsync(BookmarksList, harness.Bookmarks);
+
+        bookmarked = false;
+        await harness.RunAsync(BookmarksList, harness.Bookmarks);
+
+        Assert.NotNull(Item(harness, 11).RemovedAt);
     }
 }

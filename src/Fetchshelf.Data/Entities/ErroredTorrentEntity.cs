@@ -27,6 +27,9 @@ public enum ErrorStage
 
     /// <summary>A book a file list couldn't search for; keyed by <see cref="ErrorLog.ListItemKey"/>.</summary>
     FileList,
+
+    /// <summary>A bookmark the bookmarks list couldn't handle; keyed by <see cref="ErrorLog.ListItemKey"/>, whose book id is the MAM id.</summary>
+    BookmarksList,
 }
 
 /// <summary>One row per (stage, torrent) error; a successful run of the stage clears it.</summary>
@@ -36,7 +39,7 @@ public sealed class ErroredTorrentEntity
 
     public required ErrorStage Stage { get; set; }
 
-    /// <summary>The item the error is about: a MAM id (Grabber, Snatchlist), an info-hash (Linker, Cleaner, Audiobookshelf), or a list item (HardcoverList, FileList).</summary>
+    /// <summary>The item the error is about: a MAM id (Grabber, Snatchlist), an info-hash (Linker, Cleaner, Audiobookshelf), or a list item (HardcoverList, FileList, BookmarksList).</summary>
     public required string Key { get; set; }
 
     /// <summary>The torrent's name when the error was recorded, so the row is recognizable without a Torrent record.</summary>

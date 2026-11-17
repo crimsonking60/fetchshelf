@@ -100,6 +100,7 @@ public static partial class ConfigLoader
         ValidateAutograbs(settings);
         ValidateHardcover(settings);
         ValidateFileLists(settings, configFilePath);
+        ValidateBookmarksList(settings);
         ValidateFollow(settings);
         ValidateUpgrade(settings);
         ValidateOpds(settings);
@@ -580,7 +581,7 @@ public static partial class ConfigLoader
 
     /// <summary>
     /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c>, <c>[[hardcover_list.grab]]</c>,
-    /// <c>[[file_list.grab]]</c> and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
+    /// <c>[[file_list.grab]]</c>, <c>[[bookmarks_list.grab]]</c> and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
     /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
     /// Runs after environment overrides, so
     /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
@@ -596,6 +597,7 @@ public static partial class ConfigLoader
         var blocks = settings.Autograb.Cast<SharedFilterConfig>()
             .Concat(settings.HardcoverList.SelectMany(list => list.Grab))
             .Concat(settings.FileList.SelectMany(list => list.Grab))
+            .Concat(settings.BookmarksList.SelectMany(list => list.Grab))
             .Concat(settings.Follow?.Grab ?? []);
         foreach (var block in blocks.Where(block => block.Languages is null))
         {
@@ -783,6 +785,35 @@ public static partial class ConfigLoader
             ValidateListSearch(label, list.Grab, list.PreferFormat);
             list.FullPath = Path.GetFullPath(Path.Combine(configFolder, list.Path));
         }
+    }
+
+    /// <summary>
+    /// Checks the `[[bookmarks_list]]` (that there is at most one is checked with the ranges): no `prefer_format`, and no bookmarks autograb beside it, as both would
+    /// select the same torrents.
+    /// </summary>
+    private static void ValidateBookmarksList(FetchshelfSettings settings)
+    {
+        if (settings.BookmarksList is not [var list])
+        {
+            return;
+        }
+
+        var label = string.IsNullOrWhiteSpace(list.Name) ? "the [[bookmarks_list]] section" : $"the [[bookmarks_list]] '{list.Name}'";
+        if (list.PreferFormat is not null)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {label} can't have 'prefer_format': a bookmark is one torrent, of one format already.");
+        }
+
+        if (settings.Autograb.FirstOrDefault(a => a.Type?.Kind == AutograbType.Bookmarks.Kind) is { } autograb)
+        {
+            var autograbLabel = string.IsNullOrWhiteSpace(autograb.Name) ? "an [[autograb]] with type = \"bookmarks\"" : $"the [[autograb]] '{autograb.Name}'";
+            throw new ConfigurationException(
+                $"Invalid configuration: {label} and {autograbLabel} would both select the bookmarked torrents; keep one of them. "
+                + "The list shows each bookmark on the Lists page; the autograb has the shared filter's full options.");
+        }
+
+        ValidateListSearch(label, list.Grab, preferFormat: null);
     }
 
     /// <summary>What every list needs to search MAM: a `grab` block, none of them metadata-only, and a valid `prefer_format`.</summary>

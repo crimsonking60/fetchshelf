@@ -233,6 +233,31 @@
 </section>
 
 <section>
+    <h3>Bookmarks list</h3>
+    @if (settings.BookmarksList is not [var bookmarks])
+    {
+        <p class="empty">No [[bookmarks_list]] configured.</p>
+    }
+    else
+    {
+        <table id="bookmarks-list">
+            <thead><tr><th>Name</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>@AutoDownloaderJobNames.BookmarksList(bookmarks)</td>
+                    <td>@string.Join(", ", bookmarks.Grab.Select(g => g.Cost))</td>
+                    <td>@bookmarks.Category</td>
+                    <td>@Buffer(bookmarks.UnsatBuffer, settings.UnsatBuffer)</td>
+                    <td>@Buffer(bookmarks.WedgeBuffer, settings.WedgeBuffer)</td>
+                    <td>@Cap(bookmarks.MaxActiveDownloads)</td>
+                    <td>@(bookmarks.DryRun ? "yes" : "no")</td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Following</h3>
     @if (settings.Follow is not { } follow)
     {

@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.Hardcover;
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.Lists;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.Configuration;
@@ -13,6 +14,12 @@ public interface IListBookSource
 
     /// <summary>How many lines of the last read couldn't be read as a book; only a file has any.</summary>
     int UnreadableLines => 0;
+
+    /// <summary>
+    /// The MAM torrent a book of the last read is, for a source whose books are torrents already (MAM bookmarks); null
+    /// for a book that has to be searched for. Such a book isn't searched for: its torrent is the only candidate.
+    /// </summary>
+    MamTorrentRecord? KnownTorrent(string externalId) => null;
 }
 
 /// <summary>
@@ -53,6 +60,7 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
     public static IReadOnlyList<ListDefinition> AllOf(FetchshelfSettings settings) =>
         settings.HardcoverList.Select((entry, i) => ForHardcover(entry, i))
             .Concat(settings.FileList.Select((entry, i) => ForFile(entry, i)))
+            .Concat(settings.BookmarksList.Select(ForBookmarks))
             .ToList();
 
     public static ListDefinition ForHardcover(HardcoverListEntry entry, int index) =>
@@ -88,6 +96,27 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
             FilePath = entry.Path,
         };
     }
+
+    /// <summary>The bookmarks list, under the id <c>mam:bookmarks</c>: there is one.</summary>
+    public static ListDefinition ForBookmarks(BookmarksListEntry entry)
+    {
+        var jobName = AutoDownloaderJobNames.BookmarksList(entry);
+        return new ListDefinition(BookmarksListId, jobName, BookmarksListType, jobName, ErrorStage.BookmarksList)
+        {
+            Category = entry.Category,
+            Grab = entry.Grab,
+            UnsatBuffer = entry.UnsatBuffer,
+            WedgeBuffer = entry.WedgeBuffer,
+            MaxActiveDownloads = entry.MaxActiveDownloads,
+            SearchInterval = entry.SearchInterval,
+            DryRun = entry.DryRun,
+        };
+    }
+
+    public const string BookmarksListId = "mam:bookmarks";
+
+    /// <summary>The bookmarks list's source as the Lists page names it.</summary>
+    public const string BookmarksListType = "MAM bookmarks";
 
     /// <summary>A Hardcover list row's id: one per reading status or Hardcover list.</summary>
     public static string HardcoverListId(HardcoverListEntry entry) =>

@@ -72,6 +72,7 @@ public static class JobServices
         var mamJobs = settings.Autograb.Select((entry, i) => (AutoDownloaderJobNames.Autograb(entry, i), entry.SearchInterval))
             .Concat(settings.HardcoverList.Select((entry, i) => (AutoDownloaderJobNames.HardcoverList(entry, i), entry.SearchInterval)))
             .Concat(settings.FileList.Select((entry, i) => (AutoDownloaderJobNames.FileList(entry, i), entry.SearchInterval)))
+            .Concat(settings.BookmarksList.Select(entry => (AutoDownloaderJobNames.BookmarksList(entry), entry.SearchInterval)))
             .Concat(settings.Follow is { } scheduledFollow ? [(JobNames.Follow, scheduledFollow.SearchInterval)] : [])
             .Concat(settings.Upgrade is { } scheduledUpgrade ? [(JobNames.Upgrade, scheduledUpgrade.SearchInterval)] : [])
             .Concat(settings.Bonus is { } scheduledBonus ? [(JobNames.Bonus, (int?)scheduledBonus.BonusInterval)] : []);

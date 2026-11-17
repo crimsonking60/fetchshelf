@@ -77,3 +77,29 @@ Hardcover book page.
 ## Out of scope
 
 - Removing a bookmark on MAM once its torrent is downloaded (see `plans/search-bookmark-and-more-like-this.md`).
+
+## As built
+
+- **No lookup by id.** The bookmarks search already returns every bookmarked torrent's full record, download link
+  included. So `MamBookmarksSource` keeps those records, and the importer gets each one through
+  `IListBookSource.KnownTorrent(externalId)` instead of `ListBook.MamId` and a `MamSearchQuery { Id }` per book. A run
+  makes one MAM request per 100 bookmarks, and none per bookmark. A torrent no longer bookmarked or gone from MAM leaves
+  the list, so the "gone from MAM is recorded as not found" case doesn't arise.
+- **Looked at on every run.** Checking a known torrent needs no search, so it isn't held to the daily or weekly search
+  schedule: a bookmark not yet selected or in the library is looked at on every run, and one that turns freeleech is
+  taken on the next. The list's page shows no next search or **Search again** for bookmarks.
+- **Its own format only.** A bookmark's item allows only its torrent's format (`AllowAudio` or `AllowEbook`), so
+  the other format doesn't show and doesn't count as missing. A torrent that is neither, or can't be read, is left out.
+- **A new side status, `NoGrabBlock`.** It is used for a bookmark that no grab block's filter takes: "On MAM, but none
+  of the list's grab blocks' filters takes it". It isn't resolved, so a config change is picked up. It is stored as
+  text, so it needs no migration.
+- **Covers.** No covers are shown: thumbnails would load from MAM's CDN on the Lists page, and only the Search page's
+  details and the Link job (`covers-from-mam.md`) may fetch covers.
+- **The gate.** The source takes the MAM gate itself while it reads the bookmarks (as "List {name}"), and releases it
+  before the importer takes it for the account read and the selections.
+- **Errors page.** Errors go under a new `BookmarksList` error stage ("Bookmarks list", keyed by MAM id).
+- **Run summary.** A bookmarks run says "N bookmarks, M looked at, K selected" rather than "searched on MAM".
+- **Config.** "Only one" is checked before the names, so two unnamed bookmarks lists get that message. `bookmarks_list`
+  is refused as another block's name. `5-everything.toml` has the block commented out, as it holds a bookmarks
+  autograb.
+- **Release notes** are left for the release PR.
