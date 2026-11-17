@@ -1,11 +1,11 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-17, for the 13 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-17, for the 12 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88), `jobs-page-dry-run.md` (PR #89) and `file-based-lists.md` (PR #90) were built and moved to `plans/done/`. Three plans are new:
+(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90) and `mam-bookmarks-list.md` (PR #91) were built and moved to `plans/done/`. Three plans are new:
 `language-aware-books.md`, `series-layout-for-comics.md` and `parked/collection-torrents.md`, the last of them parked. The order follows four rules:
 
 1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
@@ -75,7 +75,8 @@ Done:
 
 1. **`file-based-lists.md`** — done (PR #90): `[[file_list]]`, and the Hardcover importer turned into the shared
     `ListImporter`, which takes a `ListDefinition` and an `IListBookSource`.
-2. **`mam-bookmarks-list.md`** — builds on the shared importer from step 1: a new `IListBookSource`.
+2. **`mam-bookmarks-list.md`** — done (PR #91): `[[bookmarks_list]]`, the MAM bookmarks as a list, read through the
+    search with no request per bookmark.
 3. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
 4. **`language-aware-books.md`** — after step 3, since both change the Follow job. `folder_template` (PR #73) can
     already express `language_in_folder = "other"`, so only the clash rule is new. The
