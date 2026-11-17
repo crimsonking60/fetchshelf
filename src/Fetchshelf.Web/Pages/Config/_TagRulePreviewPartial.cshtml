@@ -1,0 +1,63 @@
+@model Fetchshelf.Web.Pages.Config.TagRulePreviewViewModel
+@* What applying one [[tag]] rule to the existing torrents would change, with the button that applies it. Shown in the
+   Config page's dialog, or on the page itself when it was asked for without htmx. *@
+<div id="tag-rule-preview">
+    <h4>Applying @Model.RuleName to existing torrents</h4>
+    @if (Model.Error is { } error)
+    {
+        <p class="notice error" role="alert">@error</p>
+    }
+    else if (Model.Preview is { } preview)
+    {
+        <p>
+            @(preview.Changes.Count == 1 ? "1 torrent" : $"{preview.Changes.Count} torrents") would change.
+            @if (preview.Unchanged > 0)
+            {
+                <text>@preview.Unchanged already @(preview.Unchanged == 1 ? "has" : "have") this category and these tags.</text>
+            }
+            @if (preview.NotInClient > 0)
+            {
+                <text>@preview.NotInClient @(preview.NotInClient == 1 ? "isn't" : "aren't") in qBittorrent and @(preview.NotInClient == 1 ? "is" : "are") left alone.</text>
+            }
+            Nothing has been changed yet.
+        </p>
+        @if (preview.Changes.Count > 0)
+        {
+            <table>
+                <thead><tr><th>Torrent</th><th>Category</th><th>Tags added</th></tr></thead>
+                <tbody>
+                    @foreach (var change in preview.Changes.Take(Fetchshelf.Web.Pages.Config.IndexModel.PreviewRowsShown))
+                    {
+                        <tr>
+                            <td><a href="/torrents/@Uri.EscapeDataString(change.TorrentId)">@change.Title</a></td>
+                            <td>
+                                @if (change.NewCategory is { } newCategory)
+                                {
+                                    <text>@(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory) → @newCategory</text>
+                                    @if (change.IsLinked)
+                                    {
+                                        <br /><span class="muted">The category decides the library: the book may be flagged <em>Different library</em>.</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="muted">stays @(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory)</span>
+                                }
+                            </td>
+                            <td>@string.Join(", ", change.TagsAdded)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (preview.Changes.Count > Fetchshelf.Web.Pages.Config.IndexModel.PreviewRowsShown)
+            {
+                <p class="muted">And @(preview.Changes.Count - Fetchshelf.Web.Pages.Config.IndexModel.PreviewRowsShown) more.</p>
+            }
+
+            <form method="post" asp-page-handler="ApplyTagRule" asp-page="/Config/Index" asp-route-ruleIndex="@Model.RuleIndex">
+                @Html.AntiForgeryToken()
+                <button type="submit">Apply to @(preview.Changes.Count == 1 ? "this torrent" : $"these {preview.Changes.Count} torrents")</button>
+            </form>
+        }
+    }
+</div>

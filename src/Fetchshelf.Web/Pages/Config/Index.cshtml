@@ -364,7 +364,9 @@
                         <td>@string.Join(", ", entry.Tags)</td>
                         <td>
                             @* Shows what it would change first; applying is a second step, under the preview. *@
-                            <form method="post" asp-page-handler="PreviewTagRule" asp-route-ruleIndex="@i">
+                            <form method="post" asp-page-handler="PreviewTagRule" asp-route-ruleIndex="@i"
+                                  hx-post="@Url.Page("/Config/Index", "PreviewTagRule", new { ruleIndex = i })"
+                                  hx-target="#tag-rule-dialog-body" hx-swap="innerHTML">
                                 @Html.AntiForgeryToken()
                                 <button type="submit">Preview applying to existing torrents</button>
                             </form>
@@ -375,61 +377,39 @@
         </table>
     }
 
-    @if (Model.TagRulePreview is { } preview && Model.PreviewRuleIndex is { } previewIndex)
+    @if (Model.PreviewViewModel is { } previewModel)
     {
-        var previewed = settings.Tag[previewIndex];
-        <div id="tag-rule-preview">
-            <h4>Applying @(previewed.Name ?? $"tag rule {previewIndex + 1}") to existing torrents</h4>
-            <p>
-                @(preview.Changes.Count == 1 ? "1 torrent" : $"{preview.Changes.Count} torrents") would change.
-                @if (preview.Unchanged > 0)
-                {
-                    <text>@preview.Unchanged already @(preview.Unchanged == 1 ? "has" : "have") this category and these tags.</text>
-                }
-                @if (preview.NotInClient > 0)
-                {
-                    <text>@preview.NotInClient @(preview.NotInClient == 1 ? "isn't" : "aren't") in qBittorrent and @(preview.NotInClient == 1 ? "is" : "are") left alone.</text>
-                }
-                Nothing has been changed yet.
-            </p>
-            @if (preview.Changes.Count > 0)
-            {
-                <table>
-                    <thead><tr><th>Torrent</th><th>Category</th><th>Tags added</th></tr></thead>
-                    <tbody>
-                        @foreach (var change in preview.Changes.Take(IndexModel.PreviewRowsShown))
-                        {
-                            <tr>
-                                <td><a href="/torrents/@Uri.EscapeDataString(change.TorrentId)">@change.Title</a></td>
-                                <td>
-                                    @if (change.NewCategory is { } newCategory)
-                                    {
-                                        <text>@(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory) → @newCategory</text>
-                                        @if (change.IsLinked)
-                                        {
-                                            <br /><span class="muted">The category decides the library: the book may be flagged <em>Different library</em>.</span>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <span class="muted">stays @(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory)</span>
-                                    }
-                                </td>
-                                <td>@string.Join(", ", change.TagsAdded)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                @if (preview.Changes.Count > IndexModel.PreviewRowsShown)
-                {
-                    <p class="muted">And @(preview.Changes.Count - IndexModel.PreviewRowsShown) more.</p>
-                }
-
-                <form method="post" asp-page-handler="ApplyTagRule" asp-route-ruleIndex="@previewIndex">
-                    @Html.AntiForgeryToken()
-                    <button type="submit">Apply to @(preview.Changes.Count == 1 ? "this torrent" : $"these {preview.Changes.Count} torrents")</button>
-                </form>
-            }
-        </div>
+        @* Asked for without htmx: shown on the page instead of in the dialog. *@
+        <partial name="_TagRulePreviewPartial" model="previewModel" />
     }
+
+    @* The preview of a rule opens here, over the page, so the page keeps its place. *@
+    <dialog id="tag-rule-dialog" class="hit-dialog" aria-label="What applying the tag rule would change">
+        <div class="hit-dialog-bar">
+            <button type="button" id="tag-rule-dialog-close">Close</button>
+        </div>
+        <div id="tag-rule-dialog-body"></div>
+    </dialog>
+    <script>
+        (function () {
+            const dialog = document.getElementById('tag-rule-dialog');
+            const body = document.getElementById('tag-rule-dialog-body');
+            document.body.addEventListener('htmx:beforeRequest', function (event) {
+                if (event.detail.target === body) {
+                    body.innerHTML = '<p class="muted">Working out what it would change…</p>';
+                    if (!dialog.open) {
+                        dialog.showModal();
+                    }
+                }
+            });
+            document.getElementById('tag-rule-dialog-close').addEventListener('click', function () {
+                dialog.close();
+            });
+            dialog.addEventListener('click', function (event) {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+        })();
+    </script>
 </section>

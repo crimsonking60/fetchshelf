@@ -181,6 +181,53 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Post_PreviewTagRule_FromHtmx_AnswersWithJustThePreview_ForTheDialog()
+    {
+        var tagCalls = new List<(string Hash, string Tags)>();
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml, qbittorrentHandler: RecordingQBittorrentServer("hash1", [], tagCalls));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+        var configHtml = await client.GetStringAsync("/config");
+        Assert.Contains("<dialog id=\"tag-rule-dialog\"", configHtml);
+        Assert.Contains("hx-target=\"#tag-rule-dialog-body\"", configHtml);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=0")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(configHtml) }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.EnsureSuccessStatusCode();
+        Assert.StartsWith("<div id=\"tag-rule-preview\">", body.TrimStart());
+        Assert.DoesNotContain("<html", body);
+        Assert.Contains("1 torrent would change.", body);
+        Assert.Contains("Apply to this torrent", body);
+        var action = System.Text.RegularExpressions.Regex.Match(body, @"<form[^>]*action=""([^""]*ApplyTagRule[^""]*)""").Groups[1].Value;
+        Assert.Contains("ruleIndex=0", action);
+        Assert.Empty(tagCalls);
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_FromHtmx_QBittorrentFails_SaysSoInTheDialog()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml, qbittorrentHandler: _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=0")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful answers
+        Assert.Contains("Previewing the tag rule failed: MAM or qBittorrent could not be reached", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Post_PreviewTagRule_UnknownRule_IsNotFound()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);
