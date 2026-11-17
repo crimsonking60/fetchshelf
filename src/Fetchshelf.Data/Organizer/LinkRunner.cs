@@ -14,8 +14,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fetchshelf.Data.Organizer;
 
-/// <summary>What one link run did: torrents newly linked, and torrents that could not be linked.</summary>
-public sealed record LinkRunSummary(int Linked, int Failed);
+/// <summary>What one link run did: torrents newly linked, torrents that could not be linked, and the backlog it left.</summary>
+/// <param name="WaitingForLookup">Torrents not looked up on MAM because the run reached <see cref="LinkRunner.MaxLookupsPerRun"/>: the next runs do.</param>
+/// <param name="WaitingForMam">Torrents MAM didn't know when last asked, looked up again once a day has passed.</param>
+public sealed record LinkRunSummary(int Linked, int Failed, int WaitingForLookup = 0, int WaitingForMam = 0);
 
 /// <summary>Whether Refresh and relink placed the torrent's files again, and a message saying what happened.</summary>
 public sealed record RelinkResult(bool Succeeded, string Message);
@@ -79,7 +81,9 @@ public sealed class LinkRunner(
     {
         var (linkedBefore, failedBefore) = (_linked, _failed);
         await RunCoreAsync(connection, client, cancellationToken);
-        return new LinkRunSummary(_linked - linkedBefore, _failed - failedBefore);
+        var summary = new LinkRunSummary(_linked - linkedBefore, _failed - failedBefore, _lookupsDeferred, _waitingForRetry);
+        (_waitingForRetry, _lookupsDeferred) = (0, 0);
+        return summary;
     }
 
     private async Task RunCoreAsync(QBittorrentConnection connection, QBittorrentClient client, CancellationToken cancellationToken)
@@ -148,8 +152,6 @@ public sealed class LinkRunner(
                 "Looked up {Max} torrents on MAM, the most for one run; {Count} more will be looked up in the next runs",
                 MaxLookupsPerRun, _lookupsDeferred);
         }
-
-        (_waitingForRetry, _lookupsDeferred) = (0, 0);
     }
 
     /// <summary>Whether MAM had no torrent with this info-hash when asked less than <see cref="NotOnMamRetryAfter"/> ago.</summary>

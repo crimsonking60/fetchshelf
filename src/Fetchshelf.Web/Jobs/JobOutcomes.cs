@@ -11,11 +11,38 @@ namespace Fetchshelf.Web.Jobs;
 /// </summary>
 public static class JobOutcomes
 {
-    public static JobOutcome Link(int linked, int failed) => Finish(
-        linked == 0 && failed == 0 ? "Nothing new to link" : Count(linked, "torrent", "torrents") + " linked",
-        failed,
-        "could not be linked; see the Errors page",
-        new() { ["linked"] = linked, ["failed"] = failed });
+    /// <summary>
+    /// What the Link job linked, and the backlog it left: torrents beyond the run's MAM lookups, and those MAM didn't
+    /// know, which wait a day. A run with only a backlog isn't "Nothing new to link".
+    /// </summary>
+    public static JobOutcome Link(LinkRunSummary summary)
+    {
+        var backlog = summary.WaitingForLookup > 0 || summary.WaitingForMam > 0;
+        var line = summary.Linked > 0 || summary.Failed > 0 ? Count(summary.Linked, "torrent", "torrents") + " linked"
+            : backlog ? "Nothing linked"
+            : "Nothing new to link";
+        if (summary.WaitingForLookup > 0)
+        {
+            line += $"; {summary.WaitingForLookup} more to look up on MAM in the next runs";
+        }
+
+        if (summary.WaitingForMam > 0)
+        {
+            line += $"; {Count(summary.WaitingForMam, "torrent", "torrents")} MAM didn't know, looked up again once a day";
+        }
+
+        return Finish(
+            line,
+            summary.Failed,
+            "could not be linked; see the Errors page",
+            new()
+            {
+                ["linked"] = summary.Linked,
+                ["failed"] = summary.Failed,
+                ["waiting_for_lookup"] = summary.WaitingForLookup,
+                ["waiting_for_mam"] = summary.WaitingForMam,
+            });
+    }
 
     public static JobOutcome Clean(CleanRunSummary summary) => Finish(
         summary.Retired == 0 && summary.Failed == 0

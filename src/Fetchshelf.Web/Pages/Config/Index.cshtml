@@ -19,7 +19,7 @@
 }
 
 <h2>Config</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber or apply a tag rule directly from here.")
+@await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber, or preview a tag rule and apply it, directly from here.")
 
 @if (Model.ActionMessage is { } actionMessage)
 {
@@ -367,14 +367,73 @@
                         <td>@entry.Category</td>
                         <td>@string.Join(", ", entry.Tags)</td>
                         <td>
-                            <form method="post" asp-page-handler="ApplyTagRule" asp-route-ruleIndex="@i">
+                            @* Shows what it would change first; applying is a second step, under the preview. *@
+                            <form method="post" asp-page-handler="PreviewTagRule" asp-route-ruleIndex="@i">
                                 @Html.AntiForgeryToken()
-                                <button type="submit">Apply to existing torrents</button>
+                                <button type="submit">Preview applying to existing torrents</button>
                             </form>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+    }
+
+    @if (Model.TagRulePreview is { } preview && Model.PreviewRuleIndex is { } previewIndex)
+    {
+        var previewed = settings.Tag[previewIndex];
+        <div id="tag-rule-preview">
+            <h4>Applying @(previewed.Name ?? $"tag rule {previewIndex + 1}") to existing torrents</h4>
+            <p>
+                @(preview.Changes.Count == 1 ? "1 torrent" : $"{preview.Changes.Count} torrents") would change.
+                @if (preview.Unchanged > 0)
+                {
+                    <text>@preview.Unchanged already @(preview.Unchanged == 1 ? "has" : "have") this category and these tags.</text>
+                }
+                @if (preview.NotInClient > 0)
+                {
+                    <text>@preview.NotInClient @(preview.NotInClient == 1 ? "isn't" : "aren't") in qBittorrent and @(preview.NotInClient == 1 ? "is" : "are") left alone.</text>
+                }
+                Nothing has been changed yet.
+            </p>
+            @if (preview.Changes.Count > 0)
+            {
+                <table>
+                    <thead><tr><th>Torrent</th><th>Category</th><th>Tags added</th></tr></thead>
+                    <tbody>
+                        @foreach (var change in preview.Changes.Take(IndexModel.PreviewRowsShown))
+                        {
+                            <tr>
+                                <td><a href="/torrents/@Uri.EscapeDataString(change.TorrentId)">@change.Title</a></td>
+                                <td>
+                                    @if (change.NewCategory is { } newCategory)
+                                    {
+                                        <text>@(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory) → @newCategory</text>
+                                        @if (change.IsLinked)
+                                        {
+                                            <br /><span class="muted">The category decides the library: the book may be flagged <em>Different library</em>.</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">stays @(change.CurrentCategory.Length == 0 ? "(none)" : change.CurrentCategory)</span>
+                                    }
+                                </td>
+                                <td>@string.Join(", ", change.TagsAdded)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (preview.Changes.Count > IndexModel.PreviewRowsShown)
+                {
+                    <p class="muted">And @(preview.Changes.Count - IndexModel.PreviewRowsShown) more.</p>
+                }
+
+                <form method="post" asp-page-handler="ApplyTagRule" asp-route-ruleIndex="@previewIndex">
+                    @Html.AntiForgeryToken()
+                    <button type="submit">Apply to @(preview.Changes.Count == 1 ? "this torrent" : $"these {preview.Changes.Count} torrents")</button>
+                </form>
+            }
+        </div>
     }
 </section>

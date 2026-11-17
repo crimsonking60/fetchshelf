@@ -31,10 +31,61 @@ public sealed class FileLinkerTests : IDisposable
 
         var outcome = FileLinker.Link(
             source, destination, LibraryLinkMethod.HardlinkOrCopy,
-            hardLink: (_, _) => throw new IOException("simulated cross-device failure")).Outcome;
+            hardLink: (source, destination) => throw HardLinkErrors.For(18, source, destination)).Outcome;
 
         Assert.Equal(LinkOutcome.Copied, outcome);
         Assert.Equal("hello", File.ReadAllText(destination));
+    }
+
+    [Theory]
+    [InlineData(1)] // EPERM: a file system without hardlinks
+    [InlineData(18)] // EXDEV: another device
+    [InlineData(31)] // EMLINK: the file's link limit
+    [InlineData(38)] // ENOSYS: some FUSE and network file systems
+    [InlineData(95)] // EOPNOTSUPP
+    public void Link_HardlinkOrCopy_HardlinkNotPossibleHere_Copies(int errno)
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        var outcome = FileLinker.Link(
+            source, destination, LibraryLinkMethod.HardlinkOrCopy, hardLink: (s, d) => throw HardLinkErrors.For(errno, s, d)).Outcome;
+
+        Assert.Equal(LinkOutcome.Copied, outcome);
+    }
+
+    [Theory]
+    [InlineData(28, "ENOSPC")]
+    [InlineData(13, "EACCES")]
+    [InlineData(2, "ENOENT")]
+    [InlineData(30, "EROFS")]
+    [InlineData(9999, "9999")]
+    public void Link_HardlinkOrCopy_OtherFailure_IsReportedAsItself_WithoutACopy(int errno, string name)
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        var error = Assert.Throws<IOException>(() => FileLinker.Link(
+            source, destination, LibraryLinkMethod.HardlinkOrCopy, hardLink: (s, d) => throw HardLinkErrors.For(errno, s, d)));
+
+        Assert.Contains($"({name}, errno {errno})", error.Message);
+        Assert.False(File.Exists(destination));
+        Assert.Empty(Directory.GetFiles(Path.Combine(_tempDir, "dest")));
+    }
+
+    [Fact]
+    public void Link_HardlinkOrSymlink_OtherFailure_MakesNoSymlink()
+    {
+        var source = Path.Combine(_tempDir, "source.txt");
+        File.WriteAllText(source, "hello");
+        var destination = Path.Combine(_tempDir, "dest", "source.txt");
+
+        Assert.Throws<IOException>(() => FileLinker.Link(
+            source, destination, LibraryLinkMethod.HardlinkOrSymlink, hardLink: (s, d) => throw HardLinkErrors.For(28, s, d)));
+
+        Assert.False(File.Exists(destination) || new FileInfo(destination).LinkTarget is not null);
     }
 
     [Fact]
@@ -58,7 +109,7 @@ public sealed class FileLinkerTests : IDisposable
 
         var outcome = FileLinker.Link(
             source, destination, LibraryLinkMethod.HardlinkOrSymlink,
-            hardLink: (_, _) => throw new IOException("simulated cross-device failure")).Outcome;
+            hardLink: (source, destination) => throw HardLinkErrors.For(18, source, destination)).Outcome;
 
         Assert.Equal(LinkOutcome.Symlinked, outcome);
         Assert.Equal(source, new FileInfo(destination).LinkTarget);

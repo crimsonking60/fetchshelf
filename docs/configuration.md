@@ -835,12 +835,17 @@ library, in file order, that accepts it is used.
 | Value | Behaviour |
 |---|---|
 | `hardlink` | Hard link; fails if source and library are on different filesystems. |
-| `hardlink_or_copy` (default) | Hard link, falling back to a copy. |
-| `hardlink_or_symlink` | Hard link, falling back to a symbolic link. |
+| `hardlink_or_copy` (default) | Hard link, falling back to a copy when a hard link isn't possible there. |
+| `hardlink_or_symlink` | Hard link, falling back to a symbolic link when a hard link isn't possible there. |
 | `copy` | Copy the files. |
 | `symlink` | Symbolic link. |
 | `no_link` | Record metadata only; no files are placed. |
 
+- **When the fallback is taken.** `hardlink_or_copy` and `hardlink_or_symlink` fall back only when a hard link
+  can't be made there: the download is on another disk or filesystem (`EXDEV`), the filesystem has no hard links
+  (`EPERM`, `EOPNOTSUPP`, `ENOSYS`), or the file has as many links as it may (`EMLINK`). Any other failure, such as a
+  full disk (`ENOSPC`), a permission problem (`EACCES`), a read-only library (`EROFS`) or a missing download
+  (`ENOENT`), would make the copy or the link fail too, so it is reported as itself: the Link error names it.
 - From each torrent, only the files of its best audio format and its best ebook format are linked. The
   audio side uses `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
   else; the ebook side uses `ebook_types`. A library's own `audio_types` replaces the audio-side list for

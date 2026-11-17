@@ -80,7 +80,14 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         """;
 
     private static QBittorrentClient CreateQBittorrentClient(
-        string? knownHash, List<(string Hash, string Category)> categoryCalls, List<(string Hash, string Tags)> tagCalls)
+        string? knownHash, List<(string Hash, string Category)> categoryCalls, List<(string Hash, string Tags)> tagCalls) =>
+        CreateQBittorrentClient(
+            knownHash is null ? [] : [new QBittorrentTorrent { Hash = knownHash, Name = "Book", SavePath = "/downloads", State = "uploading" }],
+            categoryCalls, tagCalls);
+
+    /// <summary>A qBittorrent with these torrents, as they are now, recording what it is asked to change.</summary>
+    private static QBittorrentClient CreateQBittorrentClient(
+        IReadOnlyList<QBittorrentTorrent> torrents, List<(string Hash, string Category)> categoryCalls, List<(string Hash, string Tags)> tagCalls)
     {
         var options = new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin");
         var handler = new FakeHttpMessageHandler(request =>
@@ -95,9 +102,6 @@ public sealed class RetroactiveTagApplierTests : IDisposable
 
             if (path.Contains("torrents/info"))
             {
-                var torrents = knownHash is not null
-                    ? new List<QBittorrentTorrent> { new() { Hash = knownHash, Name = "Book", SavePath = "/downloads", State = "uploading" } }
-                    : [];
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(torrents) };
             }
 
@@ -140,6 +144,70 @@ public sealed class RetroactiveTagApplierTests : IDisposable
         Category = category,
         Tags = tags ?? ["retro"],
     };
+
+    private static QBittorrentTorrent InClient(string hash, string category = "", string tags = "") =>
+        new() { Hash = hash, Name = hash, SavePath = "/downloads", State = "uploading", Category = category, Tags = tags };
+
+    [Fact]
+    public async Task PreviewAsync_ListsWhatWouldChange_CountsTheRest_AndChangesNothing()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var linked = await SeedTorrentAsync(context, "hash-linked", BuildMetadata(1) with { Title = "Linked Book" });
+        linked.LibraryPath = "/library/Linked Book";
+        await context.SaveChangesAsync();
+        await SeedTorrentAsync(context, "hash-tags", BuildMetadata(2) with { Title = "Only Tags" });
+        await SeedTorrentAsync(context, "hash-done", BuildMetadata(3) with { Title = "Already Done" });
+        await SeedTorrentAsync(context, "hash-gone", BuildMetadata(4) with { Title = "Not In Client" });
+        List<(string Hash, string Category)> categoryCalls = [];
+        List<(string Hash, string Tags)> tagCalls = [];
+        var qbClient = CreateQBittorrentClient(
+            [InClient("hash-linked", "audiobooks"), InClient("hash-tags", "tagged", "retro"), InClient("hash-done", "tagged", "retro, applied")],
+            categoryCalls, tagCalls);
+        var applier = new RetroactiveTagApplier(context, CreateMamClient(_ => null, []), new MamAccessGate(), [qbClient]);
+
+        var preview = await applier.PreviewAsync(MatchAllRule(category: "tagged", tags: ["retro", "applied"]));
+
+        Assert.Equal(
+            [
+                new TagRuleChange("hash-linked", "Linked Book", IsLinked: true, CurrentCategory: "audiobooks", NewCategory: "tagged", TagsAdded: ["retro", "applied"]),
+                new TagRuleChange("hash-tags", "Only Tags", IsLinked: false, CurrentCategory: "tagged", NewCategory: null, TagsAdded: ["applied"]),
+            ],
+            preview.Changes, new TagRuleChangeComparer());
+        Assert.Equal((1, 1), (preview.Unchanged, preview.NotInClient));
+        Assert.Empty(categoryCalls);
+        Assert.Empty(tagCalls);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_AfterPreview_ChangesTheTorrentsThePreviewListed_AndNoOthers()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        await SeedTorrentAsync(context, "hash-tags", BuildMetadata(2) with { Title = "Only Tags" });
+        await SeedTorrentAsync(context, "hash-done", BuildMetadata(3) with { Title = "Already Done" });
+        List<(string Hash, string Category)> categoryCalls = [];
+        List<(string Hash, string Tags)> tagCalls = [];
+        var qbClient = CreateQBittorrentClient([InClient("hash-tags", "tagged", "retro"), InClient("hash-done", "tagged", "retro,applied")], categoryCalls, tagCalls);
+        var applier = new RetroactiveTagApplier(context, CreateMamClient(_ => null, []), new MamAccessGate(), [qbClient]);
+        var rule = MatchAllRule(category: "tagged", tags: ["retro", "applied"]);
+
+        var preview = await applier.PreviewAsync(rule);
+        var applied = await applier.ApplyAsync(rule);
+
+        Assert.Equal(preview.Changes.Count, applied);
+        Assert.Empty(categoryCalls); // its category is the rule's already
+        Assert.Equal([("hash-tags", "applied")], tagCalls);
+    }
+
+    /// <summary>Compares changes by value, their tag lists included.</summary>
+    private sealed class TagRuleChangeComparer : IEqualityComparer<TagRuleChange>
+    {
+        public bool Equals(TagRuleChange? x, TagRuleChange? y) =>
+            x is not null && y is not null
+            && (x.TorrentId, x.Title, x.IsLinked, x.CurrentCategory, x.NewCategory) == (y.TorrentId, y.Title, y.IsLinked, y.CurrentCategory, y.NewCategory)
+            && x.TagsAdded.SequenceEqual(y.TagsAdded);
+
+        public int GetHashCode(TagRuleChange obj) => obj.TorrentId.GetHashCode(StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task ApplyAsync_MetadataOnlyRecord_IsNeverEvaluatedOrModified()

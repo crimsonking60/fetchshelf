@@ -130,6 +130,49 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Post_PreviewTagRule_ShowsWhatWouldChange_WithoutChangingIt_ThenApplyChangesIt()
+    {
+        var categoryCalls = new List<(string Hash, string Category)>();
+        var tagCalls = new List<(string Hash, string Tags)>();
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigToml, qbittorrentHandler: RecordingQBittorrentServer("hash1", categoryCalls, tagCalls));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+        var configHtml = await client.GetStringAsync("/config");
+        Assert.Contains("Preview applying to existing torrents", configHtml);
+        var token = ExtractAntiforgeryToken(configHtml);
+
+        using var previewForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
+        var preview = await (await client.PostAsync("/config?handler=PreviewTagRule&ruleIndex=0", previewForm)).Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"tag-rule-preview\"", preview);
+        Assert.Contains("1 torrent would change.", preview);
+        Assert.Contains("The Way of Kings", preview);
+        Assert.Contains("retro-applied", preview);
+        Assert.Contains("Apply to this torrent", preview);
+        Assert.Empty(tagCalls);
+
+        using var applyForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(preview) });
+        var applied = await client.PostAsync("/config?handler=ApplyTagRule&ruleIndex=0", applyForm);
+
+        Assert.Contains("Applied the tag rule to 1 torrent.", await applied.Content.ReadAsStringAsync());
+        Assert.Equal(("hash1", "retro-applied"), Assert.Single(tagCalls));
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_UnknownRule_IsNotFound()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
+        var response = await client.PostAsync("/config?handler=PreviewTagRule&ruleIndex=5", form);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Post_ApplyTagRule_QBittorrentFails_ShowsAPlainMessageOnTheConfigPage()
     {
         using var fixture = new FetchshelfWebAppFixture(

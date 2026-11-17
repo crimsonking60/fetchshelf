@@ -61,27 +61,56 @@ public class IndexModel(
     {
     }
 
-    /// <summary>The "apply to existing torrents" action for one `[[tag]]` rule.</summary>
-    public async Task<IActionResult> OnPostApplyTagRuleAsync(int ruleIndex)
+    /// <summary>How many of a preview's changes the page lists; the rest are counted.</summary>
+    public const int PreviewRowsShown = 200;
+
+    /// <summary>The `[[tag]]` rule <see cref="TagRulePreview"/> is for, when one was asked for.</summary>
+    public int? PreviewRuleIndex { get; private set; }
+
+    /// <summary>What applying the rule at <see cref="PreviewRuleIndex"/> would change.</summary>
+    public TagRulePreview? TagRulePreview { get; private set; }
+
+    /// <summary>
+    /// The "apply to existing torrents" action's first step for one `[[tag]]` rule: what applying it would change, shown
+    /// on the page with a button that applies it. Nothing is changed in qBittorrent.
+    /// </summary>
+    public async Task<IActionResult> OnPostPreviewTagRuleAsync(int ruleIndex)
     {
-        if (ruleIndex < 0 || ruleIndex >= settings.Tag.Count)
+        if (RuleAt(ruleIndex) is not { } rule)
         {
             return NotFound();
         }
 
-        var entry = settings.Tag[ruleIndex];
-        var rule = new TagRule
+        try
         {
-            Filter = SharedFilterConfigMapper.ToTorrentFilter(entry),
-            Category = entry.Category,
-            Tags = entry.Tags,
-        };
+            TagRulePreview = await retroactiveTagApplier.PreviewAsync(rule, HttpContext.RequestAborted);
+            PreviewRuleIndex = ruleIndex;
+        }
+        catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            logger.LogWarning(ex, "Previewing tag rule {RuleIndex} failed", ruleIndex);
+            ActionFailed = true;
+            ActionMessage = $"Previewing the tag rule failed: {MamErrorDescriber.DescribeAmong(ex, "MAM or qBittorrent")}";
+            return RedirectToPage();
+        }
+
+        return Page();
+    }
+
+    /// <summary>The "apply to existing torrents" action for one `[[tag]]` rule, after its preview.</summary>
+    public async Task<IActionResult> OnPostApplyTagRuleAsync(int ruleIndex)
+    {
+        if (RuleAt(ruleIndex) is not { } rule)
+        {
+            return NotFound();
+        }
+
         try
         {
             var applied = await retroactiveTagApplier.ApplyAsync(rule);
             ActionMessage = applied switch
             {
-                0 => "No torrent in qBittorrent matched the tag rule.",
+                0 => "Nothing to change: the torrents the tag rule matches already have its category and tags, or aren't in qBittorrent.",
                 1 => "Applied the tag rule to 1 torrent.",
                 _ => $"Applied the tag rule to {applied} torrents.",
             };
@@ -95,4 +124,14 @@ public class IndexModel(
 
         return RedirectToPage();
     }
+
+    private TagRule? RuleAt(int ruleIndex) =>
+        ruleIndex < 0 || ruleIndex >= settings.Tag.Count
+            ? null
+            : new TagRule
+            {
+                Filter = SharedFilterConfigMapper.ToTorrentFilter(settings.Tag[ruleIndex]),
+                Category = settings.Tag[ruleIndex].Category,
+                Tags = settings.Tag[ruleIndex].Tags,
+            };
 }
