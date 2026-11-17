@@ -23,6 +23,7 @@ public static class DownloadQueueForecast
                 continue;
             }
 
+            var withWedge = false;
             if (torrent.Cost is SelectedTorrentCost.UseWedge or SelectedTorrentCost.TryWedge)
             {
                 var decision = DownloadBudget.DecideWedge(
@@ -35,10 +36,11 @@ public static class DownloadQueueForecast
                 if (decision == WedgeDecision.UseWedge)
                 {
                     budget.WedgeSpent();
+                    withWedge = true;
                 }
             }
 
-            budget.Started(torrent.Cost, torrent.SizeBytes);
+            budget.Started(torrent.Cost, torrent.SizeBytes, withWedge);
             startable++;
         }
 

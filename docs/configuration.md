@@ -129,8 +129,9 @@ Fetchshelf has two halves that can be used independently.
   of two copies of the same book is better.
 - `[[tag]]` rules (or an autograb's or Hardcover list's own `category`) decide which qBittorrent category
   and tags a new download gets.
-- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. An autograb's own
-  `unsat_buffer` / `wedge_buffer` override the global ones. The downloader reads them when it starts each
+- `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. A block's own
+  `unsat_buffer` / `wedge_buffer` (on a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`)
+  override the global ones. The downloader reads them when it starts each
   torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
@@ -165,8 +166,8 @@ These go at the top of the file, before any section.
 | `web_port` | `3157` | Port the web UI listens on, 1 to 65535. |
 | `web_url` | unset | The address Fetchshelf's web UI answers at, such as `"https://fetchshelf.example.net"`: the address [`[[notify]]`](#notify) messages link to. Without it, messages carry no links. |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
-| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per autograb. |
-| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per autograb. |
+| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per block: a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`. |
+| `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per block, as `unsat_buffer`. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `download_after_selection` | `true` | Start the Download job as soon as an autograb, a Hardcover list or the Search page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
@@ -426,7 +427,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `search_interval` | global `search_interval` | Minutes between runs, `0` to 43200. `0` means UI-triggered only. |
 | `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
-| `max_active_downloads` | unset | Cap on torrents selected by this block that have not finished downloading, at least 1. Requires `name`. |
+| `max_active_downloads` | unset | Cap on torrents selected by this block that are still waiting to be downloaded, at least 1. Requires `name`. |
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. See [`mark_removed`](#mark_removed). Not for `type = "bookmarks"`. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
@@ -502,8 +503,8 @@ except those two.
 | Value | Meaning |
 |---|---|
 | `free` (default) | Only torrents that are free: VIP, personal freeleech or global freeleech. Others are not selected. |
-| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Selected** page. |
-| `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. |
+| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Selected** page. It never downloads on ratio, so the ratio budget doesn't hold it back. |
+| `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. As it may pay with ratio, it waits while the ratio budget is too small for it. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
 | `metadata_only_add` | Like `metadata_only`, but also creates a metadata-only entry if the torrent is not in the library yet. Duplicate checks then treat that book as already in the library, so only a better format of it is downloaded. |
@@ -511,7 +512,8 @@ except those two.
 - A torrent that is VIP, personal freeleech or globally freeleech is **always** treated as free, whatever
   `cost` says, so wedges are never wasted.
 - For `wedge` and `try_wedge` the wedge is applied at download time, not when the torrent is selected.
-  `try_wedge` also skips the wedge when the torrent is already free.
+  `try_wedge` also skips the wedge when the torrent is already free. A torrent started with a wedge costs no
+  ratio, so it isn't counted against the ratio budget while it downloads.
 - `metadata_only` and `metadata_only_add` never download anything, so ratio and unsat budgets do not apply
   to them.
 
@@ -553,6 +555,9 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
+| `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
+| `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
+| `max_active_downloads` | unset | Cap on torrents this list selected that are still waiting to be downloaded, at least 1. |
 | `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
 | `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Each format goes to the first block that finds a torrent its `cost` accepts: a `free` block only takes free torrents and leaves the rest to the next blocks. `metadata_only` costs are not allowed. |
 
@@ -620,6 +625,9 @@ missing.
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
 | `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
+| `unsat_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
+| `wedge_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
+| `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. |
 | `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
 
@@ -672,6 +680,9 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `searches_per_run` | `20` | MAM searches one run makes at most: one per book. |
 | `search_again_after` | `30` | Days before the same book is searched again, `1` to `365`, whether a better copy was found or not. |
 | `libraries` | `[]` | Only books in these [`[[library]]`](#library) names. Empty means every library. |
+| `unsat_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
+| `wedge_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
+| `max_active_downloads` | unset | Cap on torrents the Upgrade job selected that are still waiting to be downloaded, at least 1. |
 | `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. |
 | `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
 

@@ -74,7 +74,10 @@ public sealed class FollowRunner(
     private readonly ILogger<FollowRunner> _logger = logger ?? NullLogger<FollowRunner>.Instance;
 
     /// <summary>The grabber name the job's selections carry, so the Selected page says which follow chose them.</summary>
-    public static string GrabberName(FollowEntity follow) => $"Follow: {follow.DisplayName}";
+    /// <summary>What every grabber name of the Follow job starts with, which `[follow]`'s own buffers are found by.</summary>
+    public const string GrabberPrefix = "Follow: ";
+
+    public static string GrabberName(FollowEntity follow) => GrabberPrefix + follow.DisplayName;
 
     public async Task<FollowRunSummary> RunAsync(int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
     {
@@ -102,10 +105,15 @@ public sealed class FollowRunner(
         using var _ = await accessGate.AcquireAsync(JobNames.Follow, cancellationToken);
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+        // [follow]'s own buffer and cap, over every "Follow: …" selection together.
+        unsatBuffer = settings.UnsatBuffer ?? unsatBuffer;
+        var currentActive = settings.MaxActiveDownloads is null
+            ? 0
+            : await SelectionQueue.ActiveForGrabberAsync(dbContext, GrabberPrefix, isPrefix: true, cancellationToken);
+        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
         if (budget <= 0 && due.All(f => f.Mode == FollowMode.Download))
         {
-            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             _logger.LogInformation("Follow: nothing searched, this run's limit is 0 selections ({BudgetExplanation})", explanation);
             return new FollowRunSummary(0, 0, 0, 0, settings.DryRun);
         }

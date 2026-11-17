@@ -426,6 +426,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("StartedWithWedge")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("TagsJson")
                         .HasColumnType("TEXT");
 

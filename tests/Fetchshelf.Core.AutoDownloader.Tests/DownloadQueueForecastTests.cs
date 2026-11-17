@@ -32,7 +32,7 @@ public class DownloadQueueForecastTests
     public void CountStartable_UnsatSlots_StopAtTheTorrentsOwnBuffer()
     {
         // 20 allowed, 17 in use: the global buffer of 1 leaves 2 slots; "careful" keeps 3 free and gets none.
-        var buffers = new SafetyBuffers(1, 0, [new AutograbBuffers("careful", 3, null)]);
+        var buffers = new SafetyBuffers(1, 0, [new BlockBuffers("careful", 3, null)]);
         QueuedTorrent[] queue =
         [
             new(SelectedTorrentCost.Vip, 1, "careful"),
@@ -56,4 +56,17 @@ public class DownloadQueueForecastTests
     [Fact]
     public void CountStartable_TryWedgeWithoutWedges_StillStartsWithinTheRatioBudget() =>
         Assert.Equal(1, DownloadQueueForecast.CountStartable([new(SelectedTorrentCost.TryWedge, 100, null)], Budget(wedges: 0), NoBuffers));
+
+    [Fact]
+    public void CountStartable_UseWedge_StartsWithTheRatioBudgetSpent() =>
+        Assert.Equal(1, DownloadQueueForecast.CountStartable([new(SelectedTorrentCost.UseWedge, 5_000, null)], Budget(ratioBytes: 0), NoBuffers));
+
+    [Fact]
+    public void CountStartable_TryWedgeThatGetsAWedge_LeavesTheRatioBudgetForTheNext()
+    {
+        // The try_wedge torrent takes a wedge, so the 1,000 bytes of budget are still there for the ratio one after it.
+        QueuedTorrent[] queue = [new(SelectedTorrentCost.TryWedge, 900, null), new(SelectedTorrentCost.Ratio, 900, null)];
+
+        Assert.Equal(2, DownloadQueueForecast.CountStartable(queue, Budget(), NoBuffers));
+    }
 }

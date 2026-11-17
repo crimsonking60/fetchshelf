@@ -186,20 +186,35 @@ public sealed partial class AccountSummaryBuilder(
             : new DerivedNumber("Ratio budget", DownloadBudget.FormatBytes(budget), formula);
     }
 
+    /// <summary>A block with buffers or a cap of its own, and how its selections are told apart: by their grabber name.</summary>
+    private sealed record OwnBudgets(string Label, string GrabberName, bool IsPrefix, int? UnsatBuffer, int? WedgeBuffer, int? MaxActiveDownloads);
+
+    /// <summary>
+    /// Every block that can have buffers or a cap of its own. Only a named autograb can: the configuration requires the
+    /// name, which is how its selections are told apart. A Hardcover list's selections carry its job name, Follow's all
+    /// start with "Follow: ", and Upgrade's are named after the job.
+    /// </summary>
+    private IEnumerable<OwnBudgets> BlocksWithOwnBudgets() =>
+        settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name))
+            .Select(a => new OwnBudgets($"Autograb {a.Name}", a.Name!, false, a.UnsatBuffer, a.WedgeBuffer, a.MaxActiveDownloads))
+            .Concat(settings.HardcoverList.Select((list, i) => (JobName: AutoDownloaderJobNames.HardcoverList(list, i), List: list))
+                .Select(l => new OwnBudgets($"Hardcover list {l.JobName}", l.JobName, false, l.List.UnsatBuffer, l.List.WedgeBuffer, l.List.MaxActiveDownloads)))
+            .Concat(settings.Follow is { } follow
+                ? [new OwnBudgets("Follow", FollowRunner.GrabberPrefix, true, follow.UnsatBuffer, follow.WedgeBuffer, follow.MaxActiveDownloads)]
+                : [])
+            .Concat(settings.Upgrade is { } upgrade
+                ? [new OwnBudgets("Upgrade", JobNames.Upgrade, false, upgrade.UnsatBuffer, upgrade.WedgeBuffer, upgrade.MaxActiveDownloads)]
+                : []);
+
     private async Task<List<DerivedNumber>> DescribeSelectionSlotsAsync(MamAccountState account, CancellationToken cancellationToken)
     {
         var lines = new List<DerivedNumber> { SelectionSlots("Everything else", settings.UnsatBuffer, maxActive: null, active: 0) };
-        // Only a named autograb can have buffers or a cap of its own: the configuration requires the name, which is how
-        // its selections are told apart.
-        foreach (var entry in settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
+        foreach (var block in BlocksWithOwnBudgets().Where(b => b.UnsatBuffer is not null || b.MaxActiveDownloads is not null))
         {
-            if (entry.UnsatBuffer is null && entry.MaxActiveDownloads is null)
-            {
-                continue;
-            }
-
-            var active = await SelectionQueue.ActiveForAutograbAsync(dbContext, entry, cancellationToken);
-            lines.Add(SelectionSlots($"Autograb {entry.Name}", entry.UnsatBuffer ?? settings.UnsatBuffer, entry.MaxActiveDownloads, active));
+            var active = block.MaxActiveDownloads is null
+                ? 0
+                : await SelectionQueue.ActiveForGrabberAsync(dbContext, block.GrabberName, block.IsPrefix, cancellationToken);
+            lines.Add(SelectionSlots(block.Label, block.UnsatBuffer ?? settings.UnsatBuffer, block.MaxActiveDownloads, active));
         }
 
         return lines;
@@ -213,14 +228,7 @@ public sealed partial class AccountSummaryBuilder(
     private List<DerivedNumber> DescribeWedges(MamAccountState account)
     {
         var lines = new List<DerivedNumber> { Wedges("Everything else", settings.WedgeBuffer) };
-        foreach (var entry in settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
-        {
-            if (entry.WedgeBuffer is { } buffer)
-            {
-                lines.Add(Wedges($"Autograb {entry.Name}", buffer));
-            }
-        }
-
+        lines.AddRange(BlocksWithOwnBudgets().Where(b => b.WedgeBuffer is not null).Select(b => Wedges(b.Label, b.WedgeBuffer!.Value)));
         return lines;
 
         DerivedNumber Wedges(string label, int buffer) => new(

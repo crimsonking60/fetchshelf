@@ -882,12 +882,70 @@ public sealed class DownloadRunnerTests : IDisposable
             """;
         var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
-        var buffers = new SafetyBuffers(0, 0, [new AutograbBuffers("grabber", UnsatBuffer: 10, WedgeBuffer: null)]);
+        var buffers = new SafetyBuffers(0, 0, [new BlockBuffers("grabber", UnsatBuffer: 10, WedgeBuffer: null)]);
         var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: buffers);
 
         var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
+    }
+
+    /// <summary>An account whose ratio budget is spent: uploaded / min_ratio 2 is less than downloaded.</summary>
+    private const string RatioBudgetSpentAccountJson = """
+        {"ratio":1.5,"uploaded_bytes":1500,"downloaded_bytes":1000,"wedges":10,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+        """;
+
+    [Fact]
+    public async Task RunAsync_RatioBudgetSpent_StartsAWedgeTorrentWithAWedge()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(RatioBudgetSpentAccountJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: NoBuffers);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal(1, summary.Started);
+        var selected = context.SelectedTorrents.Single();
+        Assert.NotNull(selected.StartedAt);
+        Assert.True(selected.StartedWithWedge);
+        Assert.True(Assert.Single(context.Events).WedgeUsed);
+    }
+
+    [Fact]
+    public async Task RunAsync_RatioBudgetSpentAndNoWedgeAboveTheBuffer_KeepsAWedgeTorrentQueued_NeverOnRatio()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(RatioBudgetSpentAccountJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: new SafetyBuffers(0, 10, []));
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal(0, summary.Started);
+        Assert.Null(context.SelectedTorrents.Single().StartedAt);
+        Assert.Empty(context.Torrents);
+    }
+
+    [Fact]
+    public async Task RunAsync_RatioBudgetSpent_HoldsATryWedgeTorrentBack()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.TryWedge));
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(RatioBudgetSpentAccountJson, _ => null);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [DownloadTestSupport.CreateQBittorrentClient([], [])],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: NoBuffers);
+
+        var summary = await runner.RunAsync();
+
+        Assert.Equal((0, 1), (summary.Started, summary.LeftQueued));
     }
 
     [Fact]

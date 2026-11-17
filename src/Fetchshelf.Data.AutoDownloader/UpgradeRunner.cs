@@ -92,10 +92,14 @@ public sealed class UpgradeRunner(
         using var _ = await accessGate.AcquireAsync(JobNames.Upgrade, cancellationToken);
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+        unsatBuffer = settings.UnsatBuffer ?? unsatBuffer;
+        var currentActive = settings.MaxActiveDownloads is null
+            ? 0
+            : await SelectionQueue.ActiveForGrabberAsync(dbContext, JobNames.Upgrade, cancellationToken: cancellationToken);
+        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
         if (budget <= 0)
         {
-            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             var note = $"this run's limit is 0 selections ({explanation})";
             _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
             return new UpgradeRunSummary(0, 0, 0, settings.DryRun, Note: note);

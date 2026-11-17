@@ -64,8 +64,13 @@ public sealed class HardcoverListImporter(
         : entry.List is { } slug ? slug
         : HardcoverClient.Describe(HardcoverBookSource.ToReadingStatus(entry.Status!.Value));
 
+    /// <param name="entry">The list.</param>
+    /// <param name="grabberName">The list's job name, which its selections carry and its own buffers are found by.</param>
+    /// <param name="unsatBuffer">The top-level `unsat_buffer`, for a list that sets none of its own.</param>
+    /// <param name="ignoreTorrents">`ignore_torrents`.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
     public async Task<HardcoverListRunSummary> RunAsync(
-        HardcoverListEntry entry, int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
+        HardcoverListEntry entry, string grabberName, int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
     {
         var name = DisplayNameFor(entry);
         var books = await bookSource.GetBooksAsync(entry, cancellationToken);
@@ -83,10 +88,14 @@ public sealed class HardcoverListImporter(
         using var _ = await accessGate.AcquireAsync($"Hardcover list {name}", cancellationToken);
 
         var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+        unsatBuffer = entry.UnsatBuffer ?? unsatBuffer;
+        var currentActive = entry.MaxActiveDownloads is null
+            ? 0
+            : await SelectionQueue.ActiveForGrabberAsync(dbContext, grabberName, cancellationToken: cancellationToken);
+        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
         if (budget <= 0)
         {
-            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, maxActiveDownloads: null, currentActiveForGrabber: 0);
+            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, entry.MaxActiveDownloads, currentActive);
             _logger.LogInformation(
                 "Hardcover list {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
                 name, Books(books.Count), explanation);
@@ -109,7 +118,7 @@ public sealed class HardcoverListImporter(
                 ErrorKey(item), item.BookTitle,
                 async () =>
                 {
-                    var outcome = await ProcessItemAsync(entry, name, grabFilters, item, ignoreTorrents, cancellationToken);
+                    var outcome = await ProcessItemAsync(entry, name, grabberName, grabFilters, item, ignoreTorrents, (int)(budget - selected), cancellationToken);
                     selected += outcome.Selected;
                     searched += outcome.Searched ? 1 : 0;
                 },
@@ -296,9 +305,13 @@ public sealed class HardcoverListImporter(
         }
     }
 
+    /// <param name="budgetLeft">
+    /// The selections this run may still make. A book found in both formats may need two; with room for only one, the
+    /// second format is left for the next run, which searches the book again rather than going over the limit.
+    /// </param>
     private async Task<(int Selected, bool Searched)> ProcessItemAsync(
-        HardcoverListEntry entry, string name, IReadOnlyList<TorrentFilter> grabFilters, ListItemEntity item,
-        IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
+        HardcoverListEntry entry, string name, string grabberName, IReadOnlyList<TorrentFilter> grabFilters, ListItemEntity item,
+        IReadOnlyList<long> ignoreTorrents, int budgetLeft, CancellationToken cancellationToken)
     {
         var needAudio = item.AllowAudio && !ListItemSideStatus.IsResolved(item.AudioStatus);
         var needEbook = item.AllowEbook && !ListItemSideStatus.IsResolved(item.EbookStatus);
@@ -410,14 +423,30 @@ public sealed class HardcoverListImporter(
         }
 
         var selected = 0;
+        var leftForNextRun = false;
         if (needAudio)
         {
-            selected += await RecordSideAsync(entry, name, item, FilterMainType.Audio, audioWinner, audioGrab, audioTooExpensive, ignoreTorrents, cancellationToken);
+            selected += await RecordSideAsync(entry, name, grabberName, item, FilterMainType.Audio, audioWinner, audioGrab, audioTooExpensive, ignoreTorrents, cancellationToken);
         }
 
-        if (needEbook)
+        if (needEbook && ebookWinner is not null && selected >= budgetLeft)
         {
-            selected += await RecordSideAsync(entry, name, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ebookTooExpensive, ignoreTorrents, cancellationToken);
+            // The audiobook took the run's last selection: the ebook waits, and isn't recorded as not found.
+            leftForNextRun = true;
+            _logger.Log(
+                Detail(entry), "Hardcover list {Name}: \"{Title}\": the ebook is left for the next run, which has room to select it",
+                name, item.BookTitle);
+        }
+        else if (needEbook)
+        {
+            selected += await RecordSideAsync(entry, name, grabberName, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ebookTooExpensive, ignoreTorrents, cancellationToken);
+        }
+
+        if (leftForNextRun)
+        {
+            // Not searched as far as the schedule goes, so the next run looks for the ebook again; it is on MAM.
+            item.MissingSince = null;
+            return (selected, true);
         }
 
         // Missing from MAM only when nothing turned up for any format looked for: a match too dear, or one left out for
@@ -429,7 +458,7 @@ public sealed class HardcoverListImporter(
     }
 
     private async Task<int> RecordSideAsync(
-        HardcoverListEntry entry, string name, ListItemEntity item, FilterMainType side,
+        HardcoverListEntry entry, string name, string grabberName, ListItemEntity item, FilterMainType side,
         ListCandidate<MamTorrentRecord>? winner, GrabEntry? grab, ListCandidate<MamTorrentRecord>? tooExpensive,
         IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
     {
@@ -451,7 +480,7 @@ public sealed class HardcoverListImporter(
         }
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
-            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: entry.Category, grabberName: entry.Name,
+            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: entry.Category, grabberName: grabberName,
             dryRun: entry.DryRun, cancellationToken: cancellationToken);
         var status = outcome switch
         {

@@ -157,7 +157,8 @@ public sealed class DownloadRunner(
                 startedCount++;
                 budget.Started(
                     Enum.Parse<SelectedTorrentCost>(selected.CostDecision),
-                    TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes);
+                    TorrentMetadataSerializer.Deserialize(selected.MetadataJson).TotalSizeBytes,
+                    withWedge: wedgeSpent);
             }
         }
 
@@ -518,6 +519,8 @@ public sealed class DownloadRunner(
         cancellationToken = CancellationToken.None;
         CreateTorrentRecord(hash, metadata);
         selected.StartedAt = DateTimeOffset.UtcNow;
+        // Freeleech with the wedge, so it costs no ratio while it downloads either (SelectionQueue.InFlightBytesAsync).
+        selected.StartedWithWedge = wedgeUsed;
         await ClearGrabberErrorAsync(selected.MamId, cancellationToken);
 
         await eventStore.AppendAsync(new EventEntity
