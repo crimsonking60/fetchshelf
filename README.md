@@ -48,8 +48,8 @@ setup. If you use one, please report how it went, good or bad (see
 
 - The `linux/arm/v7` image. The `linux/amd64` and `linux/arm64` images are confirmed.
 - `mark_removed` in `[[autograb]]`.
-- `[bonus]`: spending bonus points on wedges, VIP and upload credit. VIP top-ups are the least known: MAM's
-  answer to them has not been seen yet.
+- VIP top-ups from `[bonus]` (`vip = true`): MAM's answer to them has not been seen yet. Wedges and upload credit
+  are confirmed.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
 - `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
   for a selection that was removed.
@@ -57,9 +57,7 @@ setup. If you use one, please report how it went, good or bad (see
   `cost = "wedge"` downloads starting while the ratio budget is spent.
 - `hardlink_or_copy` and `hardlink_or_symlink` falling back only when a hardlink isn't possible there, and the tag-rule
   preview on the Config page.
-- `folder_names = "portable"` and `folder_template` in `[[library]]`, and folder names shortened to 255 bytes.
-- The Account page's "Over time" section: one snapshot of the account a day, its charts and the CSV download.
-- Bulk actions on the Torrents page running in the background, with their progress panel and **Cancel**.
+- Folder names shortened to 255 bytes. `folder_names` and `folder_template` are confirmed.
 - `allowed_hosts`, and the `[opds]` login.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
