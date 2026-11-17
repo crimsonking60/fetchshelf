@@ -62,6 +62,7 @@ public sealed record AccountHistory(IReadOnlyList<AccountHistoryChart> Charts, I
             Chart("Uploaded", days, r => r.UploadedBytes, DownloadBudget.FormatBytes),
             Chart("Bonus points", days, r => r.BonusPoints, v => v.ToString("N0", CultureInfo.InvariantCulture)),
             Chart("Wedges", days, r => r.Wedges, v => v.ToString("N0", CultureInfo.InvariantCulture)),
+            Chart("Unsatisfied", days, r => r.UnsatCount, v => v.ToString("N0", CultureInfo.InvariantCulture)),
         };
 
         var monthEnds = rows.GroupBy(r => r.Day[..7]).Select(g => g.MaxBy(r => r.Day, StringComparer.Ordinal)!).OrderBy(r => r.Day).ToList();
