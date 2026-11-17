@@ -1,14 +1,14 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-17, for the 18 plans in `plans/` (not `plans/done/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-17, for the 17 plans in `plans/` (not `plans/done/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
-`bulk-actions-in-background.md` (PR #79) and `allowed-hosts-and-opds-login.md` (PR #80) were built and moved to
-`plans/done/`. Three open plans are new: `language-aware-books.md`, `series-layout-for-comics.md` and
+`bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80) and `seeding-obligations.md`
+(PR #88) were built and moved to `plans/done/`. Three open plans are new: `language-aware-books.md`, `series-layout-for-comics.md` and
 `collection-torrents.md`, the last of them parked. The order follows four rules:
 
-1. **Protect first.** Seven of the plans add a database migration. The before-upgrade backup from
+1. **Protect first.** Six of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
 2. **Make room before building.** Almost every plan adds settings or registrations. Since `composition-root.md`
    (PR #66) they go into `Hosting/`, one registration method per area, and a runner's new setting into its options
@@ -31,7 +31,6 @@ or how, so they are worth doing before the plans come up:
 | Audiobookshelf's `/api/libraries/{id}/series` answer | `follow-audiobookshelf-series.md` | the parser |
 | The fields Komga's `series.json` parser requires | `series-layout-for-comics.md` | what `MylarSeriesJsonBuilder` writes |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
-| MAM's seeding requirement (time, and the period to reach it in); qBittorrent's `seeding_time` on the live client | `seeding-obligations.md` | the defaults, and whether the estimate needs a fallback |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
 | How many collection torrents MAM still carries | `collection-torrents.md` | whether the plan is unparked |
 
@@ -62,56 +61,55 @@ Done:
 - `bulk-actions-in-background.md` (PR #79): bulk actions on the Torrents page run in the background with their
   progress shown, and a library write gate keeps them, the Link job and the Clean job off the same files.
 - `allowed-hosts-and-opds-login.md` (PR #80): `allowed_hosts` against DNS rebinding, and an optional OPDS login.
+- `seeding-obligations.md` (PR #88): the Seeding job estimates from qBittorrent's seeding time which torrents still
+  need seeding (189 against MAM's 190 on the live account), and holds `on_cleaned` back for them.
 
-1. **`seeding-obligations.md`** — estimates from qBittorrent's seeding time which torrents still need seeding,
-    checked against MAM's counts, and holds `on_cleaned` back for them: the thing that keeps accounts out of
-    hit-and-run trouble. Re-planned on 2026-11-17 without MAM's snatch lists, which MAM doesn't authorize automating.
-2. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
+1. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
     series sync, the per-language Follow searches) easy to try without editing the config twice and restarting.
-3. **`email-notifications.md`** — small and self-contained.
+2. **`email-notifications.md`** — small and self-contained.
 
 **Release point.**
 
 ## Phase 4: growing the library
 
-4. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
-5. **`mam-bookmarks-list.md`** — needs the shared importer from step 4.
-6. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
-7. **`language-aware-books.md`** — after step 6, since both change the Follow job. `folder_template` (PR #73) can
+3. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
+4. **`mam-bookmarks-list.md`** — needs the shared importer from step 3.
+5. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
+6. **`language-aware-books.md`** — after step 5, since both change the Follow job. `folder_template` (PR #73) can
     already express `language_in_folder = "other"`, so only the clash rule is new. After
     `jobs-page-dry-run.md` too: the first searches after the upgrade can list many other-language finds, and a dry
     run from the Jobs page shows them first.
-8. **`search-bookmark-and-more-like-this.md`** — "more like this" only: MAM authorizes no bookmark endpoint, so the
+7. **`search-bookmark-and-more-like-this.md`** — "more like this" only: MAM authorizes no bookmark endpoint, so the
     bookmark toggle is dropped. Its searches take MAM through `MamPageGate` (PR #67).
-9. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
+8. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
     the other blocks; before other download clients, which reuse its client names.
 
 **Release point.**
 
-10. **`series-layout-for-comics.md`** — builds on `safe-folder-names.md` (PR #73): the series layout uses its name
+9. **`series-layout-for-comics.md`** — builds on `safe-folder-names.md` (PR #73): the series layout uses its name
     rules, and refuses its `folder_template`. Before
     the covers, so they can be written in Komga's names in a series folder rather than as one `cover.jpg` per book
     folder, and before the library check, which has to compute series folders too. No migration.
-11. **`covers-from-mam.md`** — after the series layout, which changes the same part of the Link job.
-12. **`statistics-and-metrics.md`** — `/metrics` follows `allowed_hosts` (PR #80), and its page links to the account
+10. **`covers-from-mam.md`** — after the series layout, which changes the same part of the Link job.
+11. **`statistics-and-metrics.md`** — `/metrics` follows `allowed_hosts` (PR #80), and its page links to the account
     history (PR #78).
-13. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
+12. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
 
 **Release point.**
 
 ## Phase 5: the large ones
 
-14. **`25-Library-check.md`** (#25) — after the series layout, since it compares folders with the names the Link job
+13. **`25-Library-check.md`** (#25) — after the series layout, since it compares folders with the names the Link job
     would compute, `folder_template` (PR #73) and series folders included. Its open questions have
     proposed answers to confirm first.
-15. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
+14. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
     `safe-folder-names.md` (PR #73), whose `FileNameRules` it only has to make the Windows default. Its step 3 widens
     the hardlink fallback for Windows, while `link-and-tag-details.md` (PR #72) narrowed it on Linux to the errors that
     mean "not possible here": the Windows errors join that list rather than the fallback catching everything again.
-16. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
+15. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
     code and nobody has asked for it yet.
-17. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
+16. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
     after the rest; build only if the answer is yes.
 
 ## Parked
@@ -144,8 +142,9 @@ Done in the order above, each builds on the one before; done in parallel, they c
   `series-layout-for-comics.md`, the library check. A series library holding one series in two languages puts both
   in one series folder; whether `language_in_folder` applies to series folders is decided by whichever of the two
   plans comes second.
-- **`LibraryFileRemover` and `Cleaner`:** `series-layout-for-comics.md` (`series.json`), `covers-from-mam.md`
-  (`cover.png`, `cover.webp`), `seeding-obligations.md` (`on_cleaned`), `collection-torrents.md`.
+- **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88):
+  `series-layout-for-comics.md` (`series.json`), `covers-from-mam.md` (`cover.png`, `cover.webp`),
+  `collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`:** `follow-audiobookshelf-series.md`, `language-aware-books.md`,
   `collection-torrents.md`.
 - **`HardcoverListImporter` / `ListImporter`:** `file-based-lists.md`, `jobs-page-dry-run.md`, `mam-bookmarks-list.md`.
