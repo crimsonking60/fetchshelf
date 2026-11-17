@@ -64,7 +64,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.10** (2026-11-16). See [RELEASES.md](RELEASES.md#20261110---2026-11-16) for what changed, and for
+**2026.11.11** (2026-11-17). See [RELEASES.md](RELEASES.md#20261111---2026-11-17) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing

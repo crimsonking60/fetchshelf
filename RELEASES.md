@@ -5,6 +5,68 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.11 - 2026-11-17
+
+Hardcover lists find more books, by ISBN and ASIN, and stop searching every day for the ones MAM doesn't have. Every
+Hardcover list, `[follow]` and `[upgrade]` can have its own buffers and cap. Libraries can keep their folder names
+safe for Windows and shared disks, and choose their own folder layout. A name too long for the file system is
+shortened instead of failing to link.
+
+### Upgrading
+
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.11/configuration/#backup) section, a backup is taken first; without one, back up your data folder
+  yourself.
+- Torrents a `[[hardcover_list]]` without a `name` selected before the upgrade, and that are still waiting to be
+  downloaded, don't count towards that list's new `max_active_downloads` or buffers; what it selects from now on
+  does.
+- Folder names don't change unless a library sets `folder_names` or `folder_template`. If one does, the books it
+  affects are flagged *Different folder*; tick them on the **Torrents** page and use **Relink selected** to move them.
+
+### Added
+
+- `[[hardcover_list]]`: a MAM torrent with one of the book's ISBNs or ASINs, from its most read editions on
+  Hardcover, is the book, whatever its title. When the first page of results holds nothing like the book, the second
+  page is read too (#70).
+- `[[hardcover_list]]`: a book MAM has had nothing for for a week is searched weekly instead of daily. The **Lists**
+  page says when each book is next searched, and **Search again** has the next run search for it (#70).
+- `unsat_buffer`, `wedge_buffer` and `max_active_downloads` in every `[[hardcover_list]]`, in `[follow]` and in
+  `[upgrade]`, as on a named autograb. The **Account** page gives each block with its own a line (#71). See
+  [Protecting your account](https://fetchshelf.readthedocs.io/en/v2026.11.11/user-guide/#protecting-your-account).
+- **Config** page: a tag rule shows its whole filter, its rules are numbered, and **Preview** shows which torrents'
+  category or tags applying it would change, in a dialog, before **Apply** changes exactly those (#72).
+- The Link job's result says how many torrents wait for a MAM lookup in the next runs, and how many MAM didn't know,
+  instead of "Nothing new to link" (#72). See
+  [Torrents wait to be linked](https://fetchshelf.readthedocs.io/en/v2026.11.11/user-guide/#torrents-wait-to-be-linked).
+- `folder_names = "portable"` per `[[library]]` makes folder names safe on Windows, SMB shares, exFAT and NTFS:
+  `Dune: Part One` becomes `Dune - Part One` (#73). See [Folder naming](https://fetchshelf.readthedocs.io/en/v2026.11.11/configuration/#folder-naming).
+- `folder_template` per `[[library]]` chooses the folder layout, such as `{series}/[{series_number} - ]{title}` for
+  comics (#73). See [Folder template](https://fetchshelf.readthedocs.io/en/v2026.11.11/configuration/#folder-template) and
+  [Folder names](https://fetchshelf.readthedocs.io/en/v2026.11.11/user-guide/#folder-names).
+- **Config** page: each library's folder names and template (#73).
+
+### Changed
+
+- A `cost = "wedge"` download never downloads on ratio, so a spent ratio budget no longer holds it back, and a
+  `try_wedge` download that got a wedge no longer counts against the ratio budget while it downloads (#71).
+- `hardlink_or_copy` and `hardlink_or_symlink` fall back only when a hardlink can't be made there, such as on
+  another disk. A full disk, a permission problem or a read-only library is reported on the **Errors** page with its
+  name, such as `ENOSPC`, instead of turning into a copy that fails too (#72).
+
+### Fixed
+
+- A Hardcover list book whose selection was removed before it was downloaded, or whose copy is gone, was never
+  searched for again (#70).
+- A Hardcover list book found as both an audiobook and an ebook could make two selections when
+  `max_active_downloads` had room for one (#71).
+- A folder name longer than the file system allows, such as a long title with a subtitle, failed to link. It is now
+  shortened to 255 bytes, keeping the series number, edition and narrator (#73).
+- With `exclude_narrator_in_library_dir = true`, every book was flagged *Different folder* on the Link run after it
+  was linked (#73).
+- A wrong value in the configuration, such as `media_type = "ComicBook"` where a list goes or an unknown `method`,
+  stopped startup with only "Exception during deserialization". The message now names the setting or the values it
+  can be (#73).
+
 ## 2026.11.10 - 2026-11-16
 
 Fetchshelf can back up its own database while it runs, and does so before an upgrade changes it, and the
