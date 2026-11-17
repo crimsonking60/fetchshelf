@@ -30,6 +30,7 @@ or how, so they are worth doing before the plans come up:
 | Audiobookshelf's `/api/libraries/{id}/series` answer | `follow-audiobookshelf-series.md` | the parser |
 | The fields Komga's `series.json` parser requires | `series-layout-for-comics.md` | what `MylarSeriesJsonBuilder` writes |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
+| MAM's seeding requirement (time, and the period to reach it in); qBittorrent's `seeding_time` on the live client | `seeding-obligations.md` | the defaults, and whether the estimate needs a fallback |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
 | How many collection torrents MAM still carries | `collection-torrents.md` | whether the plan is unparked |
 
@@ -60,8 +61,9 @@ Search page (PR #67), with the `MamPageGate` the bookmark toggle uses.
     the Link and Clean jobs from working on the same files, before the series layout, the covers and the library
     check change what those jobs place. No migration.
 3. **`allowed-hosts-and-opds-login.md`** — small security hardening.
-4. **`seeding-obligations.md`** — shows which torrents are unsatisfied and holds `on_cleaned` back for them: the
-    thing that keeps accounts out of hit-and-run trouble.
+4. **`seeding-obligations.md`** — estimates from qBittorrent's seeding time which torrents still need seeding,
+    checked against MAM's counts, and holds `on_cleaned` back for them: the thing that keeps accounts out of
+    hit-and-run trouble. Re-planned on 2026-11-17 without MAM's snatch lists, which MAM doesn't authorize automating.
 5. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
     series sync, the per-language Follow searches) easy to try without editing the config twice and restarting.
 6. **`email-notifications.md`** — small and self-contained.
