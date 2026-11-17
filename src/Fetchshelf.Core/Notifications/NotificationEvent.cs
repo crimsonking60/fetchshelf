@@ -35,6 +35,9 @@ public enum NotificationEvent
 
     /// <summary>The Bonus job bought something with bonus points.</summary>
     BonusSpent,
+
+    /// <summary>A torrent began to look not seeding and not yet satisfied, so it is on its way to a hit-and-run.</summary>
+    UnsatisfiedNotSeeding,
 }
 
 /// <summary>The configuration's names for <see cref="NotificationEvent"/>, and what kind of event each is.</summary>
@@ -56,6 +59,7 @@ public static class NotificationEvents
         [NotificationEvent.HitAndRun] = "hit_and_run",
         [NotificationEvent.BudgetSpent] = "budget_spent",
         [NotificationEvent.BonusSpent] = "bonus_spent",
+        [NotificationEvent.UnsatisfiedNotSeeding] = "unsatisfied_not_seeding",
     };
 
     /// <summary>Every event, in the order the documentation lists them.</summary>
@@ -86,7 +90,7 @@ public static class NotificationEvents
     /// <summary>Whether the event says something is wrong, which gets a warning tag, a red colour and a higher priority.</summary>
     public static bool IsProblem(NotificationEvent notificationEvent) => notificationEvent is
         NotificationEvent.MamRefused or NotificationEvent.RateLimited or NotificationEvent.JobFailing
-        or NotificationEvent.JobErrors or NotificationEvent.HitAndRun;
+        or NotificationEvent.JobErrors or NotificationEvent.HitAndRun or NotificationEvent.UnsatisfiedNotSeeding;
 
     /// <summary>Whether the event stops work until someone acts, which asks for the highest priority.</summary>
     public static bool IsUrgent(NotificationEvent notificationEvent) =>

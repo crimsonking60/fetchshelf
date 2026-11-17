@@ -28,7 +28,8 @@ public sealed class Cleaner(
     IReadOnlyList<Library> libraries,
     AbsClient? absClient = null,
     ILogger<Cleaner>? logger = null,
-    LibraryWriteGate? writeGate = null)
+    LibraryWriteGate? writeGate = null,
+    SeedingHold? seedingHold = null)
 {
     private readonly ILogger<Cleaner> _logger = logger ?? NullLogger<Cleaner>.Instance;
     private readonly LibraryWriteGate _writeGate = writeGate ?? new LibraryWriteGate();
@@ -206,8 +207,17 @@ public sealed class Cleaner(
         }
         else if (SettingOf(connections.First(c => c.Client == owning).Connection) is { } setting)
         {
-            await QBittorrentActions.ApplyAsync(owning, member.Id, setting, cancellationToken);
-            details.Add($"applied {settingName} in qBittorrent");
+            if (keeper is not null && seedingHold?.HoldsBack(member) is { } why)
+            {
+                // A client rule acting on the on_cleaned category could remove it before MAM counts it as seeded.
+                member.OnCleanedHeld = true;
+                details.Add($"held {settingName} back: {why}");
+            }
+            else
+            {
+                await QBittorrentActions.ApplyAsync(owning, member.Id, setting, cancellationToken);
+                details.Add($"applied {settingName} in qBittorrent");
+            }
         }
 
         var removedFiles = new List<string>();

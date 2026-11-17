@@ -51,6 +51,12 @@ public static class JobServices
         var startupPosition = 1;
         AddScheduler(JobNames.Link, settings.LinkInterval, startupPosition);
 
+        if (settings.Seeding is { Interval: > 0 } scheduledSeeding)
+        {
+            // The Seeding job only reads qBittorrent, so it starts alongside Link.
+            AddScheduler(JobNames.Seeding, scheduledSeeding.Interval, startupPosition);
+        }
+
         if (settings.Backup is { Interval: > 0 } scheduledBackup)
         {
             // The Backup job talks to no other service, so it starts alongside Link.

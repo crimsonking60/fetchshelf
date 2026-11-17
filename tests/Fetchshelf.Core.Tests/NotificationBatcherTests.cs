@@ -123,4 +123,19 @@ public class NotificationBatcherTests
     [InlineData(6, "A, B, C and 3 more")]
     public void NameList_NamesUpToThreeAndCountsTheRest(int count, string expected) =>
         Assert.Equal(expected, NotificationBatcher.NameList(new[] { "A", "B", "C", "D", "E", "F" }[..count]));
+
+    [Fact]
+    public void TorrentsThatStoppedSeedingTooEarly_AreMergedToo_LinkingToTheTorrentsPageFiltered()
+    {
+        var batcher = new NotificationBatcher();
+        foreach (var item in new[] { "A", "B" })
+        {
+            batcher.Add(new Notification(NotificationEvent.UnsatisfiedNotSeeding, $"Stopped seeding: {item}", $"{item} isn't seeding.", T0, LinkPath: $"/torrents/{item}", Item: item), T0);
+        }
+
+        var message = Assert.Single(batcher.TakeReady(T0.AddSeconds(30)));
+
+        Assert.Equal("2 torrents stopped seeding before MAM's requirement was met: A and B.", message.Message);
+        Assert.Equal("/Torrents?Seeding=NotSeedingUnsatisfied", message.LinkPath);
+    }
 }

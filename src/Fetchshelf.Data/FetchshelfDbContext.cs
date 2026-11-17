@@ -109,6 +109,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasIndex(t => t.NormalizedTitleKey);
             entity.HasIndex(t => t.Language);
             entity.HasIndex(t => t.MediaType);
+            entity.HasIndex(t => t.SeedingState);
         });
 
         modelBuilder.Entity<TorrentPersonEntity>(entity =>

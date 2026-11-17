@@ -15,6 +15,7 @@ public static class UnconfiguredJobs
             ("Audiobookshelf", settings.Audiobookshelf is not null),
             ("Autograb", settings.Autograb.Count > 0),
             ("Hardcover list", settings.HardcoverList.Count > 0),
+            ("Seeding", settings.Seeding is not null),
         };
         return kinds.Where(kind => !kind.Configured).Select(kind => kind.Name).Order(StringComparer.Ordinal).ToList();
     }

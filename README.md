@@ -59,6 +59,8 @@ setup. If you use one, please report how it went, good or bad (see
   preview on the Config page.
 - Folder names shortened to 255 bytes. `folder_names` and `folder_template` are confirmed.
 - `allowed_hosts`, and the `[opds]` login.
+- `[seeding]`: the Seeding job's estimate, `tag_unsatisfied`, the held-back `on_cleaned` and the
+  `unsatisfied_not_seeding` notification.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.

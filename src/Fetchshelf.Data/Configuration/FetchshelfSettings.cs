@@ -107,6 +107,9 @@ public sealed class FetchshelfSettings
     /// <summary>Repeatable `[[tag]]` entries.</summary>
     public List<TagRuleEntry> Tag { get; set; } = [];
 
+    /// <summary>Optional `[seeding]` section; without it the Seeding job doesn't run.</summary>
+    public SeedingSettings? Seeding { get; set; }
+
     /// <summary>Optional `[search]` section.</summary>
     public SearchSettings Search { get; set; } = new();
 

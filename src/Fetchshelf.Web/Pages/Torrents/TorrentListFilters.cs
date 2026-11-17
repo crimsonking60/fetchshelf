@@ -1,4 +1,5 @@
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 
@@ -38,6 +39,18 @@ public static class TorrentListFilters
         ("removed-from-mam", "Removed from MAM"),
         (Upgradable, "Could be upgraded"),
     ];
+
+    /// <summary>The Seeding filter: "looks unsatisfied" (seeding or not), or one state as the Seeding job stores it.</summary>
+    public static readonly IReadOnlyList<(string Value, string Label)> SeedingOptions =
+    [
+        (LooksUnsatisfied, "Looks unsatisfied"),
+        (nameof(SeedingState.NotSeedingUnsatisfied), "Not seeding, unsatisfied"),
+        (nameof(SeedingState.PastThePeriod), "Past the period"),
+        (nameof(SeedingState.Satisfied), "Satisfied"),
+    ];
+
+    /// <summary>The Seeding choice for both unsatisfied states, seeding and not seeding.</summary>
+    public const string LooksUnsatisfied = "unsatisfied";
 
     /// <summary>
     /// The Problems choice for copies a better format is possible for (<see cref="LibraryCopyRank.CouldBeUpgraded"/>).

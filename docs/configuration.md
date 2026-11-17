@@ -28,6 +28,7 @@ to `5-everything.toml`, which uses every option.
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
 - [`[bonus]`](#bonus)
+- [`[seeding]`](#seeding)
 - [`[backup]`](#backup)
 - [`[[tag]]`](#tag)
 - [`[[library]]`](#library)
@@ -380,7 +381,7 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among them (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `hardcover_list[0]`, ... on the Jobs page. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among them (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup`, `Seeding` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `hardcover_list[0]`, ... on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
 | `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
@@ -728,6 +729,34 @@ upload_amounts = [100, 50]
 wedge_every = 24             # one wedge a day
 ```
 
+## `[seeding]`
+
+Optional. Runs the Seeding job, which estimates from qBittorrent's seeding time which of Fetchshelf's torrents still
+need seeding before MAM counts them as satisfied. It reads qBittorrent only, never MAM: MAM's snatch lists, which say
+it per torrent, aren't among the parts of MAM that may be automated. See
+[Seeding torrents until MAM counts them as satisfied](user-guide.md#seeding-torrents-until-mam-counts-them-as-satisfied).
+
+| Setting | Default | Description |
+|---|---|---|
+| `seed_hours` | `72` | Hours of seeding MAM requires before a snatch is satisfied, `1` to `8760`. Check MAM's rules. |
+| `within_days` | `30` | Days after the snatch in which `seed_hours` must be reached, `1` to `365`. |
+| `interval` | `60` | Minutes between runs of the **Seeding** job, `0` to 43200. `0`: only from the Jobs page. |
+| `tag_unsatisfied` | unset | A qBittorrent tag put on Fetchshelf's torrents that aren't satisfied, and taken off once they are. One tag, without a comma. |
+| `warn_before_removal` | `true` | Ask before **Unlink** and **Remove from qBittorrent with data** on a torrent that isn't satisfied, and hold the Clean job's `on_cleaned` back for it until it is. |
+
+- **How it estimates.** A torrent is satisfied once qBittorrent's `seeding_time` reaches `seed_hours`, and stays
+  so. Until then it is unsatisfied, seeding or not, while within `within_days` of when qBittorrent added it, and
+  past the period after that. A torrent still downloading isn't estimated, nor one never seen in qBittorrent.
+- **Only an estimate.** Snatches made outside Fetchshelf or in another client, and seeding time MAM counts
+  differently, make it differ from MAM's counts, which the **Account** page shows next to it.
+- **`on_cleaned` held back.** With `warn_before_removal`, a superseded copy that isn't satisfied is retired as usual,
+  its files leaving the library, but `on_cleaned` waits; the Seeding job applies it once the copy is satisfied.
+
+```toml
+[seeding]
+tag_unsatisfied = "unsatisfied"
+```
+
 ## `[backup]`
 
 Optional. Backs up the database while Fetchshelf runs, with SQLite's online backup, which takes a consistent copy
@@ -984,6 +1013,7 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 | `hit_and_run` | MAM counts more hit-and-runs ("Not Seeding - H&R - Not Yet Satisfied") than the last count seen. | "MAM counts 1 hit-and-run (Not Seeding - H&R - Not Yet Satisfied). Seed it again to avoid a penalty." |
 | `budget_spent` | The Download job leaves selections queued because the ratio budget or the unsatisfied-snatch slots are spent, after a run that left none. | "3 selections wait: the ratio budget left is 0 B, less than the 1.2 GiB the first of them needs (min_ratio 2)." |
 | `bonus_spent` | The [Bonus job](#bonus) buys something with bonus points. One message per purchase. | "Bought 50 GB of upload credit with bonus points. 74,999 points are left, of 99,999." |
+| `unsatisfied_not_seeding` | The [Seeding job](#seeding) finds that a torrent stopped seeding before it was satisfied. Merged like `grabbed` when several stop at once. | "The Way of Kings isn't seeding. Not seeding, and seeded 41 of 72 hours: seed it 31 more by 2026-12-12 to avoid a hit-and-run." |
 
 - **Only changes are sent,** not states. A job that fails every 10 minutes for a day sends `job_failing`
   once and `job_recovered` once; selections that keep waiting for budget send `budget_spent` once. How many

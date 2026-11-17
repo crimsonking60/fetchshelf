@@ -354,4 +354,32 @@ public sealed class CleanerTests : IDisposable
         Assert.False(result.Succeeded);
         Assert.Null((await context.Torrents.SingleAsync()).UnlinkedAt);
     }
+
+    [Theory]
+    [InlineData("SeedingUnsatisfied", true, true)]
+    [InlineData("PastThePeriod", true, true)]
+    [InlineData("Satisfied", true, false)]
+    [InlineData(null, true, false)]
+    [InlineData("SeedingUnsatisfied", false, false)]
+    public async Task RunAsync_OnCleaned_IsHeldBackWhileTheRetiredCopyLooksUnsatisfied(string? seedingState, bool warnBeforeRemoval, bool held)
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await AddLinkedTorrentAsync(context, "keeper", "m4b", 100, Path.Combine(_root, "keeper"));
+        var loser = await AddLinkedTorrentAsync(context, "loser", "mp3", 100, Path.Combine(_root, "loser"));
+        (loser.SeedingState, loser.SeedingSeconds) = (seedingState, 36000);
+        await context.SaveChangesAsync();
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [new QBittorrentTorrent { Hash = "loser", Name = "loser", SavePath = "/downloads", State = "stalledUP", Progress = 1 }],
+            new Dictionary<string, List<QBittorrentFile>>());
+        var connection = new QBittorrentConnection { OnCleaned = new QBittorrentCategoryAndTags { Category = "cleaned" } };
+        var cleaner = new Cleaner(
+            context, new EventStore(context), Formats, [new Library { LibraryDir = LibraryDir }],
+            seedingHold: warnBeforeRemoval ? new SeedingHold(new SeedingRequirement(72, 30)) : null);
+
+        await cleaner.RunAsync([(connection, client)]);
+
+        var retired = await context.Torrents.AsNoTracking().SingleAsync(t => t.Id == "loser");
+        Assert.Equal("keeper", retired.ReplacedWithTorrentId);
+        Assert.Equal(held, retired.OnCleanedHeld);
+    }
 }

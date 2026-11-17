@@ -56,7 +56,8 @@ The job doesn't talk to MAM at all, so it takes no MAM gate. Each run:
 3. `SeedingEstimator` (Core, pure) gives each a state from the seeding time, the time since completion and the
    requirement:
    - **Satisfied:** seeding time at least `seed_hours`.
-   - **Seeding, unsatisfied:** less than that, seeding now, still within `within_days` of completion; with the
+   - **Seeding, unsatisfied:** less than that, seeding now, still within `within_days` of the snatch (as built: when
+     qBittorrent added the torrent, since MAM's period starts at the snatch, not at completion); with the
      hours still needed and the date by which they must be reached.
    - **Not seeding, unsatisfied:** less than that, not seeding now (stopped, errored, missing files, or no longer in
      the client), still within the period.
@@ -87,7 +88,7 @@ differently by MAM than by qBittorrent. The estimate is a guide; MAM's counts ar
   qBittorrent, so this is about what `on_unlinked` and the user's own client rules may do next.
 - **Clean job:** with `warn_before_removal`, a superseded copy that looks unsatisfied is retired as today (its files
   leave the library) but `on_cleaned` is not applied to it until it looks satisfied; the next runs apply it then. The
-  log and the Errors page say why it waits.
+  log says why it waits (as built: the log only, not the Errors page, since nothing is wrong).
 
 ### 4. A notification
 

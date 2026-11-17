@@ -61,6 +61,16 @@ public static class FetchshelfJobs
             }, "Matches linked torrents to their Audiobookshelf library item.");
         }
 
+        if (settings.Seeding is not null)
+        {
+            jobRegistry.Register(JobNames.Seeding, async ct =>
+            {
+                using var scope = scopeFactory.CreateScope();
+                var seeding = scope.ServiceProvider.GetRequiredService<SeedingRunner>();
+                return JobOutcomes.Seeding(await seeding.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct));
+            }, "Estimates from qBittorrent's seeding time which torrents still need seeding to satisfy MAM.");
+        }
+
         if (settings.Backup is { } backupSettings && backupFolder is not null)
         {
             var timeProvider = services.GetRequiredService<TimeProvider>();

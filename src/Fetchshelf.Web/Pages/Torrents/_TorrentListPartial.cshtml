@@ -51,6 +51,9 @@ else
                     <td class="nowrap">@QBittorrentStateLabel.For(torrent.ClientStatus)@if (torrent.RemovedFromMam)
                         {
                             <span class="muted">(removed from MAM)</span>
+                        }@if (Model.SeedingNote(torrent) is { } seedingNote)
+                        {
+                            <br /><span class="muted seeding-note">@seedingNote</span>
                         }</td>
                     <td class="nowrap" title="@torrent.LibraryMismatchState">@(LibraryMismatchLabel.For(torrent.LibraryMismatchState) ?? "-")</td>
                     <td class="nowrap"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
