@@ -40,7 +40,25 @@ else
                     <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.HistoryModel.Duration(run)</td>
                     <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.JobRunLabels.Trigger(run.Trigger)</td>
                     <td class="nowrap">@Fetchshelf.Web.Pages.Jobs.JobRunLabels.Result(run.Result)</td>
-                    <td><span title="@Fetchshelf.Web.Pages.Jobs.HistoryModel.Counts(run)">@run.Summary</span></td>
+                    <td>
+                        <span title="@Fetchshelf.Web.Pages.Jobs.HistoryModel.Counts(run)">@run.Summary</span>
+                        @if (Fetchshelf.Data.JobRunStore.ReadDetails(run.DetailsJson) is { Count: > 0 } details)
+                        {
+                            <details class="run-details">
+                                <summary>@(details.Count == 1 ? "1 line" : $"{details.Count} lines")</summary>
+                                <ul>
+                                    @foreach (var line in details)
+                                    {
+                                        var (text, mamId) = Fetchshelf.Web.Pages.Jobs.HistoryModel.SplitDetail(line);
+                                        <li>@text@if (mamId is { } id)
+                                            {
+                                                <text> - </text><a asp-page="/Search/Detail" asp-route-mamId="@id">MAM @id</a>
+                                            }</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </td>
                 </tr>
             }
         </tbody>

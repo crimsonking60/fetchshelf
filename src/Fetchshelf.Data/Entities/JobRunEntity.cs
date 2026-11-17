@@ -27,4 +27,7 @@ public sealed class JobRunEntity
 
     /// <summary>What kind of error ended a failed run; null for any other result.</summary>
     public JobFailureKind? FailureKind { get; set; }
+
+    /// <summary>What the run did one by one, such as each torrent it selected, as a JSON array of lines.</summary>
+    public string? DetailsJson { get; set; }
 }

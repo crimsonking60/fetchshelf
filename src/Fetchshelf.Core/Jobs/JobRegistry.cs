@@ -46,12 +46,15 @@ public sealed class JobRegistry(
     /// schedulers triggering the other one, which is exactly the silent mix-up unique names in the configuration
     /// prevent.
     /// </summary>
-    public void Register(string name, Func<CancellationToken, Task<JobOutcome?>> runAsync, string? description = null)
+    public void Register(
+        string name, Func<CancellationToken, Task<JobOutcome?>> runAsync, string? description = null,
+        Func<CancellationToken, Task<JobOutcome?>>? dryRunAsync = null)
     {
         var job = new RegisteredJob
         {
             Name = name,
             RunAsync = runAsync,
+            DryRunAsync = dryRunAsync,
             Description = description,
         };
         if (_loadedRuns.TryGetValue(name, out var runs))
@@ -120,6 +123,11 @@ public sealed class JobRegistry(
     public Task TriggerAsync(string name, JobTrigger trigger = JobTrigger.Manual, CancellationToken cancellationToken = default)
     {
         var job = Find(name);
+        if (trigger == JobTrigger.DryRun && job.DryRunAsync is null)
+        {
+            throw new InvalidOperationException($"The job '{name}' has no dry run.");
+        }
+
         lock (job.Gate)
         {
             if (job.IsRunning)
@@ -287,16 +295,17 @@ public sealed class JobRegistry(
         JobRunResult result;
         string? summary;
         IReadOnlyDictionary<string, long>? counts = null;
+        IReadOnlyList<string>? details = null;
         JobFailureKind? failureKind = null;
         try
         {
-            var outcome = await job.RunAsync(cancellation.Token);
-            (result, summary, counts) = (JobRunResult.Success, outcome?.Summary, outcome?.Counts);
+            var outcome = await (trigger == JobTrigger.DryRun ? job.DryRunAsync! : job.RunAsync)(cancellation.Token);
+            (result, summary, counts, details) = (JobRunResult.Success, outcome?.Summary, outcome?.Counts, outcome?.Details);
             _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, Elapsed(startedAt));
         }
         catch (JobCompletedWithErrorsException ex)
         {
-            (result, summary, counts) = (JobRunResult.CompletedWithErrors, ex.Message, ex.Counts);
+            (result, summary, counts, details) = (JobRunResult.CompletedWithErrors, ex.Message, ex.Counts, ex.Details);
             _logger.LogWarning("Job {JobName} finished in {Elapsed:0.0}s with errors: {Error}", name, Elapsed(startedAt), ex.Message);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -326,7 +335,7 @@ public sealed class JobRegistry(
         }
 
         var finishedAt = _timeProvider.GetUtcNow();
-        var run = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts, failureKind);
+        var run = new JobRunRecord(startedAt, result, summary, finishedAt, trigger, counts, failureKind, details);
         var (previousRun, failingBefore) = (job.LastRunToTheEnd, job.Failing);
         job.LastRun = run;
         if (RanToTheEnd(run))
@@ -340,11 +349,15 @@ public sealed class JobRegistry(
             _writer!.Finished(row, name, run);
         }
 
-        Notify(new JobRunFinished(name, run, previousRun, failingBefore, job.Failing));
+        // A dry run says nothing about whether the job works, so notifications and the like aren't told of it.
+        if (trigger != JobTrigger.DryRun)
+        {
+            Notify(new JobRunFinished(name, run, previousRun, failingBefore, job.Failing));
+        }
     }
 
     private static bool RanToTheEnd(JobRunRecord run) =>
-        run.Result is JobRunResult.Success or JobRunResult.CompletedWithErrors or JobRunResult.Failure;
+        run.Trigger != JobTrigger.DryRun && run.Result is JobRunResult.Success or JobRunResult.CompletedWithErrors or JobRunResult.Failure;
 
     /// <summary>Tells every listener; one that throws is logged, and the others are still told.</summary>
     private void Notify(JobRunFinished finished)

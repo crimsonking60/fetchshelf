@@ -287,6 +287,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("CountsJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("FailureKind")
                         .HasColumnType("INTEGER");
 

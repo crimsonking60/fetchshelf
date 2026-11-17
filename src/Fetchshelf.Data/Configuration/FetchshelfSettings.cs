@@ -42,6 +42,9 @@ public sealed class FetchshelfSettings
     /// <summary>When true, the Jobs page shows a brief description of what each job does.</summary>
     public bool JobExplanations { get; set; } = true;
 
+    /// <summary>`dry_job_buttons`: show <b>Dry run</b> next to <b>Run now</b> on the Jobs page for the jobs that have one.</summary>
+    public bool DryJobButtons { get; set; } = true;
+
     /// <summary>
     /// Undocumented, for maintainers: when true, every page starts with a thin red bar, to tell a development install
     /// from a production one at a glance.

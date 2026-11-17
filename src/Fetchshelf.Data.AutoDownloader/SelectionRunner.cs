@@ -25,6 +25,22 @@ public sealed class SelectionRunner(
     FormatPreferenceLists preferenceLists)
 {
     private readonly List<DryRunSelection> _dryRunSelections = [];
+    private readonly List<string> _details = [];
+    private int _skippedListed;
+    private int _notListed;
+
+    /// <summary>The most lines <see cref="Details"/> lists, and of those the most for torrents turned down.</summary>
+    public const int MaxDetails = 100;
+
+    public const int MaxSkippedDetails = 50;
+
+    /// <summary>
+    /// One line per torrent this run selected, or would have in a dry run, and per torrent it turned down for a reason
+    /// worth seeing, such as "Selected: The Way of Kings by Brandon Sanderson (m4b, 1.2 GiB) - MAM 123456". The job's run
+    /// keeps them, so its history says what each run did.
+    /// </summary>
+    public IReadOnlyList<string> Details =>
+        _notListed == 0 ? _details : [.. _details, $"And {_notListed} more not listed."];
 
     /// <param name="formatList">
     /// The format preference list to rank the candidate with, instead of the global one for its media type: the Upgrade
@@ -40,6 +56,53 @@ public sealed class SelectionRunner(
         bool dryRun = false,
         IReadOnlyList<string>? formatList = null,
         CancellationToken cancellationToken = default)
+    {
+        var outcome = await DecideAsync(record, metadata, ignoreTorrents, configuredCost, autograbCategory, grabberName, dryRun, formatList, cancellationToken);
+        AddDetail(outcome, record, metadata, dryRun);
+        return outcome;
+    }
+
+    /// <summary>Adds the line <see cref="Details"/> lists for a candidate, when its outcome is worth seeing.</summary>
+    private void AddDetail(SelectionOutcome outcome, MamTorrentRecord record, TorrentMetadata metadata, bool dryRun)
+    {
+        var (what, skipped) = outcome switch
+        {
+            SelectionOutcome.Selected => (dryRun ? "Would select" : "Selected", false),
+            SelectionOutcome.SelectedAsUpgrade => (dryRun ? "Would select as a better copy" : "Selected as a better copy", false),
+            SelectionOutcome.MetadataOnlyCreated => (dryRun ? "Would record as owned" : "Recorded as owned", false),
+            SelectionOutcome.NoPreferredFormat => ("Skipped, no preferred format", true),
+            SelectionOutcome.DuplicateOfLibrary => ("Skipped, the library has it as good or better", true),
+            SelectionOutcome.DuplicateOfSelected => ("Skipped, already selected as good or better", true),
+            SelectionOutcome.CostNotFree => ("Skipped, not free", true),
+            _ => ((string?)null, false),
+        };
+        if (what is null)
+        {
+            return;
+        }
+
+        if (_details.Count >= MaxDetails || (skipped && _skippedListed >= MaxSkippedDetails))
+        {
+            _notListed++;
+            return;
+        }
+
+        _skippedListed += skipped ? 1 : 0;
+        var authors = metadata.Authors.Count == 0 ? "" : $" by {string.Join(", ", metadata.Authors)}";
+        var types = metadata.FileTypes.Count == 0 ? "" : $"{string.Join(", ", metadata.FileTypes)}, ";
+        _details.Add($"{what}: {metadata.Title}{authors} ({types}{DownloadBudget.FormatBytes(metadata.TotalSizeBytes)}) - MAM {record.MamId}");
+    }
+
+    private async Task<SelectionOutcome> DecideAsync(
+        MamTorrentRecord record,
+        TorrentMetadata metadata,
+        IReadOnlyList<long> ignoreTorrents,
+        ConfiguredCost configuredCost,
+        string? autograbCategory,
+        string? grabberName,
+        bool dryRun,
+        IReadOnlyList<string>? formatList,
+        CancellationToken cancellationToken)
     {
         if (ignoreTorrents.Contains(record.MamId))
         {

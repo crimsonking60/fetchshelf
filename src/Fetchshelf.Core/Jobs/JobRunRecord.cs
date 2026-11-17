@@ -33,6 +33,12 @@ public enum JobTrigger
 
     /// <summary>Another job, such as the Link job starting a Clean run.</summary>
     Chained,
+
+    /// <summary>
+    /// <b>Dry run</b> on the Jobs page: the job decides as usual, writes nothing, and lists what it would have done. It
+    /// says nothing about whether the real job works, so it doesn't count for the failing streak or notifications.
+    /// </summary>
+    DryRun,
 }
 
 /// <param name="StartedAt">When the run started.</param>
@@ -42,6 +48,7 @@ public enum JobTrigger
 /// <param name="Trigger">What started the run.</param>
 /// <param name="Counts">The numbers behind <paramref name="Summary"/>, by name, such as <c>linked</c> and <c>failed</c>.</param>
 /// <param name="FailureKind">What kind of error ended a <see cref="JobRunResult.Failure"/>; null for any other result.</param>
+/// <param name="Details">What the run did one by one (<see cref="JobOutcome.Details"/>); null when there is nothing to list.</param>
 public sealed record JobRunRecord(
     DateTimeOffset StartedAt,
     JobRunResult Result,
@@ -49,7 +56,8 @@ public sealed record JobRunRecord(
     DateTimeOffset? FinishedAt = null,
     JobTrigger Trigger = JobTrigger.Manual,
     IReadOnlyDictionary<string, long>? Counts = null,
-    JobFailureKind? FailureKind = null);
+    JobFailureKind? FailureKind = null,
+    IReadOnlyList<string>? Details = null);
 
 /// <summary>
 /// What kind of error ended a failed run, so the Errors page can tell one MAM refusal that stopped every MAM job from

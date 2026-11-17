@@ -42,6 +42,14 @@ of these jobs with `dryRunAsync = ct => runner.RunAsync(…, dryRun: true, ct)`.
 - The job's history page shows a run's details under its row (htmx expand), with MAM ids linking to the Search
   page's detail view.
 
+### As built
+
+- Snatchlists were removed (PR #77), so the dry run covers autograbs, Hardcover lists, Follow and Upgrade.
+- The details lines are collected by `SelectionRunner`, which every one of those jobs selects through and which is
+  scoped to one run, rather than by each runner; the job's registration attaches them to the outcome.
+- The history shows them in a `<details>` element under the run's summary, which needs no htmx; MAM ids link to
+  the Search page's detail view (`/search/<id>`).
+
 ## Tests
 
 - `JobRegistryTests`: `TriggerAsync(…, DryRun)` runs the dry-run delegate; a job without one refuses it; a failing

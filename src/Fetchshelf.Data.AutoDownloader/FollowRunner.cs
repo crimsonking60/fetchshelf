@@ -46,6 +46,9 @@ public sealed class FollowRunner(
     Func<TimeSpan, CancellationToken, Task>? delay = null,
     ILogger<FollowRunner>? logger = null)
 {
+    /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
+    private bool _dryRun;
+
     private static readonly TimeSpan PolitenessDelay = TimeSpan.FromMilliseconds(400);
 
     /// <summary>Torrents per page of a follow's search, the most MAM gives at once.</summary>
@@ -79,8 +82,10 @@ public sealed class FollowRunner(
 
     public static string GrabberName(FollowEntity follow) => GrabberPrefix + follow.DisplayName;
 
-    public async Task<FollowRunSummary> RunAsync(int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
+    public async Task<FollowRunSummary> RunAsync(
+        int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default, bool? dryRun = null)
     {
+        _dryRun = dryRun ?? settings.DryRun;
         var now = _time.GetUtcNow();
         var searchAgainAfter = TimeSpan.FromHours(settings.SearchAgainAfter);
 
@@ -91,7 +96,7 @@ public sealed class FollowRunner(
             .ThenBy(f => f.Id)
             .Take(settings.SearchesPerRun)
             .ToList();
-        if (settings.DryRun)
+        if (_dryRun)
         {
             _logger.LogInformation("Follow: dry run, nothing will be selected or written");
         }
@@ -99,7 +104,7 @@ public sealed class FollowRunner(
         if (due.Count == 0)
         {
             _logger.LogInformation("Follow: no series or author on the Following page is due for a search");
-            return new FollowRunSummary(0, 0, 0, 0, settings.DryRun);
+            return new FollowRunSummary(0, 0, 0, 0, _dryRun);
         }
 
         using var _ = await accessGate.AcquireAsync(JobNames.Follow, cancellationToken);
@@ -115,12 +120,12 @@ public sealed class FollowRunner(
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             _logger.LogInformation("Follow: nothing searched, this run's limit is 0 selections ({BudgetExplanation})", explanation);
-            return new FollowRunSummary(0, 0, 0, 0, settings.DryRun);
+            return new FollowRunSummary(0, 0, 0, 0, _dryRun);
         }
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var run = new RunState((int)Math.Clamp(budget, 0, int.MaxValue));
-        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Follow, settings.DryRun, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Follow, _dryRun, cancellationToken);
         foreach (var follow in due)
         {
             if (follow.Mode == FollowMode.Download && run.BudgetLeft <= 0)
@@ -142,16 +147,16 @@ public sealed class FollowRunner(
             }
         }
 
-        if (settings.DryRun)
+        if (_dryRun)
         {
             dbContext.DiscardPendingChanges();
         }
 
         _logger.LogInformation(
             "Follow: {Searched} series and authors searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
-            run.Searched, run.Selected, settings.DryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
+            run.Searched, run.Selected, _dryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
             run.Failed == 0 ? string.Empty : $", {run.Failed} failed");
-        return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, settings.DryRun);
+        return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, _dryRun);
     }
 
     private sealed class RunState(int budget)
@@ -282,8 +287,8 @@ public sealed class FollowRunner(
 
             var selection = await selectionRunner.ProcessCandidateAsync(
                 shown.Record, shown.Metadata, ignoreTorrents, decision.Grab!.Cost, autograbCategory: settings.Category,
-                grabberName: GrabberName(follow), dryRun: settings.DryRun, cancellationToken: cancellationToken);
-            Log(follow, shown, selection.Describe(settings.DryRun));
+                grabberName: GrabberName(follow), dryRun: _dryRun, cancellationToken: cancellationToken);
+            Log(follow, shown, selection.Describe(_dryRun));
             switch (selection)
             {
                 case SelectionOutcome.Selected or SelectionOutcome.SelectedAsUpgrade:
@@ -323,7 +328,7 @@ public sealed class FollowRunner(
 
     private void Log(FollowEntity follow, Candidate candidate, string what) =>
         _logger.Log(
-            settings.DryRun ? LogLevel.Information : LogLevel.Debug, "Follow {Name}: \"{Title}\" (MAM torrent {MamId}): {What}",
+            _dryRun ? LogLevel.Information : LogLevel.Debug, "Follow {Name}: \"{Title}\" (MAM torrent {MamId}): {What}",
             follow.DisplayName, candidate.Metadata.Title, candidate.Record.MamId, what);
 
     /// <summary>The torrent's size from MAM's listing; null when MAM gives none or one that can't be read, as it is only shown.</summary>

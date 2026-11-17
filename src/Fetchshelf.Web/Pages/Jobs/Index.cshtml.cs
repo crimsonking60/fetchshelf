@@ -42,9 +42,14 @@ public class IndexModel(
     /// completed result once the job finishes. <see cref="CancellationToken.None"/> is used deliberately
     /// instead of the request's token, since the job must outlive this request.
     /// </summary>
-    public PartialViewResult OnPostTrigger(string jobName)
+    public PartialViewResult OnPostTrigger(string jobName, bool dryRun = false)
     {
-        _ = jobRegistry.TriggerAsync(jobName, JobTrigger.Manual, CancellationToken.None);
+        // A job without a dry run gets a real one only if asked for one: a Dry run button from a page out of date never runs it for real.
+        if (!dryRun || (settings.DryJobButtons && jobRegistry.Get(jobName)?.DryRunAsync is not null))
+        {
+            _ = jobRegistry.TriggerAsync(jobName, dryRun ? JobTrigger.DryRun : JobTrigger.Manual, CancellationToken.None);
+        }
+
         Jobs = BuildJobViewModels();
         return Partial("_JobListPartial", Jobs);
     }

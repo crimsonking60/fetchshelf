@@ -460,6 +460,11 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .key-values th { width: 14rem; vertical-align: top; font-weight: 600; }
 .key-values td { vertical-align: top; }
 
+/* A job run's detail lines in its history, folded under its summary. */
+.run-details { margin-top: 0.25rem; }
+.run-details summary { cursor: pointer; color: var(--text-muted); }
+.run-details ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+
 /* The Torrents page's bulk actions: one line each, progress bar first, buttons at the end. */
 .bulk-operation { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .bulk-operation span { flex: 1 1 20rem; }

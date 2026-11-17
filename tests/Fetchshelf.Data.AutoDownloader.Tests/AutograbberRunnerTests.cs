@@ -172,6 +172,25 @@ public sealed class AutograbberRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_DryRunAsked_OverridesTheConfiguredRealRun_AndListsWhatItWouldSelect()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var (client, _) = CreateFakeClient(SearchResponseWithTwoTorrents());
+        var selection = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists);
+        var runner = new AutograbberRunner(client, new MamAccessGate(), selection, context, new ListLogger<AutograbberRunner>());
+        var entry = Entry();
+        entry.Name = "Bookmarks";
+
+        var summary = await runner.RunAsync(entry, globalUnsatBuffer: 0, ignoreTorrents: [], dryRun: true);
+
+        Assert.Equal((0, 2, true), (summary.SelectedForDownload, summary.Selected, summary.DryRun));
+        Assert.Empty(context.SelectedTorrents);
+        Assert.False(entry.DryRun);
+        Assert.Equal(2, selection.Details.Count);
+        Assert.All(selection.Details, line => Assert.StartsWith("Would select: ", line));
+    }
+
+    [Fact]
     public async Task RunAsync_NotADryRun_LogsASummaryAndKeepsPerTorrentDetailsAtDebugLevel()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

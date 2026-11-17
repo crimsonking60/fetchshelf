@@ -16,7 +16,7 @@ public static class JobFailureState
     /// running says nothing either way and leaves it as it was: ending it there would drop the job from the failing
     /// ones without a recovery, and a failure after it would count as a new streak.
     /// </summary>
-    public static JobFailure? Next(JobFailure? current, JobRunRecord run) => run.Result switch
+    public static JobFailure? Next(JobFailure? current, JobRunRecord run) => run.Trigger == JobTrigger.DryRun ? current : run.Result switch
     {
         JobRunResult.Failure => new JobFailure(
             current?.Since ?? run.StartedAt, (current?.FailedRuns ?? 0) + 1, run.Summary, run.FailureKind ?? JobFailureKind.Other),

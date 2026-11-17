@@ -66,15 +66,20 @@ public sealed class UpgradeRunner(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, ct));
     private readonly ILogger<UpgradeRunner> _logger = logger ?? NullLogger<UpgradeRunner>.Instance;
 
-    public async Task<UpgradeRunSummary> RunAsync(int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default)
+    /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
+    private bool _dryRun;
+
+    public async Task<UpgradeRunSummary> RunAsync(
+        int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default, bool? dryRun = null)
     {
-        if (settings.DryRun)
+        _dryRun = dryRun ?? settings.DryRun;
+        if (_dryRun)
         {
             _logger.LogInformation("Upgrade: dry run, nothing will be selected or written");
         }
 
         var (due, upgradable) = await DueAsync(cancellationToken);
-        if (!settings.DryRun)
+        if (!_dryRun)
         {
             await ClearErrorsOfCopiesNoLongerSearchedAsync(upgradable, cancellationToken);
         }
@@ -86,7 +91,7 @@ public sealed class UpgradeRunner(
                 : $"{upgradable.Count} {(upgradable.Count == 1 ? "book" : "books")} could be in a better format, but none is due a search: "
                     + $"each is searched again {settings.SearchAgainAfter} days after its last search";
             _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
-            return new UpgradeRunSummary(0, 0, 0, settings.DryRun, Note: note);
+            return new UpgradeRunSummary(0, 0, 0, _dryRun, Note: note);
         }
 
         using var _ = await accessGate.AcquireAsync(JobNames.Upgrade, cancellationToken);
@@ -102,14 +107,14 @@ public sealed class UpgradeRunner(
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             var note = $"this run's limit is 0 selections ({explanation})";
             _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
-            return new UpgradeRunSummary(0, 0, 0, settings.DryRun, Note: note);
+            return new UpgradeRunSummary(0, 0, 0, _dryRun, Note: note);
         }
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
         var libraryCategories = libraries.Select(l => l.Category).OfType<string>().Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal);
         var (selected, failed) = (0, 0);
         var searchedTitles = new List<string>();
-        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Upgrade, settings.DryRun, cancellationToken);
+        var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Upgrade, _dryRun, cancellationToken);
         foreach (var copy in due)
         {
             if (selected >= budget)
@@ -124,7 +129,7 @@ public sealed class UpgradeRunner(
                 async () =>
                 {
                     selected += await ProcessCopyAsync(copy, grabFilters, libraryCategories, ignoreTorrents, cancellationToken) ? 1 : 0;
-                    if (!settings.DryRun)
+                    if (!_dryRun)
                     {
                         copy.UpgradeSearchedAt = _time.GetUtcNow();
                     }
@@ -138,16 +143,16 @@ public sealed class UpgradeRunner(
             }
         }
 
-        if (settings.DryRun)
+        if (_dryRun)
         {
             dbContext.DiscardPendingChanges();
         }
 
-        var summary = new UpgradeRunSummary(searchedTitles.Count, selected, failed, settings.DryRun, searchedTitles);
+        var summary = new UpgradeRunSummary(searchedTitles.Count, selected, failed, _dryRun, searchedTitles);
         _logger.LogInformation(
             "Upgrade: {Searched} {Books} searched on MAM ({Titles}), {Selected} better {Copies} {Verb}{Failures}",
             summary.Searched, summary.Searched == 1 ? "book" : "books", summary.TitlesText, selected, selected == 1 ? "copy" : "copies",
-            settings.DryRun ? "would have been selected (dry run)" : "selected", failed == 0 ? string.Empty : $", {failed} failed");
+            _dryRun ? "would have been selected (dry run)" : "selected", failed == 0 ? string.Empty : $", {failed} failed");
         return summary;
     }
 
@@ -306,10 +311,10 @@ public sealed class UpgradeRunner(
         {
             var outcome = await selectionRunner.ProcessCandidateAsync(
                 record, candidate, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
-                dryRun: settings.DryRun, formatList: preferred, cancellationToken: cancellationToken);
+                dryRun: _dryRun, formatList: preferred, cancellationToken: cancellationToken);
             _logger.LogInformation(
                 "Upgrade \"{Title}\": {Counts}; MAM torrent {MamId} ({Formats}): {Outcome}",
-                copy.Title, counts, record.MamId, string.Join(", ", candidate.FileTypes), outcome.Describe(settings.DryRun));
+                copy.Title, counts, record.MamId, string.Join(", ", candidate.FileTypes), outcome.Describe(_dryRun));
             if (outcome.IsSelected())
             {
                 return true;

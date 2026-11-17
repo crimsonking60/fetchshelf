@@ -90,17 +90,11 @@ public static class FetchshelfJobs
         {
             var entry = settings.Autograb[i];
             var jobName = AutoDownloaderJobNames.Autograb(entry, i);
-            jobRegistry.Register(jobName, async ct =>
+            RegisterSelecting(jobRegistry, scopeFactory, settings, jobName, entry.DryRun, async (scope, dryRun, ct) =>
             {
-                using var scope = scopeFactory.CreateScope();
-                var runner = scope.ServiceProvider.GetRequiredService<AutograbberRunner>();
-                var summary = await runner.RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct);
-                if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
-                {
-                    await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
-                }
-
-                return JobOutcomes.Autograb(summary);
+                var summary = await scope.ServiceProvider.GetRequiredService<AutograbberRunner>()
+                    .RunAsync(entry, settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+                return (summary.SelectedForDownload, () => JobOutcomes.Autograb(summary));
             }, "Searches MAM for new matches and queues them for download.");
         }
 
@@ -108,49 +102,29 @@ public static class FetchshelfJobs
         {
             var entry = settings.HardcoverList[i];
             var jobName = AutoDownloaderJobNames.HardcoverList(entry, i);
-            jobRegistry.Register(jobName, async ct =>
+            RegisterSelecting(jobRegistry, scopeFactory, settings, jobName, entry.DryRun, async (scope, dryRun, ct) =>
             {
-                using var scope = scopeFactory.CreateScope();
-                var importer = scope.ServiceProvider.GetRequiredService<HardcoverListImporter>();
-                var summary = await importer.RunAsync(entry, jobName, settings.UnsatBuffer, ignoreTorrents, ct);
-                if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
-                {
-                    await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
-                }
-
-                return JobOutcomes.HardcoverList(summary);
+                var summary = await scope.ServiceProvider.GetRequiredService<HardcoverListImporter>()
+                    .RunAsync(entry, jobName, settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+                return (summary.SelectedForDownload, () => JobOutcomes.HardcoverList(summary));
             }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
         }
 
-        if (settings.Follow is not null)
+        if (settings.Follow is { } follow)
         {
-            jobRegistry.Register(JobNames.Follow, async ct =>
+            RegisterSelecting(jobRegistry, scopeFactory, settings, JobNames.Follow, follow.DryRun, async (scope, dryRun, ct) =>
             {
-                using var scope = scopeFactory.CreateScope();
-                var runner = scope.ServiceProvider.GetRequiredService<FollowRunner>();
-                var summary = await runner.RunAsync(settings.UnsatBuffer, ignoreTorrents, ct);
-                if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
-                {
-                    await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
-                }
-
-                return JobOutcomes.Follow(summary);
+                var summary = await scope.ServiceProvider.GetRequiredService<FollowRunner>().RunAsync(settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+                return (summary.SelectedForDownload, () => JobOutcomes.Follow(summary));
             }, "Searches MAM for the followed series and authors, and selects or lists the books the library is missing.");
         }
 
         if (settings.Upgrade is not null)
         {
-            jobRegistry.Register(JobNames.Upgrade, async ct =>
+            RegisterSelecting(jobRegistry, scopeFactory, settings, JobNames.Upgrade, settings.Upgrade.DryRun, async (scope, dryRun, ct) =>
             {
-                using var scope = scopeFactory.CreateScope();
-                var runner = scope.ServiceProvider.GetRequiredService<UpgradeRunner>();
-                var summary = await runner.RunAsync(settings.UnsatBuffer, ignoreTorrents, ct);
-                if (summary.SelectedForDownload > 0 && settings.DownloadAfterSelection)
-                {
-                    await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
-                }
-
-                return JobOutcomes.Upgrade(summary);
+                var summary = await scope.ServiceProvider.GetRequiredService<UpgradeRunner>().RunAsync(settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+                return (summary.SelectedForDownload, () => JobOutcomes.Upgrade(summary));
             }, "Searches MAM for better formats of books in the library, such as m4b for an mp3 copy, and selects them when a grab block's cost allows.");
         }
 
@@ -180,6 +154,43 @@ public static class FetchshelfJobs
 
             return JobOutcomes.Download(summary);
         }, "Sends queued, selected torrents to qBittorrent.");
+    }
+
+    /// <summary>
+    /// Registers a job that selects torrents: an autograb, a Hardcover list, Follow or Upgrade. <paramref name="run"/> runs
+    /// it in a scope of its own, as a dry run when told to, and returns how many it selected for download and its outcome.
+    /// Each run's outcome lists what <see cref="SelectionRunner"/> selected, or would have, and turned down. A real run that
+    /// selected something starts a Download run when `download_after_selection` is on. A block configured with
+    /// `dry_run = true` dry-runs every time, so it gets no separate dry run.
+    /// </summary>
+    private static void RegisterSelecting(
+        IJobRegistry jobRegistry, IServiceScopeFactory scopeFactory, FetchshelfSettings settings, string jobName, bool configuredDryRun,
+        Func<IServiceScope, bool?, CancellationToken, Task<(int SelectedForDownload, Func<JobOutcome> Outcome)>> run, string description)
+    {
+        async Task<JobOutcome?> RunAsync(bool? dryRun, CancellationToken ct)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var (selectedForDownload, outcome) = await run(scope, dryRun, ct);
+            if (selectedForDownload > 0 && settings.DownloadAfterSelection)
+            {
+                await jobRegistry.TriggerOrQueueAsync(JobNames.Download, JobTrigger.Chained).WaitAsync(ct);
+            }
+
+            var details = scope.ServiceProvider.GetRequiredService<SelectionRunner>().Details;
+            try
+            {
+                return outcome() with { Details = details };
+            }
+            catch (JobCompletedWithErrorsException ex)
+            {
+                throw new JobCompletedWithErrorsException(ex.Message, ex.Counts, details);
+            }
+        }
+
+        jobRegistry.Register(
+            jobName, ct => RunAsync(null, ct),
+            configuredDryRun ? $"{description} dry_run is set, so every run is a dry run." : description,
+            configuredDryRun ? null : ct => RunAsync(true, ct));
     }
 
     /// <summary>

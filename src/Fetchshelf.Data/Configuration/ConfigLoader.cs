@@ -41,6 +41,7 @@ public static partial class ConfigLoader
         ["download_after_selection"] = (s, n, v) => s.DownloadAfterSelection = ParseBool(n, v),
         ["page_explanations"] = (s, n, v) => s.PageExplanations = ParseBool(n, v),
         ["job_explanations"] = (s, n, v) => s.JobExplanations = ParseBool(n, v),
+        ["dry_job_buttons"] = (s, n, v) => s.DryJobButtons = ParseBool(n, v),
         ["development_banner"] = (s, n, v) => s.DevelopmentBanner = ParseBool(n, v),
         ["exclude_narrator_in_library_dir"] = (s, n, v) => s.ExcludeNarratorInLibraryDir = ParseBool(n, v),
         ["database_wal"] = (s, n, v) => s.DatabaseWal = ParseBool(n, v),

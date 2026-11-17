@@ -7,6 +7,12 @@ public sealed class RegisteredJob
 
     public required Func<CancellationToken, Task<JobOutcome?>> RunAsync { get; init; }
 
+    /// <summary>
+    /// The job's dry run, which <b>Dry run</b> on the Jobs page starts (<see cref="JobTrigger.DryRun"/>): it decides as
+    /// usual and writes nothing. Null for a job that has none.
+    /// </summary>
+    public Func<CancellationToken, Task<JobOutcome?>>? DryRunAsync { get; init; }
+
     /// <summary>Brief, user-facing description of what this job does. Null if none was given.</summary>
     public string? Description { get; init; }
 

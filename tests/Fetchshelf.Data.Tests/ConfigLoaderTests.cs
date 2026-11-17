@@ -330,4 +330,22 @@ public sealed class ConfigLoaderTests : IDisposable
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void Load_DryJobButtons_DefaultsToTrue_AndCanBeTurnedOff()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"fetchshelf-dry-job-buttons-{Guid.NewGuid():N}.toml");
+        try
+        {
+            File.WriteAllText(path, "mam_id = \"\"\n");
+            Assert.True(ConfigLoader.Load(path).DryJobButtons);
+
+            File.WriteAllText(path, "mam_id = \"\"\ndry_job_buttons = false\n");
+            Assert.False(ConfigLoader.Load(path).DryJobButtons);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

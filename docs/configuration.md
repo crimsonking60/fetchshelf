@@ -185,6 +185,7 @@ These go at the top of the file, before any section.
 | `radio_types` | `["mp3"]` | Same for Radio. |
 | `page_explanations` | `true` | Show a short explanation under each page title in the web UI. |
 | `job_explanations` | `true` | Show a short description of each job on the Jobs page. |
+| `dry_job_buttons` | `true` | Show **Dry run** next to **Run now** on the Jobs page for autograbs, Hardcover lists, Follow and Upgrade. `false` hides the buttons; `dry_run` in a block still works. |
 
 Notes:
 
@@ -434,7 +435,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `unsat_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `wedge_buffer` | global | Overrides the global buffer for this block. Requires `name`. |
 | `max_active_downloads` | unset | Cap on torrents selected by this block that are still waiting to be downloaded, at least 1. Requires `name`. |
-| `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. |
+| `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. See [`mark_removed`](#mark_removed). Not for `type = "bookmarks"`. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
 
@@ -547,7 +548,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
 | `max_active_downloads` | unset | Cap on torrents this list selected that are still waiting to be downloaded, at least 1. |
-| `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. |
+| `dry_run` | `false` | Read the list and search MAM, but record and select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | (at least one) | Repeatable `[[hardcover_list.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Each format goes to the first block that finds a torrent its `cost` accepts: a `free` block only takes free torrents and leaves the rest to the next blocks. `metadata_only` costs are not allowed. |
 
 ```toml
@@ -617,7 +618,7 @@ missing.
 | `unsat_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. |
-| `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. |
+| `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
 
 ```toml
@@ -672,7 +673,7 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `unsat_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
 | `max_active_downloads` | unset | Cap on torrents the Upgrade job selected that are still waiting to be downloaded, at least 1. |
-| `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. |
+| `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
 
 What each run does: it picks the books that could be better, never-searched first and then the longest ago,

@@ -17,6 +17,9 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
     /// <summary>Since when the job's runs keep failing; null while it isn't failing.</summary>
     public JobFailure? Failing { get; init; }
 
+    /// <summary>Whether the job has a dry run, which the page offers as <b>Dry run</b> next to <b>Run now</b>.</summary>
+    public bool HasDryRun { get; init; }
+
     /// <summary>The last run's counts, shown on hover over its result.</summary>
     public string? CountsText { get; init; }
 
@@ -56,5 +59,6 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
             LastDuration = job.LastRun is { FinishedAt: { } finishedAt } run ? finishedAt - run.StartedAt : null,
             CountsText = JobRunLabels.Counts(job.LastRun?.Counts),
             Failing = job.Failing,
+            HasDryRun = job.DryRunAsync is not null,
         };
 }
