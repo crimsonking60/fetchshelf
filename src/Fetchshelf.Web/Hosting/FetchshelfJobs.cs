@@ -28,17 +28,19 @@ public static class FetchshelfJobs
         {
             using var scope = scopeFactory.CreateScope();
             var linkRunner = scope.ServiceProvider.GetRequiredService<LinkRunner>();
-            var (linked, failed) = (0, 0);
+            var total = new LinkRunSummary(0, 0);
             foreach (var (connection, client) in QBittorrentConnections.Build(settings, qbittorrentFactory))
             {
                 var summary = await linkRunner.RunAsync(connection, client, ct);
-                (linked, failed) = (linked + summary.Linked, failed + summary.Failed);
+                total = new LinkRunSummary(
+                    total.Linked + summary.Linked, total.Failed + summary.Failed,
+                    total.WaitingForLookup + summary.WaitingForLookup, total.WaitingForMam + summary.WaitingForMam);
             }
 
             // Clean is a run of its own, so cancelling this one doesn't cancel it; this run only stops waiting for it.
             await jobRegistry.TriggerAsync(JobNames.Clean, JobTrigger.Chained).WaitAsync(ct);
 
-            return JobOutcomes.Link(linked, failed);
+            return JobOutcomes.Link(total);
         }, "Moves finished downloads from qBittorrent into your library folders.");
 
         jobRegistry.Register(JobNames.Clean, async ct =>

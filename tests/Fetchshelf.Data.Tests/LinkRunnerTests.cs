@@ -407,7 +407,7 @@ public sealed class LinkRunnerTests : IDisposable
         var summary = await runner.RunAsync(new QBittorrentConnection(), client);
 
         Assert.Equal(0, lookup.Calls);
-        Assert.Equal(new LinkRunSummary(Linked: 0, Failed: 0), summary);
+        Assert.Equal(new LinkRunSummary(Linked: 0, Failed: 0, WaitingForMam: 1), summary);
         Assert.Single(context.ErroredTorrents);
     }
 
@@ -461,11 +461,14 @@ public sealed class LinkRunnerTests : IDisposable
         var client = OrganizerTestSupport.CreateQBittorrentClient(torrents, new Dictionary<string, List<QBittorrentFile>>());
         var lookup = new CountingLookup();
 
-        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        var first = await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
         Assert.Equal(LinkRunner.MaxLookupsPerRun, lookup.Calls);
+        Assert.Equal(5, first.WaitingForLookup);
 
-        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        var second = await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
         Assert.Equal(LinkRunner.MaxLookupsPerRun + 5, lookup.Calls);
+        // The counting lookup finds nothing, so the 200 from the first run now wait a day, and nothing waits for a lookup.
+        Assert.Equal((0, LinkRunner.MaxLookupsPerRun, 0), (second.WaitingForLookup, second.WaitingForMam, second.Linked));
     }
 
     private sealed class CountingLookup : IMetadataLookup

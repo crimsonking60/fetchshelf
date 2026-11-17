@@ -145,6 +145,11 @@ public static class FileLinker
         }
     }
 
+    /// <summary>
+    /// Falls back only when the hardlink isn't possible here (<see cref="HardLinkNotPossibleException"/>): on a full disk
+    /// or a permission problem the fallback would fail too, or half succeed, and the error would name its problem rather
+    /// than the real one.
+    /// </summary>
     private static LinkOutcome TryOrFallback(Action primary, LinkOutcome primaryOutcome, Action fallback, LinkOutcome fallbackOutcome)
     {
         try
@@ -152,7 +157,7 @@ public static class FileLinker
             primary();
             return primaryOutcome;
         }
-        catch (IOException)
+        catch (HardLinkNotPossibleException)
         {
             fallback();
             return fallbackOutcome;
@@ -168,9 +173,7 @@ public static class FileLinker
         var result = link(sourcePath, destinationPath);
         if (result != 0)
         {
-            var errno = Marshal.GetLastWin32Error();
-            throw new IOException(
-                $"Hardlink failed (errno {errno}) linking '{sourcePath}' to '{destinationPath}'.");
+            throw HardLinkErrors.For(Marshal.GetLastWin32Error(), sourcePath, destinationPath);
         }
     }
 

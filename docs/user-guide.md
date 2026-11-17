@@ -569,14 +569,18 @@ linked into it.
 | Method | Behaviour | When to use it |
 |---|---|---|
 | `hardlink` | A second name for the same file. No extra space. Needs the same filesystem; fails otherwise. | Downloads and library share a filesystem, and you would rather see an error than use space on a copy. |
-| `hardlink_or_copy` (default) | Hardlink, falling back to a copy. | Most setups: no extra space where hardlinks work, a copy where they don't. |
-| `hardlink_or_symlink` | Hardlink, falling back to a symbolic link. | As above, but you prefer links to copies. |
+| `hardlink_or_copy` (default) | Hardlink, falling back to a copy when a hardlink isn't possible, such as on another disk. | Most setups: no extra space where hardlinks work, a copy where they don't. |
+| `hardlink_or_symlink` | Hardlink, falling back to a symbolic link when a hardlink isn't possible. | As above, but you prefer links to copies. |
 | `copy` | A full copy. | The library is on a different disk. Uses extra space. |
 | `symlink` | A symbolic link to the download. | Rarely. Some programs cannot follow links. |
 | `no_link` | Records metadata only; no files are placed. | You only want tracking. |
 
 Seeding keeps working with hardlinks and symlinks, because the original files stay where qBittorrent put
 them.
+
+The fallback is only for a hardlink that can't be made there. A full disk, a permission problem or a read-only
+library folder is reported as itself on the **Errors** page, with its name (such as `ENOSPC` or `EACCES`), rather
+than turning into a copy that fails too.
 
 To use the same method for all your libraries, set it once at the top of the file instead of in each
 `[[library]]`. A library's own `method` still wins:
@@ -1702,8 +1706,15 @@ longer on the list** to see those too.
 ### Config
 
 Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
-runs that block once. For each `[[tag]]` rule there is **Apply to existing torrents**, which sets the rule's
-category and tags on torrents you already have. For each `[[notify]]` block there is **Send a test message**.
+runs that block once. Each `[[tag]]` rule shows every condition of its filter under *Matches*: its categories, media
+types, languages, flags, sizes and so on, each part it sets on a line of its own. For each rule there is
+**Preview applying to existing torrents**, which opens a dialog over the page. It starts with the rule it is for,
+called by its number in the table's first column (and its `name`, if it has one), with what it matches and applies.
+Below that it lists the torrents you already have whose category or tags the rule would change, with their category
+now and after, and the tags it would add. It changes nothing; **Apply to these N torrents** below the list then does.
+A torrent that already has the rule's category and tags, or that qBittorrent doesn't have, is only counted. A new
+category on a linked book can move it to another library, which the list points out: the book may be flagged
+*Different library*. For each `[[notify]]` block there is **Send a test message**.
 
 ## Background jobs
 
@@ -2051,6 +2062,14 @@ The log says what happened to each book:
   and the book is listed on the **Errors** page.
 - *Could not list the Audiobookshelf libraries* (an error): Fetchshelf cannot reach Audiobookshelf, or
   `token` is wrong. Check `url` and `token` in `[audiobookshelf]`.
+
+### Torrents wait to be linked
+
+When Fetchshelf starts on a qBittorrent full of torrents it doesn't know yet, it looks each one up on MAM, at most
+200 a run, to spare MAM. The Link job's *last result* says how many are left, such as *Nothing linked; 450 more to look
+up on MAM in the next runs*; each run works through the next 200. A torrent MAM didn't know when last asked is
+looked up again once a day has passed, and the result counts those too: *12 torrents MAM didn't know, looked up
+again once a day*. Hover over the result for the numbers.
 
 ### A Hardcover list fails
 

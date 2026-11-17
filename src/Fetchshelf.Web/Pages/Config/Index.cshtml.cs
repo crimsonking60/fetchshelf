@@ -61,27 +61,61 @@ public class IndexModel(
     {
     }
 
-    /// <summary>The "apply to existing torrents" action for one `[[tag]]` rule.</summary>
-    public async Task<IActionResult> OnPostApplyTagRuleAsync(int ruleIndex)
+    /// <summary>How many of a preview's changes the page lists; the rest are counted.</summary>
+    public const int PreviewRowsShown = 200;
+
+    /// <summary>The preview a page load without htmx asked for, shown on the page itself; null otherwise.</summary>
+    public TagRulePreviewViewModel? PreviewViewModel { get; private set; }
+
+    /// <summary>
+    /// The "apply to existing torrents" action's first step for one `[[tag]]` rule: what applying it would change, with
+    /// a button that applies it. Nothing is changed in qBittorrent. From the page's htmx form it answers with just the
+    /// preview, which the page shows in a dialog over itself; without htmx, with the whole page.
+    /// </summary>
+    public async Task<IActionResult> OnPostPreviewTagRuleAsync(int ruleIndex)
     {
-        if (ruleIndex < 0 || ruleIndex >= settings.Tag.Count)
+        if (RuleAt(ruleIndex) is not { } rule)
         {
             return NotFound();
         }
 
         var entry = settings.Tag[ruleIndex];
-        var rule = new TagRule
+        TagRulePreviewViewModel preview;
+        try
         {
-            Filter = SharedFilterConfigMapper.ToTorrentFilter(entry),
-            Category = entry.Category,
-            Tags = entry.Tags,
-        };
+            preview = new TagRulePreviewViewModel(ruleIndex, entry, await retroactiveTagApplier.PreviewAsync(rule, HttpContext.RequestAborted), Error: null);
+        }
+        catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            logger.LogWarning(ex, "Previewing tag rule {RuleIndex} failed", ruleIndex);
+            preview = new TagRulePreviewViewModel(
+                ruleIndex, entry, Preview: null, $"Previewing the tag rule failed: {MamErrorDescriber.DescribeAmong(ex, "MAM or qBittorrent")}");
+        }
+
+        if (Request.Headers.ContainsKey("HX-Request"))
+        {
+            // htmx only swaps successful answers, so a failure is shown in the dialog as a message too.
+            return Partial("_TagRulePreviewPartial", preview);
+        }
+
+        PreviewViewModel = preview;
+        return Page();
+    }
+
+    /// <summary>The "apply to existing torrents" action for one `[[tag]]` rule, after its preview.</summary>
+    public async Task<IActionResult> OnPostApplyTagRuleAsync(int ruleIndex)
+    {
+        if (RuleAt(ruleIndex) is not { } rule)
+        {
+            return NotFound();
+        }
+
         try
         {
             var applied = await retroactiveTagApplier.ApplyAsync(rule);
             ActionMessage = applied switch
             {
-                0 => "No torrent in qBittorrent matched the tag rule.",
+                0 => "Nothing to change: the torrents the tag rule matches already have its category and tags, or aren't in qBittorrent.",
                 1 => "Applied the tag rule to 1 torrent.",
                 _ => $"Applied the tag rule to {applied} torrents.",
             };
@@ -95,4 +129,14 @@ public class IndexModel(
 
         return RedirectToPage();
     }
+
+    private TagRule? RuleAt(int ruleIndex) =>
+        ruleIndex < 0 || ruleIndex >= settings.Tag.Count
+            ? null
+            : new TagRule
+            {
+                Filter = SharedFilterConfigMapper.ToTorrentFilter(settings.Tag[ruleIndex]),
+                Category = settings.Tag[ruleIndex].Category,
+                Tags = settings.Tag[ruleIndex].Tags,
+            };
 }

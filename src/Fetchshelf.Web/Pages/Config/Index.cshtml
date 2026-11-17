@@ -5,13 +5,6 @@
     ViewData["Title"] = "Config";
     var settings = Model.Settings;
 
-    string Describe(CategoryListOrBool value) => value.Names switch
-    {
-        null => "all",
-        { Count: 0 } => "none",
-        var names => string.Join(", ", names),
-    };
-
     string MetadataFiles(Library library) =>
         string.Join(", ", new[] { library.MetadataJson ? "metadata.json" : null, library.MetadataOpf ? "metadata.opf" : null }.OfType<string>()) is { Length: > 0 } files
             ? files
@@ -19,7 +12,7 @@
 }
 
 <h2>Config</h2>
-@await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber or apply a tag rule directly from here.")
+@await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber, or preview a tag rule and apply it, directly from here.")
 
 @if (Model.ActionMessage is { } actionMessage)
 {
@@ -353,23 +346,31 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Categories</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Tag.Count; i++)
                 {
                     var entry = settings.Tag[i];
                     <tr>
+                        @* The number the preview calls an unnamed rule by: "tag rule 4". *@
+                        <td>@(i + 1)</td>
                         <td>@entry.Name</td>
-                        <td>
-                            audio: @Describe(entry.Categories.Audio); ebook: @Describe(entry.Categories.Ebook);
-                            musicology: @Describe(entry.Categories.Musicology); radio: @Describe(entry.Categories.Radio)
+                        <td class="tag-rule-filter">
+                            @* Every condition of the rule's filter, so it is clear which torrents get the category and tags. *@
+                            @foreach (var line in Fetchshelf.Web.Pages.Config.FilterDescription.Describe(entry))
+                            {
+                                @line<br />
+                            }
                         </td>
                         <td>@entry.Category</td>
                         <td>@string.Join(", ", entry.Tags)</td>
                         <td>
-                            <form method="post" asp-page-handler="ApplyTagRule" asp-route-ruleIndex="@i">
+                            @* Shows what it would change first; applying is a second step, under the preview. *@
+                            <form method="post" asp-page-handler="PreviewTagRule" asp-route-ruleIndex="@i"
+                                  hx-post="@Url.Page("/Config/Index", "PreviewTagRule", new { ruleIndex = i })"
+                                  hx-target="#tag-rule-dialog-body" hx-swap="innerHTML">
                                 @Html.AntiForgeryToken()
-                                <button type="submit">Apply to existing torrents</button>
+                                <button type="submit">Preview applying to existing torrents</button>
                             </form>
                         </td>
                     </tr>
@@ -377,4 +378,40 @@
             </tbody>
         </table>
     }
+
+    @if (Model.PreviewViewModel is { } previewModel)
+    {
+        @* Asked for without htmx: shown on the page instead of in the dialog. *@
+        <partial name="_TagRulePreviewPartial" model="previewModel" />
+    }
+
+    @* The preview of a rule opens here, over the page, so the page keeps its place. *@
+    <dialog id="tag-rule-dialog" class="hit-dialog" aria-label="What applying the tag rule would change">
+        <div class="hit-dialog-bar">
+            <button type="button" id="tag-rule-dialog-close">Close</button>
+        </div>
+        <div id="tag-rule-dialog-body"></div>
+    </dialog>
+    <script>
+        (function () {
+            const dialog = document.getElementById('tag-rule-dialog');
+            const body = document.getElementById('tag-rule-dialog-body');
+            document.body.addEventListener('htmx:beforeRequest', function (event) {
+                if (event.detail.target === body) {
+                    body.innerHTML = '<p class="muted">Working out what it would change…</p>';
+                    if (!dialog.open) {
+                        dialog.showModal();
+                    }
+                }
+            });
+            document.getElementById('tag-rule-dialog-close').addEventListener('click', function () {
+                dialog.close();
+            });
+            dialog.addEventListener('click', function (event) {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+        })();
+    </script>
 </section>

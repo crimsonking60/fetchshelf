@@ -130,6 +130,152 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Post_PreviewTagRule_ShowsWhatWouldChange_WithoutChangingIt_ThenApplyChangesIt()
+    {
+        var categoryCalls = new List<(string Hash, string Category)>();
+        var tagCalls = new List<(string Hash, string Tags)>();
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigToml, qbittorrentHandler: RecordingQBittorrentServer("hash1", categoryCalls, tagCalls));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+        var configHtml = await client.GetStringAsync("/config");
+        Assert.Contains("Preview applying to existing torrents", configHtml);
+        var token = ExtractAntiforgeryToken(configHtml);
+
+        using var previewForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
+        var preview = await (await client.PostAsync("/config?handler=PreviewTagRule&ruleIndex=0", previewForm)).Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"tag-rule-preview\"", preview);
+        Assert.Contains("1 torrent would change.", preview);
+        Assert.Contains("The Way of Kings", preview);
+        Assert.Contains("retro-applied", preview);
+        Assert.Contains("Apply to this torrent", preview);
+        Assert.Empty(tagCalls);
+
+        using var applyForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(preview) });
+        var applied = await client.PostAsync("/config?handler=ApplyTagRule&ruleIndex=0", applyForm);
+
+        Assert.Contains("Applied the tag rule to 1 torrent.", await applied.Content.ReadAsStringAsync());
+        Assert.Equal(("hash1", "retro-applied"), Assert.Single(tagCalls));
+    }
+
+    [Fact]
+    public async Task Get_TagRule_ShowsItsWholeFilter_NotOnlyItsCategories()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[tag]]
+            name = "Comics"
+            media_type = ["ComicBook", "Manga"]
+            languages = ["English"]
+            category = "comics"
+            """);
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        Assert.Contains("<th>#</th><th>Name</th><th>Matches</th>", html);
+        Assert.Matches(@"<td>1</td>\s*<td>Comics</td>", html);
+        Assert.Contains("Media types: ComicBook, Manga<br />", html);
+        Assert.Contains("Languages: English<br />", html);
+        Assert.Contains("Categories: audio (all), ebook (all)<br />", html);
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_FromHtmx_AnswersWithJustThePreview_ForTheDialog()
+    {
+        var tagCalls = new List<(string Hash, string Tags)>();
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml, qbittorrentHandler: RecordingQBittorrentServer("hash1", [], tagCalls));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+        var configHtml = await client.GetStringAsync("/config");
+        Assert.Contains("<dialog id=\"tag-rule-dialog\"", configHtml);
+        Assert.Contains("hx-target=\"#tag-rule-dialog-body\"", configHtml);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=0")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = ExtractAntiforgeryToken(configHtml) }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.EnsureSuccessStatusCode();
+        Assert.StartsWith("<div id=\"tag-rule-preview\">", body.TrimStart());
+        Assert.DoesNotContain("<html", body);
+        // The rule it is for comes first, since the dialog covers the table: unnamed, it is called by its number.
+        Assert.Contains("<h4>Applying tag rule 1 to existing torrents</h4>", body);
+        var rule = body[body.IndexOf("id=\"tag-rule-preview-rule\"", StringComparison.Ordinal)..];
+        Assert.Contains("Categories: audio (all), ebook (all)<br />", rule);
+        Assert.Contains("<td>retro-applied</td>", rule);
+        Assert.Contains("1 torrent would change.", body);
+        Assert.Contains("Apply to this torrent", body);
+        var action = System.Text.RegularExpressions.Regex.Match(body, @"<form[^>]*action=""([^""]*ApplyTagRule[^""]*)""").Groups[1].Value;
+        Assert.Contains("ruleIndex=0", action);
+        Assert.Empty(tagCalls);
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_FromHtmx_QBittorrentFails_SaysSoInTheDialog()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml, qbittorrentHandler: _ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=0")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); // htmx only swaps successful answers
+        Assert.Contains("Previewing the tag rule failed: MAM or qBittorrent could not be reached", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_NamedRule_IsCalledByItsNumberAndName()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[tag]]
+            tags = ["first"]
+
+            [[tag]]
+            name = "Comics"
+            media_type = ["ComicBook"]
+            category = "comics"
+            """);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/config?handler=PreviewTagRule&ruleIndex=1")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = await (await client.SendAsync(request)).Content.ReadAsStringAsync();
+
+        Assert.Contains("<h4>Applying tag rule 2 (Comics) to existing torrents</h4>", body);
+        Assert.Contains("Media types: ComicBook<br />", body);
+        Assert.Contains("<td>comics</td>", body);
+    }
+
+    [Fact]
+    public async Task Post_PreviewTagRule_UnknownRule_IsNotFound()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml);
+        var client = fixture.CreateClient();
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/config"));
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
+        var response = await client.PostAsync("/config?handler=PreviewTagRule&ruleIndex=5", form);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Post_ApplyTagRule_QBittorrentFails_ShowsAPlainMessageOnTheConfigPage()
     {
         using var fixture = new FetchshelfWebAppFixture(

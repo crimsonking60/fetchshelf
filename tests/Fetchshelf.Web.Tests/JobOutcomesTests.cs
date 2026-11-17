@@ -10,16 +10,35 @@ public class JobOutcomesTests
     [Fact]
     public void Link_SomeLinked_SaysHowManyWithCounts()
     {
-        var outcome = JobOutcomes.Link(linked: 3, failed: 0);
+        var outcome = JobOutcomes.Link(new LinkRunSummary(Linked: 3, Failed: 0));
 
         Assert.Equal("3 torrents linked", outcome.Summary);
         Assert.Equal(3, outcome.Counts!["linked"]);
     }
 
     [Fact]
+    public void Link_Nothing_SaysNothingNewToLink() =>
+        Assert.Equal("Nothing new to link", JobOutcomes.Link(new LinkRunSummary(0, 0)).Summary);
+
+    [Fact]
+    public void Link_WithABacklog_SaysWhatWaits_AndCountsIt()
+    {
+        var outcome = JobOutcomes.Link(new LinkRunSummary(Linked: 3, Failed: 0, WaitingForLookup: 450, WaitingForMam: 12));
+
+        Assert.Equal("3 torrents linked; 450 more to look up on MAM in the next runs; 12 torrents MAM didn't know, looked up again once a day", outcome.Summary);
+        Assert.Equal((450L, 12L), (outcome.Counts!["waiting_for_lookup"], outcome.Counts["waiting_for_mam"]));
+    }
+
+    [Fact]
+    public void Link_OnlyABacklog_IsNotNothingNewToLink() =>
+        Assert.Equal(
+            "Nothing linked; 1 torrent MAM didn't know, looked up again once a day",
+            JobOutcomes.Link(new LinkRunSummary(0, 0, WaitingForMam: 1)).Summary);
+
+    [Fact]
     public void Link_SomeFailed_FinishesWithErrorsCarryingTheWholeLine()
     {
-        var exception = Assert.Throws<JobCompletedWithErrorsException>(() => JobOutcomes.Link(linked: 2, failed: 1));
+        var exception = Assert.Throws<JobCompletedWithErrorsException>(() => JobOutcomes.Link(new LinkRunSummary(Linked: 2, Failed: 1)));
 
         Assert.Equal("2 torrents linked; 1 could not be linked; see the Errors page", exception.Message);
         Assert.Equal(1, exception.Counts!["failed"]);
