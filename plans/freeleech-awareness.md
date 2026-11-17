@@ -25,6 +25,20 @@ Fetchshelf doesn't know when a window is on:
 
 Stage 2 uses a direct field if there is one; otherwise the detection below.
 
+### Found so far (2026-11-17)
+
+MAM's API documentation for `jsonLoad.php` lists the parameters `clientStats`, `id`, `notif`, `pretty` and
+`snatch_summary`, and the output fields `classname`, `downloaded`, `notifs`, `ratio`, `seedbonus`, `uid`,
+`uploaded`, `username` and `vip_until`. None of them is a freeleech window: there is no personal freeleech end
+time and no site-wide event field. `vip_until` is the VIP rank's expiry, not a window.
+
+One lead is left: `notif` adds "the notifications (top banner area normally)", and the site's top banner is where
+MAM announces things to the account. Whether a site-wide event or a personal freeleech period shows up there is
+unknown. To find out, `jsonLoad.php?notif&pretty` is read once outside a window, as a baseline, and once during
+one, and the two `notifs` are compared. That needs no code and talks to MAM read-only. If a window shows there,
+`FreeleechWindow` reads the banner, with its end time if the text gives one; if not, the search-flag detection
+below is the way.
+
 ## Stage 2
 
 ### 1. Knowing a window is on
