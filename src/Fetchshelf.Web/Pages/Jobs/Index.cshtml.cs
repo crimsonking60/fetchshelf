@@ -45,7 +45,7 @@ public class IndexModel(
     public PartialViewResult OnPostTrigger(string jobName, bool dryRun = false)
     {
         // A job without a dry run gets a real one only if asked for one: a Dry run button from a page out of date never runs it for real.
-        if (!dryRun || jobRegistry.Get(jobName)?.DryRunAsync is not null)
+        if (!dryRun || (settings.DryJobButtons && jobRegistry.Get(jobName)?.DryRunAsync is not null))
         {
             _ = jobRegistry.TriggerAsync(jobName, dryRun ? JobTrigger.DryRun : JobTrigger.Manual, CancellationToken.None);
         }

@@ -71,6 +71,30 @@ public sealed partial class JobsDryRunTests
     }
 
     [Fact]
+    public async Task DryJobButtonsOff_HidesTheButtons_AndAPostedDryRunRunsNothing()
+    {
+        using var fixture = new FetchshelfWebAppFixture("mam_id = \"\"\ndry_job_buttons = false\n");
+        var dry = 0;
+        fixture.JobRegistry.Register("example-job", _ => Task.FromResult<JobOutcome?>(null), dryRunAsync: _ => { dry++; return Task.FromResult<JobOutcome?>(null); });
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync("/Jobs");
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["jobName"] = "example-job",
+            ["dryRun"] = "true",
+            ["__RequestVerificationToken"] = Token(html),
+        });
+
+        (await client.PostAsync("/Jobs?handler=Trigger", form)).EnsureSuccessStatusCode();
+        await fixture.JobRegistry.RunsEndedAsync();
+
+        Assert.DoesNotContain(">Dry run</button>", html);
+        Assert.Contains(">Run now</button>", html);
+        Assert.Equal(0, dry);
+        Assert.Contains("<th>dry_job_buttons</th><td>False</td>", await client.GetStringAsync("/config"));
+    }
+
+    [Fact]
     public async Task ConfiguredDryRunBlock_GetsNoSeparateDryRun_AndItsDescriptionSaysSo()
     {
         using var fixture = new FetchshelfWebAppFixture("""

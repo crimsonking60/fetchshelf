@@ -75,7 +75,7 @@ else
                             }
                             <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                         </form>
-                        @if (!job.IsRunning && job.HasDryRun)
+                        @if (!job.IsRunning && job.HasDryRun && Settings.DryJobButtons)
                         {
                             @* Decides as Run now would, writes nothing, and lists what it would have selected in the job's history. *@
                             <form method="post" action="?handler=Trigger" hx-post="?handler=Trigger" hx-target="#job-list" hx-swap="innerHTML">

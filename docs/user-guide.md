@@ -1818,7 +1818,8 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - **Dry run**, for autograbs, Hardcover lists, Follow and Upgrade, runs the job once without selecting or
-  writing anything (see [Trying a block out safely](#trying-a-block-out-safely)).
+  writing anything (see [Trying a block out safely](#trying-a-block-out-safely)). `dry_job_buttons = false` hides
+  these buttons.
 - **The history** of a job, opened from its name, lists its runs. Under a run of an autograb, a Hardcover list,
   Follow or Upgrade, its lines say what it selected, or would have in a dry run, and what it turned down, at most
   100 of them.

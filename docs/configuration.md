@@ -185,6 +185,7 @@ These go at the top of the file, before any section.
 | `radio_types` | `["mp3"]` | Same for Radio. |
 | `page_explanations` | `true` | Show a short explanation under each page title in the web UI. |
 | `job_explanations` | `true` | Show a short description of each job on the Jobs page. |
+| `dry_job_buttons` | `true` | Show **Dry run** next to **Run now** on the Jobs page for autograbs, Hardcover lists, Follow and Upgrade. `false` hides the buttons; `dry_run` in a block still works. |
 
 Notes:
 
