@@ -38,7 +38,8 @@ risk exists today; running bulk actions in the background makes it likelier, so 
 ### 2. The work itself moves out of the page
 
 The per-torrent loop, `RunEachAsync`, and the five actions move from the page model into `BulkActionRunner`
-(Data), unchanged in what they do:
+(Web, as built: the actions need the Web project's `QBittorrentConnections` and `MamErrorDescriber`), unchanged in
+what they do:
 
 - one torrent at a time, a failure reported and the rest still run, `DiscardPendingChanges` after a failure;
 - the summary text as today ("Relinked 18 of 23 torrents. Title: reason …");

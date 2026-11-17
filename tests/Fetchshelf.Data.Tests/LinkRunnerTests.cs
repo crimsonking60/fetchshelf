@@ -557,6 +557,30 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_WaitsForTheLibraryWriteGate_BeforePlacingATorrentsFiles()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var gate = new LibraryWriteGate();
+        var runner = new LinkRunner(
+            context, new EventStore(context), new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), [CreateLibrary(LibraryDir)], Formats,
+            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false), writeGate: gate);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        var held = await gate.AcquireAsync();
+
+        var run = runner.RunAsync(new QBittorrentConnection(), client);
+        await Task.Delay(300);
+        Assert.False(run.IsCompleted);
+        Assert.False(Directory.Exists(LibraryDir));
+
+        held.Dispose();
+        var summary = await run;
+        Assert.Equal(1, summary.Linked);
+        Assert.NotNull(gate.TryAcquire());
+    }
+
+    [Fact]
     public async Task RunAsync_PortableLibrary_LinksIntoThePortableFolder()
     {
         WriteSourceFile("book.m4b");

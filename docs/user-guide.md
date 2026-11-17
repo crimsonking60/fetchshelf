@@ -1605,11 +1605,19 @@ reported, so they cannot be chosen by hand.
   - *Refresh* re-reads its metadata from MAM.
   - *Relink* does what **Refresh and relink** does on a torrent's page, but with the details Fetchshelf already
     has, without asking MAM. That is what you want after a configuration change, or after **Refresh** or
-    **Edit**. It then says above the list how many were relinked and why any were not. One that can't be
-    relinked doesn't stop the rest. For fresh details from MAM as well, use **Refresh selected** first.
+    **Edit**. When it is done it says above the list how many were relinked and why any were not. One that
+    can't be relinked doesn't stop the rest. For fresh details from MAM as well, use **Refresh selected** first.
   - *Unlink* takes the books out of your library and keeps qBittorrent seeding them (see
     [Unlinking a book you don't want](#unlinking-a-book-you-dont-want)). It asks you to confirm first.
   - *Remove* deletes Fetchshelf's record (not the files).
+  - **In the background.** Clean, Refresh, Relink, Unlink and Set category run in the background, one torrent
+    at a time, so the page comes back at once. A panel above the list shows how far it has got ("Relinking 7 of
+    23: *title*") and updates itself; the **Jobs** page lists it too. You can leave the page meanwhile: it keeps
+    going, and the panel still shows it when you come back. **Cancel** stops it after the torrent it is on,
+    leaving the rest as they were. A second bulk action waits for the first. When one ends, the panel says how it
+    went, with **Reload the list** to see the changes, until you **Dismiss** it. A restart of Fetchshelf stops
+    one that is running and forgets the panel; what was done to each torrent stays done. A bulk action and the
+    Link and Clean jobs take turns, one torrent at a time, so they never work on the same files at once.
   - **Set category**, below the other buttons, gives the ticked torrents one of the qBittorrent categories
     your `[[library]]` blocks use, or one of the `extra_categories` in your configuration, chosen from the
     dropdown. A library's category is how a torrent added outside Fetchshelf, or under another category, gets
