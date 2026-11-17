@@ -2,6 +2,7 @@ using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
+using Fetchshelf.Web.Jobs;
 
 namespace Fetchshelf.Web.Hosting;
 
@@ -31,6 +32,12 @@ public static class RunnerServices
         services.AddScoped<LinkRunner>();
         services.AddScoped<DownloadProgressChecker>();
         services.AddScoped<Cleaner>();
+        services.AddSingleton<LibraryWriteGate>();
+
+        // The Torrents page's bulk actions, run in the background one at a time.
+        services.AddSingleton<BulkOperationQueue>();
+        services.AddScoped<BulkActionRunner>();
+        services.AddHostedService<BulkOperationWorker>();
         return services;
     }
 

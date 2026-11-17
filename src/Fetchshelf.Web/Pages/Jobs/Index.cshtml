@@ -20,6 +20,24 @@
     @await Html.PartialAsync("_JobListPartial", Model.Jobs)
 </div>
 
+@if (Model.BulkOperations.Count > 0)
+{
+    <div id="bulk-operations-running">
+        <h3>Bulk actions from the Torrents page</h3>
+        @foreach (var operation in Model.BulkOperations)
+        {
+            <div class="notice bulk-operation" role="status">
+                <span>@operation.Status() <a asp-page="/Torrents/Index">Torrents page</a></span>
+                <form method="post" asp-page="/Torrents/Index" asp-page-handler="CancelBulk">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="operationId" value="@operation.Id" />
+                    <button type="submit">Cancel</button>
+                </form>
+            </div>
+        }
+    </div>
+}
+
 @* Outside the polled list: what is configured only changes with a restart. *@
 @if (Model.Unconfigured.Count > 0)
 {

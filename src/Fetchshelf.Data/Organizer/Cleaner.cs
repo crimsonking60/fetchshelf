@@ -2,7 +2,6 @@ using System.Text.Json;
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.AutoDownloader;
-using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -28,9 +27,11 @@ public sealed class Cleaner(
     FormatPreferenceLists formatPreferenceLists,
     IReadOnlyList<Library> libraries,
     AbsClient? absClient = null,
-    ILogger<Cleaner>? logger = null)
+    ILogger<Cleaner>? logger = null,
+    LibraryWriteGate? writeGate = null)
 {
     private readonly ILogger<Cleaner> _logger = logger ?? NullLogger<Cleaner>.Instance;
+    private readonly LibraryWriteGate _writeGate = writeGate ?? new LibraryWriteGate();
 
     /// <summary>
     /// Retires every superseded copy; a failure on one is logged and recorded as a clean error, and the run continues.
@@ -66,6 +67,8 @@ public sealed class Cleaner(
                 // up at a different library path.
                 var forceAbsDeletion = keeper.LibraryPath is not null && keeper.LibraryPath != member.LibraryPath;
                 cancellationToken.ThrowIfCancellationRequested();
+                // One copy at a time with the Link job and a bulk action, which work on the same files.
+                using var gate = await _writeGate.AcquireAsync(cancellationToken);
                 try
                 {
                     await RetireAsync(member, keeper, connections, forceAbsDeletion, CancellationToken.None);

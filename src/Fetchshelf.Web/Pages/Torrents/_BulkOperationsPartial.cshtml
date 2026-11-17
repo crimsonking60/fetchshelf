@@ -1,0 +1,50 @@
+@model IReadOnlyList<Fetchshelf.Web.Jobs.BulkOperation>
+@using Fetchshelf.Web.Jobs
+@* The bulk actions running, waiting or ended. It polls itself every 2 seconds while one runs or waits, and stops once
+   they have all ended; an ended one stays until dismissed. *@
+@{
+    var active = Model.Any(o => !o.HasEnded);
+}
+<div id="bulk-operations" hx-get="@(active ? Url.Page("/Torrents/Index", "BulkOperations") : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
+    @foreach (var operation in Model)
+    {
+        var (handled, _) = operation.Progress;
+        <div class="notice bulk-operation@(operation.HadProblems ? " error" : "")" role="status" data-state="@operation.State.ToString().ToLowerInvariant()">
+            @if (operation.State == BulkOperationState.Running)
+            {
+                <progress max="@operation.TorrentIds.Count" value="@handled"></progress>
+            }
+            <span>
+                @operation.Status()
+                @if (operation.HasEnded && operation.Problems.Count > 0)
+                {
+                    <ul class="bulk-problems">
+                        @foreach (var problem in operation.Problems)
+                        {
+                            <li>@problem</li>
+                        }
+                    </ul>
+                }
+            </span>
+            @if (!operation.HasEnded)
+            {
+                <form method="post" asp-page="/Torrents/Index" asp-page-handler="CancelBulk"
+                      hx-post="@Url.Page("/Torrents/Index", "CancelBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="operationId" value="@operation.Id" />
+                    <button type="submit">Cancel</button>
+                </form>
+            }
+            else
+            {
+                <a href="">Reload the list</a>
+                <form method="post" asp-page="/Torrents/Index" asp-page-handler="DismissBulk"
+                      hx-post="@Url.Page("/Torrents/Index", "DismissBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="operationId" value="@operation.Id" />
+                    <button type="submit">Dismiss</button>
+                </form>
+            }
+        </div>
+    }
+</div>

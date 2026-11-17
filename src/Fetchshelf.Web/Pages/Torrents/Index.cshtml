@@ -114,6 +114,8 @@
     </div>
 }
 
+@await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
+
 <form method="post" asp-page-handler="Bulk">
     @Html.AntiForgeryToken()
     @* So the list comes back with the same search, filters, sort and page after a bulk action. *@

@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Torrents;
 
 public class DetailModel(
-    FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner,
+    FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner, LibraryWriteGate writeGate,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions,
     Core.AutoDownloader.FormatPreferenceLists formatPreferenceLists, ILogger<DetailModel> logger) : PageModel
 {
@@ -55,6 +55,8 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostCleanAsync(string id)
     {
+        // Like every action that places or removes a torrent's files: never alongside the Link or Clean job, or a bulk action.
+        using var gate = await writeGate.AcquireAsync(HttpContext.RequestAborted);
         await cleaner.CleanOneAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
         return RedirectToPage(new { id });
     }
@@ -89,6 +91,7 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostRefreshAndRelinkAsync(string id)
     {
+        using var gate = await writeGate.AcquireAsync(HttpContext.RequestAborted);
         try
         {
             var result = await linkRunner.RefreshAndRelinkAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
@@ -107,6 +110,7 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostUnlinkAsync(string id)
     {
+        using var gate = await writeGate.AcquireAsync(HttpContext.RequestAborted);
         try
         {
             var result = await cleaner.UnlinkAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
