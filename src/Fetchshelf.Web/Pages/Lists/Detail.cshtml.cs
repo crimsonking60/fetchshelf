@@ -50,7 +50,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
     {
         var list = await dbContext.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id);
         // A configured list has no stored row until its first real (not dry) run; show it as not read yet.
-        var configured = settings.HardcoverList.FirstOrDefault(e => HardcoverListImporter.ListIdFor(e) == id);
+        var configured = ListDefinition.AllOf(settings).FirstOrDefault(l => l.ListId == id);
         if (list is null && configured is null)
         {
             return NotFound();
@@ -58,7 +58,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
 
         (ListId, ListName, UpdatedAt) = list is not null
             ? (list.Id, list.Name, list.UpdatedAt)
-            : (id, HardcoverListImporter.DisplayNameFor(configured!), (DateTimeOffset?)null);
+            : (id, configured!.DisplayName, (DateTimeOffset?)null);
         PageSize = PageSizeCookie.Apply(HttpContext, "lists", PageSize);
 
         var entities = await dbContext.ListItems.AsNoTracking().Where(i => i.ListId == id).ToListAsync();

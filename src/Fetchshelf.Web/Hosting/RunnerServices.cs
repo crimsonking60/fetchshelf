@@ -61,9 +61,9 @@ public static class RunnerServices
             .ToList());
         services.AddScoped<SelectionRunner>();
         services.AddScoped<AutograbberRunner>();
-        if (settings.Hardcover is not null)
+        if (ListDefinition.AllOf(settings).Count > 0)
         {
-            services.AddScoped<HardcoverListImporter>();
+            services.AddScoped<ListImporter>();
         }
 
         if (settings.Follow is { } followSettings)
@@ -94,12 +94,12 @@ public static class RunnerServices
     }
 
     /// <summary>
-    /// Every block's own buffers, under the grabber name its selections carry: a named autograb's name, a Hardcover
-    /// list's job name, `Upgrade`, and every "Follow: …" name for `[follow]`.
+    /// Every block's own buffers, under the grabber name its selections carry: a named autograb's name, a list's job
+    /// name, `Upgrade`, and every "Follow: …" name for `[follow]`.
     /// </summary>
     public static IReadOnlyList<BlockBuffers> BlockBuffersOf(FetchshelfSettings settings) =>
         settings.Autograb.Where(a => a.Name is not null).Select(a => new BlockBuffers(a.Name!, a.UnsatBuffer, a.WedgeBuffer))
-            .Concat(settings.HardcoverList.Select((list, i) => new BlockBuffers(AutoDownloaderJobNames.HardcoverList(list, i), list.UnsatBuffer, list.WedgeBuffer)))
+            .Concat(ListDefinition.AllOf(settings).Select(list => new BlockBuffers(list.JobName, list.UnsatBuffer, list.WedgeBuffer)))
             .Concat(settings.Upgrade is { } upgrade ? [new BlockBuffers(JobNames.Upgrade, upgrade.UnsatBuffer, upgrade.WedgeBuffer)] : [])
             .Concat(settings.Follow is { } follow ? [new BlockBuffers(FollowRunner.GrabberPrefix, follow.UnsatBuffer, follow.WedgeBuffer, IsPrefix: true)] : [])
             .ToList();

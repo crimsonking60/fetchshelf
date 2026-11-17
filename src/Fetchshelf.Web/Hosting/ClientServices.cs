@@ -89,7 +89,7 @@ public static class ClientServices
         services.AddSingleton(sp => new HardcoverClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("hardcover"), sp.GetRequiredService<HardcoverClientOptions>()));
         // A singleton, so the token's user is looked up once rather than on every run.
-        services.AddSingleton<IHardcoverBookSource>(sp => new HardcoverBookSource(sp.GetRequiredService<HardcoverClient>()));
+        services.AddSingleton(sp => new HardcoverBookSource(sp.GetRequiredService<HardcoverClient>()));
         return services;
     }
 }

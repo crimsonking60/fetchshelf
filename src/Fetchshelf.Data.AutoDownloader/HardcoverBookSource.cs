@@ -1,16 +1,11 @@
 using Fetchshelf.Clients.Hardcover;
+using Fetchshelf.Core.Lists;
 using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.AutoDownloader;
 
-/// <summary>Reads the books a `[[hardcover_list]]` follows. An interface so the importer can be tested without Hardcover.</summary>
-public interface IHardcoverBookSource
-{
-    Task<IReadOnlyList<HardcoverBook>> GetBooksAsync(HardcoverListEntry entry, CancellationToken cancellationToken = default);
-}
-
-/// <summary>Reads a `[[hardcover_list]]`'s books from Hardcover, finding out once which user the token belongs to.</summary>
-public sealed class HardcoverBookSource(HardcoverClient client) : IHardcoverBookSource
+/// <summary>Reads the books a `[[hardcover_list]]` follows from Hardcover, finding out once which user the token belongs to.</summary>
+public sealed class HardcoverBookSource(HardcoverClient client)
 {
     private long? _userId;
 
@@ -31,4 +26,24 @@ public sealed class HardcoverBookSource(HardcoverClient client) : IHardcoverBook
         HardcoverListStatus.DidNotFinish => HardcoverReadingStatus.DidNotFinish,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null),
     };
+}
+
+/// <summary>One `[[hardcover_list]]`'s books, as list books: the Hardcover id is each book's id.</summary>
+public sealed class HardcoverListSource(HardcoverBookSource books, HardcoverListEntry entry) : IListBookSource
+{
+    public async Task<IReadOnlyList<ListBook>> GetBooksAsync(CancellationToken cancellationToken = default) =>
+        (await books.GetBooksAsync(entry, cancellationToken)).Select(ToListBook).ToList();
+
+    public static ListBook ToListBook(HardcoverBook book)
+    {
+        var series = book.Series.FirstOrDefault();
+        return new ListBook(book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), book.Title, book.Authors)
+        {
+            SeriesName = series?.Name,
+            SeriesNumber = series?.Position,
+            CoverUrl = book.CoverUrl,
+            BookUrl = book.Url,
+            Identifiers = book.Identifiers,
+        };
+    }
 }

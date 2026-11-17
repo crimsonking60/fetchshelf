@@ -88,7 +88,7 @@ public static class JobOutcomes
         return new JobOutcome(DryRun(summary.DryRun, line), counts);
     }
 
-    public static JobOutcome HardcoverList(HardcoverListRunSummary summary) => Finish(
+    public static JobOutcome List(ListRunSummary summary) => Finish(
         DryRun(
             summary.DryRun,
             $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "

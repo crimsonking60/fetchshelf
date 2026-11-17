@@ -38,9 +38,10 @@ public class IndexModel(FetchshelfDbContext dbContext, FetchshelfSettings settin
             return new ListSummaryViewModel(id, name, books, missing, stored.GetValueOrDefault(id)?.UpdatedAt);
         }
 
-        var configuredIds = settings.HardcoverList.Select(HardcoverListImporter.ListIdFor).ToHashSet(StringComparer.Ordinal);
-        ConfiguredLists = settings.HardcoverList
-            .Select(entry => Summary(HardcoverListImporter.ListIdFor(entry), HardcoverListImporter.DisplayNameFor(entry)))
+        var configured = ListDefinition.AllOf(settings);
+        var configuredIds = configured.Select(l => l.ListId).ToHashSet(StringComparer.Ordinal);
+        ConfiguredLists = configured
+            .Select(list => Summary(list.ListId, list.DisplayName))
             .DistinctBy(l => l.Id)
             .ToList();
         InactiveLists = stored.Values

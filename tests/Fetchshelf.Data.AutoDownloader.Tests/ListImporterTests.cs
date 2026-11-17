@@ -2,6 +2,7 @@ using System.Net;
 using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Lists;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
@@ -10,9 +11,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
-public sealed class HardcoverListImporterTests : IDisposable
+public sealed class ListImporterTests : IDisposable
 {
-    private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-hardcover-list-importer-tests-").FullName;
+    private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-list-importer-tests-").FullName;
 
     private string DbPath => Path.Combine(_root, "test.db");
 
@@ -47,7 +48,7 @@ public sealed class HardcoverListImporterTests : IDisposable
     private static string Results(params string[] records) =>
         $$"""{"perpage":100,"start":0,"total":{{records.Length}},"found":{{records.Length}},"data":[{{string.Join(",", records)}}]}""";
 
-    private static HardcoverBook Book(long id, string title, string author = "Frank Herbert", params string[] identifiers) => new()
+    private static ListBook Book(long id, string title, string author = "Frank Herbert", params string[] identifiers) => HardcoverListSource.ToListBook(new()
     {
         Id = id,
         Title = title,
@@ -56,20 +57,20 @@ public sealed class HardcoverListImporterTests : IDisposable
         Series = [],
         CoverUrl = $"https://assets.example/{id}.jpg",
         Identifiers = identifiers,
-    };
+    });
 
     /// <summary>A full page of results for other books: 100 of them.</summary>
     private static string FullPageOfOtherBooks() =>
         Results(Enumerable.Range(1, 100).Select(i => Record(1000 + i, $"Other Book {i}", "Someone Else")).ToArray());
 
-    private sealed class FakeBookSource : IHardcoverBookSource
+    private sealed class FakeBookSource : IListBookSource
     {
-        public List<HardcoverBook> Books { get; set; } = [];
+        public List<ListBook> Books { get; set; } = [];
 
         public Exception? Failure { get; set; }
 
-        public Task<IReadOnlyList<HardcoverBook>> GetBooksAsync(HardcoverListEntry entry, CancellationToken cancellationToken = default) =>
-            Failure is null ? Task.FromResult<IReadOnlyList<HardcoverBook>>(Books) : Task.FromException<IReadOnlyList<HardcoverBook>>(Failure);
+        public Task<IReadOnlyList<ListBook>> GetBooksAsync(CancellationToken cancellationToken = default) =>
+            Failure is null ? Task.FromResult<IReadOnlyList<ListBook>>(Books) : Task.FromException<IReadOnlyList<ListBook>>(Failure);
     }
 
     private sealed class Clock(DateTimeOffset now) : TimeProvider
@@ -79,7 +80,7 @@ public sealed class HardcoverListImporterTests : IDisposable
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class Harness(FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, HardcoverListImporter> createImporter)
+    private sealed class Harness(FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, ListImporter> createImporter)
     {
         public FetchshelfDbContext Context => context;
 
@@ -90,8 +91,8 @@ public sealed class HardcoverListImporterTests : IDisposable
         /// <summary>The search text of every MAM search, in order.</summary>
         public List<string> Searches => searches;
 
-        public Task<HardcoverListRunSummary> RunAsync(HardcoverListEntry entry) =>
-            createImporter(context).RunAsync(entry, grabberName: "Want to Read", unsatBuffer: 0, ignoreTorrents: []);
+        public Task<ListRunSummary> RunAsync(HardcoverListEntry entry) =>
+            createImporter(context).RunAsync(ListDefinition.ForHardcover(entry, 0), books, unsatBuffer: 0, ignoreTorrents: []);
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
@@ -123,10 +124,10 @@ public sealed class HardcoverListImporterTests : IDisposable
         var mamClient = new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
         var books = new FakeBookSource();
         var clock = new Clock(new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero));
-        return new Harness(context, books, clock, searches, ctx => new HardcoverListImporter(
+        return new Harness(context, books, clock, searches, ctx => new ListImporter(
             ctx, mamClient, new MamAccessGate(),
             new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists),
-            books, SelectionTestSupport.PreferenceLists, clock,
+            SelectionTestSupport.PreferenceLists, clock,
             delay: (_, _) => Task.CompletedTask));
     }
 
