@@ -1,12 +1,12 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-17, for the 15 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-17, for the 14 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88) and `jobs-page-dry-run.md` (PR #89) were built and moved to `plans/done/`. Three open plans are new:
-`language-aware-books.md`, `series-layout-for-comics.md` and `collection-torrents.md`, the last of them parked. The order follows four rules:
+(PR #88) and `jobs-page-dry-run.md` (PR #89) were built and moved to `plans/done/`. Three plans are new:
+`language-aware-books.md`, `series-layout-for-comics.md` and `parked/collection-torrents.md`, the last of them parked. The order follows four rules:
 
 1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
@@ -32,7 +32,7 @@ or how, so they are worth doing before the plans come up:
 | The fields Komga's `series.json` parser requires | `series-layout-for-comics.md` | what `MylarSeriesJsonBuilder` writes |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
-| How many collection torrents MAM still carries | `collection-torrents.md` | whether the plan is unparked |
+| How many collection torrents MAM still carries | `parked/collection-torrents.md` | whether the plan is unparked |
 
 ## Phase 1: foundations (done)
 
@@ -118,7 +118,7 @@ Done:
 Parked plans are left out of the order until they are taken up again.
 
 - **`parked/email-notifications.md`** — moved to `plans/parked/` on 2026-11-17.
-- **`collection-torrents.md`** — waits for MAM's retirement of collection torrents (step 0). If it is unparked, it
+- **`parked/collection-torrents.md`** — waits for MAM's retirement of collection torrents (step 0). If it is unparked, it
   goes in phase 5 before `other-download-clients.md`: both change every place that uses a torrent's id as a
   qBittorrent hash, and the refactor is easier with the collection's mapping already in place. It comes after the
   series layout, which then splits packs into numbered books instead of keeping their file names, and after
@@ -129,30 +129,30 @@ Parked plans are left out of the order until they are taken up again.
 | Plan | Needs first | Better after |
 |---|---|---|
 | `mam-bookmarks-list.md` | `file-based-lists.md` | |
-| `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` (if unparked) |
+| `other-download-clients.md` | `download-client-and-save-path.md` | `parked/collection-torrents.md` (if unparked) |
 | `25-Library-check.md` | | `series-layout-for-comics.md` |
 | `download-client-and-save-path.md` | | `file-based-lists.md` |
 | `covers-from-mam.md` | | `series-layout-for-comics.md` |
 | `language-aware-books.md` | | `follow-audiobookshelf-series.md` |
-| `collection-torrents.md` | | `series-layout-for-comics.md`, `language-aware-books.md` |
+| `parked/collection-torrents.md` | | `series-layout-for-comics.md`, `language-aware-books.md` |
 
 ## Plans that touch the same code
 
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
 - **`LinkRunner`** (it takes the library write gate from PR #79 per torrent): `language-aware-books.md` (the clash rule),
-  `series-layout-for-comics.md`, `covers-from-mam.md`, the library check, `collection-torrents.md`.
+  `series-layout-for-comics.md`, `covers-from-mam.md`, the library check, `parked/collection-torrents.md`.
 - **`FolderNameComputer`, `FolderLayout` and `SyncMismatch`:** `language-aware-books.md`,
   `series-layout-for-comics.md`, the library check. A series library holding one series in two languages puts both
   in one series folder; whether `language_in_folder` applies to series folders is decided by whichever of the two
   plans comes second.
 - **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88):
   `series-layout-for-comics.md` (`series.json`), `covers-from-mam.md` (`cover.png`, `cover.webp`),
-  `collection-torrents.md`.
+  `parked/collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`:** `follow-audiobookshelf-series.md`, `language-aware-books.md`,
-  `collection-torrents.md`.
+  `parked/collection-torrents.md`.
 - **`HardcoverListImporter` / `ListImporter`:** `file-based-lists.md`, `mam-bookmarks-list.md`.
 - **`DownloadRunner`:** `download-client-and-save-path.md`, `other-download-clients.md`.
 - **The Search page:** `search-bookmark-and-more-like-this.md`,
   `download-client-and-save-path.md` (the qBittorrent choice).
-- **Every user of a torrent id as a qBittorrent hash:** `collection-torrents.md`, `other-download-clients.md`.
+- **Every user of a torrent id as a qBittorrent hash:** `parked/collection-torrents.md`, `other-download-clients.md`.
