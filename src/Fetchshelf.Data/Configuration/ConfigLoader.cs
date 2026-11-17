@@ -99,6 +99,7 @@ public static partial class ConfigLoader
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateHardcover(settings);
+        ValidateFileLists(settings, configFilePath);
         ValidateFollow(settings);
         ValidateUpgrade(settings);
         ValidateOpds(settings);
@@ -578,8 +579,8 @@ public static partial class ConfigLoader
     }
 
     /// <summary>
-    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c>, <c>[[hardcover_list.grab]]</c>
-    /// and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
+    /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c>, <c>[[hardcover_list.grab]]</c>,
+    /// <c>[[file_list.grab]]</c> and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
     /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
     /// Runs after environment overrides, so
     /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
@@ -594,6 +595,7 @@ public static partial class ConfigLoader
 
         var blocks = settings.Autograb.Cast<SharedFilterConfig>()
             .Concat(settings.HardcoverList.SelectMany(list => list.Grab))
+            .Concat(settings.FileList.SelectMany(list => list.Grab))
             .Concat(settings.Follow?.Grab ?? []);
         foreach (var block in blocks.Where(block => block.Languages is null))
         {
@@ -759,21 +761,47 @@ public static partial class ConfigLoader
                     $"Invalid configuration: {label} must set one of 'status' or 'list', not both.");
             }
 
-            if (list.Grab.Count == 0)
+            ValidateListSearch(label, list.Grab, list.PreferFormat);
+        }
+    }
+
+    /// <summary>
+    /// Checks every `[[file_list]]` and resolves its `path` against the config file's folder. Whether the file is there
+    /// is not checked: it may be put there later, and the list's job fails until it is.
+    /// </summary>
+    private static void ValidateFileLists(FetchshelfSettings settings, string configFilePath)
+    {
+        var configFolder = Path.GetDirectoryName(Path.GetFullPath(configFilePath)) ?? Path.GetFullPath(".");
+        foreach (var list in settings.FileList)
+        {
+            var label = string.IsNullOrWhiteSpace(list.Name) ? "a [[file_list]] section" : $"the [[file_list]] '{list.Name}'";
+            if (string.IsNullOrWhiteSpace(list.Path))
             {
-                throw new ConfigurationException($"Invalid configuration: {label} must have at least one 'grab' block.");
+                throw new ConfigurationException($"Invalid configuration: {label} needs a 'path' to the list file.");
             }
 
-            if (list.PreferFormat is not (null or Core.Metadata.FilterMainType.Audio or Core.Metadata.FilterMainType.Ebook))
-            {
-                throw new ConfigurationException($"Invalid configuration: {label} has a 'prefer_format' that is not 'audio' or 'ebook'.");
-            }
+            ValidateListSearch(label, list.Grab, list.PreferFormat);
+            list.FullPath = Path.GetFullPath(Path.Combine(configFolder, list.Path));
+        }
+    }
 
-            if (list.Grab.Any(g => g.Cost is Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
-            {
-                throw new ConfigurationException(
-                    $"Invalid configuration: {label} has a 'grab' block with a metadata-only 'cost'; Hardcover lists download books.");
-            }
+    /// <summary>What every list needs to search MAM: a `grab` block, none of them metadata-only, and a valid `prefer_format`.</summary>
+    private static void ValidateListSearch(string label, List<GrabEntry> grab, Core.Metadata.FilterMainType? preferFormat)
+    {
+        if (grab.Count == 0)
+        {
+            throw new ConfigurationException($"Invalid configuration: {label} must have at least one 'grab' block.");
+        }
+
+        if (preferFormat is not (null or Core.Metadata.FilterMainType.Audio or Core.Metadata.FilterMainType.Ebook))
+        {
+            throw new ConfigurationException($"Invalid configuration: {label} has a 'prefer_format' that is not 'audio' or 'ebook'.");
+        }
+
+        if (grab.Any(g => g.Cost is Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {label} has a 'grab' block with a metadata-only 'cost'; lists download books.");
         }
     }
 }

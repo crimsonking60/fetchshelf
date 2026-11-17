@@ -191,14 +191,14 @@ public sealed partial class AccountSummaryBuilder(
 
     /// <summary>
     /// Every block that can have buffers or a cap of its own. Only a named autograb can: the configuration requires the
-    /// name, which is how its selections are told apart. A Hardcover list's selections carry its job name, Follow's all
+    /// name, which is how its selections are told apart. A list's selections carry its job name, Follow's all
     /// start with "Follow: ", and Upgrade's are named after the job.
     /// </summary>
     private IEnumerable<OwnBudgets> BlocksWithOwnBudgets() =>
         settings.Autograb.Where(a => !string.IsNullOrWhiteSpace(a.Name))
             .Select(a => new OwnBudgets($"Autograb {a.Name}", a.Name!, false, a.UnsatBuffer, a.WedgeBuffer, a.MaxActiveDownloads))
-            .Concat(settings.HardcoverList.Select((list, i) => (JobName: AutoDownloaderJobNames.HardcoverList(list, i), List: list))
-                .Select(l => new OwnBudgets($"Hardcover list {l.JobName}", l.JobName, false, l.List.UnsatBuffer, l.List.WedgeBuffer, l.List.MaxActiveDownloads)))
+            .Concat(ListDefinition.AllOf(settings)
+                .Select(l => new OwnBudgets($"{l.ListType} list {l.JobName}", l.JobName, false, l.UnsatBuffer, l.WedgeBuffer, l.MaxActiveDownloads)))
             .Concat(settings.Follow is { } follow
                 ? [new OwnBudgets("Follow", FollowRunner.GrabberPrefix, true, follow.UnsatBuffer, follow.WedgeBuffer, follow.MaxActiveDownloads)]
                 : [])

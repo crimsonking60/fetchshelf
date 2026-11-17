@@ -108,6 +108,21 @@ public partial class JobFailuresPageTests
     }
 
     [Fact]
+    public async Task ErrorsPage_FileListError_LinksToItsList_WhoseIdHoldsASpace()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Errors");
+        await AddErrorAsync(fixture, ErrorStage.FileList, "file:Goodreads to-read isbn:9780441172719", "Dune");
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Errors"));
+
+        Assert.Contains("<td class=\"nowrap\">File list</td>", html);
+        Assert.Contains("<a href=\"/Lists/Detail/file%3AGoodreads%20to-read\">Dune</a>", html);
+        Assert.Contains("Book id isbn:9780441172719", html);
+    }
+
+    [Fact]
     public async Task ErrorsPage_StageFilter_ShowsOnlyThatJobsRows()
     {
         using var fixture = new FetchshelfWebAppFixture();

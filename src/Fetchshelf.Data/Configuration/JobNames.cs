@@ -21,8 +21,8 @@ public static class JobNames
 }
 
 /// <summary>
-/// Job names for per-entry `[[autograb]]` and `[[hardcover_list]]` jobs: the entry's own `name` if set, else
-/// `autograb[&lt;index&gt;]` or `hardcover_list[&lt;index&gt;]`.
+/// Job names for per-entry `[[autograb]]`, `[[hardcover_list]]` and `[[file_list]]` jobs: the entry's own `name` if set,
+/// else `autograb[&lt;index&gt;]`, `hardcover_list[&lt;index&gt;]` or `file_list[&lt;index&gt;]`.
 /// </summary>
 public static class AutoDownloaderJobNames
 {
@@ -31,4 +31,7 @@ public static class AutoDownloaderJobNames
 
     public static string HardcoverList(HardcoverListEntry entry, int index) =>
         string.IsNullOrWhiteSpace(entry.Name) ? $"hardcover_list[{index}]" : entry.Name;
+
+    public static string FileList(FileListEntry entry, int index) =>
+        string.IsNullOrWhiteSpace(entry.Name) ? $"file_list[{index}]" : entry.Name;
 }

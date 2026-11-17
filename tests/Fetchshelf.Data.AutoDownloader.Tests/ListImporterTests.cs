@@ -2,6 +2,7 @@ using System.Net;
 using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Lists;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
@@ -10,9 +11,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
-public sealed class HardcoverListImporterTests : IDisposable
+public sealed class ListImporterTests : IDisposable
 {
-    private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-hardcover-list-importer-tests-").FullName;
+    private readonly string _root = Directory.CreateTempSubdirectory("fetchshelf-list-importer-tests-").FullName;
 
     private string DbPath => Path.Combine(_root, "test.db");
 
@@ -47,7 +48,7 @@ public sealed class HardcoverListImporterTests : IDisposable
     private static string Results(params string[] records) =>
         $$"""{"perpage":100,"start":0,"total":{{records.Length}},"found":{{records.Length}},"data":[{{string.Join(",", records)}}]}""";
 
-    private static HardcoverBook Book(long id, string title, string author = "Frank Herbert", params string[] identifiers) => new()
+    private static ListBook Book(long id, string title, string author = "Frank Herbert", params string[] identifiers) => HardcoverListSource.ToListBook(new()
     {
         Id = id,
         Title = title,
@@ -56,20 +57,20 @@ public sealed class HardcoverListImporterTests : IDisposable
         Series = [],
         CoverUrl = $"https://assets.example/{id}.jpg",
         Identifiers = identifiers,
-    };
+    });
 
     /// <summary>A full page of results for other books: 100 of them.</summary>
     private static string FullPageOfOtherBooks() =>
         Results(Enumerable.Range(1, 100).Select(i => Record(1000 + i, $"Other Book {i}", "Someone Else")).ToArray());
 
-    private sealed class FakeBookSource : IHardcoverBookSource
+    private sealed class FakeBookSource : IListBookSource
     {
-        public List<HardcoverBook> Books { get; set; } = [];
+        public List<ListBook> Books { get; set; } = [];
 
         public Exception? Failure { get; set; }
 
-        public Task<IReadOnlyList<HardcoverBook>> GetBooksAsync(HardcoverListEntry entry, CancellationToken cancellationToken = default) =>
-            Failure is null ? Task.FromResult<IReadOnlyList<HardcoverBook>>(Books) : Task.FromException<IReadOnlyList<HardcoverBook>>(Failure);
+        public Task<IReadOnlyList<ListBook>> GetBooksAsync(CancellationToken cancellationToken = default) =>
+            Failure is null ? Task.FromResult<IReadOnlyList<ListBook>>(Books) : Task.FromException<IReadOnlyList<ListBook>>(Failure);
     }
 
     private sealed class Clock(DateTimeOffset now) : TimeProvider
@@ -79,7 +80,7 @@ public sealed class HardcoverListImporterTests : IDisposable
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class Harness(FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, HardcoverListImporter> createImporter)
+    private sealed class Harness(FetchshelfDbContext context, FakeBookSource books, Clock clock, List<string> searches, Func<FetchshelfDbContext, ListImporter> createImporter)
     {
         public FetchshelfDbContext Context => context;
 
@@ -90,8 +91,11 @@ public sealed class HardcoverListImporterTests : IDisposable
         /// <summary>The search text of every MAM search, in order.</summary>
         public List<string> Searches => searches;
 
-        public Task<HardcoverListRunSummary> RunAsync(HardcoverListEntry entry) =>
-            createImporter(context).RunAsync(entry, grabberName: "Want to Read", unsatBuffer: 0, ignoreTorrents: []);
+        public Task<ListRunSummary> RunAsync(HardcoverListEntry entry) =>
+            createImporter(context).RunAsync(ListDefinition.ForHardcover(entry, 0), books, unsatBuffer: 0, ignoreTorrents: []);
+
+        public Task<ListRunSummary> RunAsync(ListDefinition list, IListBookSource source) =>
+            createImporter(context).RunAsync(list, source, unsatBuffer: 0, ignoreTorrents: []);
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
@@ -123,10 +127,10 @@ public sealed class HardcoverListImporterTests : IDisposable
         var mamClient = new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
         var books = new FakeBookSource();
         var clock = new Clock(new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero));
-        return new Harness(context, books, clock, searches, ctx => new HardcoverListImporter(
+        return new Harness(context, books, clock, searches, ctx => new ListImporter(
             ctx, mamClient, new MamAccessGate(),
             new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists),
-            books, SelectionTestSupport.PreferenceLists, clock,
+            SelectionTestSupport.PreferenceLists, clock,
             delay: (_, _) => Task.CompletedTask));
     }
 
@@ -720,5 +724,57 @@ public sealed class HardcoverListImporterTests : IDisposable
         await Assert.ThrowsAsync<HardcoverAuthenticationException>(() => harness.RunAsync(Entry()));
 
         Assert.Empty(harness.Searches);
+    }
+
+    private FileListEntry FileEntry(string text)
+    {
+        var path = Path.Combine(_root, "wanted.csv");
+        File.WriteAllText(path, text);
+        return new FileListEntry { Name = "Goodreads", Path = "wanted.csv", FullPath = path, Grab = [AudioOnly()] };
+    }
+
+    [Fact]
+    public async Task RunAsync_FileList_StoresItsBooksAndSelects_LikeAHardcoverList()
+    {
+        var harness = CreateHarness(body => body.Contains("Dune", StringComparison.Ordinal) ? Results(Record(11, "Dune", "Frank Herbert")) : EmptyResultJson);
+        var entry = FileEntry("Title,Author,ISBN13\nDune,Frank Herbert,9780441172719\nHyperion,Dan Simmons,\n,Nobody,\n");
+
+        var summary = await harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry));
+
+        Assert.Equal((1, 2, 2, 1), (summary.Selected, summary.Books, summary.Searched, summary.UnreadableLines));
+        var list = Assert.Single(harness.Context.Lists);
+        Assert.Equal(("file:Goodreads", "Goodreads", "File"), (list.Id, list.Name, list.ListType));
+        var items = harness.Context.ListItems.AsNoTracking().OrderBy(i => i.Position).ToList();
+        Assert.Equal(["isbn:9780441172719", "title:hyperion|dansimmons"], items.Select(i => i.ExternalId));
+        Assert.Equal((ListItemSideStatus.Selected, 11L), (items[0].AudioStatus, items[0].AudioMamId!.Value));
+        Assert.Equal(ListItemSideStatus.NotFound, items[1].AudioStatus);
+        Assert.Null(items[0].CoverUrl);
+        Assert.Null(items[0].BookUrl);
+        Assert.Equal("Goodreads", Assert.Single(harness.Context.SelectedTorrents).GrabberName);
+    }
+
+    [Fact]
+    public async Task RunAsync_FileListBookFails_IsRecordedUnderTheFileListStage()
+    {
+        var harness = CreateHarness(_ => "not json");
+        var entry = FileEntry("Dune by Frank Herbert\n");
+
+        await harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry));
+
+        var error = Assert.Single(harness.Context.ErroredTorrents.AsNoTracking());
+        Assert.Equal((ErrorStage.FileList, "file:Goodreads title:dune|frankherbert"), (error.Stage, error.Key));
+    }
+
+    [Fact]
+    public async Task RunAsync_FileListWhoseFileIsMissing_FailsTheRun_WithoutAskingMam()
+    {
+        var harness = CreateHarness(_ => EmptyResultJson);
+        var entry = new FileListEntry { Path = "lists/gone.csv", FullPath = Path.Combine(_root, "lists", "gone.csv"), Grab = [AudioOnly()] };
+
+        var error = await Assert.ThrowsAsync<ListFileException>(() => harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry)));
+
+        Assert.Equal("List file not found: lists/gone.csv", error.Message);
+        Assert.Empty(harness.Searches);
+        Assert.Empty(harness.Context.Lists);
     }
 }

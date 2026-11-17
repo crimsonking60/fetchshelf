@@ -161,6 +161,15 @@ public static class ConfigSummary
                 $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }
 
+        for (var i = 0; i < settings.FileList.Count; i++)
+        {
+            var entry = settings.FileList[i];
+            var shelf = entry.Shelf is null ? "" : $", shelf '{entry.Shelf}'";
+            rows.Add((AutoDownloaderJobNames.FileList(entry, i),
+                $"file {entry.Path}{shelf}, {entry.Grab.Count} grab block{(entry.Grab.Count == 1 ? "" : "s")}, " +
+                $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
+        }
+
         var afterSelections = settings.DownloadAfterSelection ? ", and after selections" : "";
         rows.Add((JobNames.Download, settings.SearchInterval > 0
             ? $"every {settings.SearchInterval} min{afterSelections}"

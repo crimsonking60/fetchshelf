@@ -1,0 +1,8 @@
+# An example list file for [[file_list]]: one book per line, "Title by Author" or "Title - Author".
+# The author may be left out, though searches then match on the title alone. Lines starting with #
+# and blank lines are skipped. A Goodreads or StoryGraph CSV export works as a list file too.
+
+The Left Hand of Darkness by Ursula K. Le Guin
+Project Hail Mary - Andy Weir
+The Way of Kings (The Stormlight Archive, #1) by Brandon Sanderson
+Good Omens by Terry Pratchett & Neil Gaiman

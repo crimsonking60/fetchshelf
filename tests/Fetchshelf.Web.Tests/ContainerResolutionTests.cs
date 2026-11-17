@@ -77,7 +77,7 @@ public sealed class ContainerResolutionTests
     private static readonly Type[] Runners =
     [
         typeof(LinkRunner), typeof(Cleaner), typeof(ClientStatusChecker), typeof(DownloadProgressChecker), typeof(AbsMatcher),
-        typeof(SelectionRunner), typeof(AutograbberRunner), typeof(HardcoverListImporter),
+        typeof(SelectionRunner), typeof(AutograbberRunner), typeof(ListImporter),
         typeof(FollowRunner), typeof(FollowService), typeof(UpgradeRunner), typeof(BonusRunner), typeof(DownloadRunner),
         typeof(RetroactiveTagApplier),
     ];

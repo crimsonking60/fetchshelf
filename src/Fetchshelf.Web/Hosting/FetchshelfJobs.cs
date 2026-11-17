@@ -101,13 +101,17 @@ public static class FetchshelfJobs
         for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
             var entry = settings.HardcoverList[i];
-            var jobName = AutoDownloaderJobNames.HardcoverList(entry, i);
-            RegisterSelecting(jobRegistry, scopeFactory, settings, jobName, entry.DryRun, async (scope, dryRun, ct) =>
-            {
-                var summary = await scope.ServiceProvider.GetRequiredService<HardcoverListImporter>()
-                    .RunAsync(entry, jobName, settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
-                return (summary.SelectedForDownload, () => JobOutcomes.HardcoverList(summary));
-            }, "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
+            RegisterList(jobRegistry, scopeFactory, settings, ignoreTorrents, ListDefinition.ForHardcover(entry, i),
+                scope => new HardcoverListSource(scope.ServiceProvider.GetRequiredService<HardcoverBookSource>(), entry),
+                "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
+        }
+
+        for (var i = 0; i < settings.FileList.Count; i++)
+        {
+            var entry = settings.FileList[i];
+            RegisterList(jobRegistry, scopeFactory, settings, ignoreTorrents, ListDefinition.ForFile(entry, i),
+                scope => new FileListSource(entry, scope.ServiceProvider.GetRequiredService<ILogger<FileListSource>>()),
+                "Searches MAM for the books in a list file and queues them for download.");
         }
 
         if (settings.Follow is { } follow)
@@ -156,8 +160,19 @@ public static class FetchshelfJobs
         }, "Sends queued, selected torrents to qBittorrent.");
     }
 
+    /// <summary>Registers a list's job: <paramref name="source"/> gives the scope's reader of the list's books.</summary>
+    private static void RegisterList(
+        IJobRegistry jobRegistry, IServiceScopeFactory scopeFactory, FetchshelfSettings settings, IReadOnlyList<long> ignoreTorrents,
+        ListDefinition list, Func<IServiceScope, IListBookSource> source, string description) =>
+        RegisterSelecting(jobRegistry, scopeFactory, settings, list.JobName, list.DryRun, async (scope, dryRun, ct) =>
+        {
+            var summary = await scope.ServiceProvider.GetRequiredService<ListImporter>()
+                .RunAsync(list, source(scope), settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+            return (summary.SelectedForDownload, () => JobOutcomes.List(summary));
+        }, description);
+
     /// <summary>
-    /// Registers a job that selects torrents: an autograb, a Hardcover list, Follow or Upgrade. <paramref name="run"/> runs
+    /// Registers a job that selects torrents: an autograb, a list, Follow or Upgrade. <paramref name="run"/> runs
     /// it in a scope of its own, as a dry run when told to, and returns how many it selected for download and its outcome.
     /// Each run's outcome lists what <see cref="SelectionRunner"/> selected, or would have, and turned down. A real run that
     /// selected something starts a Download run when `download_after_selection` is on. A block configured with

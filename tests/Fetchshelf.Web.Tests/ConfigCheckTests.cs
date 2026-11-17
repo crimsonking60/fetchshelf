@@ -156,4 +156,39 @@ public sealed class ConfigCheckTests : IDisposable
         Assert.Contains($"No configuration file at {ConfigPath}", output);
         Assert.False(File.Exists(ConfigPath));
     }
+
+    private const string FileListConfig = """
+        mam_id = "session"
+
+        [[file_list]]
+        name = "Goodreads"
+        path = "lists/export.csv"
+        shelf = "to-read"
+
+        [[file_list.grab]]
+        """;
+
+    [Fact]
+    public void Run_FileListWhoseFileIsMissing_SaysSo_AndStillExitsWithZero()
+    {
+        var (exitCode, output) = Check(FileListConfig);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("file lists/export.csv, shelf 'to-read', 1 grab block", output);
+        Assert.Contains("Goodreads: List file not found: lists/export.csv", output);
+        Assert.Contains("the job fails until it can be read", output);
+    }
+
+    [Fact]
+    public void Run_FileListWithItsFile_SaysHowManyBooksItFound()
+    {
+        Directory.CreateDirectory(Path.Combine(_tempDir, "lists"));
+        File.WriteAllText(Path.Combine(_tempDir, "lists", "export.csv"),
+            "Title,Author,Exclusive Shelf\nDune,Frank Herbert,to-read\nHyperion,Dan Simmons,read\n,Nobody,to-read\n");
+
+        var (exitCode, output) = Check(FileListConfig);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Goodreads: lists/export.csv: 1 book (CSV); lines not read: 4 (it has no title)", output);
+    }
 }

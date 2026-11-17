@@ -24,6 +24,9 @@ public enum ErrorStage
 
     /// <summary>A library copy the Upgrade job couldn't search a better copy for; keyed by info-hash.</summary>
     Upgrade,
+
+    /// <summary>A book a file list couldn't search for; keyed by <see cref="ErrorLog.ListItemKey"/>.</summary>
+    FileList,
 }
 
 /// <summary>One row per (stage, torrent) error; a successful run of the stage clears it.</summary>
@@ -33,7 +36,7 @@ public sealed class ErroredTorrentEntity
 
     public required ErrorStage Stage { get; set; }
 
-    /// <summary>The item the error is about: a MAM id (Grabber, Snatchlist), an info-hash (Linker, Cleaner, Audiobookshelf), or a list item (HardcoverList).</summary>
+    /// <summary>The item the error is about: a MAM id (Grabber, Snatchlist), an info-hash (Linker, Cleaner, Audiobookshelf), or a list item (HardcoverList, FileList).</summary>
     public required string Key { get; set; }
 
     /// <summary>The torrent's name when the error was recorded, so the row is recognizable without a Torrent record.</summary>
