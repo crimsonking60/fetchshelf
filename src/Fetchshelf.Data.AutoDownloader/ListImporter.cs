@@ -18,7 +18,8 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <param name="Books">Books on the list.</param>
 /// <param name="Searched">Books searched for on MAM.</param>
 /// <param name="DryRun">Whether the run was a dry run, which selects and writes nothing.</param>
-public sealed record ListRunSummary(int Selected, int Failed, int Books = 0, int Searched = 0, bool DryRun = false)
+/// <param name="UnreadableLines">Lines of a list file that couldn't be read as a book.</param>
+public sealed record ListRunSummary(int Selected, int Failed, int Books = 0, int Searched = 0, bool DryRun = false, int UnreadableLines = 0)
 {
     /// <summary>The selections now waiting to be downloaded: none in a dry run.</summary>
     public int SelectedForDownload => DryRun ? 0 : Selected;
@@ -71,6 +72,7 @@ public sealed class ListImporter(
         var name = list.DisplayName;
         var grabberName = list.JobName;
         var books = await bookSource.GetBooksAsync(cancellationToken);
+        var unreadableLines = bookSource.UnreadableLines;
         if (_dryRun)
         {
             _logger.LogInformation("List {Name}: dry run, nothing will be selected or written", name);
@@ -96,7 +98,7 @@ public sealed class ListImporter(
             _logger.LogInformation(
                 "List {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
                 name, Books(books.Count), explanation);
-            return new ListRunSummary(0, 0, books.Count, 0, _dryRun);
+            return new ListRunSummary(0, 0, books.Count, 0, _dryRun, unreadableLines);
         }
 
         var selected = 0;
@@ -132,7 +134,7 @@ public sealed class ListImporter(
             "List {Name}: {Books}, {Searched} searched on MAM, {Selected} {Verb}{Failures}",
             name, Books(books.Count), searched, selected, _dryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
-        return new ListRunSummary(selected, failed, books.Count, searched, _dryRun);
+        return new ListRunSummary(selected, failed, books.Count, searched, _dryRun, unreadableLines);
     }
 
     private static string ErrorKey(ListItemEntity item) => ErrorLog.ListItemKey(item.ListId, item.ExternalId);

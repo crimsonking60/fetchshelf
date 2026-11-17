@@ -37,8 +37,8 @@
         ("/Errors/Index", "Errors"),
         ("/Duplicates/Index", "Duplicates"),
     ]);
-    // Only of use to those who follow Hardcover lists; the page itself stays reachable either way.
-    if (Settings.HardcoverList.Count > 0)
+    // Only of use to those who follow lists; the page itself stays reachable either way.
+    if (Settings.HardcoverList.Count > 0 || Settings.FileList.Count > 0)
     {
         navItems.Add(("/Lists/Index", "Lists"));
     }

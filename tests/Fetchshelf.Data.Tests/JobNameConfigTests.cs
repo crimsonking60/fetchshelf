@@ -42,7 +42,7 @@ public sealed class JobNameConfigTests : IDisposable
 
         Assert.Equal(
             "Invalid configuration: the [[autograb]] 'Bookmarks' and the [[autograb]] 'Bookmarks' have the same name; " +
-            "every autograb and Hardcover list needs its own.",
+            "every autograb and list needs its own.",
             message);
     }
 

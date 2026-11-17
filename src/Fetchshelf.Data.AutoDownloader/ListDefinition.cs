@@ -10,6 +10,9 @@ namespace Fetchshelf.Data.AutoDownloader;
 public interface IListBookSource
 {
     Task<IReadOnlyList<ListBook>> GetBooksAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>How many lines of the last read couldn't be read as a book; only a file has any.</summary>
+    int UnreadableLines => 0;
 }
 
 /// <summary>
@@ -43,9 +46,14 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
 
     public bool DryRun { get; init; }
 
-    /// <summary>Every configured list, Hardcover ones first, in the order the config file has them.</summary>
+    /// <summary>Where a file list's books are read from: its `path` as configured. Null for other lists.</summary>
+    public string? FilePath { get; init; }
+
+    /// <summary>Every configured list, Hardcover ones first, then files, each in the order the config file has them.</summary>
     public static IReadOnlyList<ListDefinition> AllOf(FetchshelfSettings settings) =>
-        settings.HardcoverList.Select((entry, i) => ForHardcover(entry, i)).ToList();
+        settings.HardcoverList.Select((entry, i) => ForHardcover(entry, i))
+            .Concat(settings.FileList.Select((entry, i) => ForFile(entry, i)))
+            .ToList();
 
     public static ListDefinition ForHardcover(HardcoverListEntry entry, int index) =>
         new(HardcoverListId(entry), HardcoverDisplayName(entry), "Hardcover", AutoDownloaderJobNames.HardcoverList(entry, index), ErrorStage.HardcoverList)
@@ -59,6 +67,27 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
             SearchInterval = entry.SearchInterval,
             DryRun = entry.DryRun,
         };
+
+    /// <summary>
+    /// A file list, under the id <c>file:</c> and its job name: a new file at the same name keeps the list's items, and
+    /// renaming the list starts a new one.
+    /// </summary>
+    public static ListDefinition ForFile(FileListEntry entry, int index)
+    {
+        var jobName = AutoDownloaderJobNames.FileList(entry, index);
+        return new ListDefinition($"file:{jobName}", jobName, "File", jobName, ErrorStage.FileList)
+        {
+            PreferFormat = entry.PreferFormat,
+            Category = entry.Category,
+            Grab = entry.Grab,
+            UnsatBuffer = entry.UnsatBuffer,
+            WedgeBuffer = entry.WedgeBuffer,
+            MaxActiveDownloads = entry.MaxActiveDownloads,
+            SearchInterval = entry.SearchInterval,
+            DryRun = entry.DryRun,
+            FilePath = entry.Path,
+        };
+    }
 
     /// <summary>A Hardcover list row's id: one per reading status or Hardcover list.</summary>
     public static string HardcoverListId(HardcoverListEntry entry) =>

@@ -21,7 +21,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
     [BindProperty(SupportsGet = true)]
     public string? Show { get; set; }
 
-    /// <summary>Also show books that are no longer on the list at Hardcover.</summary>
+    /// <summary>Also show books that are no longer on the list at its source.</summary>
     [BindProperty(SupportsGet = true)]
     public bool Removed { get; set; }
 
@@ -36,6 +36,12 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
     public string ListName { get; private set; } = string.Empty;
 
     public DateTimeOffset? UpdatedAt { get; private set; }
+
+    /// <summary>Whether the list's books come from a file rather than Hardcover.</summary>
+    public bool IsFile { get; private set; }
+
+    /// <summary>A configured file list's `path`.</summary>
+    public string? FilePath { get; private set; }
 
     public IReadOnlyList<ListItemViewModel> Items { get; private set; } = [];
 
@@ -59,6 +65,8 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         (ListId, ListName, UpdatedAt) = list is not null
             ? (list.Id, list.Name, list.UpdatedAt)
             : (id, configured!.DisplayName, (DateTimeOffset?)null);
+        IsFile = (list?.ListType ?? configured!.ListType) == "File";
+        FilePath = configured?.FilePath;
         PageSize = PageSizeCookie.Apply(HttpContext, "lists", PageSize);
 
         var entities = await dbContext.ListItems.AsNoTracking().Where(i => i.ListId == id).ToListAsync();

@@ -60,4 +60,15 @@ public sealed class ExampleConfigTests
         Assert.NotNull(settings.WebUrl);
         Assert.NotNull(settings.Backup);
     }
+
+    [Fact]
+    public void ExampleListFile_ReadsEveryBook()
+    {
+        var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), "5-everything.toml"));
+
+        var contents = Core.Lists.ListFileReader.Read(File.ReadAllText(Assert.Single(settings.FileList).FullPath));
+
+        Assert.Equal(4, contents.Books.Count);
+        Assert.Empty(contents.Problems);
+    }
 }

@@ -132,3 +132,23 @@ could not be read", and the log names the line numbers. The file is read on ever
 - Reading a list from a URL.
 - Searching MAM by ISBN.
 - Writing back to the file (marking a book found).
+
+## As built
+
+- `ListBook` is in `Fetchshelf.Core/Lists/`, not `Fetchshelf.Data.AutoDownloader`, so the pure `ListFileReader`
+  in Core returns it too. It carries the book's ISBNs/ASINs (`Identifiers`), so a file's ISBN is also used to
+  match an upload carrying it, as a Hardcover book's are.
+- `HardcoverBookSource` stays as the singleton reader of Hardcover (it looks up the token's user once);
+  `HardcoverListSource` is the per-list `IListBookSource` over it, and `FileListSource` the file one.
+  `IListBookSource.UnreadableLines` carries a file's unreadable line count into `ListRunSummary`.
+- `ListDefinition` also carries `UnsatBuffer`, `WedgeBuffer`, `SearchInterval` and `FilePath`;
+  `ListDefinition.AllOf(settings)` gives every configured list, and drives the Lists pages, the block buffers
+  and the Account page's selection slots.
+- A `shelf` with no shelf column in the file is warned about when the file is read (in the log on each run,
+  and by `--check-config`), as the configuration is loaded without reading the file.
+- `--check-config` reports a missing or unreadable list file but still exits 0: Fetchshelf starts with it.
+- There is no root `example-config.toml`; the commented example is in `docs/config-examples/5-everything.toml`,
+  with `docs/config-examples/wanted-books.txt` next to it.
+- The Errors page shows a file list's book by its id ("Book id isbn:…" or "Book id title:…|…"). List ids can
+  hold spaces (`file:` and the name); book ids never do, so the error key is split at its last space.
+- Release notes are left for the release PR.

@@ -88,14 +88,32 @@ public static class JobOutcomes
         return new JobOutcome(DryRun(summary.DryRun, line), counts);
     }
 
-    public static JobOutcome List(ListRunSummary summary) => Finish(
-        DryRun(
-            summary.DryRun,
-            $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "
-                + (summary.DryRun ? "would have been selected" : "selected")),
-        summary.Failed,
-        "could not be searched for; see the Errors page",
-        new() { ["books"] = summary.Books, ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["failed"] = summary.Failed });
+    public static JobOutcome List(ListRunSummary summary)
+    {
+        var counts = new Dictionary<string, long>
+        {
+            ["books"] = summary.Books,
+            ["searched"] = summary.Searched,
+            ["selected"] = summary.Selected,
+            ["failed"] = summary.Failed,
+        };
+        var unreadable = string.Empty;
+        if (summary.UnreadableLines > 0)
+        {
+            // Lines of a list file: the log names them.
+            unreadable = $"; {Count(summary.UnreadableLines, "line", "lines")} of the file could not be read, see the log";
+            counts["unreadable_lines"] = summary.UnreadableLines;
+        }
+
+        return Finish(
+            DryRun(
+                summary.DryRun,
+                $"{Count(summary.Books, "book", "books")}, {summary.Searched} searched on MAM, {summary.Selected} "
+                    + (summary.DryRun ? "would have been selected" : "selected") + unreadable),
+            summary.Failed,
+            "could not be searched for; see the Errors page",
+            counts);
+    }
 
     public static JobOutcome Follow(FollowRunSummary summary) => Finish(
         DryRun(

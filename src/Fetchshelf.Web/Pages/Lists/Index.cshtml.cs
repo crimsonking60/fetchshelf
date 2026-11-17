@@ -8,10 +8,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Lists;
 
 /// <summary>One row on the Lists page.</summary>
-public sealed record ListSummaryViewModel(string Id, string Name, int Books, int Missing, DateTimeOffset? UpdatedAt);
+/// <param name="Source">Where the books come from: "Hardcover", or "File" and the file's path.</param>
+public sealed record ListSummaryViewModel(string Id, string Name, string Source, int Books, int Missing, DateTimeOffset? UpdatedAt);
 
 /// <summary>
-/// The Lists page: every configured `[[hardcover_list]]` with how many of its books still miss a format, plus any
+/// The Lists page: every configured `[[hardcover_list]]` and `[[file_list]]` with how many of its books still miss a format, plus any
 /// list in the database whose entry has been removed from the config, shown separately.
 /// </summary>
 public class IndexModel(FetchshelfDbContext dbContext, FetchshelfSettings settings) : PageModel
@@ -32,22 +33,22 @@ public class IndexModel(FetchshelfDbContext dbContext, FetchshelfSettings settin
             g => (Books: g.Count(), Missing: g.Count(i => i.MarkedDoneAt == null
                 && ((i.AllowAudio && !ListItemSideStatus.IsResolved(i.AudioStatus)) || (i.AllowEbook && !ListItemSideStatus.IsResolved(i.EbookStatus))))));
 
-        ListSummaryViewModel Summary(string id, string name)
+        ListSummaryViewModel Summary(string id, string name, string source)
         {
             var (books, missing) = counts.GetValueOrDefault(id);
-            return new ListSummaryViewModel(id, name, books, missing, stored.GetValueOrDefault(id)?.UpdatedAt);
+            return new ListSummaryViewModel(id, name, source, books, missing, stored.GetValueOrDefault(id)?.UpdatedAt);
         }
 
         var configured = ListDefinition.AllOf(settings);
         var configuredIds = configured.Select(l => l.ListId).ToHashSet(StringComparer.Ordinal);
         ConfiguredLists = configured
-            .Select(list => Summary(list.ListId, list.DisplayName))
+            .Select(list => Summary(list.ListId, list.DisplayName, list.FilePath is { } path ? $"{list.ListType} {path}" : list.ListType))
             .DistinctBy(l => l.Id)
             .ToList();
         InactiveLists = stored.Values
             .Where(l => !configuredIds.Contains(l.Id))
             .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(l => Summary(l.Id, l.Name))
+            .Select(l => Summary(l.Id, l.Name, l.ListType))
             .ToList();
     }
 }

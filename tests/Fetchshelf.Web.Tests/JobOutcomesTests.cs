@@ -131,6 +131,15 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void List_UnreadableLinesOfAFile_AreCountedInTheSummary()
+    {
+        var outcome = JobOutcomes.List(new ListRunSummary(1, 0, Books: 20, Searched: 12, UnreadableLines: 2));
+
+        Assert.Equal("20 books, 12 searched on MAM, 1 selected; 2 lines of the file could not be read, see the log", outcome.Summary);
+        Assert.Equal(2, outcome.Counts!["unreadable_lines"]);
+    }
+
+    [Fact]
     public void List_Selections_SaysHowManyWereSelected() =>
         Assert.Equal(
             "20 books, 12 searched on MAM, 5 selected",

@@ -106,6 +106,14 @@ public static class FetchshelfJobs
                 "Searches MAM for the books on a Hardcover shelf or list and queues them for download.");
         }
 
+        for (var i = 0; i < settings.FileList.Count; i++)
+        {
+            var entry = settings.FileList[i];
+            RegisterList(jobRegistry, scopeFactory, settings, ignoreTorrents, ListDefinition.ForFile(entry, i),
+                scope => new FileListSource(entry, scope.ServiceProvider.GetRequiredService<ILogger<FileListSource>>()),
+                "Searches MAM for the books in a list file and queues them for download.");
+        }
+
         if (settings.Follow is { } follow)
         {
             RegisterSelecting(jobRegistry, scopeFactory, settings, JobNames.Follow, follow.DryRun, async (scope, dryRun, ct) =>

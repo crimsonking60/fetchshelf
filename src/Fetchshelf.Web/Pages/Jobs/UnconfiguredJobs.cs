@@ -14,6 +14,7 @@ public static class UnconfiguredJobs
         {
             ("Audiobookshelf", settings.Audiobookshelf is not null),
             ("Autograb", settings.Autograb.Count > 0),
+            ("File list", settings.FileList.Count > 0),
             ("Hardcover list", settings.HardcoverList.Count > 0),
             ("Seeding", settings.Seeding is not null),
         };

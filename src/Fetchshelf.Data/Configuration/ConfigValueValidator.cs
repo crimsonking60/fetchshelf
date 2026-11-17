@@ -84,6 +84,14 @@ internal static partial class ConfigValueValidator
             CheckBlockBudgets(list.UnsatBuffer, list.WedgeBuffer, list.MaxActiveDownloads, label);
         }
 
+        for (var i = 0; i < settings.FileList.Count; i++)
+        {
+            var list = settings.FileList[i];
+            var label = Label("file_list", list.Name, i);
+            CheckInterval("search_interval", list.SearchInterval, label);
+            CheckBlockBudgets(list.UnsatBuffer, list.WedgeBuffer, list.MaxActiveDownloads, label);
+        }
+
         if (settings.Upgrade is { } upgrade)
         {
             const string label = "the [upgrade] section";
@@ -177,7 +185,7 @@ internal static partial class ConfigValueValidator
     }
 
     /// <summary>
-    /// Every <c>[[autograb]]</c> and <c>[[hardcover_list]]</c> becomes a job under its <c>name</c>, and its selections
+    /// Every <c>[[autograb]]</c>, <c>[[hardcover_list]]</c> and <c>[[file_list]]</c> becomes a job under its <c>name</c>, and its selections
     /// carry that name. So names must be unique among them, compared ignoring case,
     /// and must not be a built-in job's, the Search page's grabber name or of the form a block without a name gets.
     /// Library names must be unique too: <c>[opds] libraries</c> and the page filters refer to libraries by name.
@@ -186,6 +194,7 @@ internal static partial class ConfigValueValidator
     {
         var blocks = settings.Autograb.Select((entry, i) => (entry.Name, Label: Label("autograb", entry.Name, i), JobName: AutoDownloaderJobNames.Autograb(entry, i)))
             .Concat(settings.HardcoverList.Select((entry, i) => (entry.Name, Label: Label("hardcover_list", entry.Name, i), JobName: AutoDownloaderJobNames.HardcoverList(entry, i))))
+            .Concat(settings.FileList.Select((entry, i) => (entry.Name, Label: Label("file_list", entry.Name, i), JobName: AutoDownloaderJobNames.FileList(entry, i))))
             .ToList();
 
         var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -198,7 +207,7 @@ internal static partial class ConfigValueValidator
 
             if (seen.TryGetValue(jobName, out var earlier))
             {
-                throw Invalid($"{earlier} and {label} have the same name; every autograb and Hardcover list needs its own.");
+                throw Invalid($"{earlier} and {label} have the same name; every autograb and list needs its own.");
             }
 
             seen[jobName] = label;
@@ -306,11 +315,11 @@ internal static partial class ConfigValueValidator
         }
     }
 
-    [GeneratedRegex(@"^(autograb|hardcover_list)\[\d+\]$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(autograb|hardcover_list|file_list)\[\d+\]$", RegexOptions.IgnoreCase)]
     private static partial Regex GeneratedJobNamePattern();
 
     /// <summary>
-    /// Converts the filter of every <c>[[autograb]]</c> and <c>[[hardcover_list]]</c> grab block
+    /// Converts the filter of every <c>[[autograb]]</c>, <c>[[hardcover_list]]</c> and <c>[[file_list]]</c> grab block
     /// and <c>[[tag]]</c> rule as their jobs will, and checks its bounds. Runs after the top-level <c>languages</c> are
     /// handed down, so an inherited language is checked in each block it reaches.
     /// </summary>
@@ -327,6 +336,15 @@ internal static partial class ConfigValueValidator
             for (var g = 0; g < list.Grab.Count; g++)
             {
                 ValidateFilter(list.Grab[g], $"grab block {g + 1} of {Label("hardcover_list", list.Name, i)}");
+            }
+        }
+
+        for (var i = 0; i < settings.FileList.Count; i++)
+        {
+            var list = settings.FileList[i];
+            for (var g = 0; g < list.Grab.Count; g++)
+            {
+                ValidateFilter(list.Grab[g], $"grab block {g + 1} of {Label("file_list", list.Name, i)}");
             }
         }
 

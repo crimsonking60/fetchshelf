@@ -33,7 +33,7 @@ page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
 dry_job_buttons = true   # a Dry run button next to Run now for autograbs, Hardcover lists, Follow and Upgrade
 
-languages = ["English"] # the default 'languages' of every [[autograb]], [[hardcover_list.grab]] and [[follow.grab]] block
+languages = ["English"] # the default 'languages' of every [[autograb]], [[hardcover_list.grab]], [[file_list.grab]] and [[follow.grab]] block
                         # that doesn't set its own, and the Search page's starting language. Empty = any.
                         # Not used by [[tag]] rules.
 
@@ -257,6 +257,25 @@ list = "books-to-fetch"  # instead of status: the slug of one of your lists, fro
 
 [[hardcover_list.grab]]
 cost = "free"
+
+# =====================================================================================================
+# [[file_list]]: repeatable. Searches MAM for the books in a CSV or text file, such as a Goodreads or
+# StoryGraph export, like a [[hardcover_list]]. The file is read on every run; a missing file fails the
+# list's job until it is there.
+# =====================================================================================================
+[[file_list]]
+name = "Wanted books"
+path = "wanted-books.txt"  # relative to this file's folder; see wanted-books.txt next to this example
+# shelf = "to-read"        # for an export holding every shelf: keep only this one (Goodreads' Exclusive
+                           # Shelf, StoryGraph's Read Status)
+prefer_format = "ebook"
+search_interval = 360
+max_active_downloads = 5
+dry_run = false
+
+[[file_list.grab]]
+cost = "free"
+languages = ["English"]
 
 # =====================================================================================================
 # [follow]: optional. Lets series and authors be followed from the Series page, a torrent's page and the

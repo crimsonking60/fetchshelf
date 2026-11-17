@@ -93,6 +93,9 @@ public sealed class ListImporterTests : IDisposable
 
         public Task<ListRunSummary> RunAsync(HardcoverListEntry entry) =>
             createImporter(context).RunAsync(ListDefinition.ForHardcover(entry, 0), books, unsatBuffer: 0, ignoreTorrents: []);
+
+        public Task<ListRunSummary> RunAsync(ListDefinition list, IListBookSource source) =>
+            createImporter(context).RunAsync(list, source, unsatBuffer: 0, ignoreTorrents: []);
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
@@ -721,5 +724,57 @@ public sealed class ListImporterTests : IDisposable
         await Assert.ThrowsAsync<HardcoverAuthenticationException>(() => harness.RunAsync(Entry()));
 
         Assert.Empty(harness.Searches);
+    }
+
+    private FileListEntry FileEntry(string text)
+    {
+        var path = Path.Combine(_root, "wanted.csv");
+        File.WriteAllText(path, text);
+        return new FileListEntry { Name = "Goodreads", Path = "wanted.csv", FullPath = path, Grab = [AudioOnly()] };
+    }
+
+    [Fact]
+    public async Task RunAsync_FileList_StoresItsBooksAndSelects_LikeAHardcoverList()
+    {
+        var harness = CreateHarness(body => body.Contains("Dune", StringComparison.Ordinal) ? Results(Record(11, "Dune", "Frank Herbert")) : EmptyResultJson);
+        var entry = FileEntry("Title,Author,ISBN13\nDune,Frank Herbert,9780441172719\nHyperion,Dan Simmons,\n,Nobody,\n");
+
+        var summary = await harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry));
+
+        Assert.Equal((1, 2, 2, 1), (summary.Selected, summary.Books, summary.Searched, summary.UnreadableLines));
+        var list = Assert.Single(harness.Context.Lists);
+        Assert.Equal(("file:Goodreads", "Goodreads", "File"), (list.Id, list.Name, list.ListType));
+        var items = harness.Context.ListItems.AsNoTracking().OrderBy(i => i.Position).ToList();
+        Assert.Equal(["isbn:9780441172719", "title:hyperion|dansimmons"], items.Select(i => i.ExternalId));
+        Assert.Equal((ListItemSideStatus.Selected, 11L), (items[0].AudioStatus, items[0].AudioMamId!.Value));
+        Assert.Equal(ListItemSideStatus.NotFound, items[1].AudioStatus);
+        Assert.Null(items[0].CoverUrl);
+        Assert.Null(items[0].BookUrl);
+        Assert.Equal("Goodreads", Assert.Single(harness.Context.SelectedTorrents).GrabberName);
+    }
+
+    [Fact]
+    public async Task RunAsync_FileListBookFails_IsRecordedUnderTheFileListStage()
+    {
+        var harness = CreateHarness(_ => "not json");
+        var entry = FileEntry("Dune by Frank Herbert\n");
+
+        await harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry));
+
+        var error = Assert.Single(harness.Context.ErroredTorrents.AsNoTracking());
+        Assert.Equal((ErrorStage.FileList, "file:Goodreads title:dune|frankherbert"), (error.Stage, error.Key));
+    }
+
+    [Fact]
+    public async Task RunAsync_FileListWhoseFileIsMissing_FailsTheRun_WithoutAskingMam()
+    {
+        var harness = CreateHarness(_ => EmptyResultJson);
+        var entry = new FileListEntry { Path = "lists/gone.csv", FullPath = Path.Combine(_root, "lists", "gone.csv"), Grab = [AudioOnly()] };
+
+        var error = await Assert.ThrowsAsync<ListFileException>(() => harness.RunAsync(ListDefinition.ForFile(entry, 0), new FileListSource(entry)));
+
+        Assert.Equal("List file not found: lists/gone.csv", error.Message);
+        Assert.Empty(harness.Searches);
+        Assert.Empty(harness.Context.Lists);
     }
 }

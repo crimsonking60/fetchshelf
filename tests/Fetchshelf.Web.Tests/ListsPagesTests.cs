@@ -92,7 +92,7 @@ public class ListsPagesTests
         var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/Lists"));
 
         var configured = html[html.IndexOf("id=\"configured-lists\"", StringComparison.Ordinal)..html.IndexOf("id=\"inactive-lists\"", StringComparison.Ordinal)];
-        Assert.Matches(@"Wishlist</a></td>\s*<td>2</td>\s*<td>1</td>", configured);
+        Assert.Matches(@"Wishlist</a></td>\s*<td>Hardcover</td>\s*<td>2</td>\s*<td>1</td>", configured);
         Assert.Contains("Old list", html[html.IndexOf("id=\"inactive-lists\"", StringComparison.Ordinal)..]);
     }
 
@@ -247,5 +247,71 @@ public class ListsPagesTests
             new FormUrlEncodedContent(new Dictionary<string, string> { ["externalId"] = "1", ["__RequestVerificationToken"] = token }));
 
         Assert.Null((await ReadItemAsync(fixture, "1")).MissingSince);
+    }
+
+    private const string FileListToml = """
+        mam_id = ""
+
+        [[file_list]]
+        name = "Goodreads"
+        path = "lists/export.csv"
+
+        [[file_list.grab]]
+        """;
+
+    [Fact]
+    public async Task FileList_ShowsInTheMenu_AndOnTheListsPageWithItsFile()
+    {
+        using var fixture = new FetchshelfWebAppFixture(FileListToml);
+        var client = fixture.CreateClient();
+
+        var home = await client.GetStringAsync("/");
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Lists"));
+
+        Assert.Contains(">Lists</a>", home);
+        Assert.Matches(@"Goodreads</a></td>\s*<td>File lists/export.csv</td>\s*<td>0</td>", html);
+    }
+
+    [Fact]
+    public async Task FileList_Detail_ShowsItsBooksWithTheirStatuses()
+    {
+        using var fixture = new FetchshelfWebAppFixture(FileListToml);
+        const string fileListId = "file:Goodreads";
+        var found = Item("isbn:9780441172719", "Dune", listId: fileListId);
+        found.AudioStatus = ListItemSideStatus.NotFound;
+        found.EbookStatus = ListItemSideStatus.Wanted;
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            dbContext.Lists.Add(new ListEntity
+            {
+                Id = fileListId,
+                Name = "Goodreads",
+                ListType = "File",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+            dbContext.ListItems.Add(found);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync($"/Lists/Detail/{Uri.EscapeDataString(fileListId)}"));
+
+        Assert.Contains("the books in this list file", html);
+        Assert.Contains("File: <code>lists/export.csv</code>", html);
+        Assert.Contains("Last read from the file", html);
+        Assert.Contains("Not found on MAM", html);
+        Assert.Contains("costs more than the list's grab blocks allow", html);
+        Assert.DoesNotContain("On Hardcover", html);
+    }
+
+    [Fact]
+    public async Task FileList_NotReadYet_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(FileListToml);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync($"/Lists/Detail/{Uri.EscapeDataString("file:Goodreads")}"));
+
+        Assert.Contains("Fetchshelf has not read this list from its file yet.", html);
     }
 }

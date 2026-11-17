@@ -56,4 +56,31 @@ public class AutoDownloaderJobRegistrationTests
         Assert.NotNull(fixture.JobRegistry.Get("Want to Read"));
         Assert.NotNull(fixture.JobRegistry.Get("hardcover_list[1]"));
     }
+
+    [Fact]
+    public async Task HomePage_WithFileListsConfigured_RegistersAJobForEach_WithADryRun()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = "test-mam-id"
+
+            [[file_list]]
+            name = "Goodreads"
+            path = "goodreads.csv"
+
+            [[file_list.grab]]
+
+            [[file_list]]
+            path = "wanted.txt"
+            dry_run = true
+
+            [[file_list.grab]]
+            """);
+        var client = fixture.CreateClient();
+        await client.GetAsync("/");
+
+        Assert.NotNull(fixture.JobRegistry.Get("Goodreads")?.DryRunAsync);
+        var configuredDryRun = fixture.JobRegistry.Get("file_list[1]");
+        Assert.NotNull(configuredDryRun);
+        Assert.Null(configuredDryRun.DryRunAsync);
+    }
 }

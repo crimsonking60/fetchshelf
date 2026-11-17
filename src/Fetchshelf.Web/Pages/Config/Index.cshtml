@@ -201,6 +201,38 @@
 </section>
 
 <section>
+    <h3>List files</h3>
+    @if (settings.FileList.Count == 0)
+    {
+        <p class="empty">No [[file_list]] entries configured.</p>
+    }
+    else
+    {
+        <table id="file-lists">
+            <thead><tr><th>Name</th><th>File</th><th>Shelf</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < settings.FileList.Count; i++)
+                {
+                    var entry = settings.FileList[i];
+                    <tr>
+                        <td>@AutoDownloaderJobNames.FileList(entry, i)</td>
+                        <td><code>@entry.Path</code></td>
+                        <td>@(entry.Shelf ?? "-")</td>
+                        <td>@(entry.PreferFormat?.ToString() ?? "-")</td>
+                        <td>@string.Join(", ", entry.Grab.Select(g => g.Cost))</td>
+                        <td>@entry.Category</td>
+                        <td>@Buffer(entry.UnsatBuffer, settings.UnsatBuffer)</td>
+                        <td>@Buffer(entry.WedgeBuffer, settings.WedgeBuffer)</td>
+                        <td>@Cap(entry.MaxActiveDownloads)</td>
+                        <td>@(entry.DryRun ? "yes" : "no")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section>
     <h3>Following</h3>
     @if (settings.Follow is not { } follow)
     {

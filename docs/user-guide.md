@@ -26,6 +26,7 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
 - [Books you want, from Hardcover](#books-you-want-from-hardcover)
+- [Books you want, from a file](#books-you-want-from-a-file)
 - [Completing series and following authors](#completing-series-and-following-authors)
 - [Protecting your account](#protecting-your-account)
 - [How finished downloads are organized](#how-finished-downloads-are-organized)
@@ -928,7 +929,7 @@ If most of what you want is in the same languages, set them once at the top of t
 block:
 
 ```toml
-languages = ["English"]          # the default for every autograb and Hardcover list grab block
+languages = ["English"]          # the default for every autograb and list grab block
 
 [[autograb]]
 name = "New ebooks"              # no languages here: English, from the top
@@ -993,7 +994,7 @@ blocks above.
 
 ### Trying a block out safely
 
-- **Dry run** on the **Jobs** page runs an autograb, a Hardcover list, Follow or Upgrade once as a dry run: the
+- **Dry run** on the **Jobs** page runs an autograb, a list, Follow or Upgrade once as a dry run: the
   whole search and selection, but nothing is selected, recorded or downloaded. To try out a new block:
 
   1. Add the block with `search_interval = 0`, so it doesn't run by itself yet, and restart Fetchshelf.
@@ -1096,6 +1097,57 @@ Use `dry_run = true` first to see in the log what a list would select. See
 Hardcover's API is still in beta, so Hardcover may change it or reset tokens without notice. If the job
 starts failing, see [A Hardcover list fails](#a-hardcover-list-fails).
 
+## Books you want, from a file
+
+A `[[file_list]]` reads the books you want from a file instead of Hardcover, and searches MAM for them in the
+same way. The file can be an export from Goodreads or StoryGraph, a spreadsheet saved as CSV, or a list typed by
+hand. It needs no account and no token.
+
+1. **Make the file.**
+   - **Goodreads:** open **My Books**, then **Import and export** under *Tools*, and choose **Export Library**.
+     The export holds every shelf; `shelf = "to-read"` keeps only *Want to Read*.
+   - **StoryGraph:** open your profile, then **Manage Account**, and choose **Export StoryGraph Library**. Its
+     `Read Status` column is matched by `shelf` the same way.
+   - **By hand:** one book per line, as `Title by Author`, `Title - Author` or just the title. Lines starting
+     with `#` are skipped:
+
+     ```text
+     # Books to find
+     The Left Hand of Darkness by Ursula K. Le Guin
+     Project Hail Mary - Andy Weir
+     Good Omens by Terry Pratchett & Neil Gaiman
+     ```
+
+     A spreadsheet works too: save it as CSV with a `Title` column, and `Author`, `Series` and `ISBN` columns
+     if you have them.
+2. **Put it next to `config.toml`**, in `/config` under Docker, or anywhere Fetchshelf can read it.
+3. **Add a `[[file_list]]`** with one or more `grab` blocks, as for a Hardcover list:
+
+   ```toml
+   [[file_list]]
+   name = "Goodreads"
+   path = "goodreads_library_export.csv"   # relative to the folder config.toml is in
+   shelf = "to-read"
+   prefer_format = "audio"
+
+   [[file_list.grab]]
+   cost = "free"
+   languages = ["English"]
+   ```
+
+4. **Restart Fetchshelf**, and check the log or the **Lists** page after the list's first run. Before
+   restarting, `--check-config` (see [Checking a configuration](configuration.md#checking-a-configuration))
+   says how many books it found in the file.
+
+The file is read again on every run, so a new export, or a line added by hand, is picked up on the next run
+without a restart: save the new export under the same name. Books are known by their ISBN, else by title and
+author, so what was found for them stays. A book taken out of the file is no longer searched for. A line that
+can't be read is left out; the run's result says how many, and the log names them.
+
+Matching works as for Hardcover lists, except that a file has no covers or links, and a book without its author
+is matched on the title alone, which finds the wrong book more often. Use `dry_run = true` first. See
+[`[[file_list]]`](configuration.md#file_list) for every setting.
+
 ## Completing series and following authors
 
 The **Series** page lists every series in the library: its authors, the books it has (*1–4, 6*), the books
@@ -1191,7 +1243,7 @@ Fetchshelf will not start a download that would break these limits.
 | `unsat_buffer` | `10` | Unsatisfied-snatch slots. MAM limits how many torrents you may have snatched but not yet fully seeded. Fetchshelf always leaves this many slots free. |
 | `wedge_buffer` | `0` | Freeleech wedges. Fetchshelf never uses a wedge that would leave you with fewer than this many, so you always keep at least this many for your own use. This also applies to **Wedge download** on the Search page. |
 
-Each autograb with a `name`, each `[[hardcover_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
+Each autograb with a `name`, each `[[hardcover_list]]` and `[[file_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
 `wedge_buffer` for what it selects. The values are checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
 apply to torrents already waiting on the **Selected** page.
 
@@ -1212,7 +1264,7 @@ next run.
 
 Other safeguards:
 
-- `max_active_downloads` caps, per autograb, Hardcover list, `[follow]` or `[upgrade]`, how many of its
+- `max_active_downloads` caps, per autograb, list, `[follow]` or `[upgrade]`, how many of its
   selections may wait to be downloaded.
 - `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
@@ -1455,7 +1507,7 @@ again and no longer marked replaced. If the better copy is still linked, the nex
 
 #### Finding better copies
 
-A better copy is found by any search: an autograb, a Hardcover list, the Follow job or the Search page. Such a
+A better copy is found by any search: an autograb, a list, the Follow job or the Search page. Such a
 download is logged as *selected as a better copy than the library's*. To look for better copies on purpose:
 
 - **Could be upgraded**, under *Problems* on the **Torrents** page, lists the linked books whose format isn't
@@ -1546,9 +1598,9 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
-| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
+| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
-| **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
+| **Lists** | The books on your Hardcover lists and list files, and what was found for each. Only in the menu when a `[[hardcover_list]]` or `[[file_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
 
 ### Account
@@ -1556,7 +1608,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 The numbers every safety rule works from, and what Fetchshelf works out from them. When nothing is being
 downloaded, the answer is usually here.
 
-The page shows what MAM said at its last read, with the time of that read. The autograb, Hardcover list
+The page shows what MAM said at its last read, with the time of that read. The autograb, list
 and Download jobs read the account on every run, so the page itself doesn't call MAM. **Refresh
 from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
 and then says which job it is, leaving the numbers as they were. Until something has read the account after
@@ -1576,8 +1628,8 @@ line below gives Fetchshelf's own estimate of which of its torrents those are (s
   downloaded − torrents started but not finished at a cost that spends ratio and without a wedge, which MAM
   doesn't count as downloaded yet. At 0, the ratio is at or below `min_ratio`, and only free torrents and
   `wedge` downloads start.
-- **Selection slots:** how many more torrents an autograb or Hardcover list may select: the unsatisfied-snatch
-  limit − those in use − `unsat_buffer`. An autograb, Hardcover list, Follow or Upgrade with its own
+- **Selection slots:** how many more torrents an autograb or list may select: the unsatisfied-snatch
+  limit − those in use − `unsat_buffer`. An autograb, list, Follow or Upgrade with its own
   `unsat_buffer` or `max_active_downloads` gets a line of its own.
 - **Wedges to spend:** wedges − `wedge_buffer`, and a line for each block with its own `wedge_buffer`.
 - **Queue:** how many torrents wait on the **Selected** page, and how many of them these numbers would let
@@ -1735,8 +1787,8 @@ updated while it keeps failing and disappears once the item succeeds. The jobs t
 - **Download**, **Link** and **Clean**, described below.
 - **Snatchlist**: a snatch list row that couldn't be imported, by MAM id, from before snatchlists were removed
   (see [`[[snatchlist]]` (removed)](configuration.md#snatchlist-removed)). Remove them once read.
-- **Hardcover list**: a book a list couldn't search MAM for, linking to its list. A refusal from MAM that
-  stops the whole run is a failing job instead, not an entry per book.
+- **Hardcover list** and **File list**: a book a list couldn't search MAM for, linking to its list. A refusal
+  from MAM that stops the whole run is a failing job instead, not an entry per book.
 - **Audiobookshelf**: a linked torrent that couldn't be matched to an Audiobookshelf item, such as one with no
   author or in a folder no Audiobookshelf library contains. A book Audiobookshelf hasn't scanned yet is not
   an error and gets no entry.
@@ -1768,15 +1820,15 @@ longer need and use **Remove selected**.
 
 ### Lists
 
-One row per `[[hardcover_list]]`: how many books it has, how many still miss a format, and when it was last
-read from Hardcover. Lists removed from the configuration are shown below, with what was found for them.
+One row per `[[hardcover_list]]` and `[[file_list]]`: where its books come from, how many it has, how many still
+miss a format, and when it was last read. Lists removed from the configuration are shown below, with what was found for them.
 
-A list's page shows its books in Hardcover's order. For each format the list looks for, it says what
+A list's page shows its books in the order of the list. For each format the list looks for, it says what
 Fetchshelf found: *In the library* (linked to the torrent), *Selected for download*, *Not found on MAM*,
 *On MAM, but it costs more than the list's grab blocks allow*, *Not wanted* (the list prefers the other
 format) or *Not searched for yet*. A book still missing a format says when it is next searched, and since when
 MAM has had nothing for it: such a book is searched daily for a week, then weekly. Every book has a **Search MAM**
-link, a link to the book on Hardcover, and **Mark done**, which stops Fetchshelf searching for it; **Undo done** takes
+link, for a Hardcover list a link to the book on Hardcover, and **Mark done**, which stops Fetchshelf searching for it; **Undo done** takes
 that back. A book still missing a format also has **Search again**, which has the list's next run search MAM for it
 whenever it was last searched. Show only the books missing a format with the dropdown, and tick **Include books no
 longer on the list** to see those too.
@@ -1784,7 +1836,7 @@ longer on the list** to see those too.
 ### Config
 
 Shows the Fetchshelf version and the settings in effect. For each autograb there is a **Run now** button that
-runs that block once. Each autograb, Hardcover list, `[follow]` and `[upgrade]` shows its own `unsat_buffer`,
+runs that block once. Each autograb, list, `[follow]` and `[upgrade]` shows its own `unsat_buffer`,
 `wedge_buffer` and `max_active_downloads` (as *Max waiting*), or what applies without them: *global* with the
 top-level value, and *no cap*. Each `[[tag]]` rule shows every condition of its filter under *Matches*: its categories, media
 types, languages, flags, sizes and so on, each part it sets on a line of its own. For each rule there is
@@ -1804,23 +1856,24 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
+| File list (one per `[[file_list]]`) | Reads the list file, then does what a Hardcover list does. | Same. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 | Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
 | Seeding | Estimates from qBittorrent's seeding time which torrents still need seeding (see [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)). | Every `[seeding]` `interval` minutes, hourly by default. |
 
-Autograb and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
-`hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
+Autograb and list jobs are named after the block's `name`, or `autograb[0]`,
+`hardcover_list[0]`, `file_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
 easy to read. Below the jobs, the page lists each kind of optional job you have not configured, such as
 *Hardcover list is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
-- **Dry run**, for autograbs, Hardcover lists, Follow and Upgrade, runs the job once without selecting or
+- **Dry run**, for autograbs, lists, Follow and Upgrade, runs the job once without selecting or
   writing anything (see [Trying a block out safely](#trying-a-block-out-safely)). `dry_job_buttons = false` hides
   these buttons.
-- **The history** of a job, opened from its name, lists its runs. Under a run of an autograb, a Hardcover list,
+- **The history** of a job, opened from its name, lists its runs. Under a run of an autograb, a list,
   Follow or Upgrade, its lines say what it selected, or would have in a dry run, and what it turned down, at most
   100 of them.
 - **Cancel** replaces **Run now** while a job runs, and stops it. It asks for no confirmation, because
@@ -1829,7 +1882,7 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   fetched, perhaps with a wedge, is added to qBittorrent first. If adding it hangs for more than five
   seconds after the cancel, it is given up, stays queued, and the log says whether a wedge may have been
   spent on it. The same applies when Fetchshelf stops. Link finishes placing the torrent it is on and keeps everything it linked.
-  Clean finishes retiring the copy it is on. Autograb and Hardcover list jobs stop between MAM
+  Clean finishes retiring the copy it is on. Autograb and list jobs stop between MAM
   requests, and Audiobookshelf between books. Cancelling a job doesn't cancel a job it started, such as
   the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled
   job runs again at its next interval. **Cancel** stops only the run it was shown for: if that run has
@@ -1842,7 +1895,7 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   that run ends. A failed job tries again at
   its next interval; while its runs keep failing, its row is shown in red with since when and how many runs
   in a row, and it is listed on the **Errors** page. One failing torrent never stops the others: the
-  Download, Link, Clean, Audiobookshelf and Hardcover list jobs then show *Finished with errors*
+  Download, Link, Clean, Audiobookshelf and list jobs then show *Finished with errors*
   with the number of torrents or books that failed, and each is listed on the **Errors** page, except a
   download that failed because MAM couldn't be reached, which stays queued for the next run.
 - With an empty `mam_id`, no job runs at all.
@@ -1860,7 +1913,7 @@ interval after its start counts instead, and a container that keeps restarting c
 often than its interval.
 
 A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
-MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb and Hardcover list in
+MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb and list in
 the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
 shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
 
@@ -2180,6 +2233,18 @@ The job's *last result* on the **Jobs** page, and the log, say why:
 
 When Hardcover can't be reached, the run fails before it asks MAM anything, so the other jobs carry on as
 usual.
+
+### A list file fails
+
+- *List file not found: …*: the file isn't where `path` says. A relative `path` is relative to the folder
+  `config.toml` is in; under Docker, that is `/config` inside the container, not the folder on the host.
+  `--check-config` shows the full path it looked for.
+- *List file could not be read: …*: usually a permission problem. The file must be readable by the user
+  Fetchshelf runs as (`PUID`/`PGID` under Docker).
+- *n lines of the file could not be read*: the log names each line and why: a row with no title, or a quote
+  that is never closed.
+- **No books, or too many:** check `shelf` against the shelf column's values. A file without a shelf column is
+  read whole, with a warning in the log.
 
 ### Getting more detail
 

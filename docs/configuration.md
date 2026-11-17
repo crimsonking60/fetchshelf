@@ -25,6 +25,7 @@ to `5-everything.toml`, which uses every option.
 - [`[[autograb]]`](#autograb)
 - [Cost](#cost)
 - [`[[hardcover_list]]`](#hardcover_list)
+- [`[[file_list]]`](#file_list)
 - [`[follow]`](#follow)
 - [`[upgrade]`](#upgrade)
 - [`[bonus]`](#bonus)
@@ -57,7 +58,7 @@ to `5-everything.toml`, which uses every option.
   section` for one without a `name`).
 - **Filter values are checked at startup too.** The names and values in every
   [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
-  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]` block and `[[tag]]`
+  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]` and `[[file_list.grab]]` block and `[[tag]]`
   rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
 - **Checking a file before restarting.** See [Checking a configuration](#checking-a-configuration).
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
@@ -103,8 +104,9 @@ This skips the image's start script, which would otherwise change the owner of t
 mounts the folder read-only. Pass the same `FETCHSHELF_CONF_...` variables (`-e` or `--env-file`) if the
 running container uses any, and mount whatever `mam_id_file` points to if it is outside `/config`.
 
-The summary lists the libraries and every job under the name and schedule the **Jobs** page shows. Secrets
-appear only as set or not set. The exit code is `0` when the configuration is good and `1` when it isn't, or when
+The summary lists the libraries and every job under the name and schedule the **Jobs** page shows, and for each
+[`[[file_list]]`](#file_list) whether its file is there and how many books it holds. Secrets appear only as set or
+not set. The exit code is `0` when the configuration is good and `1` when it isn't, or when
 there is no configuration file (which `--check-config` doesn't create).
 
 ## How the pieces fit together
@@ -598,6 +600,67 @@ What each run does:
 - The **Lists** page shows every book and what was found for each format, and lets you mark a book done so
   it is no longer searched for.
 - Selected torrents go to the **Selected** page and are downloaded by the Download job, as autograbs' are.
+
+## `[[file_list]]`
+
+Repeatable. Reads wanted books from a CSV or text file, such as a Goodreads or StoryGraph export or a list
+typed by hand, and searches MAM for each of them like a [`[[hardcover_list]]`](#hardcover_list). Needs no
+account or API.
+
+| Setting | Default | Description |
+|---|---|---|
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `file_list[0]`, `file_list[1]`, ... on the Jobs page. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
+| `path` | — | The list file. A relative path is relative to the folder `config.toml` is in, so under Docker a file next to it in `/config` is `path = "wanted.csv"`. |
+| `shelf` | unset | For an export that holds every shelf: keep only the rows on this shelf, compared ignoring case. Read from the `Exclusive Shelf` column of a Goodreads export, the `Read Status` column of a StoryGraph one, or a `Shelf` column. A file without such a column is read whole, with a warning in the log. |
+| `prefer_format` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `category` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `search_interval` | global `search_interval` | Minutes between runs. |
+| `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
+| `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
+| `max_active_downloads` | unset | Cap on torrents this list selected that are still waiting to be downloaded, at least 1. |
+| `dry_run` | `false` | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `grab` | (at least one) | Repeatable `[[file_list.grab]]` blocks, as for [`[[hardcover_list]]`](#hardcover_list). |
+
+```toml
+[[file_list]]
+name = "Goodreads to-read"
+path = "goodreads_library_export.csv"
+shelf = "to-read"
+prefer_format = "audio"
+
+[[file_list.grab]]
+cost = "free"
+languages = ["English"]
+```
+
+The file is read on every run, so changes to it are picked up without a restart. A file that isn't there
+when Fetchshelf starts is no error, as it may be put there later; until it is, the list's job fails with
+*List file not found*. `--check-config` says whether each list file is there and how many books it holds.
+
+What the file may hold, told apart by its content:
+
+- **A CSV file** whose first line names its columns, one of them `Title`, separated by commas or semicolons.
+  Columns are found by name, ignoring case, and the others are ignored:
+  - `Title` (required). A series written in the title as Goodreads writes it, `Dune (Dune, #1)`, is taken off
+    the title.
+  - `Author` plus `Additional Authors` (Goodreads), or `Authors` (StoryGraph, separated by commas). Several
+    authors in one `Author` cell are separated by `;` or `&`.
+  - `Series` and `Series Number` (or `Number`), when the file has them.
+  - `ISBN`, `ISBN13` or `ISBN/UID`: a MAM upload carrying the book's ISBN is the book, as for a Hardcover list.
+  - `Exclusive Shelf`, `Read Status` or `Shelf`: for `shelf`.
+- **A text file** with one book per line: `Title by Author`, `Title - Author`, or just the title. Blank lines
+  and lines starting with `#` are skipped. See
+  [`wanted-books.txt`](config-examples/wanted-books.txt).
+
+A book keeps its place on the **Lists** page however the file changes: it is known by its ISBN, else by its
+title and first author, so the file can be exported again or reordered. A book in the file twice is one book. A
+row that can't be read, with no title or a quote that is never closed, is left out: the run's result counts
+such lines and the log names them. A book taken out of the file is no longer searched for.
+
+Everything after reading the file is as for a [`[[hardcover_list]]`](#hardcover_list): the library is checked,
+MAM is searched with each `grab` block in turn, and a book still missing a format is searched for again a day
+later. The list is known by its `name`: renaming the file keeps the list's books and what was found for them,
+while renaming the list starts a new one.
 
 ## `[follow]`
 
@@ -1241,6 +1304,16 @@ status = "want_to_read"
 prefer_format = "audio"
 
 [[hardcover_list.grab]]
+cost = "free"
+languages = ["English"]
+
+# Search MAM for the books on the to-read shelf of a Goodreads export, kept next to config.toml.
+[[file_list]]
+name = "Goodreads"
+path = "goodreads_library_export.csv"
+shelf = "to-read"
+
+[[file_list.grab]]
 cost = "free"
 languages = ["English"]
 ```
