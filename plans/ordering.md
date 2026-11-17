@@ -1,10 +1,11 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-17, for the 22 plans in `plans/` (not `plans/done/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-17, for the 21 plans in `plans/` (not `plans/done/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
-`mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70) and `per-block-budgets.md` (PR #71) were built and
-moved to `plans/done/`. Three plans are new: `language-aware-books.md`, `series-layout-for-comics.md` and
-`collection-torrents.md`, the last of them parked. The order follows four rules:
+`mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71) and
+`link-and-tag-details.md` (PR #72) were built and moved to `plans/done/`. Three plans are new:
+`language-aware-books.md`, `series-layout-for-comics.md` and `collection-torrents.md`, the last of them parked. The
+order follows four rules:
 
 1. **Protect first.** Eight of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
@@ -42,10 +43,10 @@ Search page (PR #67), with the `MamPageGate` the bookmark toggle uses.
 Done: `hardcover-matching.md` (PR #70), the lost-selection fix, ISBN/ASIN matching and the back-off, which file lists
 inherit through the shared importer; and `per-block-budgets.md` (PR #71), buffers and caps for every grab block and
 `wedge` downloads outside the ratio budget. File lists get their buffers and cap by their job name, as Hardcover lists do.
+And `link-and-tag-details.md` (PR #72): the hardlink fallback only where a hardlink isn't possible, the Link job's
+backlog in its result, and a preview before a tag rule is applied.
 
-1. **`link-and-tag-details.md`** — the hardlink fallback hides the real error; the Link backlog is invisible; tag
-   rules apply without a preview.
-2. **`safe-folder-names.md`** — long names fail to link; shared and Windows-formatted disks get mangled names. Before
+1. **`safe-folder-names.md`** — long names fail to link; shared and Windows-formatted disks get mangled names. Before
    the language-aware folders, the series layout, the library check and the Windows build, which all build on the
    folder-name rules.
 
@@ -53,57 +54,57 @@ inherit through the shared importer; and `per-block-budgets.md` (PR #71), buffer
 
 ## Phase 3: seeing and protecting
 
-3. **`account-snapshots.md`** — small, and its history only starts on the day it ships, so the earlier the better.
-4. **`allowed-hosts-and-opds-login.md`** — small security hardening.
-5. **`seeding-obligations.md`** — shows which torrents are unsatisfied and holds `on_cleaned` back for them: the
+2. **`account-snapshots.md`** — small, and its history only starts on the day it ships, so the earlier the better.
+3. **`allowed-hosts-and-opds-login.md`** — small security hardening.
+4. **`seeding-obligations.md`** — shows which torrents are unsatisfied and holds `on_cleaned` back for them: the
     thing that keeps accounts out of hit-and-run trouble.
-6. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
+5. **`jobs-page-dry-run.md`** — makes every block that follows (file lists, bookmarks list, the Audiobookshelf
     series sync, the per-language Follow searches) easy to try without editing the config twice and restarting.
-7. **`email-notifications.md`** — small and self-contained.
+6. **`email-notifications.md`** — small and self-contained.
 
 **Release point.**
 
 ## Phase 4: growing the library
 
-8. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
-9. **`mam-bookmarks-list.md`** — needs the shared importer from step 8.
-10. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
-11. **`language-aware-books.md`** — after step 10, since both change the Follow job, and after `safe-folder-names.md`,
+7. **`file-based-lists.md`** — turns the Hardcover importer into the shared `ListImporter`.
+8. **`mam-bookmarks-list.md`** — needs the shared importer from step 7.
+9. **`follow-audiobookshelf-series.md`** — completes series that predate Fetchshelf.
+10. **`language-aware-books.md`** — after step 9, since both change the Follow job, and after `safe-folder-names.md`,
     whose template can then express `language_in_folder = "other"`, so only the clash rule is new. After
     `jobs-page-dry-run.md` too: the first searches after the upgrade can list many other-language finds, and a dry
     run from the Jobs page shows them first.
-12. **`search-bookmark-and-more-like-this.md`** — "more like this" always; the bookmark toggle if step 0 found the
+11. **`search-bookmark-and-more-like-this.md`** — "more like this" always; the bookmark toggle if step 0 found the
     endpoint. Takes MAM through `MamPageGate` (PR #67).
-13. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
+12. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
     the other blocks; before other download clients, which reuse its client names.
 
 **Release point.**
 
-14. **`series-layout-for-comics.md`** — after `safe-folder-names.md` (the series layout uses its name rules, and
-    refuses its `folder_template`) and `link-and-tag-details.md`, which change the same part of the Link job. Before
+13. **`series-layout-for-comics.md`** — after `safe-folder-names.md` (the series layout uses its name rules, and
+    refuses its `folder_template`), which changes the same part of the Link job. Before
     the covers, so they can be written in Komga's names in a series folder rather than as one `cover.jpg` per book
     folder, and before the library check, which has to compute series folders too. No migration.
-15. **`covers-from-mam.md`** — after `safe-folder-names.md`, `link-and-tag-details.md` and the series layout, which
-    change the same part of the Link job.
-16. **`statistics-and-metrics.md`** — after `allowed-hosts-and-opds-login.md` (`/metrics` follows `allowed_hosts`)
+14. **`covers-from-mam.md`** — after `safe-folder-names.md` and the series layout, which change the same part of the
+    Link job.
+15. **`statistics-and-metrics.md`** — after `allowed-hosts-and-opds-login.md` (`/metrics` follows `allowed_hosts`)
     and `account-snapshots.md` (the page links to the history).
-17. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
+16. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
 
 **Release point.**
 
 ## Phase 5: the large ones
 
-18. **`25-Library-check.md`** (#25) — after `safe-folder-names.md` and the series layout, since it compares folders
+17. **`25-Library-check.md`** (#25) — after `safe-folder-names.md` and the series layout, since it compares folders
     with the names the Link job would compute, templates and series folders included. Its open questions have
     proposed answers to confirm first.
-19. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
+18. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
     `safe-folder-names.md`. Its step 3 widens the hardlink fallback for Windows, while `link-and-tag-details.md`
-    narrowed it on Linux to the errors that mean "not possible here": the Windows errors join that list rather than
+    (PR #72) narrowed it on Linux to the errors that mean "not possible here": the Windows errors join that list rather than
     the fallback catching everything again.
-20. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
+19. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
     code and nobody has asked for it yet.
-21. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
+20. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
     after the rest; build only if the answer is yes.
 
 ## Parked
@@ -120,20 +121,20 @@ inherit through the shared importer; and `per-block-budgets.md` (PR #71), buffer
 |---|---|---|
 | `mam-bookmarks-list.md` | `file-based-lists.md` | |
 | `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` (if unparked) |
-| `5-Windows-version.md` | | `safe-folder-names.md`, `link-and-tag-details.md` |
-| `25-Library-check.md` | | `safe-folder-names.md`, `link-and-tag-details.md`, `series-layout-for-comics.md` |
+| `5-Windows-version.md` | | `safe-folder-names.md` |
+| `25-Library-check.md` | | `safe-folder-names.md`, `series-layout-for-comics.md` |
 | `download-client-and-save-path.md` | | `file-based-lists.md` |
 | `statistics-and-metrics.md` | | `allowed-hosts-and-opds-login.md`, `account-snapshots.md` |
-| `covers-from-mam.md` | | `safe-folder-names.md`, `link-and-tag-details.md`, `series-layout-for-comics.md` |
+| `covers-from-mam.md` | | `safe-folder-names.md`, `series-layout-for-comics.md` |
 | `language-aware-books.md` | | `safe-folder-names.md`, `follow-audiobookshelf-series.md`, `jobs-page-dry-run.md` |
-| `series-layout-for-comics.md` | | `safe-folder-names.md`, `link-and-tag-details.md` |
+| `series-layout-for-comics.md` | | `safe-folder-names.md` |
 | `collection-torrents.md` | | `series-layout-for-comics.md`, `language-aware-books.md` |
 
 ## Plans that touch the same code
 
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
-- **`LinkRunner`:** `link-and-tag-details.md`, `safe-folder-names.md`, `language-aware-books.md` (the clash rule),
+- **`LinkRunner`:** `safe-folder-names.md`, `language-aware-books.md` (the clash rule),
   `series-layout-for-comics.md`, `covers-from-mam.md`, the library check, `collection-torrents.md`.
 - **`FolderNameComputer` and `SyncMismatch`:** `safe-folder-names.md`, `language-aware-books.md`,
   `series-layout-for-comics.md`, the library check. A series library holding one series in two languages puts both
