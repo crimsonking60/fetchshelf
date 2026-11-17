@@ -1,3 +1,4 @@
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 
 namespace Fetchshelf.Data.Tests;
@@ -34,6 +35,9 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Null(library.EbookTypes);
         Assert.True(library.MetadataJson);
         Assert.False(library.MetadataOpf);
+        Assert.Equal(FileNameRules.Posix, library.FolderNames);
+        Assert.Null(library.FolderTemplate);
+        Assert.Same(FolderLayout.Default, library.Layout);
     }
 
     [Fact]
@@ -141,6 +145,8 @@ public sealed class LibraryConfigTests : IDisposable
             deny_tags = ["dnp"]
             audio_types = ["m4b"]
             ebook_types = ["epub"]
+            folder_names = "portable"
+            folder_template = "{authors}/{title}[ ({year})]"
             """);
 
         var settings = ConfigLoader.Load(ConfigPath);
@@ -154,6 +160,62 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Equal(["dnp"], library.DenyTags);
         Assert.Equal(["m4b"], library.AudioTypes);
         Assert.Equal(["epub"], library.EbookTypes);
+        Assert.Equal(FileNameRules.Portable, library.FolderNames);
+        Assert.Equal("{authors}/{title}[ ({year})]", library.Layout.Template);
+    }
+
+    [Theory]
+    [InlineData("name = \"Audio\"\n", "[[library]] 'Audio' has a folder_template that can't be used: it has no {title}")]
+    [InlineData("", "the [[library]] for '/library/audiobooks' has a folder_template that can't be used: it has no {title}")]
+    public void Load_FolderTemplateThatCantBeUsed_StopsStartup(string name, string expected)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            folder_template = "{"{"}author{"}"}"
+            {name}
+            """);
+
+        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains(expected, error.Message);
+    }
+
+    [Fact]
+    public void Load_UnknownFolderNames_StopsStartup()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            folder_names = "windows"
+            """);
+
+        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: 'windows' is not one of posix, portable.", error.Message);
+    }
+
+    [Fact]
+    public void Load_UnknownMethod_NamesTheMethods()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+            method = "bogus"
+            """);
+
+        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: 'bogus' is not one of hardlink, hardlink_or_copy, hardlink_or_symlink, copy, symlink, no_link.", error.Message);
     }
 
     [Fact]

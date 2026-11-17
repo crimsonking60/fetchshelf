@@ -38,6 +38,32 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Get_ConfigPage_ShowsEachLibrarysFolderNamesAndTemplate()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library/audiobooks"
+            category = "audiobooks"
+
+            [[library]]
+            library_dir = "/library/comics"
+            category = "comics"
+            folder_names = "portable"
+            folder_template = "{series}/{title}"
+            """);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/config");
+
+        Assert.Contains("<td>posix</td>", html);
+        Assert.Contains("<td>default</td>", html);
+        Assert.Contains("<td>portable</td>", html);
+        Assert.Contains("<td>{series}/{title}</td>", html);
+    }
+
+    [Fact]
     public async Task Get_ConfigPage_ListsHardcoverLists_ButNeverTheToken()
     {
         using var fixture = new FetchshelfWebAppFixture("""

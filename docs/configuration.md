@@ -826,6 +826,8 @@ library, in file order, that accepts it is used.
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
+| `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
+| `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
@@ -863,15 +865,16 @@ library, in file order, that accepts it is used.
 
 ### Folder naming
 
-Under `library_dir`, each part is sanitized into a valid file name:
+Under `library_dir`, each book gets its own folder. By default:
 
 - With series: `Author/Series/Series #<entries> - Title`.
 - Without series: `Author/Title`.
+- A series without a number gets its own folder, but no `Series # - ` before the title.
 - The author is the first author.
 - An edition adds `, <Edition>` to the last part.
 - Narrators add ` {<first narrator>}` to the last part, unless `exclude_narrator_in_library_dir` is `true`.
-  With that set, if the narrator-less folder already exists on disk, the narrator form is used to avoid a
-  collision.
+  With that set, if the narrator-less folder already exists on disk for another book, the narrator form is used to
+  avoid a collision.
 
 Examples:
 
@@ -881,11 +884,75 @@ Andy Weir/Project Hail Mary {Ray Porter}
 Terry Pratchett/Discworld/Discworld #1 - The Colour of Magic
 ```
 
+**Characters.** With `folder_names = "posix"`, the default, only `/` and NUL are removed, which is all Linux and macOS
+refuse. Names can then hold `:`, `?`, `"` and other characters Windows refuses, which show up mangled, or fail to be
+written, on an SMB share, an exFAT or NTFS disk, or when synced to Windows or Android. `folder_names = "portable"`
+avoids that:
+
+- A colon becomes ` -`: `Dune: Part One` is `Dune - Part One`.
+- `<`, `>`, `"`, `\`, `|`, `?`, `*` and control characters are removed.
+- Trailing dots and spaces are removed.
+- Names Windows reserves (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, also with an extension) get
+  a `_`: `CON_`.
+
+Under both, a name left with no characters at all is `_`, so the book doesn't move up a level.
+
+**Length.** Each folder name is at most 255 bytes, the most file systems allow. A longer one would fail to link. For
+the last part, the title is shortened and ends in `…`; the series number, the edition and the narrator stay, as they
+tell two copies apart. Other parts, and a last part too long even with the title gone, are cut at the end. The files
+inside the folder keep the torrent's own names.
+
+### Folder template
+
+`folder_template` sets the layout itself. `/` separates the folders, and these tokens are filled in from the book's
+metadata:
+
+| Token | Value |
+|---|---|
+| `{author}` | The first author. |
+| `{authors}` | All authors, joined with `, `. |
+| `{series}` | The series name: the first series with a number, otherwise the first series. |
+| `{series_number}` | The book's number in that series, as in the default layout: `1`, `1, 2`, `1-3`. |
+| `{title}` | The title. Required, so two books by the same author don't share a folder. |
+| `{edition}` | The edition, such as `2nd Edition`. |
+| `{narrator}` | The first narrator. Empty when `exclude_narrator_in_library_dir` leaves it out. |
+| `{language}` | The language, such as `English`. |
+| `{year}` | The year the torrent was uploaded to MAM, the only date the metadata has. |
+
+- A folder whose tokens are all empty is left out, the way a book without a series has no series folder.
+- Text in square brackets is an optional group, written only when every token in it has a value: `[, {edition}]`
+  adds `, 2nd Edition` for a book with an edition and nothing for one without. Groups can't be nested and can't hold
+  a `/`.
+- `{{`, `}}`, `[[` and `]]` are a literal brace or bracket.
+- Folder names from a template are cleaned and shortened the same way.
+
+The default layout written as a template:
+
+```toml
+folder_template = "{author}/{series}/[{series} #{series_number} - ]{title}[, {edition}][ {{{narrator}}}]"
+```
+
+A comics library ordered by series:
+
+```toml
+[[library]]
+library_dir = "/data/comics"
+category = "comics"
+folder_names = "portable"
+folder_template = "{series}/[{series_number} - ]{title} ({year})"
+```
+
+A template that can't be used stops startup with the reason: an unknown token, a `{` or `[` without its closing
+`}` or `]`, an empty folder (`a//b`), a leading `/`, or no `{title}`.
+
+### When folder names change
+
 When metadata or config changes so a linked book's expected folder differs from where it is, the UI flags
 it as a mismatch (*No library*, *Different library* or *Different folder*). **Refresh and relink** on the
 torrent's page, or **Relink selected** on the Torrents page, links the book again from its download into
-the library and folder it now belongs in. Changing `exclude_narrator_in_library_dir` alone does not count
-as a mismatch.
+the library and folder it now belongs in. Changing `folder_names`, `folder_template` or
+`exclude_narrator_in_library_dir` flags the books whose folder it changes as *Different folder* until they are
+relinked.
 
 ## `[[notify]]`
 

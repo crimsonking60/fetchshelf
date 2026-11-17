@@ -538,6 +538,65 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ExcludeNarrator_LinkedBookIsNotToldToMoveIntoTheNarratorFolder()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var options = new LinkRunnerOptions(ExcludeNarratorInLibraryDir: true);
+        var metadata = OrganizerTestSupport.BuildMetadata() with { Narrators = ["Michael Kramer"] };
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await new LinkRunner(context, new EventStore(context), new FakeMetadataLookup(metadata), [CreateLibrary(LibraryDir)], Formats, options)
+            .RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(Path.Combine(LibraryDir, "Brandon Sanderson", "The Way of Kings"), (await context.Torrents.SingleAsync()).LibraryPath);
+
+        await new LinkRunner(context, new EventStore(context), new FakeMetadataLookup(), [CreateLibrary(LibraryDir)], Formats, options)
+            .RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Null((await context.Torrents.SingleAsync()).LibraryMismatchState);
+    }
+
+    [Fact]
+    public async Task RunAsync_PortableLibrary_LinksIntoThePortableFolder()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var library = CreateLibrary(LibraryDir);
+        library.FolderNames = FileNameRules.Portable;
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata(title: "Dune: Part One?")), [library]);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        var saved = await context.Torrents.SingleAsync();
+        Assert.Equal(Path.Combine(LibraryDir, "Brandon Sanderson", "Dune - Part One"), saved.LibraryPath);
+        Assert.True(File.Exists(Path.Combine(saved.LibraryPath!, "book.m4b")));
+    }
+
+    [Fact]
+    public async Task RunAsync_FolderSettingChanged_FlagsTheLinkedBookDifferentFolder()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var lookup = new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata(title: "Dune: Part One"));
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await CreateRunner(context, lookup, [CreateLibrary(LibraryDir)]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Null((await context.Torrents.SingleAsync()).LibraryMismatchState);
+
+        var portable = CreateLibrary(LibraryDir);
+        portable.FolderNames = FileNameRules.Portable;
+        await CreateRunner(context, new FakeMetadataLookup(), [portable]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(nameof(LibraryMismatchState.NewPath), (await context.Torrents.SingleAsync()).LibraryMismatchState);
+
+        var templated = CreateLibrary(LibraryDir);
+        templated.Layout = FolderLayout.Parse("{title}");
+        await CreateRunner(context, new FakeMetadataLookup(), [templated]).RunAsync(new QBittorrentConnection(), client);
+        Assert.Equal(nameof(LibraryMismatchState.NewPath), (await context.Torrents.SingleAsync()).LibraryMismatchState);
+    }
+
+    [Fact]
     public async Task RefreshAsync_FieldChanged_RecordsUpdatedEventWithDiff()
     {
         WriteSourceFile("book.m4b");

@@ -1,3 +1,6 @@
+using Fetchshelf.Core.Organizer;
+using YamlDotNet.Serialization;
+
 namespace Fetchshelf.Data.Configuration;
 
 /// <summary>
@@ -25,6 +28,16 @@ public sealed class Library
 
     /// <summary>True when this library's own `method` was set, so the global `link_method` must not replace it.</summary>
     internal bool HasOwnMethod => _method is not null;
+
+    /// <summary>`folder_names`: which characters the book folders' names may hold.</summary>
+    public FileNameRules FolderNames { get; set; } = FileNameRules.Posix;
+
+    /// <summary>`folder_template`: the folder layout under <see cref="LibraryDir"/>. Unset keeps the default layout.</summary>
+    public string? FolderTemplate { get; set; }
+
+    /// <summary><see cref="FolderTemplate"/> parsed, read once when the configuration is loaded.</summary>
+    [YamlIgnore]
+    public FolderLayout Layout { get; set; } = FolderLayout.Default;
 
     public List<string> AllowTags { get; set; } = [];
 

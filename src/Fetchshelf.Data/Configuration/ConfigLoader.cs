@@ -18,6 +18,9 @@ public static class ConfigLoader
 
     private static readonly IYamlTypeConverter[] TypeConverters =
     [
+        // First: YamlDotNet puts each converter on top of those before it, so an enum with a converter of its own
+        // below keeps it.
+        new EnumYamlConverter(),
         new CategoryListOrBoolYamlConverter(),
         new AutograbTypeYamlConverter(),
         new ConfiguredCostYamlConverter(),
@@ -435,6 +438,19 @@ public static class ConfigLoader
             {
                 throw new ConfigurationException(
                     "Invalid configuration: a [[library]] section must specify one of 'category' or 'download_dir'.");
+            }
+
+            if (library.FolderTemplate is { } template)
+            {
+                try
+                {
+                    library.Layout = FolderLayout.Parse(template);
+                }
+                catch (FormatException ex)
+                {
+                    var which = library.Name is { } name ? $"[[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
+                    throw new ConfigurationException($"Invalid configuration: {which} has a folder_template that can't be used: {ex.Message}.", ex);
+                }
             }
         }
     }

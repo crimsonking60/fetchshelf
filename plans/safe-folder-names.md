@@ -56,20 +56,26 @@ nothing that worked.
 
 Tokens: `{author}` (first), `{authors}` (all, joined with `, `), `{series}`, `{series_number}` (the entries, as
 today: `1, 2`), `{title}`, `{edition}`, `{narrator}` (first), `{language}`, `{year}` (from the upload time, the only
-date the metadata has). `/` separates folders, and `{{` and `}}` are literal braces. A part whose tokens are all empty is left out, along with the
-separator text next to them, the way today's layout leaves out the series:
+date the metadata has). `/` separates folders. A folder whose tokens are all empty is left out, the way today's
+layout leaves out the series.
+
+Text in square brackets is an optional group, written only when every token in it has a value. `{{`, `}}`, `[[` and
+`]]` are literal braces and brackets:
 
 ```toml
-folder_template = "{author}/{series}/{series} #{series_number} - {title}, {edition} {{narrator}}"
+folder_template = "{author}/{series}/[{series} #{series_number} - ]{title}[, {edition}][ {{{narrator}}}]"
 ```
 
-is today's layout (the narrator in literal braces), and is the default the code uses when the setting is unset. Text between tokens that becomes
-dangling (`, ` before an empty `{edition}`, `#` before an empty number, `{}` around an empty `{narrator}`) is removed
-by a small rule: a literal segment is dropped when the token on either side of it within the same part is empty and
-the segment is made only of punctuation and spaces. The tests pin today's layout through the template exactly.
+is today's layout, and is the default the code uses when the setting is unset. The tests pin today's layout through
+the template exactly, and the default was compared with the old code on every book in a real database.
 
-Validation at load: unknown tokens, an unclosed `{`, an empty template, a template without `{title}` (two books
-would share a folder), and a leading `/` are refused.
+An earlier draft dropped "dangling" punctuation next to an empty token instead of using groups. That can't express
+today's layout: a series without a number keeps its series folder but has no `Series # - ` prefix, so
+`{series} #{series_number} - {title}` would have become `MistbornThe Way of Kings`. Groups say it directly.
+
+Validation at load: unknown tokens, an unclosed `{` or `[`, a stray `}` or `]`, nested groups, a group without a
+token or holding a `/`, an empty template or folder, a template without `{title}` (two books would share a folder),
+and a leading `/` are refused.
 
 `exclude_narrator_in_library_dir` keeps working: with it set, `{narrator}` is empty unless the narrator-less folder
 already exists, as today.

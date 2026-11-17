@@ -9,7 +9,8 @@ public class FolderNameComputerTests
         IReadOnlyList<Series>? series = null,
         Edition? edition = null,
         IReadOnlyList<string>? narrators = null,
-        string title = "The Way of Kings") => new()
+        string title = "The Way of Kings",
+        IReadOnlyList<string>? authors = null) => new()
         {
             MamId = 1,
             VipStatus = VipStatus.NotVip,
@@ -18,7 +19,7 @@ public class FolderNameComputerTests
             Language = Language.English,
             Title = title,
             Edition = edition,
-            Authors = ["Brandon Sanderson"],
+            Authors = authors ?? ["Brandon Sanderson"],
             Narrators = narrators ?? [],
             Series = series ?? [],
             MetadataSource = MetadataSource.Mam,
@@ -94,5 +95,64 @@ public class FolderNameComputerTests
             "/library", metadata, excludeNarratorInLibraryDir: true, path => path == narratorlessPath);
 
         Assert.Equal(Path.Combine("/library", "Brandon Sanderson", "The Way of Kings {Michael Kramer}"), result);
+    }
+
+    [Fact]
+    public void Compute_NameLongerThanTheFileSystemAllows_ShortensTheTitle()
+    {
+        // A real title whose folder name came to 257 bytes and failed to link.
+        var metadata = Build(
+            title: "Slavery: Not Forgiven, Never Forgotten – The Most Powerful Slave Narratives, Historical Documents & Influential "
+                + "Novels: The Underground Railroad, Memoirs of Frederick Douglass, 12 Years a Slave, Uncle Tom's Cabin, History of "
+                + "Abolitionism, Lynch Law, Civil",
+            authors: ["Mark Twain"]);
+
+        var result = FolderNameComputer.Compute("/library", metadata, excludeNarratorInLibraryDir: false, _ => false);
+
+        var name = Path.GetFileName(result);
+        Assert.Equal(
+            "Slavery: Not Forgiven, Never Forgotten – The Most Powerful Slave Narratives, Historical Documents & Influential "
+                + "Novels: The Underground Railroad, Memoirs of Frederick Douglass, 12 Years a Slave, Uncle Tom's Cabin, History of "
+                + "Abolitionism, Lynch Law…",
+            name);
+        Assert.Equal(Path.Combine("/library", "Mark Twain"), Path.GetDirectoryName(result));
+    }
+
+    [Fact]
+    public void Compute_Portable_ReplacesTheColon()
+    {
+        var metadata = Build(title: "Dune: Part One", narrators: ["Scott Brick"]);
+
+        var result = FolderNameComputer.Compute("/library", metadata, excludeNarratorInLibraryDir: false, _ => false, rules: FileNameRules.Portable);
+
+        Assert.Equal(Path.Combine("/library", "Brandon Sanderson", "Dune - Part One {Scott Brick}"), result);
+    }
+
+    [Fact]
+    public void Compute_Template_UsesItsLayout()
+    {
+        var metadata = Build(
+            series: [MakeSeries("Stormlight Archive", SeriesEntry.ForNumber(1, "1"))],
+            authors: ["Brandon Sanderson", "Someone Else"]);
+        var layout = FolderLayout.Parse("{authors}/[{series} {series_number} - ]{title} ({language}, {year})");
+
+        var result = FolderNameComputer.Compute("/library", metadata, excludeNarratorInLibraryDir: false, _ => false, layout);
+
+        Assert.Equal(
+            Path.Combine("/library", "Brandon Sanderson, Someone Else", $"Stormlight Archive 1 - The Way of Kings (English, {metadata.UploadTime.Year})"),
+            result);
+    }
+
+    [Fact]
+    public void Compute_TemplateWithExcludeNarrator_LeavesTheNarratorOutUnlessThatFolderExists()
+    {
+        var metadata = Build(narrators: ["Michael Kramer"]);
+        var layout = FolderLayout.Parse("{author}/{title}[ - {narrator}]");
+        var narratorless = Path.Combine("/library", "Brandon Sanderson", "The Way of Kings");
+
+        Assert.Equal(narratorless, FolderNameComputer.Compute("/library", metadata, excludeNarratorInLibraryDir: true, _ => false, layout));
+        Assert.Equal(
+            Path.Combine("/library", "Brandon Sanderson", "The Way of Kings - Michael Kramer"),
+            FolderNameComputer.Compute("/library", metadata, excludeNarratorInLibraryDir: true, path => path == narratorless, layout));
     }
 }
