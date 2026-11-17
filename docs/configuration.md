@@ -162,6 +162,7 @@ These go at the top of the file, before any section.
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on, 1 to 65535. |
 | `web_url` | unset | The address Fetchshelf's web UI answers at, such as `"https://fetchshelf.example.net"`: the address [`[[notify]]`](#notify) messages link to. Without it, messages carry no links. |
+| `allowed_hosts` | `[]` | The host names Fetchshelf answers to, without a scheme, port or path, such as `["fetchshelf.lan", "books.example.org"]`. `*.example.org` allows its subdomains. Empty answers to any name. When set, `localhost`, `127.0.0.1`, `[::1]` and the address the container's health check uses are allowed too, and a request for any other name gets HTTP 400. See [Security and privacy](user-guide.md#security-and-privacy). |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
 | `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per block: a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`. |
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per block, as `unsat_buffer`. |
@@ -301,6 +302,9 @@ nothing; an empty `[opds]` serves the ebooks in every library. Audiobooks are ne
 | Setting | Default | Description |
 |---|---|---|
 | `libraries` | `[]` | The `name`s of the `[[library]]` entries whose ebooks to serve. Empty serves the ebooks in every library; a library with only audiobooks has nothing to serve and doesn't appear in the catalog. |
+| `username` | unset | With `password`, the login readers must give. Unset serves the catalog without one. Can't contain `:`. |
+| `password` | unset | The login's password. A secret: the Config page hides it. |
+| `password_file` | unset | A file holding the password, read like [`mam_id_file`](#reading-mam_id-from-a-file): a full path, its trailing newline ignored. Setting both `password` and `password_file` is an error. |
 
 ```toml
 [opds]
@@ -312,10 +316,14 @@ libraries = ["Ebooks", "Comics"]
   companion PDF, are not served.
 - **Validation.** Every name in `libraries` must be the `name` of a `[[library]]`; an unknown name stops
   Fetchshelf from starting. Libraries without a `name` can only be served by leaving `libraries` empty.
-- **Environment.** `FETCHSHELF_CONF_opds_libraries` (comma-separated) sets `libraries`, and creates the
-  section if the file has none.
-- **No login,** like the rest of Fetchshelf. See
-  [Security and privacy](user-guide.md#security-and-privacy).
+- **Login.** With `username` and a password, every `/opds` address asks for them with HTTP Basic, which OPDS
+  readers support; a wrong or missing login gets HTTP 401. Only the catalog asks: the rest of Fetchshelf stays
+  without a login. Setting `username` without a password, or a password without `username`, stops Fetchshelf
+  from starting. A wrong login is logged with the address it came from, never with what was sent. HTTP Basic sends
+  the password readably, so outside your home network, reach the catalog over HTTPS through a reverse proxy.
+- **Environment.** `FETCHSHELF_CONF_opds_libraries` (comma-separated) sets `libraries`, and
+  `FETCHSHELF_CONF_opds_username`, `FETCHSHELF_CONF_opds_password` and `FETCHSHELF_CONF_opds_password_file` the
+  login. Each creates the section if the file has none.
 
 ## `[[qbittorrent]]`
 

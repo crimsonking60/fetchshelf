@@ -38,6 +38,12 @@ public static class FetchshelfApp
         var backupFolder = settings.Backup?.ResolveFolder(paths.DataFile);
 
         builder.WebHost.UseUrls(ListenAddress.Build(settings));
+        if (AllowedHosts.For(settings) is { } allowedHosts)
+        {
+            // ASP.NET Core's host filtering reads this, and answers any other Host with HTTP 400 before a page runs.
+            builder.Configuration["AllowedHosts"] = allowedHosts;
+        }
+
         builder.Services.AddSingleton(settings);
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services
@@ -64,9 +70,9 @@ public static class FetchshelfApp
            .WithStaticAssets();
         app.MapThemeEndpoint();
         app.MapHealthChecks("/health");
-        if (settings.Opds is not null)
+        if (settings.Opds is { } opds)
         {
-            app.MapOpdsEndpoints();
+            app.MapOpdsEndpoints(opds);
         }
 
         return new FetchshelfBuiltApp(app, settings, backupFolder);

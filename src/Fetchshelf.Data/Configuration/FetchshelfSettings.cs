@@ -143,6 +143,12 @@ public sealed class FetchshelfSettings
     /// </summary>
     public string? WebUrl { get; set; }
 
+    /// <summary>
+    /// `allowed_hosts`: the host names Fetchshelf answers to, such as <c>fetchshelf.lan</c>, which stops other web pages
+    /// using it through DNS rebinding. Empty answers to any host, as before.
+    /// </summary>
+    public List<string> AllowedHosts { get; set; } = [];
+
     /// <summary>False while `mam_id` is empty: then no background job is scheduled or run.</summary>
     public bool BackgroundJobsEnabled => !string.IsNullOrWhiteSpace(MamId);
 }

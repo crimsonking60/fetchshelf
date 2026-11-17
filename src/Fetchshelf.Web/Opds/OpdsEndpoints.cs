@@ -2,21 +2,27 @@ using System.Text;
 using System.Xml.Linq;
 using Fetchshelf.Core.Opds;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Opds;
 
 namespace Fetchshelf.Web.Opds;
 
 /// <summary>
-/// The OPDS catalog under `/opds`, mapped only when the configuration has an `[opds]` section. No login, like the
-/// rest of Fetchshelf: readers on a trusted network, or behind a reverse proxy that asks for credentials.
+/// The OPDS catalog under `/opds`, mapped only when the configuration has an `[opds]` section. With a `username` and
+/// `password` in `[opds]`, readers must log in (<see cref="OpdsLogin"/>); without, like the rest of Fetchshelf, it is for a
+/// trusted network, or behind a reverse proxy that asks for credentials.
 /// </summary>
 public static class OpdsEndpoints
 {
     public const int PageSize = 50;
 
-    public static void MapOpdsEndpoints(this IEndpointRouteBuilder endpoints)
+    public static void MapOpdsEndpoints(this IEndpointRouteBuilder endpoints, OpdsSettings settings)
     {
         var opds = endpoints.MapGroup("/opds");
+        if (settings.RequiresLogin)
+        {
+            opds.AddEndpointFilter(new OpdsLogin(settings, endpoints.ServiceProvider.GetRequiredService<ILogger<OpdsLogin>>()));
+        }
 
         MapViews(opds);
         MapViews(opds.MapGroup("/libraries/{index:int}"));

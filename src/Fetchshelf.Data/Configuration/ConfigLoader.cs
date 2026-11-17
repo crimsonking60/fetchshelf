@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Fetchshelf.Core.Organizer;
 using Tomlyn;
 using Tomlyn.Parsing;
@@ -12,7 +13,7 @@ namespace Fetchshelf.Data.Configuration;
 /// Loads and validates configuration from a TOML file, applying
 /// <c>FETCHSHELF_CONF_&lt;setting&gt;</c> environment-variable overrides.
 /// </summary>
-public static class ConfigLoader
+public static partial class ConfigLoader
 {
     private const string EnvironmentVariablePrefix = "FETCHSHELF_CONF_";
 
@@ -58,6 +59,10 @@ public static class ConfigLoader
         ["hardcover_token"] = (s, _, v) => (s.Hardcover ??= new()).Token = v,
         ["hardcover_token_file"] = (s, _, v) => (s.Hardcover ??= new()).TokenFile = v,
         ["opds_libraries"] = (s, _, v) => (s.Opds ??= new()).Libraries = SplitList(v),
+        ["opds_username"] = (s, _, v) => (s.Opds ??= new()).Username = v,
+        ["opds_password"] = (s, _, v) => (s.Opds ??= new()).Password = v,
+        ["opds_password_file"] = (s, _, v) => (s.Opds ??= new()).PasswordFile = v,
+        ["allowed_hosts"] = (s, _, v) => s.AllowedHosts = SplitList(v),
     };
 
     /// <summary>
@@ -84,6 +89,7 @@ public static class ConfigLoader
         ConfigValueValidator.ValidateNames(settings);
         ResolveMamIdFile(settings);
         ResolveHardcoverTokenFile(settings);
+        ResolveOpdsPasswordFile(settings);
         ResolveNotifyUrlFiles(settings);
         ApplyGlobalLibraryDefaults(settings);
         ApplyGlobalLanguages(settings);
@@ -95,6 +101,7 @@ public static class ConfigLoader
         ValidateFollow(settings);
         ValidateUpgrade(settings);
         ValidateOpds(settings);
+        ValidateAllowedHosts(settings);
         ValidateAudiobookshelf(settings);
         ConfigValueValidator.ValidateNotify(settings);
         return settings;
@@ -297,8 +304,8 @@ public static class ConfigLoader
         var lines = yaml.Split('\n');
         var index = (int)deepest.Start.Line - 1;
         var match = index >= 0 && index < lines.Length
-            ? System.Text.RegularExpressions.Regex.Match(lines[index], @"^\s*(?:-\s+)?([A-Za-z0-9_]+):")
-            : System.Text.RegularExpressions.Match.Empty;
+            ? Regex.Match(lines[index], @"^\s*(?:-\s+)?([A-Za-z0-9_]+):")
+            : Match.Empty;
         if (!match.Success)
         {
             return $"Invalid configuration: a setting has a value of the wrong type ({cast.Message}).";
@@ -379,6 +386,23 @@ public static class ConfigLoader
 
             entry.Url = ReadSecretFile("url_file", entry.UrlFile, "/run/secrets/notify_url");
         }
+    }
+
+    /// <summary>Reads the OPDS password from the file <c>password_file</c> names, if set, like <c>mam_id_file</c>.</summary>
+    private static void ResolveOpdsPasswordFile(FetchshelfSettings settings)
+    {
+        var path = settings.Opds?.PasswordFile;
+        if (settings.Opds is null || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(settings.Opds.Password))
+        {
+            throw new ConfigurationException("Invalid configuration: set either 'password' or 'password_file' in [opds], not both.");
+        }
+
+        settings.Opds.Password = ReadSecretFile("password_file", path, "/run/secrets/opds_password");
     }
 
     private static string ReadSecretFile(string setting, string path, string example)
@@ -583,6 +607,17 @@ public static class ConfigLoader
             return;
         }
 
+        if (string.IsNullOrEmpty(opds.Username) != string.IsNullOrEmpty(opds.Password))
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: [opds] needs both 'username' and 'password' (or 'password_file') for a login, or neither.");
+        }
+
+        if (opds.Username is { } username && username.Contains(':', StringComparison.Ordinal))
+        {
+            throw new ConfigurationException("Invalid configuration: [opds] 'username' can't contain ':', which HTTP Basic login uses as the separator.");
+        }
+
         var names = settings.Library.Select(library => library.Name).OfType<string>().ToHashSet(StringComparer.Ordinal);
         var unknown = opds.Libraries.FirstOrDefault(name => !names.Contains(name));
         if (unknown is not null)
@@ -591,6 +626,31 @@ public static class ConfigLoader
                 $"Invalid configuration: [opds] 'libraries' names '{unknown}', but no [[library]] has that name.");
         }
     }
+
+    /// <summary>
+    /// Each <c>allowed_hosts</c> entry is a host name or IP address, optionally starting with <c>*.</c> for its subdomains:
+    /// no scheme, port or path, which host filtering would never match.
+    /// </summary>
+    private static void ValidateAllowedHosts(FetchshelfSettings settings)
+    {
+        foreach (var entry in settings.AllowedHosts)
+        {
+            if (!AllowedHostPattern().IsMatch(entry))
+            {
+                var bare = AllowedHostBare().Match(entry) is { Success: true } match ? match.Groups["host"].Value : "fetchshelf.lan";
+                throw new ConfigurationException(
+                    $"Invalid configuration: allowed_hosts: write '{bare}', not '{entry}': a host name or IP address only, without a scheme, port or path.");
+            }
+        }
+    }
+
+    /// <summary>A host name (with an optional <c>*.</c> in front), an IPv4 address, or an IPv6 address in brackets.</summary>
+    [GeneratedRegex(@"^((\*\.)?[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\])$")]
+    private static partial Regex AllowedHostPattern();
+
+    /// <summary>The host part of an entry written as an address, for the error's suggestion.</summary>
+    [GeneratedRegex(@"^([A-Za-z][A-Za-z0-9+.-]*://)?(?<host>\[[^\]]+\]|[^:/?#\s]+)")]
+    private static partial Regex AllowedHostBare();
 
     private static void ValidateAudiobookshelf(FetchshelfSettings settings)
     {
