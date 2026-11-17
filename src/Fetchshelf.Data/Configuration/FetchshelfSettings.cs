@@ -107,9 +107,6 @@ public sealed class FetchshelfSettings
     /// <summary>Repeatable `[[tag]]` entries.</summary>
     public List<TagRuleEntry> Tag { get; set; } = [];
 
-    /// <summary>Repeatable `[[snatchlist]]` entries.</summary>
-    public List<SnatchlistEntry> Snatchlist { get; set; } = [];
-
     /// <summary>Optional `[search]` section.</summary>
     public SearchSettings Search { get; set; } = new();
 

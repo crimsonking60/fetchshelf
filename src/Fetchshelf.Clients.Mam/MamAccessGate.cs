@@ -2,7 +2,7 @@ namespace Fetchshelf.Clients.Mam;
 
 /// <summary>
 /// Ensures at most one job talks to MAM at a time. Register as a singleton; every job that calls MAM, such as an
-/// autograb or a snatchlist, acquires it around its MAM calls, naming itself so a page can say who holds it.
+/// autograb or a Hardcover list, acquires it around its MAM calls, naming itself so a page can say who holds it.
 /// </summary>
 public sealed class MamAccessGate
 {

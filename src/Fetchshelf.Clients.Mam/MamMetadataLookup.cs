@@ -7,7 +7,7 @@ namespace Fetchshelf.Clients.Mam;
 public sealed class MamMetadataLookup(MamClient client, MamAccessGate accessGate) : IMetadataLookup
 {
     /// <remarks>
-    /// The gate is taken per lookup rather than per Link run, so a long Link run lets an autograb or snatchlist job in
+    /// The gate is taken per lookup rather than per Link run, so a long Link run lets an autograb or list job in
     /// between its lookups instead of holding them off until it ends.
     /// </remarks>
     public async Task<TorrentMetadata?> TryLookupByInfoHashAsync(string infoHash, CancellationToken cancellationToken = default)

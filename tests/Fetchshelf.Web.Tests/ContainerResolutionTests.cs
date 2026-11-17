@@ -33,9 +33,6 @@ public sealed class ContainerResolutionTests
         name = "Bookmarks"
         type = "bookmarks"
 
-        [[snatchlist]]
-        type = "unsat"
-
         [hardcover]
         token = "hardcover-token"
 
@@ -80,7 +77,7 @@ public sealed class ContainerResolutionTests
     private static readonly Type[] Runners =
     [
         typeof(LinkRunner), typeof(Cleaner), typeof(ClientStatusChecker), typeof(DownloadProgressChecker), typeof(AbsMatcher),
-        typeof(SelectionRunner), typeof(AutograbberRunner), typeof(SnatchlistImporter), typeof(HardcoverListImporter),
+        typeof(SelectionRunner), typeof(AutograbberRunner), typeof(HardcoverListImporter),
         typeof(FollowRunner), typeof(FollowService), typeof(UpgradeRunner), typeof(BonusRunner), typeof(DownloadRunner),
         typeof(RetroactiveTagApplier),
     ];
@@ -147,7 +144,7 @@ public sealed class ContainerResolutionTests
         await fixture.CreateClient().GetAsync("/health");
 
         Assert.Equal(
-            ["Audiobookshelf", "Backup", "Bonus", "Bookmarks", "Clean", "Download", "Follow", "hardcover_list[0]", "Link", "snatchlist[0]", "Upgrade"],
+            ["Audiobookshelf", "Backup", "Bonus", "Bookmarks", "Clean", "Download", "Follow", "hardcover_list[0]", "Link", "Upgrade"],
             fixture.JobRegistry.GetAll().Select(job => job.Name).Order(StringComparer.OrdinalIgnoreCase));
     }
 }

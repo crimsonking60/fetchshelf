@@ -53,7 +53,6 @@ public sealed class ExampleConfigTests
         var settings = ConfigLoader.Load(Path.Combine(ExamplesDirectory(), "5-everything.toml"));
 
         Assert.NotEmpty(settings.Autograb);
-        Assert.NotEmpty(settings.Snatchlist);
         Assert.NotEmpty(settings.Tag);
         Assert.NotNull(settings.Audiobookshelf);
         Assert.NotNull(settings.Search.WedgeOver);

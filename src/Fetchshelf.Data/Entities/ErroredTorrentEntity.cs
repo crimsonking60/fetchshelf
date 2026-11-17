@@ -7,7 +7,10 @@ public enum ErrorStage
     Linker,
     Cleaner,
 
-    /// <summary>A snatch list row the snatchlist importer couldn't import; keyed by MAM id.</summary>
+    /// <summary>
+    /// A snatch list row the snatchlist importer couldn't import; keyed by MAM id. Snatchlists were removed, so none
+    /// are recorded any more; the value stays for the ones already stored, which the Errors page still shows.
+    /// </summary>
     Snatchlist,
 
     /// <summary>A book a Hardcover list couldn't search for; keyed by <see cref="ErrorLog.ListItemKey"/>.</summary>

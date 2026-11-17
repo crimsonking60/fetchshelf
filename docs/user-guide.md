@@ -25,7 +25,6 @@ and VIP are not explained here. It does not cover building Fetchshelf from sourc
 - [Reading on an e-reader (OPDS)](#reading-on-an-e-reader-opds)
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
-- [Snatchlists](#snatchlists)
 - [Books you want, from Hardcover](#books-you-want-from-hardcover)
 - [Completing series and following authors](#completing-series-and-following-authors)
 - [Protecting your account](#protecting-your-account)
@@ -754,7 +753,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   its own.
 - Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
-  finished yet), **Downloaded** (finished, or owned through a snatchlist, but not in your library) or
+  finished yet), **Downloaded** (finished, or recorded as owned, but not in your library) or
   **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
   **Linked**, its status checks again by itself, every 10 seconds for the first minute and then every
   30 seconds, so it moves on without a reload; it stops checking after about two hours. The download itself
@@ -828,7 +827,7 @@ makes selections wait for the next scheduled Download run. You can follow it on 
 Only one thing talks to MAM at a time (see [Background jobs](#background-jobs)). While a job is talking to
 MAM, a search, a **Download**, an **Import** or a result's details wait up to 10 seconds for it, then say which job
 is busy, such as *MAM is busy with Autograb Freeleech; try again in a moment.*, without asking MAM anything or
-downloading anything. **Try again** repeats it. An autograb or a snatchlist holds MAM for its whole run, which can
+downloading anything. **Try again** repeats it. An autograb holds MAM for its whole run, which can
 take a few minutes. A download from this page never runs at the same time as an automatic selection, so the
 same book can't be selected twice by the two at once.
 
@@ -891,9 +890,6 @@ results, because there are no more, or when it has selected as many torrents as 
 - **More pages look further back,** for example for a backfill. Each extra page is one more request to MAM
   on every run, so use as few as do the job. A block with many pages that you only need once is best
   run by hand with `search_interval = 0` (see [Trying a block out safely](#trying-a-block-out-safely)).
-
-`[[snatchlist]]` blocks have a `max_pages` of their own, with a default of 50. MAM decides how many rows a
-snatch list page holds, and has been seen sending 1000, so one page can already be your whole list.
 
 ### In what order: `sort_by`
 
@@ -1010,18 +1006,6 @@ blocks above.
 
 Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
-## Snatchlists
-
-A `[[snatchlist]]` reads one of your MAM snatch lists without downloading anything. With
-`cost = "metadata_only_add"` it records every torrent on the list as something you already own, which
-stops Fetchshelf downloading a book you got some other way. With the default, `metadata_only`, it only
-refreshes the details of torrents Fetchshelf already has. See
-[`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
-
-The first `metadata_only_add` run on a long list looks every torrent up on MAM once, so it can take a while.
-Later runs read the list and look up only what is new. Details you edited by hand on a torrent's page are
-kept; a snatchlist only updates their VIP status.
-
 ## Books you want, from Hardcover
 
 [Hardcover](https://hardcover.app) is a site for keeping track of what you read and want to read. A
@@ -1084,7 +1068,7 @@ Hardcover; it never changes anything there.
    Press **Run now** to try it straight away.
 
 On each run Fetchshelf reads the list from Hardcover and, for every book still missing a format, first
-checks your library (including books a snatchlist recorded), then searches MAM by title and author with
+checks your library (including books recorded as metadata only), then searches MAM by title and author with
 each `grab` block in turn. Each block only takes a torrent its `cost` accepts, so blocks like `free`, then
 `wedge`, then `ratio` try the cheapest way first. One block with the most you are willing to pay works as
 well: VIP and freeleech torrents are always downloaded for free, whatever the cost says. A result must match
@@ -1513,7 +1497,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
-| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, snatchlist, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
+| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, Hardcover list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and what was found for each. Only in the menu when a `[[hardcover_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
@@ -1523,8 +1507,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 The numbers every safety rule works from, and what Fetchshelf works out from them. When nothing is being
 downloaded, the answer is usually here.
 
-The page shows what MAM said at its last read, with the time of that read. The autograb, Hardcover list,
-snatchlist and Download jobs read the account on every run, so the page itself doesn't call MAM. **Refresh
+The page shows what MAM said at its last read, with the time of that read. The autograb, Hardcover list
+and Download jobs read the account on every run, so the page itself doesn't call MAM. **Refresh
 from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
 and then says which job it is, leaving the numbers as they were. Until something has read the account after
 a restart, the page only offers **Refresh from MAM**.
@@ -1649,7 +1633,7 @@ reported, so they cannot be chosen by hand.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
   (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
   such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
-  through link runs, snatchlists, **Refresh and relink**, and autograbs, lists and Follow coming across the
+  through link runs, **Refresh and relink**, and autograbs, lists and Follow coming across the
   torrent again; only **Refresh** replaces them with MAM's details, and on a hand-edited torrent it asks first.
   To apply an edit to the library folder, use **Refresh and relink**, which keeps it. What an edit changed is recorded on the
   **Events** page as an update *Edited by hand*.
@@ -1682,8 +1666,8 @@ book, the error and when it last failed. Every job tries a failed item again on 
 updated while it keeps failing and disappears once the item succeeds. The jobs that record entries:
 
 - **Download**, **Link** and **Clean**, described below.
-- **Snatchlist**: a snatch list row that couldn't be imported, by MAM id. It links to the torrent when
-  Fetchshelf has it.
+- **Snatchlist**: a snatch list row that couldn't be imported, by MAM id, from before snatchlists were removed
+  (see [`[[snatchlist]]` (removed)](configuration.md#snatchlist-removed)). Remove them once read.
 - **Hardcover list**: a book a list couldn't search MAM for, linking to its list. A refusal from MAM that
   stops the whole run is a failing job instead, not an entry per book.
 - **Audiobookshelf**: a linked torrent that couldn't be matched to an Audiobookshelf item, such as one with no
@@ -1750,7 +1734,6 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Job | What it does | Runs |
 |---|---|---|
 | Autograb (one per `[[autograb]]`) | Searches MAM and selects what qualifies. | Every `search_interval` minutes, or the block's own interval. |
-| Snatchlist (one per `[[snatchlist]]`) | Reads your snatch list, refreshes stored torrents and, with `metadata_only_add`, records the rest as owned books. | Same. |
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
 | Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a Hardcover list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
@@ -1758,10 +1741,10 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 | Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
 
-Autograb, snatchlist and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
-`snatchlist[1]`, `hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
+Autograb and Hardcover list jobs are named after the block's `name`, or `autograb[0]`,
+`hardcover_list[0]` and so on if it has none. Give your blocks names so the Jobs page is
 easy to read. Below the jobs, the page lists each kind of optional job you have not configured, such as
-*Snatchlist is not configured*.
+*Hardcover list is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - **Cancel** replaces **Run now** while a job runs, and stops it. It asks for no confirmation, because
@@ -1770,7 +1753,7 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   fetched, perhaps with a wedge, is added to qBittorrent first. If adding it hangs for more than five
   seconds after the cancel, it is given up, stays queued, and the log says whether a wedge may have been
   spent on it. The same applies when Fetchshelf stops. Link finishes placing the torrent it is on and keeps everything it linked.
-  Clean finishes retiring the copy it is on. Autograb, snatchlist and Hardcover list jobs stop between MAM
+  Clean finishes retiring the copy it is on. Autograb and Hardcover list jobs stop between MAM
   requests, and Audiobookshelf between books. Cancelling a job doesn't cancel a job it started, such as
   the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled
   job runs again at its next interval. **Cancel** stops only the run it was shown for: if that run has
@@ -1783,7 +1766,7 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   that run ends. A failed job tries again at
   its next interval; while its runs keep failing, its row is shown in red with since when and how many runs
   in a row, and it is listed on the **Errors** page. One failing torrent never stops the others: the
-  Download, Link, Clean, Audiobookshelf, snatchlist and Hardcover list jobs then show *Finished with errors*
+  Download, Link, Clean, Audiobookshelf and Hardcover list jobs then show *Finished with errors*
   with the number of torrents or books that failed, and each is listed on the **Errors** page, except a
   download that failed because MAM couldn't be reached, which stays queued for the next run.
 - With an empty `mam_id`, no job runs at all.
@@ -1801,7 +1784,7 @@ interval after its start counts instead, and a container that keeps restarting c
 often than its interval.
 
 A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
-MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb, snatchlist and Hardcover list in
+MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb and Hardcover list in
 the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
 shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
 
@@ -1986,7 +1969,7 @@ fix the ownership of the copied files.
   qBittorrent and Audiobookshelf (on your network). It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
-  names of your autograbs and snatchlists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
+  names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
   reply. At the `debug` level they also contain the titles of the torrents each job looks at, including
   every search result an autograb rejects; the default level, `information`, leaves those out, but a
   `dry_run` block logs its titles at any level. Error messages can name hosts, folders and files on your

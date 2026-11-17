@@ -8,9 +8,9 @@ public class IntervalSchedulerRegistrationTests
         link_interval = 10
         search_interval = 15
 
-        [[snatchlist]]
-        name = "my-snatchlist"
-        type = "seed_sat"
+        [[autograb]]
+        name = "my-autograb"
+        type = "bookmarks"
         search_interval = 20
         """;
 
@@ -23,6 +23,6 @@ public class IntervalSchedulerRegistrationTests
 
         Assert.NotNull(fixture.JobRegistry.Get("Link")!.NextScheduledRun);
         Assert.NotNull(fixture.JobRegistry.Get("Download")!.NextScheduledRun);
-        Assert.NotNull(fixture.JobRegistry.Get("my-snatchlist")!.NextScheduledRun);
+        Assert.NotNull(fixture.JobRegistry.Get("my-autograb")!.NextScheduledRun);
     }
 }

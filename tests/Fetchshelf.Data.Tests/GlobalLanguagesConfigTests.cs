@@ -85,19 +85,6 @@ public sealed class GlobalLanguagesConfigTests : IDisposable
     }
 
     [Fact]
-    public void Load_Snatchlists_DoNotInheritTheTopLevelLanguages()
-    {
-        var settings = Load("""
-            languages = ["English"]
-
-            [[snatchlist]]
-            type = "unsat"
-            """);
-
-        Assert.Null(Assert.Single(settings.Snatchlist).Languages);
-    }
-
-    [Fact]
     public void Load_NoTopLevelLanguages_LeavesAutograbsUnrestricted()
     {
         var settings = Load("""

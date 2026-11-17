@@ -1,7 +1,7 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// How details edited by hand survive fresh details from MAM: link runs, snatchlists, Refresh and relink, and an autograb,
+/// How details edited by hand survive fresh details from MAM: link runs, Refresh and relink, and an autograb,
 /// list, Follow or Search page download that comes across a torrent already in the library.
 /// </summary>
 public static class HandEdits

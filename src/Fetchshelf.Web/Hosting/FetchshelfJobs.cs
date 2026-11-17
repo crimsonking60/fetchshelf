@@ -93,18 +93,6 @@ public static class FetchshelfJobs
             }, "Searches MAM for new matches and queues them for download.");
         }
 
-        for (var i = 0; i < settings.Snatchlist.Count; i++)
-        {
-            var entry = settings.Snatchlist[i];
-            var jobName = AutoDownloaderJobNames.Snatchlist(entry, i);
-            jobRegistry.Register(jobName, async ct =>
-            {
-                using var scope = scopeFactory.CreateScope();
-                var importer = scope.ServiceProvider.GetRequiredService<SnatchlistImporter>();
-                return JobOutcomes.Snatchlist(await importer.RunAsync(entry, ct));
-            }, "Reads your MAM snatchlist to refresh stored torrents or record them as owned.");
-        }
-
         for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
             var entry = settings.HardcoverList[i];

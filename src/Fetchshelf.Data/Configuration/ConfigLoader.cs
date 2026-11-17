@@ -91,7 +91,6 @@ public static class ConfigLoader
         ValidateQBittorrentConnections(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
-        ValidateSnatchlists(settings);
         ValidateHardcover(settings);
         ValidateFollow(settings);
         ValidateUpgrade(settings);
@@ -144,8 +143,24 @@ public static class ConfigLoader
             throw new ConfigurationException($"Invalid configuration: {ex.Message}", ex);
         }
 
+        RejectRemovedSections(model);
         TomlTableShapeValidator.Validate(model, typeof(FetchshelfSettings), type => TypeConverters.Any(c => c.Accepts(type)));
         return new SerializerBuilder().Build().Serialize(model);
+    }
+
+    /// <summary>
+    /// Sections Fetchshelf had and removed, refused with why, rather than as an unknown setting. <c>[[snatchlist]]</c>
+    /// read MAM's snatch lists through an endpoint that isn't among the parts of MAM its API rules authorize automating.
+    /// </summary>
+    private static void RejectRemovedSections(Dictionary<object, object?> model)
+    {
+        if (model.ContainsKey("snatchlist"))
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: [[snatchlist]] has been removed, to conform to MAM's rules for automation: the snatch "
+                + "lists it read aren't among the parts of MAM its API documentation authorizes automating. Remove the "
+                + "[[snatchlist]] sections; the torrents they recorded are kept.");
+        }
     }
 
     /// <summary>
@@ -541,7 +556,7 @@ public static class ConfigLoader
     /// Checks the top-level <c>languages</c> and gives it to every <c>[[autograb]]</c>, <c>[[hardcover_list.grab]]</c>
     /// and <c>[[follow.grab]]</c> block that doesn't set its own. <c>[[tag]]</c> rules are left alone on purpose: they sort out what was selected,
     /// so a default language there would stop a rule matching a book a block explicitly allowed in another language.
-    /// <c>[[snatchlist]]</c> blocks don't take <c>languages</c> at all. Runs after environment overrides, so
+    /// Runs after environment overrides, so
     /// <c>FETCHSHELF_CONF_languages</c> reaches the blocks too.
     /// </summary>
     private static void ApplyGlobalLanguages(FetchshelfSettings settings)
@@ -558,30 +573,6 @@ public static class ConfigLoader
         foreach (var block in blocks.Where(block => block.Languages is null))
         {
             block.Languages = [.. settings.Languages];
-        }
-    }
-
-    private static void ValidateSnatchlists(FetchshelfSettings settings)
-    {
-        foreach (var snatchlist in settings.Snatchlist)
-        {
-            if (snatchlist.Cost is not (Core.AutoDownloader.ConfiguredCost.MetadataOnly or Core.AutoDownloader.ConfiguredCost.MetadataOnlyAdd))
-            {
-                throw new ConfigurationException(
-                    "Invalid configuration: a [[snatchlist]] section's 'cost' must be 'metadata_only' or 'metadata_only_add'.");
-            }
-
-            if (snatchlist.Languages is { Count: > 0 })
-            {
-                throw new ConfigurationException(
-                    "Invalid configuration: a [[snatchlist]] section must not set 'languages'.");
-            }
-
-            if (snatchlist.UploadedAfter is not null || snatchlist.UploadedBefore is not null)
-            {
-                throw new ConfigurationException(
-                    "Invalid configuration: a [[snatchlist]] section must not set 'uploaded_after' or 'uploaded_before'.");
-            }
         }
     }
 

@@ -22,7 +22,7 @@ public static class SelectedTorrentCosts
         [SelectedTorrentCost.Ratio, SelectedTorrentCost.TryWedge, SelectedTorrentCost.UseWedge];
 }
 
-/// <summary>The configured `cost` setting of an `[[autograb]]` or `[[snatchlist]]`.</summary>
+/// <summary>The configured `cost` setting of an `[[autograb]]` or a `grab` block.</summary>
 public enum ConfiguredCost
 {
     Free,
