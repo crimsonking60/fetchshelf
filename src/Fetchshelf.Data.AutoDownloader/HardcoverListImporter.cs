@@ -118,7 +118,7 @@ public sealed class HardcoverListImporter(
                 ErrorKey(item), item.BookTitle,
                 async () =>
                 {
-                    var outcome = await ProcessItemAsync(entry, name, grabberName, grabFilters, item, ignoreTorrents, cancellationToken);
+                    var outcome = await ProcessItemAsync(entry, name, grabberName, grabFilters, item, ignoreTorrents, (int)(budget - selected), cancellationToken);
                     selected += outcome.Selected;
                     searched += outcome.Searched ? 1 : 0;
                 },
@@ -305,9 +305,13 @@ public sealed class HardcoverListImporter(
         }
     }
 
+    /// <param name="budgetLeft">
+    /// The selections this run may still make. A book found in both formats may need two; with room for only one, the
+    /// second format is left for the next run, which searches the book again rather than going over the limit.
+    /// </param>
     private async Task<(int Selected, bool Searched)> ProcessItemAsync(
         HardcoverListEntry entry, string name, string grabberName, IReadOnlyList<TorrentFilter> grabFilters, ListItemEntity item,
-        IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken)
+        IReadOnlyList<long> ignoreTorrents, int budgetLeft, CancellationToken cancellationToken)
     {
         var needAudio = item.AllowAudio && !ListItemSideStatus.IsResolved(item.AudioStatus);
         var needEbook = item.AllowEbook && !ListItemSideStatus.IsResolved(item.EbookStatus);
@@ -419,14 +423,30 @@ public sealed class HardcoverListImporter(
         }
 
         var selected = 0;
+        var leftForNextRun = false;
         if (needAudio)
         {
             selected += await RecordSideAsync(entry, name, grabberName, item, FilterMainType.Audio, audioWinner, audioGrab, audioTooExpensive, ignoreTorrents, cancellationToken);
         }
 
-        if (needEbook)
+        if (needEbook && ebookWinner is not null && selected >= budgetLeft)
+        {
+            // The audiobook took the run's last selection: the ebook waits, and isn't recorded as not found.
+            leftForNextRun = true;
+            _logger.Log(
+                Detail(entry), "Hardcover list {Name}: \"{Title}\": the ebook is left for the next run, which has room to select it",
+                name, item.BookTitle);
+        }
+        else if (needEbook)
         {
             selected += await RecordSideAsync(entry, name, grabberName, item, FilterMainType.Ebook, ebookWinner, ebookGrab, ebookTooExpensive, ignoreTorrents, cancellationToken);
+        }
+
+        if (leftForNextRun)
+        {
+            // Not searched as far as the schedule goes, so the next run looks for the ebook again; it is on MAM.
+            item.MissingSince = null;
+            return (selected, true);
         }
 
         // Missing from MAM only when nothing turned up for any format looked for: a match too dear, or one left out for

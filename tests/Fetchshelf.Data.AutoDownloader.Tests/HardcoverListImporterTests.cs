@@ -584,6 +584,36 @@ public sealed class HardcoverListImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BookInBothFormats_WithRoomForOneSelection_LeavesTheEbookForTheNextRun()
+    {
+        // Found by verifying the cap on the live list: one book in both formats made two selections under a cap of one.
+        var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert"), Record(12, "Dune", "Frank Herbert", ebook: true)));
+        harness.Books.Books = [Book(1, "Dune")];
+        var entry = Entry();
+        entry.MaxActiveDownloads = 1;
+
+        var summary = await harness.RunAsync(entry);
+
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(11, Assert.Single(harness.Context.SelectedTorrents).MamId);
+        var item = Item(harness, 1);
+        Assert.Equal((ListItemSideStatus.Selected, (string?)null, (DateTimeOffset?)null), (item.AudioStatus, item.EbookStatus, item.LastSearchedAt));
+
+        // Still one waiting: the next run has no room, and searches nothing.
+        await harness.RunAsync(entry);
+        Assert.Single(harness.Searches);
+
+        // The audiobook started downloading, so the cap has room again: the ebook is selected without waiting a day.
+        var audiobook = await harness.Context.SelectedTorrents.SingleAsync();
+        audiobook.StartedAt = harness.Clock.Now;
+        await harness.Context.SaveChangesAsync();
+        harness.Clock.Now += TimeSpan.FromMinutes(30);
+        Assert.Equal(1, (await harness.RunAsync(entry)).Selected);
+        Assert.Equal([11L, 12L], harness.Context.SelectedTorrents.AsNoTracking().Select(t => t.MamId).Order());
+        Assert.Equal(ListItemSideStatus.Selected, Item(harness, 1).EbookStatus);
+    }
+
+    [Fact]
     public async Task RunAsync_SelectedBook_IsNeverSearchedAgain()
     {
         var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
