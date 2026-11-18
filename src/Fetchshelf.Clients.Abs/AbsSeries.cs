@@ -57,6 +57,10 @@ public sealed record AbsBookMetadata
     /// <summary>Every series the book is in, with its place: <c>"Saga #1"</c>, <c>"Saga #1, Other #2"</c>, or a name alone.</summary>
     [JsonPropertyName("seriesName")]
     public string? SeriesName { get; init; }
+
+    /// <summary>The language as entered in Audiobookshelf, such as "English"; free text, often empty.</summary>
+    [JsonPropertyName("language")]
+    public string? Language { get; init; }
 }
 
 /// <summary>A series of an Audiobookshelf library, with the books it has.</summary>
@@ -64,9 +68,9 @@ public sealed record AbsSeriesInfo(string Name, IReadOnlyList<AbsSeriesBook> Boo
 
 /// <summary>
 /// One book of a series in Audiobookshelf: its place in the series as written (<c>"3"</c>, <c>"1.5"</c>,
-/// <c>"2163-2212"</c>), null when it has none, and which formats Audiobookshelf has of it.
+/// <c>"2163-2212"</c>), null when it has none, which formats Audiobookshelf has of it, and its language as entered there.
 /// </summary>
-public sealed record AbsSeriesBook(string ItemId, string Title, string? Sequence, bool HasAudio, bool HasEbook);
+public sealed record AbsSeriesBook(string ItemId, string Title, string? Sequence, bool HasAudio, bool HasEbook, string? Language = null);
 
 /// <summary>Reads a book's place in one series out of Audiobookshelf's <c>seriesName</c>.</summary>
 public static class AbsSeriesSequence

@@ -25,7 +25,9 @@ public static class SeriesLayoutNamer
     /// <param name="metadata">The book.</param>
     /// <param name="rules">The characters the names may hold.</param>
     /// <param name="extension">The extension the file name gets, such as <c>.cbz</c>: the name leaves room for it.</param>
-    public static SeriesPlacement Compute(string libraryDir, string oneshotsDir, TorrentMetadata metadata, FileNameRules rules, string extension = "")
+    /// <param name="markLanguage">Whether the file name ends with the book's language (<see cref="FolderNameComputer.LanguageMark"/>).</param>
+    public static SeriesPlacement Compute(
+        string libraryDir, string oneshotsDir, TorrentMetadata metadata, FileNameRules rules, string extension = "", bool markLanguage = false)
     {
         var series = FolderNameComputer.SelectSeries(metadata.Series);
         var values = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -36,10 +38,11 @@ public static class SeriesLayoutNamer
             ["edition"] = metadata.Edition?.Label ?? string.Empty,
         };
         var reserve = Encoding.UTF8.GetByteCount(extension);
+        var mark = markLanguage ? FolderNameComputer.LanguageMark(metadata.Language) : string.Empty;
         var folder = series is null ? string.Empty : FolderLayout.RenderName(FolderTemplate, values, rules);
         return folder.Length == 0
-            ? new SeriesPlacement(Path.Combine(libraryDir, oneshotsDir), FolderLayout.RenderName(OneShotFileTemplate, values, rules, reserve), IsOneShot: true)
-            : new SeriesPlacement(Path.Combine(libraryDir, folder), FolderLayout.RenderName(FileTemplate, values, rules, reserve), IsOneShot: false);
+            ? new SeriesPlacement(Path.Combine(libraryDir, oneshotsDir), FolderLayout.RenderName(OneShotFileTemplate, values, rules, reserve, mark), IsOneShot: true)
+            : new SeriesPlacement(Path.Combine(libraryDir, folder), FolderLayout.RenderName(FileTemplate, values, rules, reserve, mark), IsOneShot: false);
     }
 
     /// <summary>

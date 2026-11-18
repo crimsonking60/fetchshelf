@@ -62,6 +62,9 @@ public sealed class Library
     /// <summary>True when `oneshots_dir` or `series_json` is set, which only a series library may.</summary>
     internal bool HasSeriesSettings => _oneshotsDir is not null || _seriesJson is not null;
 
+    /// <summary>`language_in_folder`: when a book's folder names its language, so two editions of a title stay apart.</summary>
+    public LanguageInFolder LanguageInFolder { get; set; } = LanguageInFolder.OnClash;
+
     /// <summary>True for a library with <c>layout = "series"</c>.</summary>
     [YamlIgnore]
     public bool IsSeriesLayout => Layout == LibraryLayout.Series;

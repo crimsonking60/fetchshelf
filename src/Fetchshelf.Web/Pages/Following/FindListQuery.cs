@@ -12,7 +12,8 @@ namespace Fetchshelf.Web.Pages.Following;
 /// <param name="Sort">"Found", "Title", "Size", "Book" or "Follow".</param>
 /// <param name="Dir">"asc" or "desc".</param>
 /// <param name="PageSize">Rows per page.</param>
-public sealed record FindListQuery(FindShow Show, string? Format, string Sort, string Dir, int PageSize)
+/// <param name="Language">A <c>Language</c> enum name; null for any language.</param>
+public sealed record FindListQuery(FindShow Show, string? Format, string Sort, string Dir, int PageSize, string? Language = null)
 {
     public const string DefaultSort = "Found";
 
@@ -35,6 +36,7 @@ public sealed record FindListQuery(FindShow Show, string? Format, string Sort, s
         {
             [nameof(Show)] = Show == FindShow.ToLookAt ? string.Empty : Show.ToString(),
             [nameof(Format)] = Format ?? string.Empty,
+            [nameof(Language)] = Language ?? string.Empty,
             [nameof(Sort)] = Sort,
             [nameof(Dir)] = Dir,
             [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture),
@@ -42,10 +44,10 @@ public sealed record FindListQuery(FindShow Show, string? Format, string Sort, s
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
-    /// <summary>Whether a filter is set: a format, or something other than what is to look at.</summary>
-    public bool HasFilters => Show != FindShow.ToLookAt || Format is not null;
+    /// <summary>Whether a filter is set: a format, a language, or something other than what is to look at.</summary>
+    public bool HasFilters => Show != FindShow.ToLookAt || Format is not null || Language is not null;
 
-    public FindListQuery WithoutFilters() => this with { Show = FindShow.ToLookAt, Format = null };
+    public FindListQuery WithoutFilters() => this with { Show = FindShow.ToLookAt, Format = null, Language = null };
 
     /// <summary>Sorted by the column: in its natural order first, reversed when already sorted that way.</summary>
     public FindListQuery SortedBy(string column) =>

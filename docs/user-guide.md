@@ -1252,7 +1252,8 @@ categories = { ebook = false }
 > entered by whoever uploaded it, so for a series this can be an omnibus or box set of several books, a
 > companion guide or something only loosely connected to it, and for an author an anthology with one story
 > of theirs, or an upload credited to them by mistake. Fetchshelf leaves out books you already have, but it
-> doesn't recognise a collection as made of books you own. Start a series or author on **Follow**, look at
+> doesn't recognise a collection as made of books you own. With blocks that take two languages, **Auto** downloads
+> both editions of every book the blocks accept. Start a series or author on **Follow**, look at
 > what is found, and switch to **Auto** once its finds look right; filters in the `[[follow.grab]]` blocks,
 > such as `max_authors` or `max_size`, can keep out the worst of it.
 
@@ -1287,7 +1288,9 @@ series or author first in line, starts the Follow job and waits for it, so the p
 found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done.
 
 What the library already has is never listed: the same torrent, another copy of the same book, or, for a
-series, an entry owned in that format. A collection counts for every book it holds, so with a *Discworld 1-40*
+series, an entry owned in that format and language. A book in two languages is two books: with `[[follow.grab]]`
+blocks that take English and Hungarian, both editions of a series' books are found, each on its own, and the lists get a
+**Language** column and filter when their finds are in more than one language. A collection counts for every book it holds, so with a *Discworld 1-40*
 ebook collection in the library none of the novels 1 to 40 is listed as an ebook, however many single uploads
 MAM has; one torrent is listed for each book and format, however many uploads it has. For each series or author
 searched, the log says how many torrents MAM returned, how many of them were already in the library or selected,
@@ -1442,6 +1445,7 @@ next scheduled run after it finishes. It needs the background jobs, so it doesn'
   | Not in a series | `Author/Title` |
   | With an edition | the above plus `, 2nd Edition` |
   | Audiobook with a narrator | the above plus ` {Narrator}` |
+  | The same title in another language already there | the above plus ` (Greek)` |
 
   For example `Brandon Sanderson/Stormlight Archive/Stormlight Archive #1 - The Way of Kings {Michael Kramer}`.
   Set `exclude_narrator_in_library_dir = true` to leave the narrator out. The author is the first author.
@@ -1449,12 +1453,17 @@ next scheduled run after it finishes. It needs the background jobs, so it doesn'
   When MAM gives no author but the title ends in "by" and a name, such as *Exploitation Film Posters by Graham
   Marsh*, that name is taken as the author and removed from the title. Only a name of two to four capitalized
   words counts, so titles like *Stand by Me* or *Murder by the Book* are left alone.
+
+  A book in two languages is two books. When an edition in another language already has the plain folder, such as
+  *Gamma* in English, the new one goes into `Gamma (Greek)`, so the two don't share a folder and Audiobookshelf sees
+  two books. `language_in_folder = "other"` on the library marks every book not in your first language instead,
+  whichever edition came first (see [languages in folder names](configuration.md#languages-in-folder-names)).
 - **Multi-disc audiobooks.** Files in sub-folders named like `CD 1`, `Disc 2` or `Disk 3` go into a
   `Disc N` folder. Other folder structure is flattened.
 - **Files with the same name.** When flattening would give two files of one torrent the same name (compared
   ignoring case), their sub-folder names go in front: `Part 1/01.mp3` and `Part 2/01.mp3` become
   `Part 1 - 01.mp3` and `Part 2 - 01.mp3`. When a different file of the same name is already in the book's folder,
-  such as another upload or another language of the same title, the new one is placed as `name (2).ext`. A file
+  such as another upload of the same book, the new one is placed as `name (2).ext`. A file
   of the same size already there counts as the same file and is left as it is.
 - **Interrupted copies.** A copy is written under a hidden temporary name and renamed when complete, so a copy
   cut off by a restart or a full disk never sits in the library looking complete.

@@ -96,6 +96,12 @@ public sealed class FollowFindEntity
     public string? SeriesDisplay { get; set; }
 
     /// <summary>"Audio" or "Ebook".</summary>
+    /// <summary>
+    /// The torrent's language (<c>Language</c> enum name): a book in two languages is two finds. Null for a find recorded
+    /// before languages were kept, until a search finds it again.
+    /// </summary>
+    public string? Language { get; set; }
+
     public required string MediaSide { get; set; }
 
     /// <summary>The torrent's size as MAM gave it when last found; null for finds recorded before sizes were kept.</summary>
@@ -137,6 +143,12 @@ public sealed class AudiobookshelfSeriesBookEntity
 
     /// <summary>"Audiobook" or "Ebook", as a torrent's media type is stored: the format Audiobookshelf has.</summary>
     public required string MediaType { get; set; }
+
+    /// <summary>
+    /// The book's language in Audiobookshelf (<c>Language</c> enum name); null when it has none Fetchshelf knows, and then
+    /// it counts as owned in every language.
+    /// </summary>
+    public string? Language { get; set; }
 
     public required DateTimeOffset SyncedAt { get; set; }
 }

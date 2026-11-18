@@ -35,25 +35,19 @@ public sealed class FolderLayout
     /// The folder names for a book, each cleaned by <paramref name="rules"/> and at most
     /// <see cref="FileNameCleaner.MaxComponentBytes"/> long. A folder too long with its title gets the title shortened,
     /// ending in <c>…</c>, so the series number, edition and narrator that tell copies apart stay; one too long without
-    /// it, or too long with no title left, is cut at the end.
+    /// it, or too long with no title left, is cut at the end. <paramref name="suffix"/>, such as a language mark
+    /// (<c> (Greek)</c>), ends the last folder name, and is kept when the title is shortened.
     /// </summary>
-    public IReadOnlyList<string> Render(IReadOnlyDictionary<string, string> values, FileNameRules rules)
+    public IReadOnlyList<string> Render(IReadOnlyDictionary<string, string> values, FileNameRules rules, string suffix = "")
     {
         string Value(string token) => values.TryGetValue(token, out var value) ? value : string.Empty;
 
-        var names = new List<string>();
-        foreach (var part in _parts)
-        {
-            var tokens = part.Segments.SelectMany(s => s.Tokens).ToList();
-            if (tokens.Count > 0 && tokens.All(t => Value(t).Length == 0))
-            {
-                continue;
-            }
-
-            names.Add(RenderPart(part, Value, rules, FileNameCleaner.MaxComponentBytes));
-        }
-
-        return names;
+        var parts = _parts
+            .Where(part => part.Segments.SelectMany(s => s.Tokens).ToList() is var tokens && (tokens.Count == 0 || tokens.Any(t => Value(t).Length > 0)))
+            .ToList();
+        return parts
+            .Select((part, i) => RenderPart(part, Value, rules, FileNameCleaner.MaxComponentBytes, i == parts.Count - 1 ? suffix : string.Empty))
+            .ToList();
     }
 
     /// <summary>
@@ -62,7 +56,8 @@ public sealed class FolderLayout
     /// file names. <paramref name="reserveBytes"/> are kept free of the limit, for an extension added after it.
     /// </summary>
     /// <exception cref="FormatException">The template can't be read, or holds a <c>/</c>.</exception>
-    public static string RenderName(string template, IReadOnlyDictionary<string, string> values, FileNameRules rules, int reserveBytes = 0)
+    public static string RenderName(
+        string template, IReadOnlyDictionary<string, string> values, FileNameRules rules, int reserveBytes = 0, string suffix = "")
     {
         var layout = ParseCore(template, requireTitle: false);
         if (layout._parts is not [var part])
@@ -70,12 +65,13 @@ public sealed class FolderLayout
             throw new FormatException("a name is one folder or file, so it can't hold a '/'");
         }
 
-        return RenderPart(part, token => values.TryGetValue(token, out var value) ? value : string.Empty, rules, FileNameCleaner.MaxComponentBytes - reserveBytes);
+        return RenderPart(
+            part, token => values.TryGetValue(token, out var value) ? value : string.Empty, rules, FileNameCleaner.MaxComponentBytes - reserveBytes, suffix);
     }
 
-    private static string RenderPart(Part part, Func<string, string> value, FileNameRules rules, int maxBytes)
+    private static string RenderPart(Part part, Func<string, string> value, FileNameRules rules, int maxBytes, string suffix)
     {
-        var full = part.Render(value);
+        var full = part.Render(value) + suffix;
         var over = OverLimit(full, rules, maxBytes);
         var title = value("title");
         if (over <= 0 || title.Length == 0 || !part.Segments.Any(s => s.Tokens.Contains("title")))
@@ -90,7 +86,7 @@ public sealed class FolderLayout
         while (shortest <= longest)
         {
             var keep = (shortest + longest) / 2;
-            var candidate = WithTitle(part, value, FileNameCleaner.CutToBytes(title, keep).TrimEnd().TrimEnd(CutPunctuation) + "…");
+            var candidate = WithTitle(part, value, FileNameCleaner.CutToBytes(title, keep).TrimEnd().TrimEnd(CutPunctuation) + "…") + suffix;
             if (OverLimit(candidate, rules, maxBytes) <= 0)
             {
                 best = candidate;

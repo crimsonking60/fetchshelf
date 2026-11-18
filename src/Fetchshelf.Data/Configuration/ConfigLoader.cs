@@ -527,6 +527,14 @@ public static partial class ConfigLoader
             }
 
             ValidateLayout(library);
+            if (library.LanguageInFolder == LanguageInFolder.Other && settings.Languages.Count == 0)
+            {
+                var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
+                throw new ConfigurationException(
+                    $"Invalid configuration: {which} has language_in_folder = \"other\", which marks books not in the first of the top-level "
+                    + "'languages', but no 'languages' is set.");
+            }
+
             if (library.FolderTemplate is { } template)
             {
                 try

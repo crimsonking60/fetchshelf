@@ -118,4 +118,19 @@ public sealed class SeriesLayoutConfigTests : IDisposable
 
         Assert.Contains("'comics' is not one of book, series", error.Message);
     }
+
+    [Fact]
+    public void Load_LanguageInFolder_IsOnClashByDefault() => Assert.Equal(LanguageInFolder.OnClash, Load("").LanguageInFolder);
+
+    [Fact]
+    public void Load_LanguageInFolderOther_IsRead_WithTopLevelLanguages() =>
+        Assert.Equal(LanguageInFolder.Other, Load("language_in_folder = \"other\"", topLevel: "languages = [\"English\"]").LanguageInFolder);
+
+    [Fact]
+    public void Load_LanguageInFolderOther_WithoutTopLevelLanguages_Throws()
+    {
+        var error = LoadFails("language_in_folder = \"other\"");
+
+        Assert.Contains("has language_in_folder = \"other\", which marks books not in the first of the top-level 'languages', but no 'languages' is set", error.Message);
+    }
 }

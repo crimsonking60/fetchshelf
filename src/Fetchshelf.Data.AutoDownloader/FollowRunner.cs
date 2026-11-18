@@ -228,7 +228,7 @@ public sealed class FollowRunner(
             var whose = kind == FollowKind.Series ? "in the series" : "by the author";
             var notTaken = Books - Taken;
             return $"{Results} torrents on MAM in {Pages} {(Pages == 1 ? "page" : "pages")}, {OfFollow} of them ebooks or audiobooks {whose}; {Owned} already in the library or selected; "
-                + $"the other {Left} are {Books} books (one torrent per book and format)"
+                + $"the other {Left} are {Books} books (one torrent per book, language and format)"
                 + (notTaken > 0 ? $", {notTaken} of them in no grab block's filter" : string.Empty)
                 + $". Of those, {Known} found before, {New} new to look at, {Selected} selected, {NotFree} not free"
                 + (NotSelected > 0 ? $", {NotSelected} not selected" : string.Empty);
@@ -258,13 +258,19 @@ public sealed class FollowRunner(
         var finds = await dbContext.FollowFinds.Where(f => f.FollowId == follow.Id).ToDictionaryAsync(f => f.MamId, cancellationToken);
 
         // Finds already listed are mostly left as they are below, so their sizes are brought up to date here, from every
-        // result: also those that are owned by now, or dismissed.
+        // result: also those that are owned by now, or dismissed. So is a missing language.
         foreach (var record in records)
         {
             if (finds.TryGetValue(record.MamId, out var listed) && SizeOf(record) is { } size)
             {
                 listed.SizeBytes = size;
             }
+        }
+
+        // A find recorded before languages were kept gets its language the first time a search sees it again.
+        foreach (var candidate in candidates.Where(c => finds.TryGetValue(c.Record.MamId, out var listed) && listed.Language is null))
+        {
+            finds[candidate.Record.MamId].Language = candidate.Metadata.Language.ToString();
         }
         candidates = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
 
@@ -382,6 +388,7 @@ public sealed class FollowRunner(
                 Title = candidate.Metadata.Title,
                 SeriesDisplay = candidate.SeriesDisplay,
                 MediaSide = candidate.Side.ToString(),
+                Language = candidate.Metadata.Language.ToString(),
                 SizeBytes = SizeOf(candidate.Record),
                 Status = status,
                 FoundAt = now,
@@ -393,6 +400,7 @@ public sealed class FollowRunner(
         }
 
         (find.Status, find.StatusAt) = (status, now);
+        find.Language ??= candidate.Metadata.Language.ToString();
     }
 
     /// <summary>
@@ -492,11 +500,13 @@ public sealed class FollowRunner(
             return null;
         }
 
+        // A book in two languages is two books: each language's edition is found, owned and decided on its own.
+        var language = metadata.Language + "|";
         var projection = TorrentProjection.From(metadata);
         if (follow.Kind == FollowKind.Author)
         {
             return projection.People.Any(p => p.Role == PersonRole.Author && p.NameKey == follow.NameKey)
-                ? new Candidate(record, metadata, side, "title:" + TitleNormalizer.Normalize(metadata.Title), null, null)
+                ? new Candidate(record, metadata, side, language + "title:" + TitleNormalizer.Normalize(metadata.Title), null, null)
                 : null;
         }
 
@@ -505,13 +515,13 @@ public sealed class FollowRunner(
             ? null
             : new Candidate(
                 record, metadata, side,
-                entry.Display is null ? "title:" + TitleNormalizer.Normalize(metadata.Title) : "entry:" + entry.Display,
+                language + (entry.Display is null ? "title:" + TitleNormalizer.Normalize(metadata.Title) : "entry:" + entry.Display),
                 entry.Display, entry.FirstNumber is { } number ? (double)number : null, entry.LastNumber is { } last ? (double)last : null);
     }
 
     /// <summary>
     /// Leaves out what the library or the selection queue has: the same MAM torrent, the same book (as selection judges
-    /// it), or, for a series, an entry already owned in that format. A find for such a torrent is marked owned or
+    /// it), or, for a series, an entry already owned in that format and language. A find for such a torrent is marked owned or
     /// selected, so the Following page stops offering it.
     /// </summary>
     private async Task<List<Candidate>> WithoutOwnedAsync(
@@ -530,13 +540,14 @@ public sealed class FollowRunner(
             .Select(t => (Key: t.NormalizedTitleKey, Metadata: TorrentMetadataSerializer.Deserialize(t.MetadataJson)))
             .ToList();
 
-        var ownedNumbers = new Dictionary<FilterMainType, (HashSet<int> Covered, HashSet<string> Displays)>();
+        // Per format and language: an entry owned in English doesn't make the Hungarian edition owned.
+        var ownedNumbers = new Dictionary<(FilterMainType, Language), (HashSet<int> Covered, HashSet<string> Displays)>();
         if (follow.Kind == FollowKind.Series)
         {
-            foreach (var side in new[] { FilterMainType.Audio, FilterMainType.Ebook })
+            foreach (var (side, language) in candidates.Select(c => (c.Side, c.Metadata.Language)).Distinct())
             {
-                var owned = await libraryQueries.OwnedEntriesAsync(follow.NameKey, side, cancellationToken);
-                ownedNumbers[side] = (
+                var owned = await libraryQueries.OwnedEntriesAsync(follow.NameKey, side, language, cancellationToken);
+                ownedNumbers[(side, language)] = (
                     SeriesGaps.Covered(owned.Where(e => e.FirstNumber is not null).Select(e => (e.FirstNumber!.Value, e.LastNumber ?? e.FirstNumber!.Value))),
                     owned.Select(e => e.Display).OfType<string>().ToHashSet(StringComparer.Ordinal));
             }
@@ -549,7 +560,7 @@ public sealed class FollowRunner(
             var titleKey = TitleNormalizer.Normalize(candidate.Metadata.Title);
             var owned = inLibrary.Contains(mamId)
                 || sameTitle.Any(t => t.Key == titleKey && SameBookComparer.AreSameBook(candidate.Metadata, t.Metadata))
-                || (ownedNumbers.TryGetValue(candidate.Side, out var numbers) && IsOwnedEntry(candidate, numbers.Covered, numbers.Displays));
+                || (ownedNumbers.TryGetValue((candidate.Side, candidate.Metadata.Language), out var numbers) && IsOwnedEntry(candidate, numbers.Covered, numbers.Displays));
             if (owned || queued.Contains(mamId))
             {
                 if (finds.TryGetValue(mamId, out var find) && find.Status is FollowFindStatus.New or FollowFindStatus.Wanted)

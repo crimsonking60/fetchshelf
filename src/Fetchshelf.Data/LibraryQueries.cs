@@ -108,11 +108,18 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     }
 
     /// <summary>The numbered entries of one series the library has as audiobooks, or as ebooks.</summary>
+    /// <param name="seriesNameKey">The series.</param>
+    /// <param name="side">The format.</param>
+    /// <param name="language">
+    /// Only entries owned in this language; an Audiobookshelf book with no language counts in every language. Null for
+    /// any language.
+    /// </param>
+    /// <param name="cancellationToken">Stops the query.</param>
     public async Task<IReadOnlyList<OwnedSeriesEntry>> OwnedEntriesAsync(
-        string seriesNameKey, FilterMainType side, CancellationToken cancellationToken = default)
+        string seriesNameKey, FilterMainType side, Language? language = null, CancellationToken cancellationToken = default)
     {
         var mediaTypes = MediaTypesOf(side);
-        var rows = await OwnedSeriesRowsAsync(seriesNameKey, mediaTypes, cancellationToken);
+        var rows = await OwnedSeriesRowsAsync(seriesNameKey, mediaTypes, language?.ToString(), cancellationToken);
         // Like SeriesAsync, a book without a number in the series is no entry.
         return rows
             .Where(r => r.Display is not null)
@@ -171,10 +178,15 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     /// (`[follow] audiobookshelf_series`), of one series and some media types when given.
     /// </summary>
     private async Task<List<SeriesRow>> OwnedSeriesRowsAsync(
-        string? nameKey = null, List<string>? mediaTypes = null, CancellationToken cancellationToken = default)
+        string? nameKey = null, List<string>? mediaTypes = null, string? language = null, CancellationToken cancellationToken = default)
     {
-        var rows = await OwnedSeriesRows(nameKey, mediaTypes).ToListAsync(cancellationToken);
+        var rows = await OwnedSeriesRows(nameKey, mediaTypes, language).ToListAsync(cancellationToken);
         var books = dbContext.AudiobookshelfSeriesBooks.AsQueryable();
+        if (language is not null)
+        {
+            books = books.Where(b => b.Language == null || b.Language == language);
+        }
+
         if (nameKey is not null)
         {
             books = books.Where(b => b.NameKey == nameKey);
@@ -192,13 +204,13 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
         return rows;
     }
 
-    /// <summary>The series rows of torrents not replaced, of one series and some media types when given.</summary>
-    private IQueryable<SeriesRow> OwnedSeriesRows(string? nameKey = null, List<string>? mediaTypes = null)
+    /// <summary>The series rows of torrents not replaced, of one series, some media types and a language when given.</summary>
+    private IQueryable<SeriesRow> OwnedSeriesRows(string? nameKey = null, List<string>? mediaTypes = null, string? language = null)
     {
         var rows =
             from series in dbContext.TorrentSeries
             join torrent in dbContext.Torrents on series.TorrentId equals torrent.Id
-            where torrent.ReplacedWithTorrentId == null
+            where torrent.ReplacedWithTorrentId == null && (language == null || torrent.Language == language)
             select new { series, torrent.MediaType };
         if (nameKey is not null)
         {

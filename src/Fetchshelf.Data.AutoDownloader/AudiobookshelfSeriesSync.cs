@@ -112,6 +112,7 @@ public sealed class AudiobookshelfSeriesSync(
             foreach (var book in one.Books.Where(b => !linked.Contains(b.ItemId)))
             {
                 var (display, first, last) = Entry(name, book.Sequence);
+                var language = book.Language is { } entered && LanguageNameResolver.TryResolve(entered, out var known) ? known.ToString() : null;
                 var mediaTypes = (book.HasAudio, book.HasEbook) switch
                 {
                     (true, false) => new[] { nameof(MediaType.Audiobook) },
@@ -128,6 +129,7 @@ public sealed class AudiobookshelfSeriesSync(
                     FirstNumber = first,
                     LastNumber = last,
                     MediaType = mediaType,
+                    Language = language,
                     SyncedAt = now,
                 }));
             }

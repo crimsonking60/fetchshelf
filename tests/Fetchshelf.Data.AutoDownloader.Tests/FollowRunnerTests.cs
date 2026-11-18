@@ -240,7 +240,7 @@ public sealed class FollowRunnerTests : IDisposable
 
         Assert.Contains(
             "Follow The Expanse: 8 torrents on MAM in 1 page, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
-            + "the other 3 are 2 books (one torrent per book and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
+            + "the other 3 are 2 books (one torrent per book, language and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
             logger.Messages(LogLevel.Information));
         Assert.Equal([5, 6], Finds(harness).Select(f => f.MamId));
     }

@@ -77,7 +77,8 @@ public sealed class AbsClient
             book.Media?.Metadata?.Title ?? string.Empty,
             AbsSeriesSequence.Of(book.Media?.Metadata?.SeriesName, series.Name),
             HasAudio: book.Media?.NumTracks > 0,
-            HasEbook: !string.IsNullOrEmpty(book.Media?.EbookFormat))).ToList());
+            HasEbook: !string.IsNullOrEmpty(book.Media?.EbookFormat),
+            string.IsNullOrWhiteSpace(book.Media?.Metadata?.Language) ? null : book.Media.Metadata.Language.Trim())).ToList());
 
     public async Task UpdateItemMetadataAsync(string itemId, TorrentMetadata metadata, CancellationToken cancellationToken = default)
     {
