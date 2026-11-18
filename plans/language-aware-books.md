@@ -172,3 +172,31 @@ A library holding one language only, which is how Audiobookshelf is usually set 
 Part 1 and the clash rule of part 2 go together: finding both editions without the clash rule would start merging
 folders. `"other"` can come in the same change or later. If `safe-folder-names.md` is built first, `"other"` can be
 expressed as part of its template handling, and only the clash rule is new here.
+
+## As built
+
+- **Part 1 as planned.**
+  - The book key includes the language, so grouping, `prefer_format` and the blocks' decisions are per language.
+  - `LibraryQueries.OwnedEntriesAsync` takes the language.
+  - `FollowFinds.Language` is written by `Record`. A find recorded before the migration gets its language the first
+    time a search sees it again, along with its size.
+  - The Following lists get a Language column and filter, shown only when the listed finds span more than one language.
+- **Audiobookshelf's books (PR #93) get a language.** The sync reads `metadata.language`, resolves it like a top-level
+  `languages` name, and stores it on `AudiobookshelfSeriesBooks.Language`. A book with none, or one Fetchshelf doesn't
+  know, counts as owned in every language: wrongly taking a book for owned only skips a download.
+- **Part 2: `language_in_folder` with `"on_clash"` (default) and `"other"`.** The plan's B and A, as recommended.
+  - The mark is ` (<Language>)` at the end of the book's folder, kept when the title is shortened to fit
+    (`FolderLayout.Render` takes a suffix).
+  - `"other"` needs a top-level `languages`, and is refused at load without one.
+  - The clash check is a database lookup made before files are placed. `SyncMismatch` uses the same rule, so neither
+    edition is flagged.
+  - Two editions an earlier version merged into one folder are both flagged; relinking one separates them. The live
+    library has two such folders (*Animal Farm*, *Piranesi*).
+- **Not quite expressible as a template.** The ordering note thought `folder_template` (PR #73) could express
+  `"other"`. `{language}` names every book's language, though, not just the books outside the first language, so
+  `"other"` stays a setting. It works with a `folder_template` too, as the mark ends the last folder.
+- **Series libraries (PR #92).** Every book of a series shares the series folder, so `"other"` marks the file name
+  (`Saga #001 - Saga, Volume 1 (Hungarian).cbz`). A clash there keeps the existing `name (2).ext`.
+- **Unchanged.** The Series page still counts missing books in any language, as Part 3 said.
+- **Release notes** are left for the release PR. They should mention the Upgrading points from the plan's traps, and
+  the merged folders flagged as *Different folder*.

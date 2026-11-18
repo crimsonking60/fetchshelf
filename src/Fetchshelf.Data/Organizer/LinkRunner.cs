@@ -32,7 +32,8 @@ public enum RefreshOutcome
 
 /// <summary>The settings the Link job links by, besides the libraries and the format lists.</summary>
 /// <param name="ExcludeNarratorInLibraryDir">`exclude_narrator_in_library_dir`: folder names leave out the narrator.</param>
-public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir);
+/// <param name="FirstLanguage">The first of the top-level `languages`, which `language_in_folder = "other"` leaves unmarked.</param>
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -227,7 +228,7 @@ public sealed class LinkRunner(
             if (existing.LibraryPath is not null)
             {
                 // Already linked: sync and recompute mismatch; do not touch files or metadata here.
-                SyncMismatch(existing, connection, torrent, metadata);
+                await SyncMismatchAsync(existing, connection, torrent, metadata, cancellationToken);
                 await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
                 await dbContext.SaveChangesAsync(cancellationToken);
                 return;
@@ -307,7 +308,8 @@ public sealed class LinkRunner(
             return;
         }
 
-        var placement = PlaceFiles(library, metadata, files, mappedSavePath, bestAudioExtension, bestEbookExtension);
+        var bookFolder = await BookFolderAsync(library, metadata, torrent.Hash, Directory.Exists, cancellationToken);
+        var placement = PlaceFiles(library, metadata, files, mappedSavePath, bestAudioExtension, bestEbookExtension, bookFolder);
 
         // The files are in the library now: recording them must not be cut short by a cancellation.
         cancellationToken = CancellationToken.None;
@@ -403,18 +405,54 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
-    /// Links the chosen files into the book's folder with the library's method and writes the metadata files the library
-    /// asks for. In a series library the folder is the series', shared by its books (<see cref="PlaceInSeriesFolder"/>).
+    /// The folder of a book in a book-layout library, by `folder_template`, ending with the book's language when
+    /// `language_in_folder` asks for it: with <c>"other"</c> for a book not in the first of `languages`, and always when the
+    /// plain folder already holds a linked book in another language, so two editions of a title don't share a folder.
+    /// The edition linked there first keeps the plain folder. Null for a series library, whose books share the series'.
     /// </summary>
-    private Placement PlaceFiles(
-        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
+    /// <param name="directoryExists">The narrator fallback's check, as for <see cref="FolderNameComputer.Compute"/>.</param>
+    private async Task<string?> BookFolderAsync(
+        Library library, TorrentMetadata metadata, string torrentId, Func<string, bool> directoryExists, CancellationToken cancellationToken)
     {
         if (library.IsSeriesLayout)
         {
-            return PlaceInSeriesFolder(library, metadata, ChosenFiles(files, audio, ebook), mappedSavePath);
+            return null;
         }
 
-        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists, library.TemplateLayout, library.FolderNames);
+        string Compute(bool markLanguage) => FolderNameComputer.Compute(
+            library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, directoryExists, library.TemplateLayout, library.FolderNames, markLanguage);
+
+        if (MarksLanguage(library, metadata))
+        {
+            return Compute(markLanguage: true);
+        }
+
+        var plain = Compute(markLanguage: false);
+        var language = metadata.Language.ToString();
+        var clash = await dbContext.Torrents.AnyAsync(
+            t => t.LibraryPath == plain && t.Id != torrentId && t.Language != null && t.Language != language, cancellationToken);
+        return clash ? Compute(markLanguage: true) : plain;
+    }
+
+    /// <summary>Whether `language_in_folder = "other"` marks the book: it isn't in the first of the top-level `languages`.</summary>
+    private bool MarksLanguage(Library library, TorrentMetadata metadata) =>
+        library.LanguageInFolder == LanguageInFolder.Other && options.FirstLanguage is { } first && metadata.Language != first;
+
+    /// <summary>
+    /// Links the chosen files into the book's folder with the library's method and writes the metadata files the library
+    /// asks for. In a series library the folder is the series', shared by its books (<see cref="PlaceInSeriesFolder"/>).
+    /// </summary>
+    /// <param name="bookFolder">The book's folder in a book-layout library (<see cref="BookFolderAsync"/>).</param>
+    private Placement PlaceFiles(
+        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook,
+        string? bookFolder)
+    {
+        if (library.IsSeriesLayout)
+        {
+            return PlaceInSeriesFolder(library, metadata, ChosenFiles(files, audio, ebook), mappedSavePath, MarksLanguage(library, metadata));
+        }
+
+        var destinationFolder = bookFolder!;
         var placement = new Placement(destinationFolder, [], [], []);
         if (library.Method != LibraryLinkMethod.NoLink)
         {
@@ -439,12 +477,14 @@ public sealed class LinkRunner(
     /// Places a book in a series library: a single chosen file as <c>Series #001 - Title.ext</c> in the series folder,
     /// several (a pack, or a volume split into chapters) under their own names there, as their order can't be told. A
     /// different file already at the name, another book's, makes this one <c>name (2).ext</c>. With `series_json`, the
-    /// series folder gets a `series.json`; the one-shots folder gets none.
+    /// series folder gets a `series.json`; the one-shots folder gets none. With <paramref name="markLanguage"/>, the file
+    /// name ends with the book's language.
     /// </summary>
-    private static Placement PlaceInSeriesFolder(Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen, string mappedSavePath)
+    private static Placement PlaceInSeriesFolder(
+        Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen, string mappedSavePath, bool markLanguage)
     {
         var extension = chosen is [var only] ? Path.GetExtension(only.Name) : string.Empty;
-        var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension);
+        var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension, markLanguage);
         var placement = new Placement(place.Folder, [], [], []);
         if (library.Method == LibraryLinkMethod.NoLink)
         {
@@ -516,7 +556,8 @@ public sealed class LinkRunner(
         return $"{action} {torrentName} into {placement.Folder}{detail}";
     }
 
-    private void SyncMismatch(TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata)
+    private async Task SyncMismatchAsync(
+        TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata, CancellationToken cancellationToken)
     {
         var (_, matchedIndex) = MatchLibrary(connection, torrent);
 
@@ -536,7 +577,8 @@ public sealed class LinkRunner(
             // A series folder holds many books, so a book's own place is its file: a single file's name is compared too.
             recomputedLibraryDir = seriesLibrary.LibraryDir;
             var extension = linkedFiles is [var only] ? Path.GetExtension(only.RelativePath) : string.Empty;
-            var place = SeriesLayoutNamer.Compute(seriesLibrary.LibraryDir, seriesLibrary.OneshotsDir, metadata, seriesLibrary.FolderNames, extension);
+            var place = SeriesLayoutNamer.Compute(
+                seriesLibrary.LibraryDir, seriesLibrary.OneshotsDir, metadata, seriesLibrary.FolderNames, extension, MarksLanguage(seriesLibrary, metadata));
             recomputedFullPath = place.Folder;
             expectedFileName = linkedFiles.Count == 1 ? place.FileBaseName + extension : null;
         }
@@ -546,13 +588,9 @@ public sealed class LinkRunner(
             recomputedLibraryDir = library.LibraryDir;
             // The book's own folder is no collision: a book linked without its narrator would otherwise be told to move.
             var linkedPath = existing.LibraryPath!;
-            recomputedFullPath = FolderNameComputer.Compute(
-                library.LibraryDir,
-                metadata,
-                options.ExcludeNarratorInLibraryDir,
-                path => !string.Equals(path, linkedPath, StringComparison.Ordinal) && Directory.Exists(path),
-                library.TemplateLayout,
-                library.FolderNames);
+            recomputedFullPath = await BookFolderAsync(
+                library, metadata, existing.Id, path => !string.Equals(path, linkedPath, StringComparison.Ordinal) && Directory.Exists(path),
+                cancellationToken);
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);
@@ -707,7 +745,9 @@ public sealed class LinkRunner(
                     LibraryContaining(oldPath)?.LibraryDir);
             }
 
-            placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook);
+            // After the old files went: a folder the book itself left is no narrator collision.
+            var bookFolder = await BookFolderAsync(library, metadata, existing.Id, Directory.Exists, cancellationToken);
+            placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook, bookFolder);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

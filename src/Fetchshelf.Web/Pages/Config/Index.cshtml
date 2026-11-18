@@ -21,7 +21,8 @@
             : "none";
 
     string Layout(Library library) =>
-        library.IsSeriesLayout ? $"series; books without a series in {library.OneshotsDir}" : library.FolderTemplate ?? "book, default template";
+        (library.IsSeriesLayout ? $"series; books without a series in {library.OneshotsDir}" : library.FolderTemplate ?? "book, default template")
+        + (library.LanguageInFolder == LanguageInFolder.Other ? "; language of other books marked" : "");
 }
 
 <h2>Config</h2>

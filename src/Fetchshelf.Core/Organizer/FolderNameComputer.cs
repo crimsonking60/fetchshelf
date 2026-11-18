@@ -7,7 +7,8 @@ public static class FolderNameComputer
 {
     /// <summary>
     /// Computes the full destination folder under <paramref name="libraryDir"/>, laid out by <paramref name="layout"/>
-    /// (<see cref="FolderLayout.Default"/> when null) with names cleaned by <paramref name="rules"/>.
+    /// (<see cref="FolderLayout.Default"/> when null) with names cleaned by <paramref name="rules"/>. With
+    /// <paramref name="markLanguage"/>, the book's folder ends with its language (<see cref="LanguageMark"/>).
     /// <paramref name="directoryExists"/> is consulted only for the narrator-exclusion collision
     /// fallback, so this remains a pure function of its inputs (no direct file-system access).
     /// </summary>
@@ -17,12 +18,14 @@ public static class FolderNameComputer
         bool excludeNarratorInLibraryDir,
         Func<string, bool> directoryExists,
         FolderLayout? layout = null,
-        FileNameRules rules = FileNameRules.Posix)
+        FileNameRules rules = FileNameRules.Posix,
+        bool markLanguage = false)
     {
         layout ??= FolderLayout.Default;
         var values = Values(metadata);
+        var suffix = markLanguage ? LanguageMark(metadata.Language) : string.Empty;
         string Path(IReadOnlyDictionary<string, string> tokens) =>
-            System.IO.Path.Combine([libraryDir, .. layout.Render(tokens, rules)]);
+            System.IO.Path.Combine([libraryDir, .. layout.Render(tokens, rules, suffix)]);
 
         if (excludeNarratorInLibraryDir && metadata.Narrators.Count > 0)
         {
@@ -53,6 +56,12 @@ public static class FolderNameComputer
             ["year"] = metadata.UploadTime.Year.ToString(System.Globalization.CultureInfo.InvariantCulture),
         };
     }
+
+    /// <summary>
+    /// What a book's folder or file name ends with when its language is marked (`language_in_folder`): <c> (Greek)</c>, so
+    /// two editions with the same title don't share a folder.
+    /// </summary>
+    public static string LanguageMark(Language language) => $" ({LanguageNameResolver.DisplayName(language)})";
 
     /// <summary>The series a book is placed by: the first with entries, else the first; null without one.</summary>
     public static Series? SelectSeries(IReadOnlyList<Series> series) =>

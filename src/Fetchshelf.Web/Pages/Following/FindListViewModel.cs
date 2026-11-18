@@ -40,6 +40,12 @@ public sealed class FindListViewModel
     /// <summary>Where a button on the list comes back to: this page, with its filters, sort and page.</summary>
     public required string ReturnUrl { get; init; }
 
+    /// <summary>The languages of the finds before the Language filter, by name.</summary>
+    public IReadOnlyList<string> Languages { get; init; } = [];
+
+    /// <summary>Whether the finds are in more than one language: the Language filter and column are shown only then.</summary>
+    public bool ShowsLanguage => Languages.Count > 1 || Query.Language is not null;
+
     /// <summary>A link's route values: the page's own and the query's.</summary>
     public Dictionary<string, string> RouteValuesFor(FindListQuery query) =>
         new(PageRouteValues.Concat(query.ToRouteValues()));
@@ -73,6 +79,14 @@ public sealed class FindListViewModel
             rows.AddRange(await OnTheirWayAsync(dbContext, followId, query.Format, wantedSides, cancellationToken));
         }
 
+        // The languages of the finds the other filters leave, so the Language filter offers those, and only when there
+        // are two or more; finds from before languages were kept have none.
+        var languages = rows.Select(r => r.Find.Language).OfType<string>().Distinct().Order(StringComparer.Ordinal).ToList();
+        if (query.Language is { } language)
+        {
+            rows = rows.Where(r => r.Find.Language == language).ToList();
+        }
+
         var (shown, number, totalPages) = Paging.Slice(query.Order(rows), rows.Count, pageNumber, query.PageSize);
         var statuses = await MamResultStatuses.LoadAsync(dbContext, shown.Select(r => r.Find.MamId).Distinct().ToList());
         var routeValues = new Dictionary<string, string>(pageRouteValues.Concat(query.ToRouteValues()));
@@ -89,6 +103,7 @@ public sealed class FindListViewModel
             ShowsShowFilter = showsShowFilter,
             ShowsNotFree = showsNotFree,
             ReturnUrl = returnUrl,
+            Languages = languages,
         };
     }
 

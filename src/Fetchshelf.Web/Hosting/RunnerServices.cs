@@ -1,4 +1,5 @@
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -27,7 +28,9 @@ public static class RunnerServices
                 .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes), StringComparer.Ordinal),
         });
         services.AddSingleton<IReadOnlyList<Library>>(settings.Library);
-        services.AddSingleton(new LinkRunnerOptions(settings.ExcludeNarratorInLibraryDir));
+        services.AddSingleton(new LinkRunnerOptions(
+            settings.ExcludeNarratorInLibraryDir,
+            settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var firstLanguage) ? firstLanguage : null));
         services.AddScoped<ClientStatusChecker>();
         services.AddScoped<LinkRunner>();
         services.AddScoped<DownloadProgressChecker>();

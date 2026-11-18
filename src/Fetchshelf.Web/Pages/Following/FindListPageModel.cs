@@ -26,6 +26,9 @@ public abstract class FindListPageModel : PageModel
     public string? Format { get; set; }
 
     [BindProperty(SupportsGet = true)]
+    public string? Language { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string Sort { get; set; } = FindListQuery.DefaultSort;
 
     [BindProperty(SupportsGet = true)]
@@ -44,7 +47,8 @@ public abstract class FindListPageModel : PageModel
     {
         PageSize = PageSizeCookie.Apply(HttpContext, PageSizeList, PageSize);
         var format = FindListQuery.FormatOptions.Any(o => o.Value == Format) ? Format : null;
-        return new FindListQuery(Enum.IsDefined(Show) ? Show : FindShow.ToLookAt, format, Sort, Dir, PageSize);
+        var language = Enum.TryParse<Core.Metadata.Language>(Language, out var parsed) && Enum.IsDefined(parsed) ? parsed.ToString() : null;
+        return new FindListQuery(Enum.IsDefined(Show) ? Show : FindShow.ToLookAt, format, Sort, Dir, PageSize, language);
     }
 
     /// <summary>Where a button on the page comes back to: this page, with its filters, sort and page.</summary>

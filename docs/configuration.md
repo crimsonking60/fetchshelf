@@ -762,9 +762,9 @@ What each run does:
    not all of them. MAM matches words, so a result only counts when its series (or author) is the followed one,
    compared the way the library compares names.
 3. **Leaves out what the library has**: the same torrent, the same book (as selection judges a duplicate), a
-   series entry already owned in that format, and anything already on the **Selected** page.
-4. **Decides each book**, a series in entry order and an author's books newest first: the first `grab` block
-   whose filter and `cost` accept a torrent takes the one in the best format. A series or author on *Auto* has
+   series entry already owned in that format and language, and anything already on the **Selected** page.
+4. **Decides each book, language and format on its own**, a series in entry order and an author's books newest first:
+   the first `grab` block whose filter and `cost` accept a torrent takes the one in the best format. A series or author on *Auto* has
    it selected, through the usual rules and the unsatisfied-snatch budget; a followed one has it listed on the
    **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
@@ -807,6 +807,25 @@ cost = "free"
 
 Authors are not followed from Audiobookshelf: an author follow searches every upload by that author, which for a
 whole library would be too many searches.
+
+A book in two languages is two books: each language's edition is found, owned and decided on its own, and each `grab`
+block's `languages` says which editions it takes. With these blocks, every English book of a followed series that the
+library lacks in English is found, and every Hungarian one it lacks in Hungarian too, taken when it is free and listed as
+*not free* otherwise:
+
+```toml
+languages = ["English"]
+
+[[follow.grab]]          # Hungarian editions, when they are free
+cost = "free"
+languages = ["Hungarian"]
+
+[[follow.grab]]          # English editions, paid with ratio (the block inherits the top-level languages)
+cost = "ratio"
+```
+
+`prefer_format` keeps one format per language. Owning the English *Discworld 1-40* collection doesn't make the
+Hungarian editions owned. The **Series** page still counts missing books in any language.
 
 ## `[upgrade]`
 
@@ -1003,6 +1022,7 @@ library, in file order, that accepts it is used.
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |
 | `oneshots_dir` | `"_oneshots"` | Series layout only: the folder under `library_dir` that books without a series go into. Komga's One-Shots directory setting must name the same folder. |
 | `series_json` | `true` | Series layout only: write a Mylar `series.json` into each series folder. |
+| `language_in_folder` | `"on_clash"` | When a book's folder name ends with its language, such as `Gamma (Greek)`. `"on_clash"`: only when its plain folder already holds the same title in another language, so two editions don't share a folder. `"other"`: every book not in the first of the top-level `languages`, which needs `languages` set. See [languages in folder names](#languages-in-folder-names). |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
@@ -1119,6 +1139,23 @@ folder_template = "{series}/[{series_number} - ]{title} ({year})"
 
 A template that can't be used stops startup with the reason: an unknown token, a `{` or `[` without its closing
 `}` or `]`, an empty folder (`a//b`), a leading `/`, or no `{title}`.
+
+### Languages in folder names
+
+A book in two languages is two books, and two editions with the same title, such as *Gamma* in English and in Greek,
+would get the same folder. `language_in_folder` keeps them apart by ending a folder name with the language:
+
+- **`"on_clash"`**, the default: when the plain folder already holds a linked book in another language, the new one
+  goes into `Gamma (Greek)`. The edition linked first keeps the plain folder, and no folder that is already right
+  changes. A library with one language only never sees the mark.
+- **`"other"`**: every book not in the first of the top-level `languages` gets the mark, whichever edition came first:
+  with `languages = ["English", "Hungarian"]`, a Hungarian book goes into `Discworld #1 - A mágia színe (Hungarian)`.
+  Switching to it flags the library's other-language books as *Different folder* until they are relinked.
+
+Two editions that an earlier version linked into one folder are both flagged *Different folder*; relinking one of them
+gives it a folder of its own. In a [series library](#series-layout), where every book of a series shares the series
+folder, `"other"` marks the file name instead (`Saga #001 - Saga, Volume 1 (Hungarian).cbz`); two editions with the same
+file name otherwise tell apart as `name (2).cbz`.
 
 ### Series layout
 

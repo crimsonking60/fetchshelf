@@ -64,7 +64,7 @@ public partial class FollowPagesTests
     /// <summary>Another find for the follow seeded by <see cref="SeedFindAsync"/>.</summary>
     private static int AddFind(
         FetchshelfWebAppFixture fixture, long mamId, string title, FollowFindStatus status = FollowFindStatus.New, string side = "Audio",
-        string? seriesDisplay = null, long? size = null, DateTimeOffset? foundAt = null)
+        string? seriesDisplay = null, long? size = null, DateTimeOffset? foundAt = null, string? language = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -76,6 +76,7 @@ public partial class FollowPagesTests
             MediaSide = side,
             SeriesDisplay = seriesDisplay,
             SizeBytes = size,
+            Language = language,
             Status = status,
             FoundAt = foundAt ?? DateTimeOffset.UtcNow,
             StatusAt = DateTimeOffset.UtcNow,
@@ -891,5 +892,39 @@ public partial class FollowPagesTests
 
         Assert.Matches(@"The Expanse</a></td>\s*<td>Series\s*<span class=""muted""> from Audiobookshelf</span>", list);
         Assert.Contains("Followed from Audiobookshelf.", page);
+    }
+
+    [Fact]
+    public async Task FindsInOneLanguage_ShowNoLanguageColumnOrFilter()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        AddFind(fixture, 2, "Words of Radiance", language: "English");
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync(FollowPage(fixture));
+
+        Assert.DoesNotContain("<th>Language</th>", html);
+        Assert.DoesNotContain("aria-label=\"Language\"", html);
+    }
+
+    [Fact]
+    public async Task FindsInTwoLanguages_ShowTheLanguage_AndCanBeFilteredByIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        AddFind(fixture, 2, "Words of Radiance", language: "English");
+        AddFind(fixture, 3, "A királyok útja", language: "Hungarian");
+        using var client = fixture.CreateClient();
+        var page = FollowPage(fixture);
+
+        var all = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+        var hungarian = WebUtility.HtmlDecode(await client.GetStringAsync($"{page}?Language=Hungarian"));
+
+        Assert.Contains("<th>Language</th>", all);
+        Assert.Contains("<option value=\"Hungarian\">Hungarian</option>", all);
+        Assert.Contains("A királyok útja", hungarian);
+        Assert.DoesNotContain("Words of Radiance", hungarian);
+        Assert.Contains("<option value=\"Hungarian\" selected=\"selected\">Hungarian</option>", hungarian);
     }
 }

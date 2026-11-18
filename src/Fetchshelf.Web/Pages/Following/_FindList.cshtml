@@ -24,6 +24,16 @@
             <option value="@value" selected="@(query.Format == value)">@label</option>
         }
     </select>
+    @if (Model.ShowsLanguage)
+    {
+        <select name="Language" aria-label="Language" onchange="this.form.requestSubmit()">
+            <option value="">Any language</option>
+            @foreach (var language in Model.Languages)
+            {
+                <option value="@language" selected="@(query.Language == language)">@Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName(Enum.Parse<Fetchshelf.Core.Metadata.Language>(language))</option>
+            }
+        </select>
+    }
     <input type="hidden" name="Sort" value="@query.Sort" />
     <input type="hidden" name="Dir" value="@query.Dir" />
     <input type="hidden" name="PageSize" value="@query.PageSize" />
@@ -35,7 +45,7 @@
 
 @if (Model.Rows.Count == 0)
 {
-    <p id="no-finds-message" class="empty">@(query.Show == FindShow.ToLookAt && query.Format is null ? "Nothing to look at." : "No finds match.")</p>
+    <p id="no-finds-message" class="empty">@(query.HasFilters ? "No finds match." : "Nothing to look at.")</p>
 }
 else
 {
@@ -68,6 +78,10 @@ else
                     <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Book"))'>Book</a></th>
                 }
                 <th>Format</th>
+                @if (Model.ShowsLanguage)
+                {
+                    <th>Language</th>
+                }
                 <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Size"))'>Size</a></th>
                 <th>Status</th>
                 <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Found"))'>Found</a></th>
@@ -100,6 +114,10 @@ else
                         <td>@find.SeriesDisplay</td>
                     }
                     <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                    @if (Model.ShowsLanguage)
+                    {
+                        <td>@(Enum.TryParse<Fetchshelf.Core.Metadata.Language>(find.Language, out var findLanguage) ? Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName(findLanguage) : "")</td>
+                    }
                     <td class="nowrap">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
                     <td>
                         @if (Model.StatusBadge(find) is { } badge)
