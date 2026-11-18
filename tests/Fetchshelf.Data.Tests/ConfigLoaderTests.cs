@@ -218,6 +218,38 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Load_CoversFromMam_NoneUnlessSetInFileOrFromEnvironmentVariable()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Assert.Equal(0, ConfigLoader.Load(ConfigPath).CoversFromMam);
+
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", "10");
+        try
+        {
+            Assert.Equal(10, ConfigLoader.Load(ConfigPath).CoversFromMam);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", null);
+        }
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ncovers_from_mam = 20\n");
+        Assert.Equal(20, ConfigLoader.Load(ConfigPath).CoversFromMam);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public void Load_CoversFromMamOutOfRange_Throws(int value)
+    {
+        File.WriteAllText(ConfigPath, $"mam_id = \"\"\ncovers_from_mam = {value}\n");
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains("'covers_from_mam' must be between 0 and 100", exception.Message);
+    }
+
+    [Fact]
     public void Load_GlobalMetadataSettingsFromEnvironmentVariables_ReachLibrariesWithoutTheirOwn()
     {
         File.WriteAllText(ConfigPath, """

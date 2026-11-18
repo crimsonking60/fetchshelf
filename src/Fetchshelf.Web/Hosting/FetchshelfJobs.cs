@@ -38,10 +38,12 @@ public static class FetchshelfJobs
                     total.WaitingForLookup + summary.WaitingForLookup, total.WaitingForMam + summary.WaitingForMam);
             }
 
+            var covers = settings.CoversFromMam > 0 ? await scope.ServiceProvider.GetRequiredService<CoverWriter>().RunAsync(ct) : null;
+
             // Clean is a run of its own, so cancelling this one doesn't cancel it; this run only stops waiting for it.
             await jobRegistry.TriggerAsync(JobNames.Clean, JobTrigger.Chained).WaitAsync(ct);
 
-            return JobOutcomes.Link(total);
+            return JobOutcomes.Link(total, covers);
         }, "Moves finished downloads from qBittorrent into your library folders.");
 
         jobRegistry.Register(JobNames.Clean, async ct =>

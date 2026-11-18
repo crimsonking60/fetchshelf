@@ -589,6 +589,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("ClientStatus")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("CoverCheckedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 

@@ -532,6 +532,7 @@ public sealed class LinkRunner(
         existing.LinkerName = library.Name;
         ClientStatuses.Update(existing, torrent.State);
         existing.LibraryMismatchState = null;
+        existing.CoverCheckedAt = null; // a new folder, or the same one emptied: its cover is looked at again
     }
 
     private Task AppendLinkedEventAsync(TorrentEntity existing, Library library, string folder, CancellationToken cancellationToken) =>
@@ -636,6 +637,7 @@ public sealed class LinkRunner(
         }
 
         var changed = await ApplyRefreshedMetadataAsync(existing, looked, cancellationToken);
+        existing.CoverCheckedAt = null; // MAM's cover may have changed or come since: the next Link run tries again
         if (changed && absClient is not null && existing.AbsId is not null)
         {
             await absClient.UpdateItemMetadataAsync(existing.AbsId, looked, cancellationToken);

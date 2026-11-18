@@ -1579,6 +1579,27 @@ a better copy replaces it or you **Unlink** it, unless another torrent still use
 `metadata_opf` affects books linked from then on; to apply it to books already in the library, use **Relink
 selected** on the **Torrents** page.
 
+### Covers
+
+A torrent's cover is whatever image the upload has, and Fetchshelf links only a book's audio or ebook files, not its
+images. Audiobookshelf then uses a cover embedded in the files, or finds one itself; file browsers and some readers
+show none.
+
+With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes MAM's cover image into the
+folder of every linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for
+those types. A cover put there by you, by Audiobookshelf or by an earlier run is never replaced. Each run fetches at
+most that many covers, so turning it on for a large library fills the covers in over the following runs; the Link
+job's result says how many are left. A book is
+looked at once: again only after **Refresh** or a relink. A book whose cover MAM doesn't have, or couldn't send, is
+logged and left without one.
+
+Series libraries are left out: comics and manga carry their cover inside the file, and one series folder holds many
+books. The cover is removed with the book's metadata files.
+
+The covers come from MAM's image server, as the Search page's covers do. It isn't among the parts of MAM that its API
+documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at
+most 100 covers per run.
+
 ### Better formats replace worse ones
 
 Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
@@ -1596,7 +1617,7 @@ punctuation and accents, so *J. R. R. Tolkien* and *J.R.R. Tolkien* are the same
 what a new download duplicates (see the **Duplicates** page).
 
 The replaced copy has its linked files, its folder and the series and author folders above it (if empty),
-`cover.jpg` and its metadata files removed, is
+its cover and its metadata files removed, is
 tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
 was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The
 downloaded data itself is not deleted.

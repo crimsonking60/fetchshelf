@@ -36,6 +36,22 @@ public class JobOutcomesTests
             JobOutcomes.Link(new LinkRunSummary(0, 0, WaitingForMam: 1)).Summary);
 
     [Fact]
+    public void Link_WithCovers_SaysHowManyWereWrittenAndWait_AndCountsThem()
+    {
+        var outcome = JobOutcomes.Link(new LinkRunSummary(Linked: 1, Failed: 0), new CoverRunSummary(Written: 20, Waiting: 130));
+
+        Assert.Equal("1 torrent linked; 20 covers written, up to 130 more in the next runs", outcome.Summary);
+        Assert.Equal((20L, 130L), (outcome.Counts!["covers_written"], outcome.Counts["covers_waiting"]));
+    }
+
+    [Fact]
+    public void Link_WithoutCovers_SaysNothingOfThem()
+    {
+        Assert.Equal("Nothing new to link", JobOutcomes.Link(new LinkRunSummary(0, 0), new CoverRunSummary(0, 0)).Summary);
+        Assert.False(JobOutcomes.Link(new LinkRunSummary(0, 0)).Counts!.ContainsKey("covers_written"));
+    }
+
+    [Fact]
     public void Link_SomeFailed_FinishesWithErrorsCarryingTheWholeLine()
     {
         var exception = Assert.Throws<JobCompletedWithErrorsException>(() => JobOutcomes.Link(new LinkRunSummary(Linked: 2, Failed: 1)));

@@ -82,4 +82,10 @@ public sealed class TorrentEntity
 
     /// <summary>The Clean job retired this copy but held `on_cleaned` back while it looked unsatisfied; the Seeding job applies it once it is satisfied.</summary>
     public bool OnCleanedHeld { get; set; }
+
+    /// <summary>
+    /// When the Link job last settled this book's cover (`covers_from_mam`): wrote one, found the folder has an image, or
+    /// MAM had none. Null until then; linking the torrent again, or Refresh, sets it back to null so it is looked at again.
+    /// </summary>
+    public DateTimeOffset? CoverCheckedAt { get; set; }
 }

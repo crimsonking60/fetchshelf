@@ -60,6 +60,15 @@ public sealed class FetchshelfSettings
     public bool MetadataOpf { get; set; }
 
     /// <summary>
+    /// `covers_from_mam`: how many covers each Link run fetches from MAM for book folders that have no image; 0 fetches
+    /// none. At most <see cref="MaxCoversFromMam"/>.
+    /// </summary>
+    public int CoversFromMam { get; set; }
+
+    /// <summary>The highest `covers_from_mam`: the covers come from a part of MAM that isn't authorized for automation, so few per run.</summary>
+    public const int MaxCoversFromMam = 100;
+
+    /// <summary>
     /// When true, the database uses SQLite's write-ahead log, so pages can read while a job writes. Off by default:
     /// the log's shared-memory file can't work when the database is on a network share, so it's for local disks only.
     /// </summary>
