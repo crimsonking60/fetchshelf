@@ -1299,6 +1299,24 @@ page show when it was last searched and when it will be searched again at the ea
 in five runs. This keeps the number of requests to MAM low. Use
 `dry_run = true` first to see in the log what the job would select.
 
+### Series from Audiobookshelf
+
+Series you already had before Fetchshelf, in Audiobookshelf, aren't on the **Series** page and can't be followed
+from it. With [`[audiobookshelf]`](configuration.md#audiobookshelf) configured, `audiobookshelf_series` follows
+all of them:
+
+```toml
+[follow]
+audiobookshelf_series = "follow"    # or "auto" to download what is missing
+```
+
+Each Follow run then reads Audiobookshelf's series and follows the ones not followed yet, marked *from
+Audiobookshelf* on the **Following** page. The books Audiobookshelf has count as owned, so only the missing ones
+are listed or downloaded, and the **Series** page shows those series with the entries Audiobookshelf has. A series
+you ignore or switch to another mode stays that way. A large library adds many follows at once; they are
+searched `searches_per_run` at a time, so the first rounds take a while. See [series from
+Audiobookshelf](configuration.md#series-from-audiobookshelf) for the details.
+
 ## Protecting your account
 
 Fetchshelf will not start a download that would break these limits.

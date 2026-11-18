@@ -45,7 +45,7 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     /// <summary>Every series with its owned entries, by name.</summary>
     public async Task<IReadOnlyList<SeriesSummary>> SeriesAsync(CancellationToken cancellationToken = default)
     {
-        var rows = await OwnedSeriesRows().ToListAsync(cancellationToken);
+        var rows = await OwnedSeriesRowsAsync(cancellationToken: cancellationToken);
         return rows
             .GroupBy(r => r.NameKey)
             .Select(ToSummary)
@@ -56,7 +56,7 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
     /// <summary>One series with its owned entries, or null when the library has nothing in it.</summary>
     public async Task<SeriesSummary?> SeriesAsync(string nameKey, CancellationToken cancellationToken = default)
     {
-        var rows = await OwnedSeriesRows(nameKey).ToListAsync(cancellationToken);
+        var rows = await OwnedSeriesRowsAsync(nameKey, cancellationToken: cancellationToken);
         return rows.Count == 0 ? null : ToSummary(rows.GroupBy(r => r.NameKey).Single());
     }
 
@@ -112,7 +112,7 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
         string seriesNameKey, FilterMainType side, CancellationToken cancellationToken = default)
     {
         var mediaTypes = MediaTypesOf(side);
-        var rows = await OwnedSeriesRows(seriesNameKey, mediaTypes).ToListAsync(cancellationToken);
+        var rows = await OwnedSeriesRowsAsync(seriesNameKey, mediaTypes, cancellationToken);
         // Like SeriesAsync, a book without a number in the series is no entry.
         return rows
             .Where(r => r.Display is not null)
@@ -165,6 +165,32 @@ public sealed class LibraryQueries(FetchshelfDbContext dbContext)
 
     private sealed record SeriesRow(
         string TorrentId, string NameKey, string Name, string? Display, double? FirstNumber, double? LastNumber, string? MediaType);
+
+    /// <summary>
+    /// The series rows of torrents not replaced, and of the books Audiobookshelf has that Fetchshelf didn't link
+    /// (`[follow] audiobookshelf_series`), of one series and some media types when given.
+    /// </summary>
+    private async Task<List<SeriesRow>> OwnedSeriesRowsAsync(
+        string? nameKey = null, List<string>? mediaTypes = null, CancellationToken cancellationToken = default)
+    {
+        var rows = await OwnedSeriesRows(nameKey, mediaTypes).ToListAsync(cancellationToken);
+        var books = dbContext.AudiobookshelfSeriesBooks.AsQueryable();
+        if (nameKey is not null)
+        {
+            books = books.Where(b => b.NameKey == nameKey);
+        }
+
+        if (mediaTypes is not null)
+        {
+            books = books.Where(b => mediaTypes.Contains(b.MediaType));
+        }
+
+        // An Audiobookshelf item stands in for a torrent: "abs:" keeps its id apart from torrents' ids.
+        rows.AddRange(await books
+            .Select(b => new SeriesRow("abs:" + b.ItemId, b.NameKey, b.Name, b.Display, b.FirstNumber, b.LastNumber, b.MediaType))
+            .ToListAsync(cancellationToken));
+        return rows;
+    }
 
     /// <summary>The series rows of torrents not replaced, of one series and some media types when given.</summary>
     private IQueryable<SeriesRow> OwnedSeriesRows(string? nameKey = null, List<string>? mediaTypes = null)

@@ -48,6 +48,37 @@ public sealed class AbsClient
         return result?.LibraryItems ?? [];
     }
 
+    /// <summary>
+    /// Every series of a library, with its books: <c>GET /api/libraries/{id}/series</c>, read
+    /// <paramref name="pageSize"/> series a page, in name order.
+    /// </summary>
+    public async Task<IReadOnlyList<AbsSeriesInfo>> ListSeriesAsync(string libraryId, int pageSize = 100, CancellationToken cancellationToken = default)
+    {
+        var series = new List<AbsSeriesInfo>();
+        for (var page = 0; ; page++)
+        {
+            var url = $"{BuildUrl($"/api/libraries/{Uri.EscapeDataString(libraryId)}/series")}?limit={pageSize}&page={page}&sort=name";
+            using var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<AbsSeriesPage>(cancellationToken: cancellationToken);
+            var results = result?.Results ?? [];
+            series.AddRange(results.Select(ToSeriesInfo));
+            if (results.Count < pageSize || series.Count >= (result?.Total ?? 0))
+            {
+                return series;
+            }
+        }
+    }
+
+    private static AbsSeriesInfo ToSeriesInfo(AbsSeriesResult series) => new(
+        series.Name,
+        series.Books.Select(book => new AbsSeriesBook(
+            book.Id,
+            book.Media?.Metadata?.Title ?? string.Empty,
+            AbsSeriesSequence.Of(book.Media?.Metadata?.SeriesName, series.Name),
+            HasAudio: book.Media?.NumTracks > 0,
+            HasEbook: !string.IsNullOrEmpty(book.Media?.EbookFormat))).ToList());
+
     public async Task UpdateItemMetadataAsync(string itemId, TorrentMetadata metadata, CancellationToken cancellationToken = default)
     {
         var request = new AbsMetadataUpdateRequest { Metadata = ToAbsMetadata(metadata) };

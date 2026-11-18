@@ -133,4 +133,50 @@ public sealed class FollowConfigTests : IDisposable
             name = "Follow"
             type = "new"
             """).Message);
+
+    private const string AbsSection = "[audiobookshelf]\nurl = \"http://abs:13378\"\ntoken = \"t\"\n\n";
+
+    [Fact]
+    public void Load_AudiobookshelfSeries_IsOffByDefault()
+    {
+        var follow = Load("[follow]\n[[follow.grab]]\n").Follow!;
+
+        Assert.Equal(AudiobookshelfSeriesMode.Off, follow.AudiobookshelfSeries);
+        Assert.Empty(follow.AudiobookshelfLibraries);
+    }
+
+    [Theory]
+    [InlineData("follow", AudiobookshelfSeriesMode.Follow)]
+    [InlineData("auto", AudiobookshelfSeriesMode.Auto)]
+    public void Load_AudiobookshelfSeries_IsRead(string value, AudiobookshelfSeriesMode expected)
+    {
+        var follow = Load($"{AbsSection}[follow]\naudiobookshelf_series = \"{value}\"\naudiobookshelf_libraries = [\"Audiobooks\"]\n[[follow.grab]]\n").Follow!;
+
+        Assert.Equal(expected, follow.AudiobookshelfSeries);
+        Assert.Equal(["Audiobooks"], follow.AudiobookshelfLibraries);
+    }
+
+    [Fact]
+    public void Load_AudiobookshelfSeries_WithoutAnAudiobookshelfSection_Throws()
+    {
+        var error = LoadFails("[follow]\naudiobookshelf_series = \"follow\"\n[[follow.grab]]\n");
+
+        Assert.Contains("'audiobookshelf_series' needs an [audiobookshelf] section", error.Message);
+    }
+
+    [Fact]
+    public void Load_AudiobookshelfLibraries_WithoutAudiobookshelfSeries_Throws()
+    {
+        var error = LoadFails($"{AbsSection}[follow]\naudiobookshelf_libraries = [\"Audiobooks\"]\n[[follow.grab]]\n");
+
+        Assert.Contains("sets 'audiobookshelf_libraries' but not 'audiobookshelf_series'", error.Message);
+    }
+
+    [Fact]
+    public void Load_UnknownAudiobookshelfSeriesValue_Throws()
+    {
+        var error = LoadFails($"{AbsSection}[follow]\naudiobookshelf_series = \"watch\"\n[[follow.grab]]\n");
+
+        Assert.Contains("'watch' is not one of off, follow, auto", error.Message);
+    }
 }
