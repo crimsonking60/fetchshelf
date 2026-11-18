@@ -59,7 +59,7 @@ Duplicates, Upgrade, OPDS, Unlink, Relink, the mismatch flags) keeps working.
 
 1. **Torrents with several files of the chosen format** (packs, or a volume split into chapters). Default: they keep
    their own file names, flattened as today by `LinkFilePlacer`, since their numbering can't be told apart until
-   `plans/parked/collection-torrents.md` is built. They sit in the series folder beside renamed singles; their order in
+   `plans/collection-torrents.md` is built. They sit in the series folder beside renamed singles; their order in
    Komga follows the pack's own names.
 2. **Audiobooks in a series library.** Default: a series library links only the ebook-side format; a torrent with no
    ebook-side file gets a Link error (*This library's series layout links only ebook formats*). Comics and manga are
@@ -212,7 +212,7 @@ feature branch and one pull request into `main`.
   `method = "copy"` only.
 - Covers: Fetchshelf writes none today; series and book artwork in Komga's local-artwork names can follow
   `plans/covers-from-mam.md`.
-- Splitting packs into numbered books: `plans/parked/collection-torrents.md`.
+- Splitting packs into numbered books: `plans/collection-torrents.md`.
 - A series layout for Kavita: its expected `Series/files` shape is close, but it hasn't been checked; the docs
   mention only Komga until it is.
 - Reading direction for manga: Komga takes it from `ComicInfo.xml` only.
