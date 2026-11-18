@@ -63,6 +63,20 @@ public sealed class OpdsCatalogReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadAsync_TwoBooksInOneSeriesFolder_AreServedOnceEach_WithTheirOwnFile()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedAsync(context, "saga1", "/library/comics/Saga", "cbz", MediaType.ComicBook, "Saga #001 - Saga, Volume 1.cbz");
+        await SeedAsync(context, "saga2", "/library/comics/Saga", "cbz", MediaType.ComicBook, "Saga #002 - Saga, Volume 2.cbz");
+
+        var catalog = await new OpdsCatalogReader(context, Libraries, new OpdsSettings()).ReadAsync();
+
+        Assert.Equal(["saga1", "saga2"], catalog.Books.Select(book => book.Id).Order());
+        Assert.Equal("Saga #001 - Saga, Volume 1.cbz", Assert.Single(catalog.Find("saga1")!.Files).RelativePath);
+        Assert.Equal("Saga #002 - Saga, Volume 2.cbz", Assert.Single(catalog.Find("saga2")!.Files).RelativePath);
+    }
+
+    [Fact]
     public async Task ReadAsync_LibrariesSetting_NarrowsWhatIsServed()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

@@ -277,7 +277,8 @@ public sealed class LinkRunner(
             metadata = looked;
         }
 
-        if (metadata.Authors.Count == 0)
+        // The series layout names nothing after the author, so it links books without one.
+        if (metadata.Authors.Count == 0 && !(matchedIndex is { } index && libraries[index].IsSeriesLayout))
         {
             // Without a record, the Errors page's Edit needs what MAM said to start from: it becomes the record when saved.
             var lookedUpMetadata = existing is null ? TorrentMetadataSerializer.Serialize(metadata) : null;
@@ -299,10 +300,10 @@ public sealed class LinkRunner(
 
         var library = libraries[matchedIndex.Value];
         var files = await client.ListFilesAsync(torrent.Hash, cancellationToken);
-        var (bestAudioExtension, bestEbookExtension) = ChooseFormats(library, metadata, files);
-        if (bestAudioExtension is null && bestEbookExtension is null)
+        var (bestAudioExtension, bestEbookExtension, formatError) = ChooseFormats(library, metadata, files);
+        if (formatError is not null)
         {
-            await RecordLinkerErrorAsync(torrent, NoWantedFormat, cancellationToken);
+            await RecordLinkerErrorAsync(torrent, formatError, cancellationToken);
             return;
         }
 
@@ -366,15 +367,29 @@ public sealed class LinkRunner(
 
     private const string NoWantedFormat = "None of the torrent's files has a format listed for its media type.";
 
+    private const string SeriesLayoutEbookOnly = "This library's series layout links only ebook formats, and the torrent has none.";
+
     /// <summary>Where a torrent's files were placed, what was recorded for each, and what happened to it.</summary>
     private sealed record Placement(string Folder, List<LinkedFileRecord> LinkedFiles, List<LinkOutcome> Outcomes, List<string> PlacedUnderOtherName);
 
-    /// <summary>The best audio and the best ebook format among the torrent's files, by the library's or the global lists.</summary>
-    private (string? Audio, string? Ebook) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files) =>
-        LinkedFormats.Choose(
+    /// <summary>
+    /// The best audio and the best ebook format among the torrent's files, by the library's or the global lists, or why
+    /// there is none to link. A series library links only the ebook side: comics and manga are what it is for, and a
+    /// series folder of audio files from many torrents is of no use.
+    /// </summary>
+    private (string? Audio, string? Ebook, string? Error) ChooseFormats(Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files)
+    {
+        var (audio, ebook) = LinkedFormats.Choose(
             library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType),
             library.EbookTypes ?? formatPreferenceLists.EbookTypes,
             files.Select(f => f.Name));
+        if (library.IsSeriesLayout)
+        {
+            return ebook is not null ? (null, ebook, null) : (null, null, audio is null ? NoWantedFormat : SeriesLayoutEbookOnly);
+        }
+
+        return (audio, ebook, audio is null && ebook is null ? NoWantedFormat : null);
+    }
 
     private static List<QBittorrentFile> ChosenFiles(IReadOnlyList<QBittorrentFile> files, string? audio, string? ebook) =>
         files.Where(f => LinkedFormats.IsChosen(f.Name, audio, ebook)).ToList();
@@ -387,30 +402,24 @@ public sealed class LinkRunner(
             libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList));
     }
 
-    /// <summary>Links the chosen files into the book's folder with the library's method and writes the metadata files the library asks for.</summary>
+    /// <summary>
+    /// Links the chosen files into the book's folder with the library's method and writes the metadata files the library
+    /// asks for. In a series library the folder is the series', shared by its books (<see cref="PlaceInSeriesFolder"/>).
+    /// </summary>
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook)
     {
-        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists, library.Layout, library.FolderNames);
-        var linkedFiles = new List<LinkedFileRecord>();
-        var outcomes = new List<LinkOutcome>();
-        var placedUnderOtherName = new List<string>();
+        if (library.IsSeriesLayout)
+        {
+            return PlaceInSeriesFolder(library, metadata, ChosenFiles(files, audio, ebook), mappedSavePath);
+        }
+
+        var destinationFolder = FolderNameComputer.Compute(library.LibraryDir, metadata, options.ExcludeNarratorInLibraryDir, Directory.Exists, library.TemplateLayout, library.FolderNames);
+        var placement = new Placement(destinationFolder, [], [], []);
         if (library.Method != LibraryLinkMethod.NoLink)
         {
             var chosen = ChosenFiles(files, audio, ebook);
-            var destinations = LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList());
-            for (var i = 0; i < chosen.Count; i++)
-            {
-                var result = FileLinker.Link(Path.Combine(mappedSavePath, chosen[i].Name), destinations[i], library.Method);
-                outcomes.Add(result.Outcome);
-                if (result.PlacedAt != destinations[i])
-                {
-                    placedUnderOtherName.Add(Path.GetFileName(result.PlacedAt));
-                }
-
-                // The path actually used, so Unlink, Clean and OPDS find the file under the name it got.
-                linkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(destinationFolder, result.PlacedAt), chosen[i].Size));
-            }
+            LinkChosen(placement, chosen, LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList()), mappedSavePath, library.Method);
 
             if (library.MetadataJson)
             {
@@ -423,7 +432,53 @@ public sealed class LinkRunner(
             }
         }
 
-        return new Placement(destinationFolder, linkedFiles, outcomes, placedUnderOtherName);
+        return placement;
+    }
+
+    /// <summary>
+    /// Places a book in a series library: a single chosen file as <c>Series #001 - Title.ext</c> in the series folder,
+    /// several (a pack, or a volume split into chapters) under their own names there, as their order can't be told. A
+    /// different file already at the name, another book's, makes this one <c>name (2).ext</c>. With `series_json`, the
+    /// series folder gets a `series.json`; the one-shots folder gets none.
+    /// </summary>
+    private static Placement PlaceInSeriesFolder(Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen, string mappedSavePath)
+    {
+        var extension = chosen is [var only] ? Path.GetExtension(only.Name) : string.Empty;
+        var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension);
+        var placement = new Placement(place.Folder, [], [], []);
+        if (library.Method == LibraryLinkMethod.NoLink)
+        {
+            return placement;
+        }
+
+        var destinations = chosen.Count == 1
+            ? [Path.Combine(place.Folder, place.FileBaseName + extension)]
+            : LinkFilePlacer.DestinationPaths(place.Folder, chosen.Select(f => f.Name).ToList());
+        LinkChosen(placement, chosen, destinations, mappedSavePath, library.Method);
+        if (library.SeriesJson && !place.IsOneShot)
+        {
+            File.WriteAllText(Path.Combine(place.Folder, "series.json"), MylarSeriesJsonBuilder.Build(FolderNameComputer.SelectSeries(metadata.Series)!.Name));
+        }
+
+        return placement;
+    }
+
+    /// <summary>Links each chosen file to its destination, recording on <paramref name="placement"/> what happened and the name it got.</summary>
+    private static void LinkChosen(
+        Placement placement, List<QBittorrentFile> chosen, IReadOnlyList<string> destinations, string mappedSavePath, LibraryLinkMethod method)
+    {
+        for (var i = 0; i < chosen.Count; i++)
+        {
+            var result = FileLinker.Link(Path.Combine(mappedSavePath, chosen[i].Name), destinations[i], method);
+            placement.Outcomes.Add(result.Outcome);
+            if (result.PlacedAt != destinations[i])
+            {
+                placement.PlacedUnderOtherName.Add(Path.GetFileName(result.PlacedAt));
+            }
+
+            // The path actually used, so Unlink, Clean and OPDS find the file under the name it got.
+            placement.LinkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(placement.Folder, result.PlacedAt), chosen[i].Size));
+        }
     }
 
     private static void RecordPlacement(
@@ -474,7 +529,18 @@ public sealed class LinkRunner(
 
         string? recomputedLibraryDir = null;
         string? recomputedFullPath = null;
-        if (matchedIndex is not null)
+        string? expectedFileName = null;
+        var linkedFiles = DeserializeLinkedFiles(existing.LinkedFilesJson);
+        if (matchedIndex is not null && libraries[matchedIndex.Value] is { IsSeriesLayout: true } seriesLibrary)
+        {
+            // A series folder holds many books, so a book's own place is its file: a single file's name is compared too.
+            recomputedLibraryDir = seriesLibrary.LibraryDir;
+            var extension = linkedFiles is [var only] ? Path.GetExtension(only.RelativePath) : string.Empty;
+            var place = SeriesLayoutNamer.Compute(seriesLibrary.LibraryDir, seriesLibrary.OneshotsDir, metadata, seriesLibrary.FolderNames, extension);
+            recomputedFullPath = place.Folder;
+            expectedFileName = linkedFiles.Count == 1 ? place.FileBaseName + extension : null;
+        }
+        else if (matchedIndex is not null)
         {
             var library = libraries[matchedIndex.Value];
             recomputedLibraryDir = library.LibraryDir;
@@ -485,12 +551,31 @@ public sealed class LinkRunner(
                 metadata,
                 options.ExcludeNarratorInLibraryDir,
                 path => !string.Equals(path, linkedPath, StringComparison.Ordinal) && Directory.Exists(path),
-                library.Layout,
+                library.TemplateLayout,
                 library.FolderNames);
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);
+        if (state == LibraryMismatchState.None && expectedFileName is not null && !IsNamed(linkedFiles[0].RelativePath, expectedFileName))
+        {
+            state = LibraryMismatchState.NewPath;
+        }
+
         existing.LibraryMismatchState = state == LibraryMismatchState.None ? null : state.ToString();
+    }
+
+    /// <summary>Whether a file is at <paramref name="expected"/>, or at the <c>name (2).ext</c> it got for another book's file there.</summary>
+    private static bool IsNamed(string relativePath, string expected)
+    {
+        if (string.Equals(relativePath, expected, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var stem = Path.GetFileNameWithoutExtension(expected);
+        var extension = Path.GetExtension(expected);
+        return relativePath.StartsWith(stem + " (", StringComparison.Ordinal) && relativePath.EndsWith(")" + extension, StringComparison.Ordinal)
+            && int.TryParse(relativePath[(stem.Length + 2)..^(extension.Length + 1)], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _);
     }
 
     /// <summary>The library whose folder holds <paramref name="libraryPath"/>, the deepest one if folders nest.</summary>
@@ -587,16 +672,16 @@ public sealed class LinkRunner(
             metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
         }
 
-        if (metadata.Authors.Count == 0)
+        if (metadata.Authors.Count == 0 && !library.IsSeriesLayout)
         {
             return Refuse(existing, "It has no author.");
         }
 
         var files = await client.ListFilesAsync(torrentId, cancellationToken);
-        var (audio, ebook) = ChooseFormats(library, metadata, files);
-        if (audio is null && ebook is null)
+        var (audio, ebook, formatError) = ChooseFormats(library, metadata, files);
+        if (formatError is not null)
         {
-            return Refuse(existing, NoWantedFormat);
+            return Refuse(existing, formatError);
         }
 
         if (library.Method != LibraryLinkMethod.NoLink)

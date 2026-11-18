@@ -617,6 +617,44 @@ edition and narrator.
 Changing either setting on a library that has books in it flags the books it affects as *Different
 folder*. Tick them on the **Torrents** page and use **Relink selected** to move them.
 
+### Comics and manga for Komga
+
+Every layout above gives each book its own folder, which suits Audiobookshelf. Komga reads a library the other way
+round: every folder that holds files is a series, and each file in it is a book. `layout = "series"` links a library
+that way, one folder per series and one renamed file per book:
+
+```toml
+[[library]]
+name = "Comics"
+category = "comics"
+library_dir = "/media/library/comics"
+layout = "series"
+folder_names = "portable"
+```
+
+```
+comics/Saga/Saga #001 - Saga, Volume 1.cbz
+comics/Saga/Saga #002 - Saga, Volume 2.cbz
+comics/Saga/series.json
+comics/_oneshots/Some Standalone Graphic Novel.cbz
+```
+
+To read it in Komga:
+
+1. Make the library folder visible to the Komga container, read-only is enough, and add a Komga library with that
+   folder as its root.
+2. In the library's options, set **One-Shots directory** to `_oneshots` (or the library's `oneshots_dir`), so books
+   without a series show as standalone books rather than one series of them.
+3. Leave *Import Mylar series.json* on: Komga then takes each series' title from the `series.json` Fetchshelf writes,
+   which keeps characters such as `:` that the folder name can't hold.
+
+Komga's main source of book details is a `ComicInfo.xml` inside the archive. Fetchshelf writes none: with hardlinks,
+the archive in the library is the file qBittorrent seeds, and changing it would break the seed. Komga orders the
+books by their file names, which is why the numbers are padded (`#001`, `#002`, ... `#010`).
+
+A series library links only comics, manga and other ebooks, and leaves the Audiobookshelf job out. See
+[series layout](configuration.md#series-layout) for the details.
+
 ## Connecting to Audiobookshelf
 
 Skip this section if you do not use Audiobookshelf. It is the one app Fetchshelf talks to directly, but

@@ -54,6 +54,7 @@ public static class FolderNameComputer
         };
     }
 
-    private static Series? SelectSeries(IReadOnlyList<Series> series) =>
+    /// <summary>The series a book is placed by: the first with entries, else the first; null without one.</summary>
+    public static Series? SelectSeries(IReadOnlyList<Series> series) =>
         series.FirstOrDefault(s => s.Entries.Count > 0) ?? series.FirstOrDefault();
 }

@@ -52,15 +52,23 @@ public class ConfigPageTests
             category = "comics"
             folder_names = "portable"
             folder_template = "{series}/{title}"
+
+            [[library]]
+            library_dir = "/library/manga"
+            category = "manga"
+            layout = "series"
+            oneshots_dir = "One-Shots"
             """);
         var client = fixture.CreateClient();
 
         var html = await client.GetStringAsync("/config");
 
         Assert.Contains("<td>posix</td>", html);
-        Assert.Contains("<td>default</td>", html);
+        Assert.Contains("<td>book, default template</td>", html);
         Assert.Contains("<td>portable</td>", html);
         Assert.Contains("<td>{series}/{title}</td>", html);
+        Assert.Contains("<td>series; books without a series in One-Shots</td>", html);
+        Assert.Contains("<td>series.json</td>", html);
     }
 
     [Fact]

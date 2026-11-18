@@ -37,7 +37,8 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.False(library.MetadataOpf);
         Assert.Equal(FileNameRules.Posix, library.FolderNames);
         Assert.Null(library.FolderTemplate);
-        Assert.Same(FolderLayout.Default, library.Layout);
+        Assert.Same(FolderLayout.Default, library.TemplateLayout);
+        Assert.Equal(LibraryLayout.Book, library.Layout);
     }
 
     [Fact]
@@ -161,7 +162,7 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Equal(["m4b"], library.AudioTypes);
         Assert.Equal(["epub"], library.EbookTypes);
         Assert.Equal(FileNameRules.Portable, library.FolderNames);
-        Assert.Equal("{authors}/{title}[ ({year})]", library.Layout.Template);
+        Assert.Equal("{authors}/{title}[ ({year})]", library.TemplateLayout.Template);
     }
 
     [Theory]

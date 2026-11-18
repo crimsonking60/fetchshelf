@@ -494,14 +494,15 @@ public static partial class ConfigLoader
                 library.Method = settings.LinkMethod;
             }
 
+            // A series library's folders hold many books, where one book's metadata file has no place.
             if (!library.HasOwnMetadataJson)
             {
-                library.MetadataJson = settings.MetadataJson;
+                library.MetadataJson = settings.MetadataJson && !library.IsSeriesLayout;
             }
 
             if (!library.HasOwnMetadataOpf)
             {
-                library.MetadataOpf = settings.MetadataOpf;
+                library.MetadataOpf = settings.MetadataOpf && !library.IsSeriesLayout;
             }
         }
     }
@@ -525,11 +526,12 @@ public static partial class ConfigLoader
                     "Invalid configuration: a [[library]] section must specify one of 'category' or 'download_dir'.");
             }
 
+            ValidateLayout(library);
             if (library.FolderTemplate is { } template)
             {
                 try
                 {
-                    library.Layout = FolderLayout.Parse(template);
+                    library.TemplateLayout = FolderLayout.Parse(template);
                 }
                 catch (FormatException ex)
                 {
@@ -537,6 +539,46 @@ public static partial class ConfigLoader
                     throw new ConfigurationException($"Invalid configuration: {which} has a folder_template that can't be used: {ex.Message}.", ex);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// The series layout's settings: only on a series library, and a series library has no per-book files or folder
+    /// template, as its folders hold many books.
+    /// </summary>
+    private static void ValidateLayout(Library library)
+    {
+        var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
+        if (!library.IsSeriesLayout)
+        {
+            if (library.HasSeriesSettings)
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {which} sets 'oneshots_dir' or 'series_json', which only a library with layout = \"series\" uses.");
+            }
+
+            return;
+        }
+
+        if (library.FolderTemplate is not null)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {which} has layout = \"series\" and a 'folder_template'; the series layout names its folders and files itself.");
+        }
+
+        if ((library.HasOwnMetadataJson && library.MetadataJson) || (library.HasOwnMetadataOpf && library.MetadataOpf))
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {which} has layout = \"series\" and 'metadata_json' or 'metadata_opf'; a series folder holds many books, "
+                + "so it can't have one book's metadata file. Its series.json ('series_json') describes the series.");
+        }
+
+        var oneshots = library.OneshotsDir;
+        if (string.IsNullOrWhiteSpace(oneshots) || oneshots.Contains('/') || oneshots.Contains('\\') || oneshots is "." or ".."
+            || FileNameCleaner.Clean(oneshots, library.FolderNames) != oneshots)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {which} has an 'oneshots_dir' that is not a folder name: '{oneshots}'. It is one folder right under library_dir, such as \"_oneshots\".");
         }
     }
 

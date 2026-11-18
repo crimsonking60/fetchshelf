@@ -158,6 +158,15 @@ public sealed class ConfigCheckTests : IDisposable
     }
 
     [Fact]
+    public void Run_SeriesLibrary_SaysSo()
+    {
+        var (exitCode, output) = Check("mam_id = \"\"\n[[library]]\nname = \"Comics\"\nlibrary_dir = \"/c\"\ncategory = \"comics\"\nlayout = \"series\"\n");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("hardlink_or_copy, series layout (one-shots in _oneshots), series.json", output);
+    }
+
+    [Fact]
     public void Run_BookmarksList_IsAJob()
     {
         var (exitCode, output) = Check("mam_id = \"session\"\n[[bookmarks_list]]\nsearch_interval = 120\n[[bookmarks_list.grab]]\n");

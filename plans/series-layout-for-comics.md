@@ -59,7 +59,7 @@ Duplicates, Upgrade, OPDS, Unlink, Relink, the mismatch flags) keeps working.
 
 1. **Torrents with several files of the chosen format** (packs, or a volume split into chapters). Default: they keep
    their own file names, flattened as today by `LinkFilePlacer`, since their numbering can't be told apart until
-   `plans/parked/collection-torrents.md` is built. They sit in the series folder beside renamed singles; their order in
+   `plans/collection-torrents.md` is built. They sit in the series folder beside renamed singles; their order in
    Komga follows the pack's own names.
 2. **Audiobooks in a series library.** Default: a series library links only the ebook-side format; a torrent with no
    ebook-side file gets a Link error (*This library's series layout links only ebook formats*). Comics and manga are
@@ -212,7 +212,29 @@ feature branch and one pull request into `main`.
   `method = "copy"` only.
 - Covers: Fetchshelf writes none today; series and book artwork in Komga's local-artwork names can follow
   `plans/covers-from-mam.md`.
-- Splitting packs into numbered books: `plans/parked/collection-torrents.md`.
+- Splitting packs into numbered books: `plans/collection-torrents.md`.
 - A series layout for Kavita: its expected `Series/files` shape is close, but it hasn't been checked; the docs
   mention only Komga until it is.
 - Reading direction for manga: Komga takes it from `ComicInfo.xml` only.
+
+## As built
+
+- **Names reuse the folder renderer from `safe-folder-names.md` (PR #73).** `SeriesLayoutNamer` renders its names with
+  `FolderLayout.RenderName`, a one-name form of the `folder_template` renderer that needn't hold `{title}`. So the
+  library's `folder_names` rules and the 255-byte limit apply, with the title shortened first. A file name leaves room
+  for its extension.
+- **`folder_template` with `layout = "series"` is refused**, as the plan foresaw for after PR #73.
+- **`Library.Layout` is now the `layout` setting.** The parsed `folder_template` that had that name is `TemplateLayout`.
+- **`series.json`.** Komga's reader (`MylarMetadata` in Komga's source) fails without `type`, `publisher`, `name`,
+  `comicid`, `year`, `booktype`, `comic_image`, `total_issues`, `publication_run` or `status`, so every one is written.
+  The unknown ones are empty or 0, and `status` is `Continuing`. `booktype` is always `Print`: Komga requires it but
+  doesn't use it, and the media type says nothing about it. Komga takes the title, status, publisher and
+  `total_issues` from the file, so the docs say how to keep what Komga reads from the books instead.
+- **Mismatch.** A single linked file's name is compared too. The `name (2).ext` a clash gives counts as the expected
+  name, so a second copy of a volume isn't flagged forever.
+- **Torrent page.** It already lists each torrent's linked files under its library path, so it is unchanged.
+- **Removing.** `series.json` joined `LibraryFileRemover`'s extras. The shared-folder test drives `LibraryFileRemover`
+  with `FolderUseByOthersAsync` directly, the path the Clean job, Unlink and Relink all take, rather than through
+  `CleanerTests`.
+- **Manual check.** The Komga part of the manual check is left to the PR's test run.
+- **Release notes** are left for the release PR.
