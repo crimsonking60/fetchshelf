@@ -237,7 +237,8 @@ public partial class JobsPageTests
 
         var html = await client.GetStringAsync("/Jobs");
 
-        Assert.Contains("Running for 0s", html);
+        // Any number of seconds: the page's first request starts the application, which can take a while on a slow machine.
+        Assert.Matches(@"Running for \d+s", html);
         Assert.Contains("hx-post=\"?handler=Cancel\"", html);
         Assert.Contains(">Cancel</button>", html);
         Assert.DoesNotContain(">Run now</button>", html);
