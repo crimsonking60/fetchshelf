@@ -127,7 +127,7 @@ public sealed class AutograbberRunner(
                 }
 
                 var outcome = await selectionRunner.ProcessCandidateAsync(
-                    record, metadata, ignoreTorrents, entry.Cost, entry.Category, entry.Name,
+                    record, metadata, ignoreTorrents, entry.Cost, new DownloadPlacement(entry.Category, entry.Client, entry.SavePath), entry.Name,
                     dryRun: _dryRun, cancellationToken: cancellationToken);
                 _logger.Log(
                     detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",

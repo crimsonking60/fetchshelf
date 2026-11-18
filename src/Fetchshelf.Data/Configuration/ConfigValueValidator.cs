@@ -248,7 +248,75 @@ internal static partial class ConfigValueValidator
 
             libraries[name] = label;
         }
+
+        var qbittorrents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < settings.QBittorrent.Count; i++)
+        {
+            if (settings.QBittorrent[i].Name is not { } name)
+            {
+                continue;
+            }
+
+            var label = Label("qbittorrent", name, i);
+            if (name.Length == 0 || name.Trim() != name)
+            {
+                throw Invalid($"{label} has a 'name' that is empty or starts or ends with a space.");
+            }
+
+            if (qbittorrents.TryGetValue(name, out var earlier))
+            {
+                throw Invalid($"{earlier} and {label} have the same name; every qBittorrent needs its own.");
+            }
+
+            qbittorrents[name] = label;
+        }
     }
+
+    /// <summary>
+    /// Checks each block's `client` and `save_path`: a `client` names a `[[qbittorrent]]`, and a `save_path` is absolute,
+    /// as qBittorrent sees it, so in its own form (`/data/books`, or `D:\Books` for a qBittorrent on Windows).
+    /// </summary>
+    public static void ValidateDownloadPlacements(FetchshelfSettings settings)
+    {
+        var blocks = settings.Autograb.Select((entry, i) => (Label: Label("autograb", entry.Name, i), entry.Client, entry.SavePath))
+            .Concat(settings.HardcoverList.Select((entry, i) => (Label: Label("hardcover_list", entry.Name, i), entry.Client, entry.SavePath)))
+            .Concat(settings.FileList.Select((entry, i) => (Label: Label("file_list", entry.Name, i), entry.Client, entry.SavePath)))
+            .Concat(settings.BookmarksList.Select((entry, i) => (Label: Label("bookmarks_list", entry.Name, i), entry.Client, entry.SavePath)))
+            .Concat(settings.Tag.Select((entry, i) => (Label: Label("tag", name: null, i), entry.Client, entry.SavePath)))
+            .ToList();
+        if (settings.Follow is { } follow)
+        {
+            blocks.Add(("[follow]", follow.Client, follow.SavePath));
+        }
+
+        if (settings.Upgrade is { } upgrade)
+        {
+            blocks.Add(("[upgrade]", upgrade.Client, upgrade.SavePath));
+        }
+
+        foreach (var (label, client, savePath) in blocks)
+        {
+            if (client is not null && !settings.QBittorrent.Any(q => string.Equals(q.Name, client, StringComparison.OrdinalIgnoreCase)))
+            {
+                var names = settings.QBittorrent.Select(q => q.Name).OfType<string>().ToList();
+                throw Invalid(
+                    $"{label} has client = \"{client}\", but no [[qbittorrent]] section has that 'name'"
+                    + (names.Count == 0 ? "." : $"; the names are {string.Join(", ", names.Select(n => $"\"{n}\""))}."));
+            }
+
+            if (savePath is not null && !IsAbsolutePath(savePath))
+            {
+                throw Invalid(
+                    $"{label} has a 'save_path' that is not an absolute path: '{savePath}'. It is the folder as qBittorrent sees it, "
+                    + "such as \"/data/audiobooks\".");
+            }
+        }
+    }
+
+    /// <summary>Whether a path is absolute on Linux, macOS or Windows: qBittorrent may run on another system than Fetchshelf.</summary>
+    private static bool IsAbsolutePath(string path) =>
+        path.StartsWith('/') || path.StartsWith(@"\\", StringComparison.Ordinal)
+        || (path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '\\' or '/');
 
     /// <summary>
     /// Checks every `[[notify]]` block and `web_url`. The URLs are secrets, so no message repeats one: it names the block

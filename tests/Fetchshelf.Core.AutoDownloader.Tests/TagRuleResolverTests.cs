@@ -23,12 +23,15 @@ public class TagRuleResolverTests
         TimesCompleted = 1,
     };
 
-    private static TagRule MatchAllRule(string? category = null, IReadOnlyList<string>? tags = null) => new()
-    {
-        Filter = new TorrentFilter(),
-        Category = category,
-        Tags = tags ?? [],
-    };
+    private static TagRule MatchAllRule(
+        string? category = null, IReadOnlyList<string>? tags = null, string? client = null, string? savePath = null) => new()
+        {
+            Filter = new TorrentFilter(),
+            Category = category,
+            Tags = tags ?? [],
+            Client = client,
+            SavePath = savePath,
+        };
 
     [Fact]
     public void Resolve_AutograbCategorySet_OverridesMatchingRuleCategory()
@@ -36,9 +39,9 @@ public class TagRuleResolverTests
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "rule-category") };
 
-        var (category, _) = TagRuleResolver.Resolve(candidate, "autograb-category", rules);
+        var (placement, _) = TagRuleResolver.Resolve(candidate, new DownloadPlacement(Category: "autograb-category"), rules);
 
-        Assert.Equal("autograb-category", category);
+        Assert.Equal("autograb-category", placement.Category);
     }
 
     [Fact]
@@ -47,9 +50,9 @@ public class TagRuleResolverTests
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(category: "first"), MatchAllRule(category: "second") };
 
-        var (category, _) = TagRuleResolver.Resolve(candidate, null, rules);
+        var (placement, _) = TagRuleResolver.Resolve(candidate, DownloadPlacement.None, rules);
 
-        Assert.Equal("first", category);
+        Assert.Equal("first", placement.Category);
     }
 
     [Fact]
@@ -58,8 +61,35 @@ public class TagRuleResolverTests
         var candidate = BuildCandidate();
         var rules = new List<TagRule> { MatchAllRule(tags: ["new"]), MatchAllRule(tags: ["fiction"]) };
 
-        var (_, tags) = TagRuleResolver.Resolve(candidate, null, rules);
+        var (_, tags) = TagRuleResolver.Resolve(candidate, DownloadPlacement.None, rules);
 
         Assert.Equal(new HashSet<string> { "new", "fiction" }, tags);
+    }
+
+    [Fact]
+    public void Resolve_ClientAndSavePath_FromTheFirstMatchingRuleThatSetsEach()
+    {
+        var candidate = BuildCandidate();
+        var rules = new List<TagRule>
+        {
+            MatchAllRule(category: "books"),
+            MatchAllRule(client: "vpn"),
+            MatchAllRule(client: "other", savePath: "/data/audiobooks"),
+        };
+
+        var (placement, _) = TagRuleResolver.Resolve(candidate, DownloadPlacement.None, rules);
+
+        Assert.Equal(new DownloadPlacement("books", "vpn", "/data/audiobooks"), placement);
+    }
+
+    [Fact]
+    public void Resolve_BlockClientAndSavePath_OverrideTheRules()
+    {
+        var candidate = BuildCandidate();
+        var rules = new List<TagRule> { MatchAllRule(category: "books", client: "vpn", savePath: "/data/rule") };
+
+        var (placement, _) = TagRuleResolver.Resolve(candidate, new DownloadPlacement(Client: "home", SavePath: "/data/own"), rules);
+
+        Assert.Equal(new DownloadPlacement("books", "home", "/data/own"), placement);
     }
 }

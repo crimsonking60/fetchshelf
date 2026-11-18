@@ -1,0 +1,10 @@
+@model Fetchshelf.Web.Pages.Selected.SelectedTorrentViewModel
+@* Which qBittorrent and folder the selection goes to, when its block or a tag rule set them. *@
+@if (Model.ClientName is not null)
+{
+    <div class="muted">qBittorrent: @Model.ClientName</div>
+}
+@if (Model.SavePath is not null)
+{
+    <div class="muted">Save path: @Model.SavePath</div>
+}

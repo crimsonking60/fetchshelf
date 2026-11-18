@@ -23,6 +23,12 @@ public sealed class FileListEntry
     /// <summary>qBittorrent category for everything this list downloads, as an autograb's `category`. Overrides `[[tag]]` rules.</summary>
     public string? Category { get; set; }
 
+    /// <summary>`client`: the `name` of the `[[qbittorrent]]` that receives everything this list downloads; unset means the first one.</summary>
+    public string? Client { get; set; }
+
+    /// <summary>`save_path`: the folder qBittorrent saves everything this list downloads in, as qBittorrent sees it; unset leaves it to qBittorrent.</summary>
+    public string? SavePath { get; set; }
+
     public List<GrabEntry> Grab { get; set; } = [];
 
     public int? SearchInterval { get; set; }

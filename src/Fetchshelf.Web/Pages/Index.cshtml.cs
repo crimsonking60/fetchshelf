@@ -155,6 +155,24 @@ public class IndexModel(
     /// </summary>
     public IReadOnlyList<(string Value, string Label)> CategoryOptions { get; private set; } = [];
 
+    /// <summary>The cookie that remembers the qBittorrent chosen for downloads, as the category is.</summary>
+    public const string ClientCookie = "fs-search-client";
+
+    /// <summary>The `[[qbittorrent]]` name last chosen for downloads; empty for the `[[tag]]` rules.</summary>
+    public string RememberedClient => Request.Cookies[ClientCookie] ?? string.Empty;
+
+    /// <summary>The qBittorrent the dropdown starts at: the remembered one while it is still configured, else the `[[tag]]` rules.</summary>
+    public string ChosenClient => ClientOptions.Contains(RememberedClient, StringComparer.OrdinalIgnoreCase) ? RememberedClient : string.Empty;
+
+    /// <summary>
+    /// The `[[qbittorrent]]` names a download can be sent to; empty, and no choice shown, with fewer than two
+    /// qBittorrents. Empty choice means the `[[tag]]` rules decide, else the first.
+    /// </summary>
+    public IReadOnlyList<string> ClientOptions => ClientsFor(settings);
+
+    private static IReadOnlyList<string> ClientsFor(FetchshelfSettings settings) =>
+        settings.QBittorrent.Count < 2 ? [] : settings.QBittorrent.Select(q => q.Name).OfType<string>().ToList();
+
     private static IReadOnlyList<(string Value, string Label)> CategoriesFor(FetchshelfSettings settings, QBittorrentPresence presence)
     {
         var libraries = LibraryCategories.For(settings);
@@ -340,7 +358,11 @@ public class IndexModel(
     /// post without the field (a form sent without htmx) uses the remembered choice, and leaves it remembered. It must
     /// be one the page offers (<see cref="CategoriesFor"/>), so a stale cookie or a hand-made post can't create one.
     /// </param>
-    public async Task<IActionResult> OnPostDownloadAsync(long mamId, bool wedge, string? category)
+    /// <param name="client">
+    /// The `[[qbittorrent]]` chosen on the page, by name, instead of the one the `[[tag]]` rules give; empty for the
+    /// rules. Like <paramref name="category"/>, a post without it uses the remembered one, which must still be configured.
+    /// </param>
+    public async Task<IActionResult> OnPostDownloadAsync(long mamId, bool wedge, string? category, string? client = null)
     {
         MamTorrentRecord? record = null;
         var failed = false;
@@ -360,9 +382,34 @@ public class IndexModel(
             return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, null, IsError: true));
         }
 
+        var clientChosenHere = Request.HasFormContentType && Request.Form.ContainsKey(nameof(client));
+        client = clientChosenHere ? client : RememberedClient;
+        client = string.IsNullOrWhiteSpace(client) ? null : client.Trim();
+        if (client is not null && !ClientsFor(settings).Contains(client, StringComparer.OrdinalIgnoreCase))
+        {
+            if (clientChosenHere)
+            {
+                message = $"Not downloaded: no [[qbittorrent]] is named {client}. Choose another qBittorrent.";
+                if (!Request.Headers.ContainsKey("HX-Request"))
+                {
+                    DownloadMessage = message;
+                    return RedirectToPage(SearchRouteValues());
+                }
+
+                return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, null, IsError: true));
+            }
+
+            client = null; // a remembered one no longer configured: the tag rules decide, as the dropdown shows
+        }
+
         if (chosenHere)
         {
             RememberCategory(category);
+        }
+
+        if (clientChosenHere)
+        {
+            Remember(ClientCookie, client);
         }
 
         try
@@ -386,7 +433,7 @@ public class IndexModel(
                     {
                         outcome = await selectionRunner.ProcessCandidateAsync(
                             record, MamTorrentMapper.Map(record), [], wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio,
-                            autograbCategory: category, grabberName: JobNames.ManualSearchGrabber);
+                            placement: new DownloadPlacement(category, client), grabberName: JobNames.ManualSearchGrabber);
                     }
                 }
             }
@@ -401,6 +448,11 @@ public class IndexModel(
                 if (selection.IsSelected() && category is not null)
                 {
                     message += $" Category: {category}.";
+                }
+
+                if (selection.IsSelected() && client is not null)
+                {
+                    message += $" qBittorrent: {client}.";
                 }
             }
         }
@@ -425,15 +477,17 @@ public class IndexModel(
         return Partial("_DownloadFeedbackPartial", new DownloadFeedbackViewModel(message, row, IsError: failed));
     }
 
-    private void RememberCategory(string? category)
+    private void RememberCategory(string? category) => Remember(CategoryCookie, category);
+
+    private void Remember(string cookie, string? value)
     {
-        if (category is null)
+        if (value is null)
         {
-            Response.Cookies.Delete(CategoryCookie, new CookieOptions { Path = "/" });
+            Response.Cookies.Delete(cookie, new CookieOptions { Path = "/" });
             return;
         }
 
-        Response.Cookies.Append(CategoryCookie, category, new CookieOptions
+        Response.Cookies.Append(cookie, value, new CookieOptions
         {
             Path = "/",
             MaxAge = TimeSpan.FromDays(365),

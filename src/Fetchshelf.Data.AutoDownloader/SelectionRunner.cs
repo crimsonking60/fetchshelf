@@ -42,6 +42,10 @@ public sealed class SelectionRunner(
     public IReadOnlyList<string> Details =>
         _notListed == 0 ? _details : [.. _details, $"And {_notListed} more not listed."];
 
+    /// <param name="placement">
+    /// The block's own `category`, `client` and `save_path`; each unset one comes from the first matching `[[tag]]` rule
+    /// that sets it.
+    /// </param>
     /// <param name="formatList">
     /// The format preference list to rank the candidate with, instead of the global one for its media type: the Upgrade
     /// job passes the list of the copy it upgrades, which the Link job will choose the better copy's format from.
@@ -51,13 +55,13 @@ public sealed class SelectionRunner(
         TorrentMetadata metadata,
         IReadOnlyList<long> ignoreTorrents,
         ConfiguredCost configuredCost,
-        string? autograbCategory,
+        DownloadPlacement placement,
         string? grabberName,
         bool dryRun = false,
         IReadOnlyList<string>? formatList = null,
         CancellationToken cancellationToken = default)
     {
-        var outcome = await DecideAsync(record, metadata, ignoreTorrents, configuredCost, autograbCategory, grabberName, dryRun, formatList, cancellationToken);
+        var outcome = await DecideAsync(record, metadata, ignoreTorrents, configuredCost, placement, grabberName, dryRun, formatList, cancellationToken);
         AddDetail(outcome, record, metadata, dryRun);
         return outcome;
     }
@@ -98,7 +102,7 @@ public sealed class SelectionRunner(
         TorrentMetadata metadata,
         IReadOnlyList<long> ignoreTorrents,
         ConfiguredCost configuredCost,
-        string? autograbCategory,
+        DownloadPlacement placement,
         string? grabberName,
         bool dryRun,
         IReadOnlyList<string>? formatList,
@@ -191,7 +195,7 @@ public sealed class SelectionRunner(
             Leechers = record.Leechers,
             TimesCompleted = record.TimesCompleted,
         };
-        var (category, tags) = TagRuleResolver.Resolve(candidate, autograbCategory, tagRules);
+        var (resolved, tags) = TagRuleResolver.Resolve(candidate, placement, tagRules);
 
         var cost = CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, configuredCost);
         if (cost is null)
@@ -206,7 +210,7 @@ public sealed class SelectionRunner(
             return selected;
         }
 
-        CreateSelected(record, metadata, cost.Value, category, tags, grabberName);
+        CreateSelected(record, metadata, cost.Value, resolved, tags, grabberName);
         await dbContext.SaveChangesAsync(CancellationToken.None); // a selection being written is written, even if the run is cancelled
         return selected;
     }
@@ -392,7 +396,7 @@ public sealed class SelectionRunner(
         MamTorrentRecord record,
         TorrentMetadata metadata,
         SelectedTorrentCost cost,
-        string? category,
+        DownloadPlacement placement,
         IReadOnlySet<string> tags,
         string? grabberName)
     {
@@ -401,7 +405,9 @@ public sealed class SelectionRunner(
             MamId = record.MamId,
             DownloadLink = record.DownloadHash ?? string.Empty,
             CostDecision = cost.ToString(),
-            Category = category,
+            Category = placement.Category,
+            ClientName = placement.Client,
+            SavePath = placement.SavePath,
             TagsJson = System.Text.Json.JsonSerializer.Serialize(tags),
             GrabberName = grabberName,
             MetadataJson = TorrentMetadataSerializer.Serialize(metadata),

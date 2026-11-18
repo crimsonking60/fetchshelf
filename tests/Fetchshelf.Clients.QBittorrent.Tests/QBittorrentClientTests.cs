@@ -277,6 +277,46 @@ public class QBittorrentClientTests
         Assert.Equal("true", capturedStopped);
     }
 
+    [Theory]
+    [InlineData("/data/audiobooks")]
+    [InlineData(null)]
+    public async Task AddTorrentAsync_SavePath_SentWithAutoTmmOffOnlyWhenSet(string? savePath)
+    {
+        var parts = new Dictionary<string, string>();
+        var client = CreateClient(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/v2/auth/login")
+            {
+                return LoginOkResponse();
+            }
+
+            if (request.RequestUri.AbsolutePath == "/api/v2/torrents/add")
+            {
+                foreach (var part in (MultipartFormDataContent)request.Content!)
+                {
+                    parts[part.Headers.ContentDisposition!.Name!.Trim('"')] = part.ReadAsStringAsync().Result;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+
+            throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
+        });
+
+        await client.AddTorrentAsync(Encoding.UTF8.GetBytes("fake"), category: "", tags: [], addStopped: false, savePath: savePath);
+
+        if (savePath is null)
+        {
+            Assert.False(parts.ContainsKey("savepath"));
+            Assert.False(parts.ContainsKey("autoTMM"));
+        }
+        else
+        {
+            Assert.Equal(savePath, parts["savepath"]);
+            Assert.Equal("false", parts["autoTMM"]);
+        }
+    }
+
     [Fact]
     public async Task SetCategoryAsync_HashAndCategory_SendsSetCategoryRequest()
     {

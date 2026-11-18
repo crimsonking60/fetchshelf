@@ -63,9 +63,11 @@ internal static class DownloadTestSupport
         return new MamClient(new HttpClient(handler), new MamClientOptions { MamId = "cookie" }, delay: (_, _) => Task.CompletedTask);
     }
 
-    public static QBittorrentClient CreateQBittorrentClient(List<QBittorrentTorrent> torrents, List<byte[]> addedTorrentBytes)
+    /// <param name="addedSavePaths">Gets each added torrent's `savepath`, or null when none was sent.</param>
+    public static QBittorrentClient CreateQBittorrentClient(
+        List<QBittorrentTorrent> torrents, List<byte[]> addedTorrentBytes, string? name = null, List<string?>? addedSavePaths = null)
     {
-        var options = new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin");
+        var options = new QBittorrentClientOptions("http://localhost:8080", "admin", "adminadmin", name);
         var handler = new FakeHttpMessageHandler(request =>
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -84,6 +86,7 @@ internal static class DownloadTestSupport
             if (path.Contains("torrents/add"))
             {
                 addedTorrentBytes.Add(ExtractTorrentBytes(request));
+                addedSavePaths?.Add(ExtractPart(request, "savepath"));
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
             }
 
@@ -92,6 +95,11 @@ internal static class DownloadTestSupport
 
         return new QBittorrentClient(new HttpClient(handler), options);
     }
+
+    private static string? ExtractPart(HttpRequestMessage request, string name) =>
+        ((MultipartFormDataContent)request.Content!)
+            .FirstOrDefault(part => part.Headers.ContentDisposition?.Name?.Trim('"') == name)
+            ?.ReadAsStringAsync().GetAwaiter().GetResult();
 
     private static byte[] ExtractTorrentBytes(HttpRequestMessage request)
     {

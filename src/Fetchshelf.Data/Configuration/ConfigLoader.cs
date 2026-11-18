@@ -96,6 +96,7 @@ public static partial class ConfigLoader
         ApplyGlobalLanguages(settings);
         ConfigValueValidator.ValidateFilters(settings);
         ValidateQBittorrentConnections(settings);
+        ConfigValueValidator.ValidateDownloadPlacements(settings);
         ValidateLibraries(settings);
         ValidateAutograbs(settings);
         ValidateHardcover(settings);

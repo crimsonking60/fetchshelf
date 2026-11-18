@@ -82,6 +82,82 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_SelectionForTheSecondClient_IsAddedThereWithItsSavePath()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var selected = BuildSelected(1, SelectedTorrentCost.Ratio);
+        selected.ClientName = "Second";
+        selected.SavePath = "/data/audiobooks";
+        context.SelectedTorrents.Add(selected);
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var (addedFirst, addedSecond, savePaths) = (new List<byte[]>(), new List<byte[]>(), new List<string?>());
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(),
+            [DownloadTestSupport.CreateQBittorrentClient([], addedFirst, "first"), DownloadTestSupport.CreateQBittorrentClient([], addedSecond, "second", savePaths)],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: NoBuffers);
+
+        Assert.Equal(1, (await runner.RunAsync()).Started);
+
+        Assert.Empty(addedFirst);
+        Assert.Single(addedSecond);
+        Assert.Equal(["/data/audiobooks"], savePaths);
+        Assert.Equal("second", Assert.Single(context.Events).ClientName);
+    }
+
+    [Fact]
+    public async Task RunAsync_SelectionForAClientNoLongerConfigured_GoesToTheFirstWithAWarning()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var selected = BuildSelected(1, SelectedTorrentCost.Ratio);
+        selected.ClientName = "gone";
+        context.SelectedTorrents.Add(selected);
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var (addedFirst, addedSecond, savePaths) = (new List<byte[]>(), new List<byte[]>(), new List<string?>());
+        var logger = new ListLogger<DownloadRunner>();
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(),
+            [DownloadTestSupport.CreateQBittorrentClient([], addedFirst, "first", savePaths), DownloadTestSupport.CreateQBittorrentClient([], addedSecond, "second")],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: NoBuffers, logger);
+
+        Assert.Equal(1, (await runner.RunAsync()).Started);
+
+        Assert.Single(addedFirst);
+        Assert.Empty(addedSecond);
+        Assert.Equal([null], savePaths);
+        var warning = Assert.Single(logger.Messages(LogLevel.Warning));
+        Assert.Contains("gone", warning);
+        Assert.Contains("first", warning);
+    }
+
+    [Fact]
+    public async Task RunAsync_SelectionForOneClient_StillFindsTheTorrentInAnother()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var selected = BuildSelected(1, SelectedTorrentCost.Ratio);
+        selected.ClientName = "first";
+        context.SelectedTorrents.Add(selected);
+        await context.SaveChangesAsync();
+        var mam = DownloadTestSupport.CreateMamClient(DownloadTestSupport.DefaultAccountStateJson, request =>
+            request.RequestUri!.AbsolutePath.Contains("download.php") ? DownloadResponse(TorrentBytes1) : null);
+        var existing = new QBittorrentTorrent { Hash = TorrentHash1, Name = "T", SavePath = "/x", State = "downloading", Progress = 0.5 };
+        var (addedFirst, addedSecond) = (new List<byte[]>(), new List<byte[]>());
+        var runner = new DownloadRunner(
+            context, new EventStore(context), mam, new MamAccessGate(),
+            [DownloadTestSupport.CreateQBittorrentClient([], addedFirst, "first"), DownloadTestSupport.CreateQBittorrentClient([existing], addedSecond, "second")],
+            new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: NoBuffers);
+
+        Assert.Equal(0, (await runner.RunAsync()).Started);
+
+        Assert.Empty(addedFirst);
+        Assert.Empty(addedSecond);
+        Assert.Equal(TorrentHash1, Assert.Single(context.Torrents).Id);
+    }
+
+    [Fact]
     public async Task RunAsync_CancelledBeforeATorrentFileIsInHand_StopsWithTheTorrentStillQueued()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);

@@ -13,6 +13,12 @@ public sealed class SelectedTorrentEntity
 
     public string? Category { get; set; }
 
+    /// <summary>The `name` of the `[[qbittorrent]]` the Download job adds it to; null means the first one.</summary>
+    public string? ClientName { get; set; }
+
+    /// <summary>The folder qBittorrent saves it in, as qBittorrent sees it; null leaves it to qBittorrent.</summary>
+    public string? SavePath { get; set; }
+
     public string? TagsJson { get; set; }
 
     public string? GrabberName { get; set; }

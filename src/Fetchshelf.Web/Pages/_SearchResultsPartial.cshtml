@@ -24,7 +24,7 @@ else
 {
     @if (Model.ResultsLoaded)
     {
-        @* Sent with every Download click on the page; the category qBittorrent gets, and with it the library. *@
+        @* Sent with every Download click on the page; the category qBittorrent gets, and with it the library, and which qBittorrent. *@
         <div class="toolbar" id="download-category-bar">
             <label>Download into
                 <select id="download-category" name="category">
@@ -35,6 +35,18 @@ else
                     }
                 </select>
             </label>
+            @if (Model.ClientOptions.Count > 0)
+            {
+                <label>in qBittorrent
+                    <select id="download-client" name="client">
+                        <option value="">the one the tag rules give, else the first</option>
+                        @foreach (var name in Model.ClientOptions)
+                        {
+                            <option value="@name" selected="@(string.Equals(name, Model.ChosenClient, StringComparison.OrdinalIgnoreCase))">@name</option>
+                        }
+                    </select>
+                </label>
+            }
         </div>
     }
     @* Right above the table they narrow; the page's script keeps their state when the results arrive. *@

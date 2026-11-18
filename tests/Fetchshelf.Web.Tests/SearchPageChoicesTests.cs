@@ -155,7 +155,7 @@ public partial class SearchPageChoicesTests
         var html = await client.GetStringAsync("/?handler=Results&Q=kings");
 
         Assert.Contains("<option value=\"audiobooks\">audiobooks (Audiobooks)</option>", html);
-        Assert.Contains("hx-include=\"#download-category\"", html);
+        Assert.Contains("hx-include=\"#download-category, #download-client\"", html);
     }
 
     [Fact]

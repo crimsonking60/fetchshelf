@@ -14,14 +14,19 @@ public sealed record SelectedTorrentViewModel(
     IReadOnlyList<string> Tags,
     string? GrabberName,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? StartedAt)
+    DateTimeOffset? StartedAt,
+    string? ClientName = null,
+    string? SavePath = null)
 {
+    /// <summary>Whether a block or a tag rule chose the qBittorrent or the folder, which the page then shows.</summary>
+    public bool HasPlacement => ClientName is not null || SavePath is not null;
+
     public static SelectedTorrentViewModel From(SelectedTorrentEntity entity)
     {
         var metadata = TorrentMetadataSerializer.Deserialize(entity.MetadataJson);
         var tags = entity.TagsJson is null ? [] : JsonSerializer.Deserialize<List<string>>(entity.TagsJson) ?? [];
         return new SelectedTorrentViewModel(
             entity.Id, entity.MamId, metadata.Title, entity.CostDecision, entity.Category, tags,
-            entity.GrabberName, entity.CreatedAt, entity.StartedAt);
+            entity.GrabberName, entity.CreatedAt, entity.StartedAt, entity.ClientName, entity.SavePath);
     }
 }

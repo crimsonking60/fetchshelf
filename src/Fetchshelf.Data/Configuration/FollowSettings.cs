@@ -24,6 +24,12 @@ public sealed class FollowSettings
     /// <summary>qBittorrent category for everything the job downloads, as an autograb's `category`. Overrides `[[tag]]` rules.</summary>
     public string? Category { get; set; }
 
+    /// <summary>`client`: the `name` of the `[[qbittorrent]]` that receives everything the job downloads; unset means the first one.</summary>
+    public string? Client { get; set; }
+
+    /// <summary>`save_path`: the folder qBittorrent saves everything the job downloads in, as qBittorrent sees it; unset leaves it to qBittorrent.</summary>
+    public string? SavePath { get; set; }
+
     public bool DryRun { get; set; }
 
     /// <summary>Overrides the top-level `unsat_buffer` for what this block selects, as an autograb's does.</summary>

@@ -20,9 +20,9 @@ public sealed class SelectionRunnerTests : IDisposable
         SelectionRunner runner,
         Fetchshelf.Clients.Mam.MamTorrentRecord record,
         ConfiguredCost cost = ConfiguredCost.Free,
-        string? category = null,
+        DownloadPlacement? placement = null,
         string? grabberName = "test-grabber") =>
-        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, category, grabberName);
+        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, placement ?? DownloadPlacement.None, grabberName);
 
     [Fact]
     public async Task ProcessCandidateAsync_IgnoredMamId_ReturnsIgnored()
@@ -32,7 +32,7 @@ public sealed class SelectionRunnerTests : IDisposable
         var runner = CreateRunner(context);
 
         var outcome = await runner.ProcessCandidateAsync(
-            record, MamTorrentMapper.Map(record), [7], ConfiguredCost.Free, null, null);
+            record, MamTorrentMapper.Map(record), [7], ConfiguredCost.Free, DownloadPlacement.None, null);
 
         Assert.Equal(SelectionOutcome.Ignored, outcome);
         Assert.Empty(context.SelectedTorrents);
@@ -310,7 +310,7 @@ public sealed class SelectionRunnerTests : IDisposable
         var record = SelectionTestSupport.BuildRecord(mamId: 2, fileTypes: ["m4b"]);
 
         var outcome = await runner.ProcessCandidateAsync(
-            record, MamTorrentMapper.Map(record), [], ConfiguredCost.Ratio, null, "test-grabber", formatList: passTheCopysList ? libraryList : null);
+            record, MamTorrentMapper.Map(record), [], ConfiguredCost.Ratio, DownloadPlacement.None, "test-grabber", formatList: passTheCopysList ? libraryList : null);
 
         Assert.Equal(expected, outcome);
     }
@@ -359,6 +359,22 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcessCandidateAsync_ClientAndSavePath_StoredFromTheBlockElseTheRules()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var record = SelectionTestSupport.BuildRecord(mamId: 1, isFree: true);
+        var tagRule = new TagRule { Filter = new TorrentFilter(), Client = "rule-client", SavePath = "/data/rule" };
+        var runner = CreateRunner(context, [tagRule]);
+
+        var outcome = await Process(runner, record, cost: ConfiguredCost.Ratio, placement: new DownloadPlacement(Client: "block-client"));
+
+        Assert.Equal(SelectionOutcome.Selected, outcome);
+        var selected = context.SelectedTorrents.Single();
+        Assert.Equal("block-client", selected.ClientName);
+        Assert.Equal("/data/rule", selected.SavePath);
+    }
+
+    [Fact]
     public async Task ProcessCandidateAsync_ConfiguredFreeAndNonFreeTorrent_RejectsIt()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
@@ -380,7 +396,7 @@ public sealed class SelectionRunnerTests : IDisposable
         await Process(runner, SelectionTestSupport.BuildRecord(mamId: 1, title: "Free Book", isFree: true));
         await Process(runner, SelectionTestSupport.BuildRecord(mamId: 2, title: "Paid Book"));
         await Process(runner, SelectionTestSupport.BuildRecord(mamId: 3, title: "Odd Format", fileTypes: ["xyz"], isFree: true));
-        await runner.ProcessCandidateAsync(SelectionTestSupport.BuildRecord(mamId: 4), MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 4)), [4], ConfiguredCost.Free, null, null);
+        await runner.ProcessCandidateAsync(SelectionTestSupport.BuildRecord(mamId: 4), MamTorrentMapper.Map(SelectionTestSupport.BuildRecord(mamId: 4)), [4], ConfiguredCost.Free, DownloadPlacement.None, null);
 
         Assert.Equal(
             [
@@ -418,7 +434,7 @@ public sealed class SelectionRunnerTests : IDisposable
     }
 
     private static Task<SelectionOutcome> DryRun(SelectionRunner runner, MamTorrentRecord record, ConfiguredCost cost = ConfiguredCost.Ratio) =>
-        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, null, "test-grabber", dryRun: true);
+        runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, DownloadPlacement.None, "test-grabber", dryRun: true);
 
     private static async Task AddSelectedAsync(FetchshelfDbContext context, MamTorrentRecord record)
     {

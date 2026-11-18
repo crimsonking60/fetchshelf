@@ -551,7 +551,7 @@ public sealed class ListImporter(
         }
 
         var outcome = await selectionRunner.ProcessCandidateAsync(
-            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, autograbCategory: list.Category, grabberName: grabberName,
+            winner.Payload, winner.Metadata, ignoreTorrents, grab!.Cost, placement: list.Placement, grabberName: grabberName,
             dryRun: _dryRun, cancellationToken: cancellationToken);
         var status = outcome switch
         {

@@ -60,7 +60,14 @@ public static class RunnerServices
     public static IServiceCollection AddAutoDownloader(this IServiceCollection services, FetchshelfSettings settings)
     {
         services.AddSingleton<IReadOnlyList<TagRule>>(settings.Tag
-            .Select(t => new TagRule { Filter = SharedFilterConfigMapper.ToTorrentFilter(t), Category = t.Category, Tags = t.Tags })
+            .Select(t => new TagRule
+            {
+                Filter = SharedFilterConfigMapper.ToTorrentFilter(t),
+                Category = t.Category,
+                Tags = t.Tags,
+                Client = t.Client,
+                SavePath = t.SavePath,
+            })
             .ToList());
         services.AddScoped<SelectionRunner>();
         services.AddScoped<AutograbberRunner>();

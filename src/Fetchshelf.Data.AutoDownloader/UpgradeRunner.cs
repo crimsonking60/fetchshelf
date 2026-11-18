@@ -310,7 +310,7 @@ public sealed class UpgradeRunner(
         foreach (var (record, candidate, grab) in tries)
         {
             var outcome = await selectionRunner.ProcessCandidateAsync(
-                record, candidate, ignoreTorrents, grab.Cost, autograbCategory: category, grabberName: JobNames.Upgrade,
+                record, candidate, ignoreTorrents, grab.Cost, placement: new DownloadPlacement(category, settings.Client, settings.SavePath), grabberName: JobNames.Upgrade,
                 dryRun: _dryRun, formatList: preferred, cancellationToken: cancellationToken);
             _logger.LogInformation(
                 "Upgrade \"{Title}\": {Counts}; MAM torrent {MamId} ({Formats}): {Outcome}",

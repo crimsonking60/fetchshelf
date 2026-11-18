@@ -738,6 +738,84 @@ public partial class IndexPageTests
         Assert.Equal("Manual search", selected.GrabberName);
     }
 
+    private const string ConfigWithTwoQBittorrents = """
+        mam_id = ""
+
+        [[qbittorrent]]
+        name = "home"
+        url = "http://qbittorrent.test"
+        username = "admin"
+        password = "adminadmin"
+
+        [[qbittorrent]]
+        name = "vpn"
+        url = "http://qbittorrent-vpn.test"
+        username = "admin"
+        password = "adminadmin"
+        """;
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetResults_QBittorrentChoice_ShownOnlyWithTwoOrMore(bool two)
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            two ? ConfigWithTwoQBittorrents : ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith());
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings");
+
+        Assert.Equal(two, html.Contains("id=\"download-client\"", StringComparison.Ordinal));
+        Assert.Equal(two, html.Contains("<option value=\"vpn\">vpn</option>", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("vpn", "vpn")]
+    [InlineData("", null)]
+    public async Task Post_Download_WithAQBittorrentChosen_StoresItWithTheSelection(string chosen, string? stored)
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithTwoQBittorrents, mamHandler: MamHandler(SearchResponseJson(large: false)), qbittorrentHandler: QBittorrentWith());
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["mamId"] = "1",
+            ["client"] = chosen,
+            ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+        });
+        await client.PostAsync("/?handler=Download", form);
+
+        using var scope = fixture.CreateScope();
+        Assert.Equal(stored, Assert.Single(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents).ClientName);
+    }
+
+    [Fact]
+    public async Task Post_Download_WithAQBittorrentNotConfigured_IsRefused()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithTwoQBittorrents, mamHandler: MamHandler(SearchResponseJson(large: false)), qbittorrentHandler: QBittorrentWith());
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Download")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["client"] = "seedbox",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+
+        Assert.Contains("no [[qbittorrent]] is named seedbox", body);
+        using var scope = fixture.CreateScope();
+        Assert.Empty(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents);
+    }
+
     /// <summary>Clicks Download on the one search result through htmx and returns the decoded answer.</summary>
     private static async Task<string> ClickDownloadAsync(FetchshelfWebAppFixture fixture)
     {

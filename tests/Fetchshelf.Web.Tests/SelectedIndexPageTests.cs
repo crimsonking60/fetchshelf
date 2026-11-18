@@ -8,7 +8,8 @@ namespace Fetchshelf.Web.Tests;
 public partial class SelectedIndexPageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(
-        FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1, DateTimeOffset? startedAt = null)
+        FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1, DateTimeOffset? startedAt = null,
+        string? clientName = null, string? savePath = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -22,6 +23,8 @@ public partial class SelectedIndexPageTests
             NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(title),
             CreatedAt = DateTimeOffset.UtcNow,
             StartedAt = startedAt,
+            ClientName = clientName,
+            SavePath = savePath,
         };
         dbContext.SelectedTorrents.Add(entity);
         await dbContext.SaveChangesAsync();
@@ -160,6 +163,21 @@ public partial class SelectedIndexPageTests
         Assert.Single(Regex.Matches(html, "name=\"tags\""));
         // The started row still shows what was applied to the torrent.
         Assert.Contains("<td>audiobooks</td>", html);
+    }
+
+    [Fact]
+    public async Task Get_SelectionWithAClientAndSavePath_ShowsThem()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedSelectedAsync(fixture, "Waiting Book", mamId: 1, clientName: "vpn", savePath: "/data/audiobooks");
+        await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow, clientName: "home");
+
+        var html = await fixture.CreateClient().GetStringAsync("/selected");
+
+        Assert.Contains("qBittorrent: vpn", html);
+        Assert.Contains("Save path: /data/audiobooks", html);
+        Assert.Contains("qBittorrent: home", html);
+        Assert.Single(Regex.Matches(html, "Save path:"));
     }
 
     [Fact]

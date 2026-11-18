@@ -190,6 +190,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<int?>("BonusUploadGb")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ClientName")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Cost")
                         .HasColumnType("TEXT");
 
@@ -506,6 +509,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("Category")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ClientName")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CostDecision")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -532,6 +538,9 @@ namespace Fetchshelf.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SavePath")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("StartedAt")
