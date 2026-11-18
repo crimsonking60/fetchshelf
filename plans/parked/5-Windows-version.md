@@ -1,5 +1,7 @@
 # Issue #5: Windows version — implementation plan
 
+**Parked on 2026-11-19:** not built until someone who wants a Windows version, and can test it, turns up.
+
 ## Context
 
 Fetchshelf ships only as a Linux Docker image. Issue #5 asks for a native Windows build that runs as a
