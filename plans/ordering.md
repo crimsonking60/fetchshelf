@@ -1,15 +1,15 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 9 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 8 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96) and
-`search-bookmark-and-more-like-this.md` (PR #97) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96),
+`search-bookmark-and-more-like-this.md` (PR #97) and `download-client-and-save-path.md` (PR #98) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
 2026-11-18. The order follows four rules:
 
-1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
+1. **Protect first.** Four of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
 2. **Make room before building.** Almost every plan adds settings or registrations. Since `composition-root.md`
    (PR #66) they go into `Hosting/`, one registration method per area, and a runner's new setting into its options
@@ -80,8 +80,8 @@ Done:
     `language_in_folder` keeps two editions of a title out of one library folder.
 5. **`search-bookmark-and-more-like-this.md`** — done (PR #97): authors, narrators and series on the Search page link
     to a search for more of the same, the name as a quoted phrase. No bookmarking: MAM authorizes no bookmark endpoint.
-6. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
-    the other blocks; before other download clients, which reuse its client names.
+6. **`download-client-and-save-path.md`** — done (PR #98): `client` and `save_path` on every block and `[[tag]]` rule
+    choose the qBittorrent, by its `name`, and the folder a download goes to; the Search page offers the choice too.
 
 **Release point.**
 
@@ -127,7 +127,7 @@ Parked plans are left out of the order until they are taken up again.
 
 | Plan | Needs first | Better after |
 |---|---|---|
-| `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` |
+| `other-download-clients.md` | `download-client-and-save-path.md` (done, PR #98) | `collection-torrents.md` |
 
 ## Plans that touch the same code
 
@@ -141,5 +141,4 @@ Done in the order above, each builds on the one before; done in parallel, they c
   `covers-from-mam.md` (`cover.png`, `cover.webp`), `collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93, and ownership is per
   language since PR #96): `collection-torrents.md`.
-- **`DownloadRunner`:** `download-client-and-save-path.md`, `other-download-clients.md`.
 - **Every user of a torrent id as a qBittorrent hash:** `collection-torrents.md`, `other-download-clients.md`.
