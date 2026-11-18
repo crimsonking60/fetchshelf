@@ -56,7 +56,7 @@ public class SearchHitPageTests
         Assert.Contains("\"mediaInfo\":true", bodies.Single());
         Assert.Contains("<h2>The Way of Kings</h2>", html);
         Assert.Contains("Michael Kramer", html);
-        Assert.Contains("The Stormlight Archive #1", html);
+        Assert.Contains(">The Stormlight Archive</a> #1", html);
         Assert.Contains("ASIN:B003P2WO5E", html);
         // 2026-01-01 00:00:00 UTC, the upload time, is 1767225600.
         Assert.Contains("class=\"hit-cover\" src=\"/search/1?url=https%3A%2F%2Fcdn.myanonamouse.net%2Ft%2Fp%2F1767225600%2Flarge%2F1.jpeg&handler=Cover\"", html);
@@ -186,5 +186,27 @@ public class SearchHitPageTests
         Assert.Equal(["", "General", "menu"], sections.Select(s => s.Title));
         Assert.Equal(("Version", "3"), sections[0].Rows.Single());
         Assert.Equal(("extra", "00:00 One, 00:10 Two"), sections[2].Rows.Single());
+    }
+
+    [Fact]
+    public async Task Get_AuthorsNarratorsAndSeries_LinkToMoreOfTheSame_KeepingTheLanguage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson));
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/search/1?Q=kings&Lang=Norwegian"));
+
+        Assert.Contains("<a class=\"more-like\" href=\"/?Q=%22Brandon%20Sanderson%22&In=author&Lang=Norwegian\">Brandon Sanderson</a>", html);
+        Assert.Contains("<a class=\"more-like\" href=\"/?Q=%22Michael%20Kramer%22&In=narrator&Lang=Norwegian\">Michael Kramer</a>", html);
+        Assert.Contains("<a class=\"more-like\" href=\"/?Q=%22The%20Stormlight%20Archive%22&In=series&Lang=Norwegian\">The Stormlight Archive</a>", html);
+    }
+
+    [Fact]
+    public async Task SearchPage_EachAuthorOfAResult_LinksToMoreByThem()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson));
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=kings"));
+
+        Assert.Contains("<a class=\"more-like\" href=\"/?Q=%22Brandon%20Sanderson%22&In=author\">Brandon Sanderson</a>", html);
     }
 }

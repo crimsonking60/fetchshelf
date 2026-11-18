@@ -801,6 +801,9 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
   its own.
+- **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
+  to a new search for more of the same: the name as a phrase, in that field only (`"Brandon Sanderson"` in
+  **Author**), in the language you have chosen. Open it in a new tab to keep your results.
 - Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
   finished yet), **Downloaded** (finished, or recorded as owned, but not in your library) or
