@@ -90,6 +90,8 @@ public class IndexModel(FetchshelfDbContext dbContext, IJobRegistry jobRegistry)
                 DownloadLink = payload.DownloadLink,
                 CostDecision = payload.CostDecision,
                 Category = payload.Category,
+                ClientName = payload.ClientName,
+                SavePath = payload.SavePath,
                 TagsJson = payload.TagsJson,
                 GrabberName = payload.GrabberName,
                 MetadataJson = payload.MetadataJson,

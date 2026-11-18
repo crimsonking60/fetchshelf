@@ -35,6 +35,12 @@ public sealed class AutograbEntry : SharedFilterConfig
 
     public string? Category { get; set; }
 
+    /// <summary>`client`: the `name` of the `[[qbittorrent]]` that receives what this block downloads; unset means the first one.</summary>
+    public string? Client { get; set; }
+
+    /// <summary>`save_path`: the folder qBittorrent saves what this block downloads in, as qBittorrent sees it; unset leaves it to qBittorrent.</summary>
+    public string? SavePath { get; set; }
+
     /// <summary>
     /// Default 50 for `bookmarks`/`freeleech`/`mine`, 1 otherwise, applied when
     /// `max_pages` is not configured.

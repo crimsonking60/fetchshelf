@@ -18,6 +18,12 @@ public sealed class UpgradeSettings
     /// <summary>Only books in these `[[library]]` names; every library when empty.</summary>
     public List<string> Libraries { get; set; } = [];
 
+    /// <summary>`client`: the `name` of the `[[qbittorrent]]` that receives the better copies; unset means the first one.</summary>
+    public string? Client { get; set; }
+
+    /// <summary>`save_path`: the folder qBittorrent saves the better copies in, as qBittorrent sees it; unset leaves it to qBittorrent.</summary>
+    public string? SavePath { get; set; }
+
     public bool DryRun { get; set; }
 
     /// <summary>Overrides the top-level `unsat_buffer` for what this block selects, as an autograb's does.</summary>

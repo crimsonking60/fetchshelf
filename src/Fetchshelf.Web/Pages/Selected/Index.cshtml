@@ -57,13 +57,17 @@ else
                             <td>
                                 <input form="update-@selection.Id" type="hidden" name="id" value="@selection.Id" />
                                 <input form="update-@selection.Id" type="text" name="category" value="@selection.Category" />
+                                @if (selection.HasPlacement)
+                                {
+                                    <partial name="_SelectionPlacementPartial" model="selection" />
+                                }
                             </td>
                             <td><input form="update-@selection.Id" type="text" name="tags" value="@string.Join(",", selection.Tags)" /></td>
                         }
                         else
                         {
                             <td class="nowrap">@selection.CostDecision</td>
-                            <td>@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)</td>
+                            <td>@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)@if (selection.HasPlacement) { <partial name="_SelectionPlacementPartial" model="selection" /> }</td>
                             <td>@(selection.Tags.Count == 0 ? "-" : string.Join(", ", selection.Tags))</td>
                         }
                         <td>@selection.GrabberName</td>

@@ -318,7 +318,7 @@ public sealed class FollowRunner(
             }
 
             var selection = await selectionRunner.ProcessCandidateAsync(
-                shown.Record, shown.Metadata, ignoreTorrents, decision.Grab!.Cost, autograbCategory: settings.Category,
+                shown.Record, shown.Metadata, ignoreTorrents, decision.Grab!.Cost, placement: new DownloadPlacement(settings.Category, settings.Client, settings.SavePath),
                 grabberName: GrabberName(follow), dryRun: _dryRun, cancellationToken: cancellationToken);
             Log(follow, shown, selection.Describe(_dryRun));
             switch (selection)

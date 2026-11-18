@@ -288,7 +288,7 @@ public sealed class FollowService(
 
         var metadata = MamTorrentMapper.Map(record);
         var outcome = await selectionRunner.ProcessCandidateAsync(
-            record, metadata, [], wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio, autograbCategory: settings.Category,
+            record, metadata, [], wedge ? ConfiguredCost.Wedge : ConfiguredCost.Ratio, placement: new DownloadPlacement(settings.Category, settings.Client, settings.SavePath),
             grabberName: FollowRunner.GrabberName(follow), cancellationToken: cancellationToken);
         var status = outcome switch
         {

@@ -1,5 +1,6 @@
 using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Lists;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Data.Configuration;
@@ -38,6 +39,15 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
     /// <summary>qBittorrent category for everything this list downloads.</summary>
     public string? Category { get; init; }
 
+    /// <summary>The `name` of the `[[qbittorrent]]` that receives everything this list downloads.</summary>
+    public string? Client { get; init; }
+
+    /// <summary>The folder qBittorrent saves everything this list downloads in.</summary>
+    public string? SavePath { get; init; }
+
+    /// <summary>The list's own category, client and save path.</summary>
+    public DownloadPlacement Placement => new(Category, Client, SavePath);
+
     public IReadOnlyList<GrabEntry> Grab { get; init; } = [];
 
     /// <summary>Overrides the top-level `unsat_buffer` for what this list selects.</summary>
@@ -68,6 +78,8 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
         {
             PreferFormat = entry.PreferFormat,
             Category = entry.Category,
+            Client = entry.Client,
+            SavePath = entry.SavePath,
             Grab = entry.Grab,
             UnsatBuffer = entry.UnsatBuffer,
             WedgeBuffer = entry.WedgeBuffer,
@@ -87,6 +99,8 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
         {
             PreferFormat = entry.PreferFormat,
             Category = entry.Category,
+            Client = entry.Client,
+            SavePath = entry.SavePath,
             Grab = entry.Grab,
             UnsatBuffer = entry.UnsatBuffer,
             WedgeBuffer = entry.WedgeBuffer,
@@ -104,6 +118,8 @@ public sealed record ListDefinition(string ListId, string DisplayName, string Li
         return new ListDefinition(BookmarksListId, jobName, BookmarksListType, jobName, ErrorStage.BookmarksList)
         {
             Category = entry.Category,
+            Client = entry.Client,
+            SavePath = entry.SavePath,
             Grab = entry.Grab,
             UnsatBuffer = entry.UnsatBuffer,
             WedgeBuffer = entry.WedgeBuffer,

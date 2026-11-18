@@ -848,6 +848,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   downloads. Tags always come from the `[[tag]]` rules. The browser remembers the choice, and the message
   after a download names the category used. A remembered category that is no longer offered, for example
   while qBittorrent doesn't answer, falls back to the tag rules.
+- **in qBittorrent**, next to it, shows with two or more `[[qbittorrent]]` blocks and chooses which one a download
+  goes to, by its `name`. Left at *the one the tag rules give, else the first*, a `[[tag]]` rule's `client` decides,
+  and without one the first `[[qbittorrent]]` gets it. The browser remembers this choice too, and the message after a
+  download names the qBittorrent chosen.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library. A selected torrent's status then follows it into the

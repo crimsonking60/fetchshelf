@@ -173,9 +173,11 @@ public sealed class DownloadRunner(
         {
             case DownloadOutcome.Started:
                 _logger.LogInformation(
-                    "Added {Torrent} to qBittorrent (cost {Cost}{Wedge}, category {Category})",
-                    name, selected.CostDecision, wedgeSpent ? ", wedge used" : string.Empty,
-                    string.IsNullOrEmpty(selected.Category) ? "none" : selected.Category);
+                    "Added {Torrent} to qBittorrent{Client} (cost {Cost}{Wedge}, category {Category}{SavePath})",
+                    name, qbClients.Count > 1 ? $" {ClientFor(selected).Options.Name ?? "(the first, unnamed)"}" : string.Empty,
+                    selected.CostDecision, wedgeSpent ? ", wedge used" : string.Empty,
+                    string.IsNullOrEmpty(selected.Category) ? "none" : selected.Category,
+                    selected.SavePath is { } savePath ? $", save path {savePath}" : string.Empty);
                 break;
             case DownloadOutcome.NoUnsatSlot:
                 _logger.LogInformation("{Torrent} stays queued: no unsatisfied-snatch slot is free beyond unsat_buffer", name);
@@ -417,6 +419,8 @@ public sealed class DownloadRunner(
                 DownloadLink = selected.DownloadLink,
                 CostDecision = selected.CostDecision,
                 Category = selected.Category,
+                ClientName = selected.ClientName,
+                SavePath = selected.SavePath,
                 TagsJson = selected.TagsJson,
                 GrabberName = selected.GrabberName,
                 MetadataJson = selected.MetadataJson,
@@ -511,8 +515,16 @@ public sealed class DownloadRunner(
             ? []
             : System.Text.Json.JsonSerializer.Deserialize<List<string>>(selected.TagsJson) ?? [];
 
-        var client = qbClients[0];
-        await client.AddTorrentAsync(torrentBytes, selected.Category ?? string.Empty, tags, options.AddTorrentsStopped, cancellationToken);
+        var client = ClientFor(selected);
+        if (selected.ClientName is { } wanted && !string.Equals(client.Options.Name, wanted, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "{Torrent} was selected for the qBittorrent named {Client}, which is no longer configured; it goes to the first, {First}",
+                metadata.DisplayName(), wanted, client.Options.Name ?? "unnamed");
+        }
+
+        await client.AddTorrentAsync(
+            torrentBytes, selected.Category ?? string.Empty, tags, options.AddTorrentsStopped, selected.SavePath, cancellationToken);
 
         // qBittorrent has it now, so it is recorded whatever the cancellation: the next run would find it there and
         // record it as already downloading, without the grab, its cost or its wedge.
@@ -532,10 +544,19 @@ public sealed class DownloadRunner(
             GrabberName = selected.GrabberName,
             Cost = cost.ToString(),
             WedgeUsed = wedgeUsed,
+            ClientName = qbClients.Count > 1 ? client.Options.Name : null,
         }, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// The qBittorrent a selection goes to: the one its `client` names, else the first. A name no longer configured (the
+    /// config changed after it was selected) falls back to the first.
+    /// </summary>
+    private QBittorrentClient ClientFor(SelectedTorrentEntity selected) =>
+        qbClients.FirstOrDefault(c => selected.ClientName is { } name && string.Equals(c.Options.Name, name, StringComparison.OrdinalIgnoreCase))
+        ?? qbClients[0];
 
     private static bool IsFreeNow(MamTorrentRecord? current) =>
         current is { } c && (c.IsVip || c.IsPersonalFreeleech || c.IsFree);

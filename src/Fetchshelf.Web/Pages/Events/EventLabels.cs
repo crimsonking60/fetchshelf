@@ -22,7 +22,8 @@ public static class EventLabels
         EventKind.Cleaned => $"Cleaned{(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})")}, removed files: {RemovedFiles(e.FilesRemovedJson)}",
         EventKind.Unlinked => $"Unlinked{(string.IsNullOrEmpty(e.LinkerName) ? "" : $" ({e.LinkerName})")}, removed files: {RemovedFiles(e.FilesRemovedJson)}",
         EventKind.Updated => $"{(e.EditedByHand == true ? "Edited by hand: " : "")}{FieldChanges(e.FieldChangesJson)}",
-        EventKind.Grabbed => $"Grabbed{(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}")} (cost: {e.Cost})",
+        EventKind.Grabbed => $"Grabbed{(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}")} (cost: {e.Cost})"
+            + (string.IsNullOrEmpty(e.ClientName) ? "" : $", added to qBittorrent {e.ClientName}"),
         EventKind.RemovedFromMam => "Removed from MAM",
         EventKind.BonusPurchase => $"Bought {EventNotifications.BonusPurchaseDescription(e.BonusSpend, e.BonusUploadGb)}"
             + (e.PointsBefore is { } before && e.PointsAfter is { } after

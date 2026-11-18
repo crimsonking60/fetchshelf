@@ -129,7 +129,9 @@ Fetchshelf has two halves that can be used independently.
 - `ebook_types` / `audio_types` / ... decide which torrents have a usable file format at all, and which
   of two copies of the same book is better.
 - `[[tag]]` rules (or an autograb's or Hardcover list's own `category`) decide which qBittorrent category
-  and tags a new download gets.
+  and tags a new download gets. In the same way, `client` and `save_path` decide which `[[qbittorrent]]` gets it
+  and which folder it is saved in; without them it goes to the first `[[qbittorrent]]`, into the folder its
+  category or qBittorrent's default gives.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. A block's own
   `unsat_buffer` / `wedge_buffer` (on a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`)
   override the global ones. The downloader reads them when it starts each
@@ -154,6 +156,45 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
   metadata files.
 - When a better format of a book is linked, the old copy is retired, and `on_cleaned` on the
   `[[qbittorrent]]` entry says what to do to it in the client.
+
+With two qBittorrents, such as one for audiobooks on a large disk and one for ebooks, each gets a `name`, and the
+blocks (or `[[tag]]` rules) say which one a download goes to. A `save_path` puts the downloads in a folder of their
+own without a category path set up in qBittorrent; a library then accepts them by that folder (`download_dir`,
+after `path_mapping`) or by their category:
+
+```toml
+[[qbittorrent]]
+name = "audio"
+url = "http://qbittorrent-audio:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+[[qbittorrent]]
+name = "ebooks"
+url = "http://qbittorrent-ebooks:8080"
+username = "admin"
+password = "replace-with-your-qbittorrent-admin-password"
+
+[[tag]]                                     # audiobooks to the large disk
+categories = { audio = true, ebook = false }
+client = "audio"
+save_path = "/big-disk/audiobooks"
+
+[[tag]]
+categories = { audio = false, ebook = true }
+client = "ebooks"
+category = "ebooks"
+
+[[library]]
+name = "Audiobooks"
+download_dir = "/big-disk/audiobooks"       # as Fetchshelf sees it, after path_mapping
+library_dir = "/library/audiobooks"
+
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/library/ebooks"
+```
 
 ## Top-level settings
 
@@ -332,11 +373,13 @@ libraries = ["Ebooks", "Comics"]
 
 ## `[[qbittorrent]]`
 
-Repeatable. Each entry is one qBittorrent Web UI. New downloads go to the **first** entry. Linking runs
-against every entry.
+Repeatable. Each entry is one qBittorrent Web UI. New downloads go to the **first** entry, unless the block that
+selected them, or a `[[tag]]` rule, names another with `client`. Linking runs against every entry, and before a
+download is added every entry is checked for it.
 
 | Setting | Default | Description |
 |---|---|---|
+| `name` | unset | What a block's or `[[tag]]` rule's `client` refers to this entry by. Needed only then. Must be unique among the entries (ignoring case) and must not start or end with a space. |
 | `url` | (required) | Web UI URL, for example `http://localhost:8080`. |
 | `username` | (required) | Web UI user. |
 | `password` | (required) | Web UI password. Treat it as a secret. |
@@ -373,6 +416,8 @@ category = "unlinked"
   usually from another tracker.
 - **Categories** named in `on_cleaned`, `on_unlinked`, `on_invalid_torrent`, `[[tag]]`, `[[autograb]]` and
   `[[hardcover_list]]` are created in qBittorrent automatically if they do not exist.
+- **A download queued for a `client` that is no longer configured** (the config changed after it was selected) goes
+  to the first entry, with a warning in the log.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
   Docker, reach Fetchshelf through the same mount: two separate mounts count as different filesystems even
   on one disk. See [`method`](#library).
@@ -441,6 +486,8 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | `dry_run` | `false` | Search and run every selection check, but select, write and download nothing. What each torrent would get is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `mark_removed` | `false` | For torrents Fetchshelf already stores: if the results show a gap where a stored torrent should be, ask MAM directly, and mark the torrent as removed from MAM if it is gone. See [`mark_removed`](#mark_removed). Not for `type = "bookmarks"`. |
 | `category` | unset | qBittorrent category forced on everything this block downloads. Overrides `[[tag]]` rules. |
+| `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives everything this block downloads. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
+| `save_path` | unset | The folder qBittorrent saves everything this block downloads in, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 
 ### `type`
 
@@ -547,6 +594,8 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
+| `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives everything this list downloads. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
+| `save_path` | unset | The folder qBittorrent saves everything this list downloads in, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
@@ -615,6 +664,8 @@ account or API.
 | `shelf` | unset | For an export that holds every shelf: keep only the rows on this shelf, compared ignoring case. Read from the `Exclusive Shelf` column of a Goodreads export, the `Read Status` column of a StoryGraph one, or a `Shelf` column. A file without such a column is read whole, with a warning in the log. |
 | `prefer_format` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
 | `category` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `client` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `save_path` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
@@ -674,6 +725,8 @@ selection rules.
 |---|---|---|
 | `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed, the list and its job are called `bookmarks_list`. |
 | `category` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `client` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
+| `save_path` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
 | `search_interval` | global `search_interval` | Minutes between runs. |
 | `unsat_buffer` | global | Overrides the global buffer for what this list selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what this list selects. |
@@ -730,6 +783,8 @@ missing.
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
 | `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
+| `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives everything the Follow job downloads, and downloads from the **Following** page. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
+| `save_path` | unset | The folder qBittorrent saves the Follow job's downloads in, and those from the **Following** page, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `unsat_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. |
@@ -841,6 +896,8 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `searches_per_run` | `20` | MAM searches one run makes at most: one per book. |
 | `search_again_after` | `30` | Days before the same book is searched again, `1` to `365`, whether a better copy was found or not. |
 | `libraries` | `[]` | Only books in these [`[[library]]`](#library) names. Empty means every library. |
+| `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives the better copies. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
+| `save_path` | unset | The folder qBittorrent saves the better copies in, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `unsat_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
 | `max_active_downloads` | unset | Cap on torrents the Upgrade job selected that are still waiting to be downloaded, at least 1. |
@@ -975,19 +1032,25 @@ with matching downloads.
 |---|---|---|
 | `category` | unset | qBittorrent category to assign. |
 | `tags` | `[]` | qBittorrent tags to add. |
+| `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) to add the download to. |
+| `save_path` | unset | The folder qBittorrent saves the download in, as qBittorrent sees it; an absolute path. |
 
 For each new download:
 
 - The **category** comes from the **first** matching rule that sets one.
 - The **tags** are the **union** of the tags from **all** matching rules.
 - An autograb's or Hardcover list's own `category` overrides the rules' category.
+- **`client`** and **`save_path`** work as the category does: the block's own, else the first matching rule that
+  sets one, else the first `[[qbittorrent]]` and qBittorrent's own choice of folder. Each is decided on its own, so
+  one rule can give the client and a later one the save path.
 - **The top-level `languages` does not apply to tag rules.** A rule matches by language only if it sets
   `languages` itself; without it, the rule matches downloads in every language. Tag rules sort out what has
   already been selected, so an inherited language would leave a book that an autograb with `languages = []`
   selected in another language without its category, and without a library.
 
 The result is applied when the torrent is added to qBittorrent. Each rule can also be applied to torrents
-you already have, from the Config page.
+you already have, from the Config page; that sets the category and tags only, and doesn't move a torrent to
+another qBittorrent or folder.
 
 Rules are what connect downloads to libraries: a `[[library]]` with `category = "ebooks"` picks up
 torrents that a `[[tag]]` rule labelled `ebooks`.

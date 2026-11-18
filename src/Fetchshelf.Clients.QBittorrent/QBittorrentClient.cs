@@ -76,8 +76,12 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
         return files ?? [];
     }
 
+    /// <param name="savePath">
+    /// The folder to save the torrent in, as qBittorrent sees it; null leaves it to the category or qBittorrent's default.
+    /// With one, the torrent is added outside automatic management, which would ignore it.
+    /// </param>
     public async Task AddTorrentAsync(
-        byte[] torrentFileContent, string category, IReadOnlyList<string> tags, bool addStopped,
+        byte[] torrentFileContent, string category, IReadOnlyList<string> tags, bool addStopped, string? savePath = null,
         CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrEmpty(category))
@@ -96,6 +100,12 @@ public sealed class QBittorrentClient(HttpClient httpClient, QBittorrentClientOp
                 { new StringContent(addStopped ? "true" : "false"), "paused" },
                 { new StringContent(addStopped ? "true" : "false"), "stopped" },
             };
+            if (!string.IsNullOrEmpty(savePath))
+            {
+                content.Add(new StringContent(savePath), "savepath");
+                content.Add(new StringContent("false"), "autoTMM");
+            }
+
             return new HttpRequestMessage(HttpMethod.Post, BuildUrl("/api/v2/torrents/add")) { Content = content };
         }, cancellationToken);
         response.EnsureSuccessStatusCode();

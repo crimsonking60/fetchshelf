@@ -3,7 +3,7 @@ namespace Fetchshelf.Core.AutoDownloader;
 /// <summary>
 /// Everything needed to recreate a `SelectedTorrentEntity` from a Grabber-stage error, so the
 /// Errors page's "restore the selection" action doesn't lose the original
-/// cost/category/tags/grabber when `DownloadRunner` removes a selection it couldn't download.
+/// cost/category/client/save path/tags/grabber when `DownloadRunner` removes a selection it couldn't download.
 /// Serialized into `ErroredTorrentEntity.DisplayMetadataJson`.
 /// </summary>
 public sealed record GrabberErrorRestorePayload
@@ -15,6 +15,10 @@ public sealed record GrabberErrorRestorePayload
     public required string CostDecision { get; init; }
 
     public string? Category { get; init; }
+
+    public string? ClientName { get; init; }
+
+    public string? SavePath { get; init; }
 
     public string? TagsJson { get; init; }
 

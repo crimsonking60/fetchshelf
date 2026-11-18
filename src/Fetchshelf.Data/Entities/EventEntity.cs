@@ -36,6 +36,9 @@ public sealed class EventEntity
 
     public bool? WedgeUsed { get; set; }
 
+    /// <summary>For Grabbed: the `name` of the `[[qbittorrent]]` it was added to, when there are several.</summary>
+    public string? ClientName { get; set; }
+
     // Linked / Cleaned / Unlinked
     public string? LinkerName { get; set; }
 

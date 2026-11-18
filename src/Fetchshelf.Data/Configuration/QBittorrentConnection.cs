@@ -3,6 +3,9 @@ namespace Fetchshelf.Data.Configuration;
 /// <summary>One `[[qbittorrent]]` connection entry.</summary>
 public sealed class QBittorrentConnection
 {
+    /// <summary>What a block's `client` refers to this connection by; unique among them, ignoring case.</summary>
+    public string? Name { get; set; }
+
     public string Url { get; set; } = string.Empty;
 
     public string Username { get; set; } = string.Empty;

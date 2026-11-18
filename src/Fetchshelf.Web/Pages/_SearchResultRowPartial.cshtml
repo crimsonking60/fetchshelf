@@ -83,14 +83,14 @@
         else if (result.InQBittorrent != true)
         {
             <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category">
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category, #download-client">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="mamId" value="@result.MamId" />
                 <partial name="_SearchStateInputs" />
                 <button type="submit">@(Settings.DownloadAfterSelection ? "Download" : "Select")</button>
             </form>
             <form method="post" asp-page="/Index" asp-page-handler="Download" class="inline"
-                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category">
+                  hx-post="@Url.Page("/Index", "Download")" hx-target="#download-message-area" hx-swap="innerHTML" hx-disabled-elt="find button" hx-include="#download-category, #download-client">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="mamId" value="@result.MamId" />
                 <partial name="_SearchStateInputs" />

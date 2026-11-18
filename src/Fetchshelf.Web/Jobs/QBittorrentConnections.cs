@@ -9,6 +9,6 @@ public static class QBittorrentConnections
     public static List<(QBittorrentConnection Connection, QBittorrentClient Client)> Build(
         FetchshelfSettings settings, QBittorrentClientFactory factory) =>
         settings.QBittorrent
-            .Select(c => (c, factory.Create(new QBittorrentClientOptions(c.Url, c.Username, c.Password))))
+            .Select(c => (c, factory.Create(new QBittorrentClientOptions(c.Url, c.Username, c.Password, c.Name))))
             .ToList();
 }
