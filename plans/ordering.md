@@ -1,13 +1,13 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 7 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 6 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
 (PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96),
-`search-bookmark-and-more-like-this.md` (PR #97), `download-client-and-save-path.md` (PR #98) and `covers-from-mam.md`
-(PR #101) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+`search-bookmark-and-more-like-this.md` (PR #97), `download-client-and-save-path.md` (PR #98), `covers-from-mam.md`
+(PR #101) and `statistics-and-metrics.md` (PR #102) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
 2026-11-18. The order follows four rules:
 
 1. **Protect first.** Three of the plans add a database migration. The before-upgrade backup from
@@ -90,8 +90,8 @@ Done:
     file per book, with a Mylar `series.json`, for Komga.
 8. **`covers-from-mam.md`** — done (PR #101): `covers_from_mam` is the number of covers each Link run fetches from MAM
     for book folders without an image. Series libraries are left out: comics carry their cover inside the file.
-9. **`statistics-and-metrics.md`** — `/metrics` follows `allowed_hosts` (PR #80), and its page links to the account
-    history (PR #78).
+9. **`statistics-and-metrics.md`** — done (PR #102): a Statistics page with the library's totals and the grabs by
+    month, cost and grabber, and `metrics = true` for a Prometheus `/metrics`.
 10. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
 
 **Release point.**
