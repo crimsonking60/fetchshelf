@@ -1,7 +1,8 @@
 # Split series collections into one library book each
 
-> **Status: parked.** MAM is retiring many collection torrents, because they cause problems for clients. If that
-> process removes most of them, this plan may not be needed. It is kept for if and when collections still matter.
+> **Status: taken up again on 2026-11-18,** after being parked while MAM retired many collection torrents. Comic
+> collections are still common: the Ultimate Spider-Man collection below is one. That example shows two gaps in the
+> design, listed under "Collections without a series range" and to be settled before this plan is built.
 
 ## Context
 
@@ -43,6 +44,33 @@ Fetchshelf treats every torrent as one book:
     already in the library (#1, #2, #4, #8, #27, #32) are not seen as duplicates of the collection's copies. Both
     stay linked.
 
+### Collections without a series range
+
+The second example, from the dev instance on 2026-11-18: an Ultimate Spider-Man comic collection (hash
+`f8185665d5a0c003f64b30eda4a66ec01212d78f`). MAM gives it no series at all, and its files are 145 numbered issues as
+`cbr` beside one annual as `cbz`:
+
+```
+Ultimate Spider-Man/
+  Ultimate Spider-Man 001.cbr … Ultimate Spider-Man 137.cbr   (145 cbr files in all)
+  Annuals/Ultimate Spider-Man Annual 03.cbz
+```
+
+It was linked as one file: the annual, renamed after the collection, into the series layout's one-shots folder. Two
+things went wrong, and the design below handles neither:
+
+1. **The format is chosen before the split.** The Link job links only the files of the best format by `ebook_types`,
+   and `cbz` ranks above `cbr`, so the one annual won over the 145 issues. In a collection, the formats are usually
+   not copies of the same book but different books, so choosing one format for the whole torrent drops the rest. The
+   choice has to be made per book group, or a collection has to link every ebook-side file.
+2. **Detection needs a series range from MAM.** This torrent has none, so it wouldn't be taken for a collection.
+   Comic collections often carry the series and the numbers only in their file names (`Ultimate Spider-Man 033.cbr`),
+   and the series name in the folder name. Detection should also accept many files whose names share a series name
+   and differ by a number, and take the series from them.
+
+For a library with `layout = "series"`, a split collection's books are single files in the series folder, named
+`Series #033 - Title` as single downloads are, rather than one folder per book.
+
 ### Goal
 
 A collection whose files can be told apart is linked as if each book had come from its own torrent:
@@ -54,7 +82,7 @@ books, not the collection.
 ## Open questions (defaults used unless decided otherwise)
 
 1. **Layout.** Default: exactly as single downloads, so books from a collection and from single torrents sit side by
-   side in the series folder.
+   side in the series folder, in the book layout and in the series layout alike.
 2. **A book held both in a collection and as a single.** Default: Clean treats them as any two copies of a book:
    the better format wins, then the larger copy (`DuplicateCopies.PickKeeper`). The alternative is to always prefer
    the single, which has its own MAM description.
