@@ -735,6 +735,8 @@ missing.
 | `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. |
 | `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
+| `audiobookshelf_series` | `"off"` | `"follow"` or `"auto"`: follow every series in Audiobookshelf, in that mode, so series from before Fetchshelf are completed too. Needs [`[audiobookshelf]`](#audiobookshelf). See [series from Audiobookshelf](#series-from-audiobookshelf). |
+| `audiobookshelf_libraries` | `[]` | The Audiobookshelf libraries whose series are followed, by name, ignoring case. Empty means every book library. Needs `audiobookshelf_series`. |
 
 ```toml
 [follow]
@@ -770,6 +772,41 @@ With the defaults, a run searches at most 10 series or authors, and each series 
 page is searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
 doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
 on the next run.
+
+### Series from Audiobookshelf
+
+With `audiobookshelf_series`, each run of the Follow job first reads the series of Audiobookshelf's book libraries
+(podcast libraries are left out), before it picks the follows that are due:
+
+- **Each series not followed in any mode is followed**: `"follow"` lists what is found on the **Following** page,
+  `"auto"` selects it. The follow says *from Audiobookshelf* on the **Following** page. A series already followed,
+  on *Auto* or ignored keeps its mode, and one that leaves Audiobookshelf stays followed: the follow is yours from
+  then on, to change or stop like any other. A series you stop following isn't followed again from Audiobookshelf;
+  follow it again from the **Series** page to take it back.
+- **The books Audiobookshelf has count as owned**, in the format it has them (an audiobook, an ebook, or both; an
+  item with neither counts as both), so the Follow job doesn't search for or download what is already there. The
+  **Series** page lists Audiobookshelf's series too, with the entries it has. Books Fetchshelf linked itself, and
+  matched to their Audiobookshelf item, are counted once.
+- **A name with a number in it**, as Audiobookshelf sometimes keeps from a folder name (`Earthseed #1, 2`), is
+  followed under the name before the ` #`.
+- **The searches spread over many runs.** A library of a thousand series adds a thousand follows on the first
+  run, but each run still searches only `searches_per_run` of them, the ones never searched first. Raise
+  `searches_per_run` or lower `search_interval` to get through them sooner; each search is one or more MAM requests.
+- If Audiobookshelf can't be reached, the run says so in the log and searches the follows it has.
+- A name in `audiobookshelf_libraries` that is no book library in Audiobookshelf is logged with the names there are.
+- A dry run reads Audiobookshelf and says how many series it would follow, but follows none.
+
+```toml
+[follow]
+audiobookshelf_series = "follow"
+audiobookshelf_libraries = ["Audiobooks"]
+
+[[follow.grab]]
+cost = "free"
+```
+
+Authors are not followed from Audiobookshelf: an author follow searches every upload by that author, which for a
+whole library would be too many searches.
 
 ## `[upgrade]`
 

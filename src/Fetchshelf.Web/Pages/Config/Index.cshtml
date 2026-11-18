@@ -274,7 +274,7 @@
     else
     {
         <table id="follow-settings">
-            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+            <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th><th>Audiobookshelf series</th></tr></thead>
             <tbody>
                 <tr>
                     <td>@follow.SearchesPerRun</td>
@@ -287,6 +287,9 @@
                     <td>@Buffer(follow.WedgeBuffer, settings.WedgeBuffer)</td>
                     <td>@Cap(follow.MaxActiveDownloads)</td>
                     <td>@(follow.DryRun ? "yes" : "no")</td>
+                    <td>@(follow.AudiobookshelfSeries == AudiobookshelfSeriesMode.Off
+                            ? "off"
+                            : $"{EnumYamlConverter.NameOf(follow.AudiobookshelfSeries)}, {(follow.AudiobookshelfLibraries.Count == 0 ? "every book library" : string.Join(", ", follow.AudiobookshelfLibraries))}")</td>
                 </tr>
             </tbody>
         </table>

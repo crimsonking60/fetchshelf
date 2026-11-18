@@ -122,10 +122,20 @@ public static class JobOutcomes
             summary.DryRun,
             $"{summary.Searched} series and authors searched, {summary.Selected} "
                 + (summary.DryRun ? "would have been selected" : "selected")
-                + $", {summary.NewFinds} new to look at"),
+                + $", {summary.NewFinds} new to look at"
+                + (summary.AddedFromAudiobookshelf == 0
+                    ? string.Empty
+                    : $"; {summary.AddedFromAudiobookshelf} series {(summary.DryRun ? "would have been added" : "added")} from Audiobookshelf")),
         summary.Failed,
         "could not be searched for; see the Errors page",
-        new() { ["searched"] = summary.Searched, ["selected"] = summary.Selected, ["new"] = summary.NewFinds, ["failed"] = summary.Failed });
+        new()
+        {
+            ["searched"] = summary.Searched,
+            ["selected"] = summary.Selected,
+            ["new"] = summary.NewFinds,
+            ["failed"] = summary.Failed,
+            ["added_from_audiobookshelf"] = summary.AddedFromAudiobookshelf,
+        });
 
     public static JobOutcome Upgrade(UpgradeRunSummary summary) => Finish(
         DryRun(

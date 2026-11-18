@@ -70,6 +70,11 @@ public static class RunnerServices
         {
             services.AddSingleton(followSettings);
             services.AddScoped<FollowRunner>();
+            if (followSettings.AudiobookshelfSeries != AudiobookshelfSeriesMode.Off)
+            {
+                // The Follow job finds it by its optional parameter; [audiobookshelf] is required with it.
+                services.AddScoped<AudiobookshelfSeriesSync>();
+            }
             services.AddScoped<FollowService>();
         }
 

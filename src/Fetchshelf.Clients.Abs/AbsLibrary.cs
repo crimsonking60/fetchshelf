@@ -20,6 +20,10 @@ public sealed record AbsLibrary
 
     [JsonPropertyName("folders")]
     public required IReadOnlyList<AbsFolder> Folders { get; init; }
+
+    /// <summary>"book" or "podcast".</summary>
+    [JsonPropertyName("mediaType")]
+    public string? MediaType { get; init; }
 }
 
 /// <summary>One folder watched by an Audiobookshelf library.</summary>

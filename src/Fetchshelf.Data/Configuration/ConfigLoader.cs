@@ -779,6 +779,18 @@ public static partial class ConfigLoader
             throw new ConfigurationException(
                 "Invalid configuration: the [follow] section has a 'grab' block with a metadata-only 'cost'; the Follow job downloads books.");
         }
+
+        if (follow.AudiobookshelfSeries != AudiobookshelfSeriesMode.Off && settings.Audiobookshelf is null)
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: the [follow] section's 'audiobookshelf_series' needs an [audiobookshelf] section to read the series from.");
+        }
+
+        if (follow.AudiobookshelfSeries == AudiobookshelfSeriesMode.Off && follow.AudiobookshelfLibraries.Count > 0)
+        {
+            throw new ConfigurationException(
+                "Invalid configuration: the [follow] section sets 'audiobookshelf_libraries' but not 'audiobookshelf_series', so no library would be read.");
+        }
     }
 
     private static void ValidateHardcover(FetchshelfSettings settings)

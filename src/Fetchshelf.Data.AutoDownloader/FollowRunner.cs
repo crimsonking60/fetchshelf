@@ -16,7 +16,8 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// <param name="NewFinds">Torrents found for watched series and authors, now listed on the Following page.</param>
 /// <param name="Failed">Follows whose search failed.</param>
 /// <param name="DryRun">Whether the run was a dry run, which selects and writes nothing.</param>
-public sealed record FollowRunSummary(int Searched, int Selected, int NewFinds, int Failed, bool DryRun = false)
+/// <param name="AddedFromAudiobookshelf">Series from Audiobookshelf followed for the first time (`audiobookshelf_series`).</param>
+public sealed record FollowRunSummary(int Searched, int Selected, int NewFinds, int Failed, bool DryRun = false, int AddedFromAudiobookshelf = 0)
 {
     /// <summary>The selections now waiting to be downloaded: none in a dry run.</summary>
     public int SelectedForDownload => DryRun ? 0 : Selected;
@@ -44,7 +45,8 @@ public sealed class FollowRunner(
     FormatPreferenceLists preferenceLists,
     TimeProvider? timeProvider = null,
     Func<TimeSpan, CancellationToken, Task>? delay = null,
-    ILogger<FollowRunner>? logger = null)
+    ILogger<FollowRunner>? logger = null,
+    AudiobookshelfSeriesSync? audiobookshelfSeries = null)
 {
     /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
     private bool _dryRun;
@@ -86,6 +88,7 @@ public sealed class FollowRunner(
         int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default, bool? dryRun = null)
     {
         _dryRun = dryRun ?? settings.DryRun;
+        var added = await SyncAudiobookshelfSeriesAsync(cancellationToken);
         var now = _time.GetUtcNow();
         var searchAgainAfter = TimeSpan.FromHours(settings.SearchAgainAfter);
 
@@ -104,7 +107,7 @@ public sealed class FollowRunner(
         if (due.Count == 0)
         {
             _logger.LogInformation("Follow: no series or author on the Following page is due for a search");
-            return new FollowRunSummary(0, 0, 0, 0, _dryRun);
+            return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
         }
 
         using var _ = await accessGate.AcquireAsync(JobNames.Follow, cancellationToken);
@@ -120,7 +123,7 @@ public sealed class FollowRunner(
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             _logger.LogInformation("Follow: nothing searched, this run's limit is 0 selections ({BudgetExplanation})", explanation);
-            return new FollowRunSummary(0, 0, 0, 0, _dryRun);
+            return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
         }
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
@@ -156,7 +159,30 @@ public sealed class FollowRunner(
             "Follow: {Searched} series and authors searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
             run.Searched, run.Selected, _dryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
             run.Failed == 0 ? string.Empty : $", {run.Failed} failed");
-        return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, _dryRun);
+        return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, _dryRun, added);
+    }
+
+    /// <summary>
+    /// With `audiobookshelf_series`, follows Audiobookshelf's new series before the due follows are chosen, so they can be
+    /// searched in this run. Audiobookshelf failing doesn't stop the run: the follows already there are searched as usual.
+    /// </summary>
+    private async Task<int> SyncAudiobookshelfSeriesAsync(CancellationToken cancellationToken)
+    {
+        if (audiobookshelfSeries is null)
+        {
+            return 0;
+        }
+
+        try
+        {
+            return (await audiobookshelfSeries.SyncAsync(_dryRun, cancellationToken)).Added;
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested
+            && ex is HttpRequestException or System.Text.Json.JsonException or TaskCanceledException)
+        {
+            _logger.LogWarning(ex, "Follow: the series could not be read from Audiobookshelf, so the run searches the follows it has: {Error}", ex.Message);
+            return 0;
+        }
     }
 
     private sealed class RunState(int budget)

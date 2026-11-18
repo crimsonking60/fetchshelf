@@ -862,4 +862,34 @@ public partial class FollowPagesTests
 
     [GeneratedRegex(@"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]*)""")]
     private static partial Regex TokenPattern();
+
+    [Fact]
+    public async Task FollowFromAudiobookshelf_SaysSo_OnTheListAndItsPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        int id;
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            var follow = new FollowEntity
+            {
+                Kind = FollowKind.Series,
+                NameKey = "expanse",
+                DisplayName = "The Expanse",
+                Mode = FollowMode.Watch,
+                Source = FollowSource.Audiobookshelf,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            dbContext.Follows.Add(follow);
+            await dbContext.SaveChangesAsync();
+            id = follow.Id;
+        }
+
+        using var client = fixture.CreateClient();
+        var list = WebUtility.HtmlDecode(await client.GetStringAsync("/Following"));
+        var page = WebUtility.HtmlDecode(await client.GetStringAsync($"/following/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}"));
+
+        Assert.Matches(@"The Expanse</a></td>\s*<td>Series\s*<span class=""muted""> from Audiobookshelf</span>", list);
+        Assert.Contains("Followed from Audiobookshelf.", page);
+    }
 }

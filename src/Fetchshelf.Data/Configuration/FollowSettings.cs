@@ -37,10 +37,29 @@ public sealed class FollowSettings
 
     public List<GrabEntry> Grab { get; set; } = [];
 
+    /// <summary>`audiobookshelf_series`: whether Audiobookshelf's series are followed, and in which mode new follows get.</summary>
+    public AudiobookshelfSeriesMode AudiobookshelfSeries { get; set; } = AudiobookshelfSeriesMode.Off;
+
+    /// <summary>`audiobookshelf_libraries`: the Audiobookshelf libraries whose series are read, by name; empty means every book library.</summary>
+    public List<string> AudiobookshelfLibraries { get; set; } = [];
+
     public const int DefaultSearchesPerRun = 10;
 
     public const int DefaultSearchAgainAfterHours = 24;
 
     /// <summary>The longest wait between two searches of one series or author: 30 days.</summary>
     public const int MaxSearchAgainAfterHours = 720;
+}
+
+/// <summary>`[follow] audiobookshelf_series`: what the Follow job does with the series in Audiobookshelf.</summary>
+public enum AudiobookshelfSeriesMode
+{
+    /// <summary>Audiobookshelf's series are not read.</summary>
+    Off,
+
+    /// <summary>Each series not followed yet is followed: what is found is listed on the Following page.</summary>
+    Follow,
+
+    /// <summary>Each series not followed yet is followed on Auto: what is found is selected.</summary>
+    Auto,
 }

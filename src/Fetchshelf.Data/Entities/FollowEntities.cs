@@ -20,6 +20,16 @@ public enum FollowMode
     Ignore = 2,
 }
 
+/// <summary>Where a follow came from.</summary>
+public enum FollowSource
+{
+    /// <summary>Followed from a page of Fetchshelf's.</summary>
+    Manual = 0,
+
+    /// <summary>Added by the Follow job for a series in Audiobookshelf (`[follow] audiobookshelf_series`).</summary>
+    Audiobookshelf = 1,
+}
+
 /// <summary>What became of a torrent a follow's search found.</summary>
 public enum FollowFindStatus
 {
@@ -53,6 +63,8 @@ public sealed class FollowEntity
     public required string DisplayName { get; set; }
 
     public required FollowMode Mode { get; set; }
+
+    public FollowSource Source { get; set; } = FollowSource.Manual;
 
     public required DateTimeOffset CreatedAt { get; set; }
 
@@ -94,4 +106,49 @@ public sealed class FollowFindEntity
     public required DateTimeOffset FoundAt { get; set; }
 
     public required DateTimeOffset StatusAt { get; set; }
+}
+
+/// <summary>
+/// One book of a series in Audiobookshelf, in one format, as the Follow job last read it there
+/// (`[follow] audiobookshelf_series`). The library counts it as owned, so a book Audiobookshelf has from before Fetchshelf
+/// isn't searched for or downloaded again. Books Fetchshelf linked itself are left out: their torrents count already.
+/// Every sync replaces the rows.
+/// </summary>
+public sealed class AudiobookshelfSeriesBookEntity
+{
+    public long Id { get; set; }
+
+    /// <summary>The Audiobookshelf library item.</summary>
+    public required string ItemId { get; set; }
+
+    public required string Name { get; set; }
+
+    /// <summary><c>SeriesNameKey</c> of the name, as the series rows of torrents have it.</summary>
+    public required string NameKey { get; set; }
+
+    public required string Title { get; set; }
+
+    /// <summary>The book's place as shown: "3", "1-3"; null when it has none.</summary>
+    public string? Display { get; set; }
+
+    public double? FirstNumber { get; set; }
+
+    public double? LastNumber { get; set; }
+
+    /// <summary>"Audiobook" or "Ebook", as a torrent's media type is stored: the format Audiobookshelf has.</summary>
+    public required string MediaType { get; set; }
+
+    public required DateTimeOffset SyncedAt { get; set; }
+}
+
+/// <summary>
+/// A series someone stopped following, so `[follow] audiobookshelf_series` doesn't follow it again on the next run.
+/// Following the series again removes the row.
+/// </summary>
+public sealed class StoppedSeriesEntity
+{
+    /// <summary><c>SeriesNameKey</c> of the series.</summary>
+    public required string NameKey { get; set; }
+
+    public required DateTimeOffset StoppedAt { get; set; }
 }

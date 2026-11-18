@@ -10,7 +10,7 @@
 {
     var kind = follow.Kind == FollowKind.Series ? "Series" : "Author";
     <h2>@follow.DisplayName</h2>
-    <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).
+    <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).@(follow.Source == FollowSource.Audiobookshelf ? " Followed from Audiobookshelf." : "")
         <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
            asp-route-Author="@(follow.Kind == FollowKind.Author ? follow.NameKey : null)">In Torrents</a>
         - <a asp-page="/Following/Index">All followed</a></p>

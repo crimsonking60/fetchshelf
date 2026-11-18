@@ -167,4 +167,19 @@ public class JobOutcomesTests
     [Fact]
     public void Download_SomeQueued_SaysHowManyWereAdded() =>
         Assert.Equal("1 of 3 queued torrents added to qBittorrent", JobOutcomes.Download(new DownloadRunSummary(1, 0, 3)).Summary);
+
+    [Fact]
+    public void Follow_SeriesAddedFromAudiobookshelf_AreInTheSummary()
+    {
+        var outcome = JobOutcomes.Follow(new FollowRunSummary(3, 1, 2, 0, AddedFromAudiobookshelf: 40));
+
+        Assert.Equal("3 series and authors searched, 1 selected, 2 new to look at; 40 series added from Audiobookshelf", outcome.Summary);
+        Assert.Equal(40, outcome.Counts!["added_from_audiobookshelf"]);
+    }
+
+    [Fact]
+    public void Follow_DryRun_SaysWhatWouldHaveBeenAddedFromAudiobookshelf() =>
+        Assert.EndsWith(
+            "; 40 series would have been added from Audiobookshelf",
+            JobOutcomes.Follow(new FollowRunSummary(3, 1, 2, 0, DryRun: true, AddedFromAudiobookshelf: 40)).Summary);
 }

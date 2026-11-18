@@ -54,6 +54,51 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("AccountSnapshots");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.AudiobookshelfSeriesBookEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Display")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("FirstNumber")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ItemId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("LastNumber")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("SyncedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NameKey");
+
+                    b.ToTable("AudiobookshelfSeriesBooks", (string)null);
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.DatabaseInfoEntity", b =>
                 {
                     b.Property<string>("Key")
@@ -224,6 +269,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("NameKey")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -494,6 +542,19 @@ namespace Fetchshelf.Data.Migrations
                     b.HasIndex("MamId");
 
                     b.ToTable("SelectedTorrents");
+                });
+
+            modelBuilder.Entity("Fetchshelf.Data.Entities.StoppedSeriesEntity", b =>
+                {
+                    b.Property<string>("NameKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("StoppedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("NameKey");
+
+                    b.ToTable("StoppedSeries", (string)null);
                 });
 
             modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentEntity", b =>
