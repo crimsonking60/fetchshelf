@@ -1,0 +1,123 @@
+@page
+@model Fetchshelf.Web.Pages.LibraryCheck.IndexModel
+@using Fetchshelf.Core.AutoDownloader
+@using Fetchshelf.Core.Organizer
+@{
+    ViewData["Title"] = "Library check";
+    var unknownFolders = Model.Of(LibraryFindingKind.UnknownFolder);
+    var unknownFiles = Model.Of(LibraryFindingKind.UnknownFile);
+    var foldersMissing = Model.Of(LibraryFindingKind.FolderMissing);
+    var filesMissing = Model.Of(LibraryFindingKind.FilesMissing);
+}
+
+<h2>Library check</h2>
+@await Html.PartialAsync("_PageExplanation", "The Library check compares the library folders with what Fetchshelf has on record: folders no book points at, such as an old folder left behind after going back to a database backup, and books whose folder or files are gone. Run it after the Link job has caught up. Each folder or file is checked again before it is deleted, so one a book uses by then is left alone.")
+
+@if (Model.ActionMessage is { } actionMessage)
+{
+    <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
+}
+
+<form method="post" asp-page-handler="Run" class="actions">
+    @Html.AntiForgeryToken()
+    <button type="submit" disabled="@Model.Running">@(Model.Running ? "Checking…" : "Run the check")</button>
+    @if (Model.CheckedAt is { } checkedAt)
+    {
+        <span class="muted">Last checked <local-time value="checkedAt" />.</span>
+    }
+    else
+    {
+        <span class="muted">Not checked since Fetchshelf started.</span>
+    }
+</form>
+
+@if (Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count == 0)
+{
+    <p id="no-findings-message" class="empty">The library matches the records.</p>
+}
+
+@if (unknownFolders.Count + unknownFiles.Count > 0)
+{
+    <h3>Unknown folders and files</h3>
+    <p>No book points at these. Deleting removes them from the disk, and the folders left empty above them.</p>
+    <form method="post" asp-page-handler="Delete">
+        @Html.AntiForgeryToken()
+        <table id="unknown">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.unknown-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Folder or file</th>
+                    <th>Library</th>
+                    <th>Size</th>
+                    <th>Newest file</th>
+                    <th>Probably</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (id, finding) in unknownFolders.Concat(unknownFiles))
+                {
+                    <tr>
+                        <td><input class="unknown-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Path" /></td>
+                        <td>@finding.Path@(finding.Kind == LibraryFindingKind.UnknownFolder ? $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})" : "")</td>
+                        <td>@finding.LibraryName</td>
+                        <td class="nowrap">@DownloadBudget.FormatBytes(finding.Bytes)</td>
+                        <td><local-time value="finding.NewestAt" /></td>
+                        <td>
+                            @if (finding.ProbablyOlderFolderOf is { } book)
+                            {
+                                <text>an older folder of </text><a asp-page="/Torrents/Detail" asp-route-id="@book.TorrentId">@book.Title</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="actions"><button type="submit" class="danger">Delete selected</button></div>
+    </form>
+}
+
+@if (foldersMissing.Count + filesMissing.Count > 0)
+{
+    <h3>Books whose folder or files are gone</h3>
+    <p>
+        <strong>Relink</strong> places the book's files again from qBittorrent, when it still has the torrent.
+        <strong>Remove record</strong> makes Fetchshelf forget the book.
+    </p>
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <table id="missing">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.missing-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Book</th>
+                    <th>Folder on record</th>
+                    <th>What is gone</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (id, finding) in foldersMissing.Concat(filesMissing))
+                {
+                    <tr>
+                        <td><input class="missing-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Title" /></td>
+                        <td><a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">@finding.Title</a>@(finding.Authors.Count > 0 ? $" by {string.Join(", ", finding.Authors)}" : "")</td>
+                        <td>@finding.Path</td>
+                        <td>
+                            @if (finding.Kind == LibraryFindingKind.FolderMissing)
+                            {
+                                <text>The folder</text>
+                            }
+                            else
+                            {
+                                @(finding.MissingFiles.Count == 1 ? "1 file" : $"{finding.MissingFiles.Count} files")@: (@string.Join(", ", finding.MissingFiles.Take(5))@(finding.MissingFiles.Count > 5 ? ", …" : ""))
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="actions">
+            <button type="submit" asp-page-handler="Relink">Relink selected</button>
+            <button type="submit" asp-page-handler="RemoveRecord" class="danger">Remove record</button>
+        </div>
+    </form>
+}

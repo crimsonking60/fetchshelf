@@ -72,7 +72,7 @@ public static class LibraryFileRemover
     }
 
     /// <summary>Removes the empty folders above <paramref name="folder"/>, up to but not including <paramref name="libraryDir"/>.</summary>
-    private static void RemoveEmptyParents(string folder, string? libraryDir)
+    public static void RemoveEmptyParents(string folder, string? libraryDir)
     {
         if (libraryDir is null || !PathPrefix.IsSameOrUnder(folder, libraryDir))
         {

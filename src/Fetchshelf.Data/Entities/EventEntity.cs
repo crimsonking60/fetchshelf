@@ -10,6 +10,9 @@ public enum EventKind
     RemovedFromMam,
     Unlinked,
     BonusPurchase,
+
+    /// <summary>A folder or file the Library check found unknown was deleted from a library; its path is in <see cref="EventEntity.LibraryPath"/>.</summary>
+    DeletedFromLibrary,
 }
 
 /// <summary>

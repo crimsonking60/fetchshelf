@@ -25,6 +25,7 @@ public static class EventLabels
         EventKind.Grabbed => $"Grabbed{(string.IsNullOrEmpty(e.GrabberName) ? "" : $" by {e.GrabberName}")} (cost: {e.Cost})"
             + (string.IsNullOrEmpty(e.ClientName) ? "" : $", added to qBittorrent {e.ClientName}"),
         EventKind.RemovedFromMam => "Removed from MAM",
+        EventKind.DeletedFromLibrary => $"Deleted from the library{(string.IsNullOrEmpty(e.LinkerName) ? "" : $" {e.LinkerName}")} by the Library check: {e.LibraryPath}",
         EventKind.BonusPurchase => $"Bought {EventNotifications.BonusPurchaseDescription(e.BonusSpend, e.BonusUploadGb)}"
             + (e.PointsBefore is { } before && e.PointsAfter is { } after
                 ? $" with bonus points, {BonusPlanner.Points(before)} → {BonusPlanner.Points(after)}"
@@ -52,6 +53,7 @@ public static class EventLabels
     {
         EventKind.RemovedFromMam => "Removed from MAM",
         EventKind.BonusPurchase => "Bonus purchase",
+        EventKind.DeletedFromLibrary => "Deleted from library",
         _ => kind.ToString(),
     };
 

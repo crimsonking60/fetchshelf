@@ -27,7 +27,13 @@ else
             @foreach (var job in Model)
             {
                 <tr class="@(job.Failing is null ? null : "failing")">
-                    <td><a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a></td>
+                    <td>
+                        <a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a>
+                        @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck)
+                        {
+                            <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
+                        }
+                    </td>
                     @if (Settings.JobExplanations)
                     {
                         <td>@job.Description</td>

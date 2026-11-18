@@ -35,6 +35,8 @@ public static class RunnerServices
         services.AddScoped<LinkRunner>();
         services.AddSingleton(new CoverWriterOptions(settings.CoversFromMam));
         services.AddScoped<CoverWriter>();
+        services.AddSingleton<LibraryCheckResults>();
+        services.AddScoped<LibraryChecker>();
         services.AddScoped<DownloadProgressChecker>();
         services.AddScoped<Cleaner>();
         services.AddSingleton<LibraryWriteGate>();

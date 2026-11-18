@@ -111,3 +111,34 @@ other 10k tests (`/data/tmp`) should keep a check of the 10k library under a min
    older version" telling to run the check after the Link job has caught up. Configuration reference only if
    question 2 adds a setting.
 5. The 10k scale test.
+
+## Answers (2026-11-18)
+
+1. Only delete for now; bringing a folder back is a follow-up.
+2. No ignore list in this version; the user guide says to keep hand-added books outside the `library_dir`s.
+3. Reachable from its job on the **Jobs** page, and from the menu only while the last check found something.
+4. The check takes the library write gate (`LibraryWriteGate`, PR #79), which the Link and Clean jobs and bulk actions
+   already share, so no new lock.
+5. (New, for the series layout of PR #92.) In a series library, files in a series folder that no book lists are
+   reported as **Unknown file**.
+
+## As built
+
+- **Core:** `LibraryCheckComparer` takes the walked folders (each with its direct files), the libraries and the linked
+  books, and returns the findings; reading an unknown folder's `metadata.json` is passed in, and asked only for unknown
+  folders. An unknown folder is the outermost folder with files that is no book's folder, inside none and above none.
+  Files in a library's own folder, or in a folder above book folders (an author folder), are **Unknown file** too, so
+  such a folder is never offered for deletion with books below it.
+- **Data:** `LibraryChecker` walks each `library_dir` with one `EnumerateFileSystemInfos` per folder, skipping names
+  starting with `.` or `@` (a NAS's `@eaDir`) and folder links, and also the folder of each book outside every
+  `library_dir`. `LibraryCheckResults` (singleton) keeps the findings with ids. `LibraryCheckDeleter` re-checks at click
+  time, deletes, removes empty parents (`LibraryFileRemover.RemoveEmptyParents`, now public) and appends a
+  `DeletedFromLibrary` event (a new `EventKind`, at the end).
+- **Job:** `Library check` (reserved as a name), registered with the organizer jobs and never scheduled. Its result
+  counts the findings by kind.
+- **Page:** `Pages/LibraryCheck/`: **Run the check**, unknown folders and files with **Delete selected**, books with
+  **Relink selected** (queued as the Torrents page's bulk Relink) and **Remove record** (as the torrent page's, which
+  doesn't touch Audiobookshelf). A finding acted on leaves the list. The Jobs page links the job to the page; the menu
+  shows it with a count while there are findings.
+- **Scale:** the 10k seeded library laid out on disk (`/data/tmp`, a hard disk) was checked in 0.6 s, with the files
+  just written, so from the disk cache.

@@ -46,6 +46,12 @@ public static class FetchshelfJobs
             return JobOutcomes.Link(total, covers);
         }, "Moves finished downloads from qBittorrent into your library folders.");
 
+        jobRegistry.Register(JobNames.LibraryCheck, async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            return JobOutcomes.LibraryCheck(await scope.ServiceProvider.GetRequiredService<LibraryChecker>().RunAsync(ct));
+        }, "Compares the library folders with Fetchshelf's records: folders no book points at, and books whose folder or files are gone.");
+
         jobRegistry.Register(JobNames.Clean, async ct =>
         {
             using var scope = scopeFactory.CreateScope();

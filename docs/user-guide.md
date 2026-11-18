@@ -1719,8 +1719,9 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
-| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM. |
+| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
+| **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. In the menu only while it found something; always reachable from the job on the **Jobs** page. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and list files, and your MAM bookmarks, with what was found for each. Only in the menu when a `[[hardcover_list]]`, `[[file_list]]` or `[[bookmarks_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
@@ -1948,6 +1949,33 @@ The **Errors** link in the menu carries a count when something needs attention: 
 entries recorded or updated in the last day, such as "Errors 3", with what it counts on hover. Older entries
 stay on the page but don't keep the count lit.
 
+### Checking the library
+
+Fetchshelf's records and the library folders can drift apart: after going back to a database backup, after files are
+moved or deleted by hand, or after a `library_dir` changes. The **Library check** job compares every library's folder
+with the records. It runs only when started, with **Run now** on the **Jobs** page or **Run the check** on its page,
+as walking a large library on a NAS can take a while. It waits for, and holds off, the Link and Clean jobs while it
+walks. Its findings are kept until the next check or a restart, and are on the **Library check** page:
+
+| Finding | Means | Actions |
+|---|---|---|
+| **Unknown folder** | A folder holding files that no book's folder is, or is inside of: an old folder left behind, or a book Fetchshelf no longer knows. | **Delete selected** |
+| **Unknown file** | In a series library, a file in a series folder that none of its books lists; anywhere, a file in a library's own folder or in a folder above book folders, such as an author folder. | **Delete selected** |
+| **Folder missing** | A linked book whose folder is gone. | **Relink selected**, **Remove record** |
+| **Files missing** | A linked book whose folder is there, but some of its files aren't. | **Relink selected**, **Remove record** |
+
+- An unknown folder is shown at its outermost folder with files, with its size, number of files and newest file. One
+  that looks like a linked book, by its `metadata.json` or by its name beside the book's folder, says *an older folder
+  of* that book: the common case after going back to a backup, and the one safe to delete.
+- **Delete selected** checks each folder or file again first: it must still be inside a library's folder, and no book
+  may use it by then. Folders left empty above it are removed too, up to the library's folder, and each deletion is an
+  event. Audiobookshelf marks a deleted book's item missing on its next scan.
+- **Relink selected** is the Torrents page's bulk **Relink**, which needs qBittorrent to still have the torrent;
+  **Remove record** makes Fetchshelf forget the book, as on its torrent page.
+- Folders and files whose name starts with `.` or `@`, such as a NAS's `@eaDir`, are left out, and folder links aren't
+  followed. Books in a `no_link` library have no folder of their own, so they are never missing.
+- Keep books you add by hand outside the libraries' folders: the check lists them as unknown every time.
+
 ### Duplicates
 
 Torrents that an autograb or manual download skipped because you already have, or have already
@@ -2006,6 +2034,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 | Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
+| Library check | Compares the library folders with Fetchshelf's records (see [Checking the library](#checking-the-library)). | Only from the Jobs page or its own page. |
 | Seeding | Estimates from qBittorrent's seeding time which torrents still need seeding (see [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)). | Every `[seeding]` `interval` minutes, hourly by default. |
 
 Autograb and list jobs are named after the block's `name`, or `autograb[0]`,
@@ -2169,6 +2198,9 @@ docker compose up -d fetchshelf
     and relink**.
   - Torrents selected after the backup but not yet started are forgotten; an autograb that still matches
     them selects them again on its next run.
+  - **Folders Fetchshelf no longer knows, and records of books that are gone.** Once the Link job has caught up, run
+    the [Library check](#checking-the-library): it lists the folders no book points at, such as a book's old folder
+    when its name comes out differently now, and the books whose files were removed after the backup.
 - To avoid surprise upgrades, use a version tag such as `ghcr.io/crimsonking60/fetchshelf:2026.10.2` instead of
   `latest`. To update, change the tag to the new version, then pull and recreate the container as above.
 - After updating, open **Jobs** and check that the jobs run and finish without errors.

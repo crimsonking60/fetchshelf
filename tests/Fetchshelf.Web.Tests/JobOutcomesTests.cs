@@ -52,6 +52,15 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void LibraryCheck_SaysWhatItFoundByKind_OrThatEverythingMatches()
+    {
+        Assert.Equal(
+            "2 unknown folders, 1 book with its folder missing, 3 books with files missing; see the Library check page",
+            JobOutcomes.LibraryCheck(new LibraryCheckSummary(2, 0, 1, 3)).Summary);
+        Assert.Equal("The library matches the records", JobOutcomes.LibraryCheck(new LibraryCheckSummary(0, 0, 0, 0)).Summary);
+    }
+
+    [Fact]
     public void Link_SomeFailed_FinishesWithErrorsCarryingTheWholeLine()
     {
         var exception = Assert.Throws<JobCompletedWithErrorsException>(() => JobOutcomes.Link(new LinkRunSummary(Linked: 2, Failed: 1)));

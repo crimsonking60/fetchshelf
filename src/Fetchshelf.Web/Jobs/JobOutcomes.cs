@@ -57,6 +57,27 @@ public static class JobOutcomes
             counts);
     }
 
+    /// <summary>What the Library check found, by kind; the findings themselves are on the Library check page.</summary>
+    public static JobOutcome LibraryCheck(LibraryCheckSummary summary)
+    {
+        var parts = new[]
+        {
+            summary.UnknownFolders > 0 ? Count(summary.UnknownFolders, "unknown folder", "unknown folders") : null,
+            summary.UnknownFiles > 0 ? Count(summary.UnknownFiles, "unknown file", "unknown files") : null,
+            summary.FoldersMissing > 0 ? Count(summary.FoldersMissing, "book", "books") + " with its folder missing" : null,
+            summary.FilesMissing > 0 ? Count(summary.FilesMissing, "book", "books") + " with files missing" : null,
+        }.OfType<string>().ToList();
+        return new JobOutcome(
+            parts.Count == 0 ? "The library matches the records" : string.Join(", ", parts) + "; see the Library check page",
+            new Dictionary<string, long>
+            {
+                ["unknown_folders"] = summary.UnknownFolders,
+                ["unknown_files"] = summary.UnknownFiles,
+                ["folders_missing"] = summary.FoldersMissing,
+                ["files_missing"] = summary.FilesMissing,
+            });
+    }
+
     public static JobOutcome Clean(CleanRunSummary summary) => Finish(
         summary.Retired == 0 && summary.Failed == 0
             ? "No superseded copies to retire"

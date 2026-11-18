@@ -104,6 +104,39 @@ public sealed class OrganizerScaleTests(ITestOutputHelper output) : IDisposable
         Assert.Equal(0, summary.Failed);
     }
 
+    [ScaleFact]
+    public async Task LibraryCheck_EveryLinkedBookOnDisk_AndAFewUnknownFolders()
+    {
+        var data = await SeedAsync();
+        // The seeded library laid out on disk: each linked book's folder with its files (empty, as only names count).
+        foreach (var torrent in data.Torrents.Where(t => t.LibraryPath is not null))
+        {
+            Directory.CreateDirectory(torrent.LibraryPath!);
+            foreach (var file in System.Text.Json.JsonSerializer.Deserialize<List<LinkedFileRecord>>(torrent.LinkedFilesJson!)!)
+            {
+                await File.WriteAllBytesAsync(Path.Combine(torrent.LibraryPath!, file.RelativePath), []);
+            }
+        }
+
+        for (var i = 0; i < 5; i++)
+        {
+            var unknown = Path.Combine(AudiobookLibraryDir, "Left Behind", $"Old {i}");
+            Directory.CreateDirectory(unknown);
+            await File.WriteAllBytesAsync(Path.Combine(unknown, "book.m4b"), []);
+        }
+
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var checker = new LibraryChecker(context, Libraries(), new LibraryCheckResults());
+
+        var stopwatch = Stopwatch.StartNew();
+        var summary = await checker.RunAsync();
+        stopwatch.Stop();
+
+        output.WriteLine($"Library check: {stopwatch.Elapsed.TotalSeconds:F2} s, {summary}");
+        Assert.Equal(new LibraryCheckSummary(UnknownFolders: 5, UnknownFiles: 0, FoldersMissing: 0, FilesMissing: 0), summary);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromMinutes(1), $"The check took {stopwatch.Elapsed}.");
+    }
+
     private sealed class CountingMetadataLookup : IMetadataLookup
     {
         private int _calls;
