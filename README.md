@@ -62,13 +62,16 @@ setup. If you use one, please report how it went, good or bad (see
 - `[seeding]`: the Seeding job's estimate, `tag_unsatisfied`, the held-back `on_cleaned` and the
   `unsatisfied_not_seeding` notification.
 - **Dry run** on the Jobs page, and the lines under each run in a job's history.
+- `layout = "series"` read by Komga: the linking is confirmed, Komga's view of it is not.
+- `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
+  series and stopping one are confirmed.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.
 
 ## Latest release
 
-**2026.11.12** (2026-11-17). See [RELEASES.md](RELEASES.md#20261112---2026-11-17) for what changed, and for
+**2026.11.13** (2026-11-18). See [RELEASES.md](RELEASES.md#20261113---2026-11-18) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing

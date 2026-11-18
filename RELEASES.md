@@ -5,6 +5,58 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.13 - 2026-11-18
+
+Wanted books can come from a CSV or text file, such as a Goodreads or StoryGraph export, and MAM bookmarks show on
+the Lists page with what happened to each. Comic and manga libraries can be laid out one folder per series, the way
+Komga reads them. The Follow job can follow every series in Audiobookshelf. A new `[seeding]` section estimates which
+torrents still need seeding. The Jobs page can dry-run a job, and each run's history lists what it selected.
+
+### Upgrading
+
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.13/configuration/#backup) section, a backup is taken first, named
+  `data-<time>-2026.11.12-before-2026.11.13.db`; without one, back up your data folder yourself.
+- The log lines of `[[hardcover_list]]` jobs start with `List` instead of `Hardcover list`, and the Account page names
+  a list that is talking to MAM the same way. Change any log filter that looks for the old words.
+- An `[[autograb]]` with `type = "bookmarks"` and the new `[[bookmarks_list]]` can't both be configured: startup
+  stops, saying so. Choose one; see [`[[bookmarks_list]]`](https://fetchshelf.readthedocs.io/en/v2026.11.13/configuration/#bookmarks_list).
+- **Dry run** buttons appear on the Jobs page. `dry_job_buttons = false` hides them.
+- Nothing else is needed: every other new feature is off until it is configured.
+
+### Added
+
+- `[[file_list]]`: wanted books from a CSV or text file, such as a Goodreads or StoryGraph export, a spreadsheet saved
+  as CSV, or titles typed one per line. MAM is searched for them as for a Hardcover list, and they show on the
+  **Lists** page. The file is read on every run; `--check-config` says how many books it holds (#90). See
+  [Books you want, from a file](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#books-you-want-from-a-file).
+- `[[bookmarks_list]]`: the torrents bookmarked on MAM on the **Lists** page, each with what happened to it, selected
+  through its `grab` blocks. A bookmark not yet taken is looked at again on every run, so one that turns freeleech is
+  taken (#91). See [Your MAM bookmarks as a list](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#your-mam-bookmarks-as-a-list).
+- `layout = "series"` on a `[[library]]`: comics and manga linked one folder per series, each book a file named
+  `Series #001 - Title`, with a Mylar `series.json`, the shape Komga reads. Books without a series go into
+  `oneshots_dir` (#92). See [Comics and manga for Komga](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#comics-and-manga-for-komga).
+- `[follow] audiobookshelf_series`: every series in Audiobookshelf followed, so series from before Fetchshelf are
+  completed too. The books Audiobookshelf has count as owned, and its series show on the **Series** page. A series
+  you stop following isn't followed again (#93). See
+  [Series from Audiobookshelf](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#series-from-audiobookshelf).
+- `[seeding]`: the **Seeding** job estimates from qBittorrent's seeding time which torrents still need seeding to
+  satisfy MAM, 72 hours within 30 days by default. It can tag them (`tag_unsatisfied`), holds back `on_cleaned` for a
+  retired copy until it is satisfied, and sends `unsatisfied_not_seeding` when one stops seeding too early. The
+  **Account** page shows the estimate next to MAM's counts, the **Torrents** page has a *Seeding* filter, and
+  **Unlink** and **Remove from qBittorrent with data** warn about a torrent that isn't satisfied (#88). See
+  [Seeding torrents until MAM counts them as satisfied](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#seeding-torrents-until-mam-counts-them-as-satisfied).
+- **Jobs** page: **Dry run** next to **Run now** for every autograb, list, Follow and Upgrade, which runs the job once
+  selecting nothing. A job's history lists under each run what it selected, or would have, and turned down (#89).
+  See [Background jobs](https://fetchshelf.readthedocs.io/en/v2026.11.13/user-guide/#background-jobs).
+- **Account** page, **Over time**: a chart of the unsatisfied snatches (#83).
+
+### Changed
+
+- **Config** page: each autograb, list, `[follow]` and `[upgrade]` shows its own `unsat_buffer`, `wedge_buffer` and
+  `max_active_downloads`, or the top-level value that applies (#82).
+- **Lists** page: a *Source* column, as lists can come from Hardcover, a file or MAM's bookmarks (#90, #91).
+
 ## 2026.11.12 - 2026-11-17
 
 The Account page keeps a daily snapshot of the account and shows the ratio, upload, bonus points and wedges over
