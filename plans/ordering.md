@@ -1,15 +1,16 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 8 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 7 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
 (PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96),
-`search-bookmark-and-more-like-this.md` (PR #97) and `download-client-and-save-path.md` (PR #98) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+`search-bookmark-and-more-like-this.md` (PR #97), `download-client-and-save-path.md` (PR #98) and `covers-from-mam.md`
+(PR #101) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
 2026-11-18. The order follows four rules:
 
-1. **Protect first.** Four of the plans add a database migration. The before-upgrade backup from
+1. **Protect first.** Three of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
 2. **Make room before building.** Almost every plan adds settings or registrations. Since `composition-root.md`
    (PR #66) they go into `Hosting/`, one registration method per area, and a runner's new setting into its options
@@ -87,8 +88,8 @@ Done:
 
 7. **`series-layout-for-comics.md`** — done (PR #92): `layout = "series"`, one folder per series and one numbered
     file per book, with a Mylar `series.json`, for Komga.
-8. **`covers-from-mam.md`** — after the series layout (PR #92), which changed the same part of the Link job: in a
-    series library, covers go in Komga's names in the series folder rather than as one `cover.jpg` per book folder.
+8. **`covers-from-mam.md`** — done (PR #101): `covers_from_mam` is the number of covers each Link run fetches from MAM
+    for book folders without an image. Series libraries are left out: comics carry their cover inside the file.
 9. **`statistics-and-metrics.md`** — `/metrics` follows `allowed_hosts` (PR #80), and its page links to the account
     history (PR #78).
 10. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
@@ -133,12 +134,12 @@ Parked plans are left out of the order until they are taken up again.
 
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
-- **`LinkRunner`** (it takes the library write gate from PR #79 per torrent, and the language clash rule from PR #96):
-  `covers-from-mam.md`, the library check, `collection-torrents.md`.
+- **`LinkRunner`** (it takes the library write gate from PR #79 per torrent, and the language clash rule from PR #96;
+  it sets `CoverCheckedAt` back on every placement since PR #101): the library check, `collection-torrents.md`.
 - **`FolderNameComputer`, `FolderLayout`, `SeriesLayoutNamer` and `SyncMismatch`** (with `language_in_folder` since
   PR #96, which marks a series library's file names rather than its folders): the library check.
-- **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88):
-  `covers-from-mam.md` (`cover.png`, `cover.webp`), `collection-torrents.md`.
+- **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88, and
+  every cover name is an extra since PR #101): `collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93, and ownership is per
   language since PR #96): `collection-torrents.md`.
 - **Every user of a torrent id as a qBittorrent hash:** `collection-torrents.md`, `other-download-clients.md`.
