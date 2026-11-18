@@ -45,6 +45,7 @@ public class StatisticsPageTests
 
         Assert.Contains("<p id=\"library-total\">1 book, ", html);
         Assert.Contains("<td>Audiobook</td><td class=\"num\">1</td>", html);
+        Assert.Contains("<table id=\"by-format\" class=\"stat-table\">", html);
         Assert.Contains("<td>New books</td><td>Autograb</td><td class=\"num\">1</td>", html);
     }
 }

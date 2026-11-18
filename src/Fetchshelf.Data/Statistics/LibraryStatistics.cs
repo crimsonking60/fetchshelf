@@ -57,6 +57,21 @@ public sealed class LibraryStatistics(FetchshelfDbContext dbContext)
         Ordered(await Library.GroupBy(t => t.LinkerName).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken),
             g => g.Key, g => g.Count);
 
+    /// <summary>
+    /// Books by the format the Link job chose for them, such as m4b or epub. A book linked with both an audio and an ebook
+    /// format counts under each.
+    /// </summary>
+    public async Task<IReadOnlyList<CountRow>> BooksByFormatAsync(CancellationToken cancellationToken = default)
+    {
+        var audio = await Library.Where(t => t.ChosenAudioExtension != null)
+            .GroupBy(t => t.ChosenAudioExtension).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken);
+        var ebook = await Library.Where(t => t.ChosenEbookExtension != null)
+            .GroupBy(t => t.ChosenEbookExtension).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken);
+        return Ordered(
+            audio.Concat(ebook).GroupBy(g => g.Key!.ToLowerInvariant()).Select(g => new { Key = (string?)g.Key, Count = g.Sum(x => x.Count) }),
+            g => g.Key, g => g.Count);
+    }
+
     /// <summary>The size of the files linked into the libraries.</summary>
     public async Task<long> LibraryBytesAsync(CancellationToken cancellationToken = default)
     {

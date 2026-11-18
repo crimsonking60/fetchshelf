@@ -5,6 +5,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Data.Statistics;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Data.Tests;
 
@@ -65,6 +66,26 @@ public sealed class LibraryStatisticsTests : IDisposable
         Assert.Equal([new CountRow("English", 2), new CountRow("German", 1)], await statistics.BooksByLanguageAsync());
         Assert.Equal([new CountRow("Audiobooks", 2), new CountRow("Ebooks", 1)], await statistics.BooksByLibraryAsync());
         Assert.Equal(3 * (100 + 1), await statistics.LibraryBytesAsync());
+    }
+
+    [Fact]
+    public async Task BooksByFormat_ByTheChosenFormat_ABookInBothCountsUnderEach()
+    {
+        using var context = CreateContext();
+        var formats = new (string? Audio, string? Ebook)[] { ("m4b", null), ("M4B", null), ("mp3", "epub"), (null, "epub"), (null, null) };
+        for (var i = 0; i < formats.Length; i++)
+        {
+            var torrent = await AddTorrentAsync(context, i + 1, "Audiobooks");
+            (torrent.ChosenAudioExtension, torrent.ChosenEbookExtension) = formats[i];
+        }
+
+        await AddTorrentAsync(context, 9, library: null);
+        (await context.Torrents.SingleAsync(t => t.MamId == 9)).ChosenAudioExtension = "flac";
+        await context.SaveChangesAsync();
+
+        Assert.Equal(
+            [new CountRow("epub", 2), new CountRow("m4b", 2), new CountRow("mp3", 1)],
+            await new LibraryStatistics(context).BooksByFormatAsync());
     }
 
     [Fact]

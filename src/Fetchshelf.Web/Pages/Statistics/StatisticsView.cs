@@ -12,6 +12,7 @@ public sealed record StatisticsView(
     IReadOnlyList<CountRow> ByMediaType,
     IReadOnlyList<CountRow> ByLanguage,
     IReadOnlyList<CountRow> ByLibrary,
+    IReadOnlyList<CountRow> ByFormat,
     long LibraryBytes,
     IReadOnlyList<MonthRow> AddedPerMonth,
     IReadOnlyList<MonthRow> GrabsPerMonth,
@@ -35,6 +36,7 @@ public sealed record StatisticsView(
         var byMediaType = Spaced(await statistics.BooksByMediaTypeAsync(cancellationToken));
         var byLanguage = Spaced(await statistics.BooksByLanguageAsync(cancellationToken));
         var byLibrary = await statistics.BooksByLibraryAsync(cancellationToken);
+        var byFormat = await statistics.BooksByFormatAsync(cancellationToken);
         var bytes = await statistics.LibraryBytesAsync(cancellationToken);
         var added = await statistics.BooksAddedPerMonthAsync(now, Months, cancellationToken);
         var grabs = await statistics.GrabsPerMonthAsync(now, Months, cancellationToken);
@@ -43,7 +45,7 @@ public sealed record StatisticsView(
         var jobRuns = await statistics.JobRunsAsync(now, JobDays, cancellationToken);
         var kindOf = GrabberKinds(settings);
         return new StatisticsView(
-            byMediaType, byLanguage, byLibrary, bytes, added, grabs, grabbedBytes,
+            byMediaType, byLanguage, byLibrary, byFormat, bytes, added, grabs, grabbedBytes,
             grabbers.Select(g => new GrabberRow(g.Label.Length == 0 ? "(unnamed)" : g.Label, kindOf(g.Label), g.Count)).ToList(),
             jobRuns, now);
     }

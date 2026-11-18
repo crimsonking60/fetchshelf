@@ -1784,8 +1784,9 @@ list, with the pause notice when MAM calls are paused, and a link here.
 
 Totals from what Fetchshelf has recorded, worked out at most once a minute:
 
-- **Library:** how many books, and the size of their linked files; the books by media type, by language and by
-  library; and the books added in each of the last 12 months.
+- **Library:** how many books, and the size of their linked files; the books by media type, by language, by library
+  and by format (the one the Link job chose, such as m4b or epub; a book linked in both an audio and an ebook format
+  counts under each); and the books added in each of the last 12 months.
 - **Downloads:** the torrents grabbed in each of the last 12 months, by what they cost: freeleech, VIP, personal
   freeleech, a wedge spent, or ratio; the size of what was grabbed, ratio against free; and which autograb, list,
   follow or other part of Fetchshelf grabbed them. A grabber no longer in the configuration shows as *Other*.
