@@ -1,0 +1,139 @@
+@page
+@model Fetchshelf.Web.Pages.Statistics.IndexModel
+@using Fetchshelf.Core.AutoDownloader
+@using Fetchshelf.Data
+@using Fetchshelf.Data.Statistics
+@using Fetchshelf.Web.Pages.Statistics
+@{
+    ViewData["Title"] = "Statistics";
+    var view = Model.View;
+}
+
+<h2>Statistics</h2>
+@await Html.PartialAsync("_PageExplanation", "Totals of the library, and what was downloaded month by month, from what Fetchshelf has recorded. The ratio, upload and bonus points over time are on the Account page. The numbers are worked out at most once a minute.")
+
+<h3>Library</h3>
+@if (view.Books == 0)
+{
+    <p id="no-books-message" class="empty">No books in the library yet.</p>
+}
+else
+{
+    <p id="library-total">@view.Books @(view.Books == 1 ? "book" : "books"), @DownloadBudget.FormatBytes(view.LibraryBytes) of linked files.</p>
+    <div class="stat-grid">
+        @foreach (var (title, id, rows) in new[] { ("By media type", "by-media-type", view.ByMediaType), ("By language", "by-language", view.ByLanguage), ("By library", "by-library", view.ByLibrary) })
+        {
+            var max = rows.Count == 0 ? 0 : rows.Max(r => r.Count);
+            <table id="@id" class="stat-table">
+                <thead><tr><th>@title</th><th class="num">Books</th><th class="bar-cell"></th></tr></thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr><td>@row.Label</td><td class="num">@row.Count</td><td class="bar-cell"><span class="stat-bar" style="width: @IndexModel.BarWidth(row.Count, max)"></span></td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <table id="added-per-month" class="stat-table">
+        <thead><tr><th>Added</th><th class="num">Books</th><th class="bar-cell"></th></tr></thead>
+        <tbody>
+            @{ var addedMax = view.AddedPerMonth.Max(m => m.Total); }
+            @foreach (var month in view.AddedPerMonth)
+            {
+                <tr><td class="nowrap">@month.Month</td><td class="num">@month.Total</td><td class="bar-cell"><span class="stat-bar" style="width: @IndexModel.BarWidth(month.Total, addedMax)"></span></td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h3>Downloads</h3>
+<p>Torrents grabbed in each of the last @StatisticsView.Months months, by what they cost. <em>Wedge</em> is a freeleech wedge spent.</p>
+<table id="grabs-per-month" class="stat-table">
+    <thead>
+        <tr>
+            <th>Month</th>
+            @foreach (var column in LibraryStatistics.CostColumns)
+            {
+                <th class="num">@column</th>
+            }
+            <th class="num">Total</th>
+            <th class="bar-cell"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @{ var grabsMax = view.GrabsPerMonth.Max(m => m.Total); }
+        @foreach (var month in view.GrabsPerMonth)
+        {
+            <tr>
+                <td class="nowrap">@month.Month</td>
+                @foreach (var column in LibraryStatistics.CostColumns)
+                {
+                    <td class="num">@month.Values[column]</td>
+                }
+                <td class="num">@month.Total</td>
+                <td class="bar-cell"><span class="stat-bar" style="width: @IndexModel.BarWidth(month.Total, grabsMax)"></span></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p>The size of what was grabbed: what cost ratio, and what was free (freeleech, VIP, personal freeleech or a wedge).</p>
+<table id="bytes-per-month" class="stat-table">
+    <thead><tr><th>Month</th><th class="num">Ratio</th><th class="num">Free</th><th class="bar-cell"></th></tr></thead>
+    <tbody>
+        @{ var bytesMax = view.BytesPerMonth.Max(m => m.Total); }
+        @foreach (var month in view.BytesPerMonth)
+        {
+            <tr>
+                <td class="nowrap">@month.Month</td>
+                <td class="num nowrap">@DownloadBudget.FormatBytes(month.Values["Ratio"])</td>
+                <td class="num nowrap">@DownloadBudget.FormatBytes(month.Values["Free"])</td>
+                <td class="bar-cell">
+                    <span class="stat-bar stat-bar-ratio" style="width: @IndexModel.BarWidth(month.Values["Ratio"], bytesMax)"></span><span class="stat-bar stat-bar-free" style="width: @IndexModel.BarWidth(month.Values["Free"], bytesMax)"></span>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (view.Grabbers.Count > 0)
+{
+    <p>Who grabbed them in the last @StatisticsView.Months months.</p>
+    <table id="grabs-by-grabber" class="stat-table">
+        <thead><tr><th>Grabbed by</th><th>Kind</th><th class="num">Torrents</th><th class="bar-cell"></th></tr></thead>
+        <tbody>
+            @{ var grabberMax = view.Grabbers.Max(g => g.Count); }
+            @foreach (var grabber in view.Grabbers)
+            {
+                <tr><td>@grabber.Name</td><td>@grabber.Kind</td><td class="num">@grabber.Count</td><td class="bar-cell"><span class="stat-bar" style="width: @IndexModel.BarWidth(grabber.Count, grabberMax)"></span></td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h3>Jobs</h3>
+@if (view.JobRuns.Count == 0)
+{
+    <p id="no-job-runs-message" class="empty">No job has run in the last @StatisticsView.JobDays days.</p>
+}
+else
+{
+    <p>
+        Runs in the last @StatisticsView.JobDays days. Each job's runs are on its history page, from the <a asp-page="/Jobs/Index">Jobs</a> page.
+        Only the last @JobRunStore.RunsKeptPerJob runs of each job are kept, so @(JobRunStore.RunsKeptPerJob)+ means at least that many, and the
+        failures are counted among those.
+    </p>
+    <table id="job-runs" class="stat-table">
+        <thead><tr><th>Job</th><th class="num">Runs</th><th class="num">Failed</th><th class="num">With errors</th></tr></thead>
+        <tbody>
+            @foreach (var job in view.JobRuns)
+            {
+                <tr><td><a asp-page="/Jobs/History" asp-route-job="@job.Job">@job.Job</a></td><td class="num">@(job.Runs >= JobRunStore.RunsKeptPerJob ? $"{job.Runs}+" : job.Runs.ToString(System.Globalization.CultureInfo.InvariantCulture))</td><td class="num">@job.Failed</td><td class="num">@job.WithErrors</td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+<p class="muted">Worked out <local-time value="view.BuiltAt" />. Ratio, upload and bonus points over time: <a asp-page="/Account/Index">Account</a>.</p>

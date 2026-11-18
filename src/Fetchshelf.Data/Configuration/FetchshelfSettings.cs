@@ -65,6 +65,9 @@ public sealed class FetchshelfSettings
     /// </summary>
     public int CoversFromMam { get; set; }
 
+    /// <summary>`metrics`: serve Prometheus's `/metrics`.</summary>
+    public bool Metrics { get; set; }
+
     /// <summary>The highest `covers_from_mam`: the covers come from a part of MAM that isn't authorized for automation, so few per run.</summary>
     public const int MaxCoversFromMam = 100;
 

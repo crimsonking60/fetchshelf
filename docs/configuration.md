@@ -218,6 +218,7 @@ These go at the top of the file, before any section.
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
+| `metrics` | `false` | Serve Prometheus metrics at `/metrics`. See [Prometheus metrics](#prometheus-metrics). |
 | `covers_from_mam` | `0` | How many covers each Link run fetches from MAM for book folders that have no image, `0` to `100`. They are written as `cover.jpg` (or `cover.png`, `cover.webp`); books already in the library get theirs over the following runs. `0` fetches none. Series libraries are left out. The covers come from MAM's image server, which isn't among the parts of MAM its API documentation authorizes automating. See [Covers](user-guide.md#covers). |
 | `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
@@ -269,6 +270,37 @@ mam_id_file = "/run/secrets/mam_id"
 - **Environment.** Like `mam_id`, it can be set with `FETCHSHELF_CONF_mam_id_file`. The check for both
   being set happens after environment overrides, wherever each value comes from.
 - **Config page.** The Config page shows the path; the session id itself stays hidden.
+
+### Prometheus metrics
+
+With `metrics = true`, `/metrics` answers in Prometheus's text format. Like the pages it has no login, and
+`allowed_hosts` applies to it. A scrape reads only what Fetchshelf has stored or last read: it never calls MAM or
+qBittorrent. A value not known yet, such as the account's numbers before the first read since Fetchshelf started, is
+left out rather than reported as 0.
+
+| Metric | Type | What it is |
+|---|---|---|
+| `fetchshelf_mam_ratio`, `fetchshelf_mam_uploaded_bytes`, `fetchshelf_mam_downloaded_bytes` | gauge | The account's ratio, upload and download, as last read from MAM. |
+| `fetchshelf_mam_wedges`, `fetchshelf_mam_bonus_points` | gauge | Its freeleech wedges and bonus points. |
+| `fetchshelf_mam_unsatisfied`, `fetchshelf_mam_unsatisfied_limit` | gauge | Its unsatisfied snatches, and how many it may have. |
+| `fetchshelf_ratio_budget_bytes` | gauge | What may still be downloaded on ratio without going below `min_ratio`, as the **Account** page works it out. |
+| `fetchshelf_mam_paused` | gauge | 1 while calls to MAM are paused after MAM refused one, else 0. |
+| `fetchshelf_selected_waiting` | gauge | Selections waiting to be downloaded. |
+| `fetchshelf_torrents{media_type, library}` | gauge | Torrents in the libraries. |
+| `fetchshelf_grabbed_total{cost}` | counter | Torrents grabbed, by cost: `freeleech`, `vip`, `personal_freeleech`, `wedge` or `ratio`. |
+| `fetchshelf_linked_total` | counter | Torrents linked into a library. |
+| `fetchshelf_job_last_run_timestamp_seconds{job, result}` | gauge | When each job's last run ended (or started, while it runs), and how it ended. |
+| `fetchshelf_job_failing{job}` | gauge | 1 while a job's runs keep failing, as the **Jobs** page marks it, else 0. |
+
+A Prometheus scrape job:
+
+```yaml
+scrape_configs:
+  - job_name: fetchshelf
+    scrape_interval: 1m
+    static_configs:
+      - targets: ["fetchshelf:3157"]
+```
 
 ## `[search]`
 

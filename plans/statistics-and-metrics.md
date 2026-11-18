@@ -73,3 +73,23 @@ formatter (no new dependency):
 
 - Ratio, upload and bonus points over time: `plans/account-snapshots.md` shows them on the Account page, and the
   Statistics page links there.
+
+## As built
+
+- **`metrics = true`, a top-level setting,** instead of a `[metrics]` section with `enabled = true`: one switch needs no
+  section of its own, as `covers_from_mam` showed. `FETCHSHELF_CONF_metrics` sets it too, and the Config page shows it.
+- **Statistics page** (`Pages/Statistics/`, in the menu after **Account**, always shown): the queries are
+  `LibraryStatistics` (Data); the page caches the result for 60 seconds in `IMemoryCache`. Media types and languages
+  are shown spaced ("Comic Book"). Months are calendar months in UTC.
+  - **Library:** books by media type, language and library; the size of the linked files (from `LinkedFilesJson`); books
+    added per month, by the torrent's `CreatedAt`.
+  - **Downloads:** grabs per month by cost, where a wedge used makes a grab a wedge grab; the size grabbed per month, ratio
+    against free, from each grabbed torrent's metadata; grabs per grabber, with its kind (autograb, list, Follow, Upgrade,
+    Search page, or Other for a name no longer configured). The wedges spent are the grab table's Wedge column rather
+    than a table of their own.
+  - **Jobs:** runs, failures and runs with errors in the last 30 days, each job linking to its history. Only the last
+    200 runs of each job are kept (`JobRunStore.RunsKeptPerJob`), so a count at that cap shows as `200+`.
+- **`/metrics`:** `PrometheusText` (Web/Metrics) writes the exposition format; `MetricsCollector` reads the last account
+  read, the queue, the torrents, the events and the job registry. The metrics are the plan's, with `cost` labels
+  `freeleech`, `vip`, `personal_freeleech`, `wedge` and `ratio`, and a `result` label on the last run's timestamp.
+- **Looked at on a copy of the live database** (5,743 books): the page answered in under half a second uncached.
