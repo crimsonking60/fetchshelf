@@ -5,6 +5,51 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.14 - 2026-11-18
+
+A book in two languages is two books: the Follow job decides each language on its own, and two editions with the same
+title get folders of their own. Downloads can go to a chosen qBittorrent, into a chosen folder. On the Search page,
+authors, narrators and series link to more of the same.
+
+### Upgrading
+
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.14/configuration/#backup) section, a backup is taken first, named
+  `data-<time>-2026.11.13-before-2026.11.14.db`; without one, back up your data folder yourself.
+- **The Follow job finds more.** Each language is now decided on its own, so the first search of each follow can list
+  many editions in other languages that it skipped before. On *Auto*, those the `[[follow.grab]]` blocks take are
+  downloaded in that run, within the unsatisfied-snatch budget. To see them first, set `dry_run = true` in
+  [`[follow]`](https://fetchshelf.readthedocs.io/en/v2026.11.14/configuration/#follow) for the first runs. A block that took a free edition in one language, else
+  one in another, now takes both, each judged on its own.
+- **Two editions in one folder.** Where an earlier version linked two editions of a title, in different languages,
+  into one folder, both are flagged *Different folder* on the **Torrents** page. Relinking one of them gives it a folder
+  of its own, ending with its language, such as `Gamma (Greek)`. See
+  [Languages in folder names](https://fetchshelf.readthedocs.io/en/v2026.11.14/configuration/#languages-in-folder-names).
+- Nothing else is needed: without `client` and `save_path`, downloads go to the first `[[qbittorrent]]` as before.
+
+### Added
+
+- `client` and `save_path` on `[[autograb]]`, the lists, `[follow]`, `[upgrade]` and `[[tag]]` rules: which
+  qBittorrent receives a download, by its new `name`, and the folder it is saved in. They are decided like the
+  category: the block's own, else the first matching tag rule's. A library picks the downloads up by that folder
+  (`download_dir`) or their category (#98). See [`[[qbittorrent]]`](https://fetchshelf.readthedocs.io/en/v2026.11.14/configuration/#qbittorrent).
+- Search page: with two or more qBittorrents, **in qBittorrent** next to **Download into** chooses which one a
+  download goes to, remembered like the category (#98).
+- Search page: authors, narrators and series link to a search for more of the same, the name as a phrase in that field
+  only, keeping the chosen language (#97). See
+  [Finding and downloading books](https://fetchshelf.readthedocs.io/en/v2026.11.14/user-guide/#finding-and-downloading-books).
+- `language_in_folder` on a `[[library]]`: `"on_clash"`, the default, ends a book's folder with its language only when
+  the plain folder holds the same title in another language; `"other"` does so for every book not in the first of
+  the top-level `languages` (#96).
+- The **Following** lists show a Language column, and filter by it, when the finds span more than one language (#96).
+
+### Changed
+
+- The Follow job groups, owns and decides its finds per language: an English copy no longer stands in for the
+  Hungarian edition, or the other way round. Audiobookshelf's books count as owned in their own language; one without
+  a language counts in every language (#96). See
+  [Completing series and following authors](https://fetchshelf.readthedocs.io/en/v2026.11.14/user-guide/#completing-series-and-following-authors).
+
 ## 2026.11.13 - 2026-11-18
 
 Wanted books can come from a CSV or text file, such as a Goodreads or StoryGraph export, and MAM bookmarks show on

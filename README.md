@@ -71,7 +71,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.13** (2026-11-18). See [RELEASES.md](RELEASES.md#20261113---2026-11-18) for what changed, and for
+**2026.11.14** (2026-11-18). See [RELEASES.md](RELEASES.md#20261114---2026-11-18) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing
