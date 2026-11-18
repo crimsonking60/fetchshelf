@@ -47,7 +47,7 @@ public static partial class ConfigLoader
         ["database_wal"] = (s, n, v) => s.DatabaseWal = ParseBool(n, v),
         ["metadata_json"] = (s, n, v) => s.MetadataJson = ParseBool(n, v),
         ["metadata_opf"] = (s, n, v) => s.MetadataOpf = ParseBool(n, v),
-        ["covers_from_mam"] = (s, n, v) => s.CoversFromMam = ParseBool(n, v),
+        ["covers_from_mam"] = (s, n, v) => s.CoversFromMam = ParseInt(n, v),
         ["link_method"] = (s, n, v) => s.LinkMethod = ParseLinkMethod(n, v),
         ["search_interval"] = (s, n, v) => s.SearchInterval = ParseInt(n, v),
         ["link_interval"] = (s, n, v) => s.LinkInterval = ParseInt(n, v),

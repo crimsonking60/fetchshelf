@@ -38,7 +38,7 @@ public static class FetchshelfJobs
                     total.WaitingForLookup + summary.WaitingForLookup, total.WaitingForMam + summary.WaitingForMam);
             }
 
-            var covers = settings.CoversFromMam ? await scope.ServiceProvider.GetRequiredService<CoverWriter>().RunAsync(ct) : null;
+            var covers = settings.CoversFromMam > 0 ? await scope.ServiceProvider.GetRequiredService<CoverWriter>().RunAsync(ct) : null;
 
             // Clean is a run of its own, so cancelling this one doesn't cancel it; this run only stops waiting for it.
             await jobRegistry.TriggerAsync(JobNames.Clean, JobTrigger.Chained).WaitAsync(ct);

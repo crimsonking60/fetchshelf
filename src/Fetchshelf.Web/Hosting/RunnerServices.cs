@@ -33,6 +33,7 @@ public static class RunnerServices
             settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var firstLanguage) ? firstLanguage : null));
         services.AddScoped<ClientStatusChecker>();
         services.AddScoped<LinkRunner>();
+        services.AddSingleton(new CoverWriterOptions(settings.CoversFromMam));
         services.AddScoped<CoverWriter>();
         services.AddScoped<DownloadProgressChecker>();
         services.AddScoped<Cleaner>();

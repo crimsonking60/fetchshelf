@@ -70,12 +70,13 @@ When the book is already matched (`AbsId`), nothing more: Audiobookshelf picks u
 
 ## As built
 
-- **One top-level setting, `covers_from_mam`, default `false`,** instead of `write_cover` per `[[library]]`, as asked
-  when the plan was taken up. `FETCHSHELF_CONF_covers_from_mam` sets it too, and the Config page shows it.
+- **One top-level setting, `covers_from_mam`: the covers fetched per Link run, `0` (the default) to `100`,** instead of
+  `write_cover` per `[[library]]` and a fixed 20, as asked when the plan was taken up. `0` is off.
+  `FETCHSHELF_CONF_covers_from_mam` sets it too, and the Config page shows it.
 - **A cover pass at the end of every Link run** (`CoverWriter`), after the qBittorrent connections, rather than inside
   the placing of each book. It covers new books and the existing library alike: every linked book with
   `CoverCheckedAt` null (the plan's `CoverFetchedAt`, renamed because it is also set when no fetch was needed) is
-  looked at, in MAM id order, until 20 covers were fetched. The Link job's result gives the covers written and how
+  looked at, in MAM id order, until `covers_from_mam` covers were fetched. The Link job's result gives the covers written and how
   many books may still need one.
 - **"No image among the linked files" became "no image in the folder".** The Link job links only the chosen audio or
   ebook files, never a torrent's images, so the linked files never hold one. A folder with any `.jpg`, `.jpeg`,

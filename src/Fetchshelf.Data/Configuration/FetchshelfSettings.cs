@@ -59,8 +59,14 @@ public sealed class FetchshelfSettings
     /// <summary>The `metadata_opf` of every `[[library]]` that does not set its own.</summary>
     public bool MetadataOpf { get; set; }
 
-    /// <summary>`covers_from_mam`: the Link job writes MAM's cover into book folders that have no image.</summary>
-    public bool CoversFromMam { get; set; }
+    /// <summary>
+    /// `covers_from_mam`: how many covers each Link run fetches from MAM for book folders that have no image; 0 fetches
+    /// none. At most <see cref="MaxCoversFromMam"/>.
+    /// </summary>
+    public int CoversFromMam { get; set; }
+
+    /// <summary>The highest `covers_from_mam`: the covers come from a part of MAM that isn't authorized for automation, so few per run.</summary>
+    public const int MaxCoversFromMam = 100;
 
     /// <summary>
     /// When true, the database uses SQLite's write-ahead log, so pages can read while a job writes. Off by default:

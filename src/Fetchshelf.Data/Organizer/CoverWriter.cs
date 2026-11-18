@@ -11,8 +11,15 @@ namespace Fetchshelf.Data.Organizer;
 /// <summary>What one cover pass did: covers written, and books still waiting for theirs because the run's limit was reached.</summary>
 public sealed record CoverRunSummary(int Written, int Waiting);
 
+/// <summary>The settings the cover pass runs by.</summary>
+/// <param name="MaxFetchesPerRun">
+/// `covers_from_mam`: the most covers one run fetches from MAM. A first run over a large library would otherwise send
+/// one request per book; the rest are fetched in later runs. 0 fetches none.
+/// </param>
+public sealed record CoverWriterOptions(int MaxFetchesPerRun);
+
 /// <summary>
-/// With `covers_from_mam`, writes MAM's cover image into the folder of each linked book that has no image, at the end of
+/// With `covers_from_mam` above 0, writes MAM's cover image into the folder of each linked book that has no image, at the end of
 /// every Link run. A book is looked at once (<see cref="TorrentEntity.CoverCheckedAt"/>), and again only when it is
 /// linked again or refreshed. Series libraries are left out: comics and manga carry their cover inside the file, and
 /// one series folder holds many books.
@@ -21,17 +28,12 @@ public sealed class CoverWriter(
     FetchshelfDbContext dbContext,
     IMamCoverSource coverSource,
     IReadOnlyList<Library> libraries,
+    CoverWriterOptions options,
     LibraryWriteGate? writeGate = null,
     ILogger<CoverWriter>? logger = null)
 {
     private readonly ILogger<CoverWriter> _logger = logger ?? NullLogger<CoverWriter>.Instance;
     private readonly LibraryWriteGate _writeGate = writeGate ?? new LibraryWriteGate();
-
-    /// <summary>
-    /// The most covers one run fetches from MAM. A first run over a large library would otherwise send one request per
-    /// book; the rest are fetched in later runs.
-    /// </summary>
-    public const int MaxFetchesPerRun = 20;
 
     /// <summary>Books read from the database at a time while looking for those that need a cover.</summary>
     private const int PageSize = 500;
@@ -56,13 +58,13 @@ public sealed class CoverWriter(
                     continue;
                 }
 
-                if (fetches == MaxFetchesPerRun)
+                if (fetches >= options.MaxFetchesPerRun)
                 {
                     await dbContext.SaveChangesAsync(cancellationToken);
                     var waiting = await CountWaitingAsync(cancellationToken);
                     _logger.LogInformation(
                         "Fetched {Max} covers from MAM, the most for one run; {Count} more books will get theirs in the next runs",
-                        MaxFetchesPerRun, waiting);
+                        options.MaxFetchesPerRun, waiting);
                     return new CoverRunSummary(written, waiting);
                 }
 

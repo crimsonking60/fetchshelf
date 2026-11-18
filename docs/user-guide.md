@@ -1585,10 +1585,11 @@ A torrent's cover is whatever image the upload has, and Fetchshelf links only a 
 images. Audiobookshelf then uses a cover embedded in the files, or finds one itself; file browsers and some readers
 show none.
 
-With `covers_from_mam = true`, the Link job writes MAM's cover image into the folder of every linked book that has no
-image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for those types. A cover put there by you,
-by Audiobookshelf or by an earlier run is never replaced. Each run fetches at most 20 covers, so turning it on for a
-large library fills the covers in over the following runs; the Link job's result says how many are left. A book is
+With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes MAM's cover image into the
+folder of every linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for
+those types. A cover put there by you, by Audiobookshelf or by an earlier run is never replaced. Each run fetches at
+most that many covers, so turning it on for a large library fills the covers in over the following runs; the Link
+job's result says how many are left. A book is
 looked at once: again only after **Refresh** or a relink. A book whose cover MAM doesn't have, or couldn't send, is
 logged and left without one.
 
@@ -1596,7 +1597,8 @@ Series libraries are left out: comics and manga carry their cover inside the fil
 books. The cover is removed with the book's metadata files.
 
 The covers come from MAM's image server, as the Search page's covers do. It isn't among the parts of MAM that its API
-documentation authorizes automating, which is why this is off unless turned on, and limited to a few covers per run.
+documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at
+most 100 covers per run.
 
 ### Better formats replace worse ones
 

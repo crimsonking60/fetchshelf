@@ -29,6 +29,8 @@ public sealed class CoverWriterTests : IDisposable
         }
     }
 
+    private static readonly CoverWriterOptions Options = new(MaxFetchesPerRun: 20);
+
     private static MamImage Jpeg => new([0xFF, 0xD8, 0xFF], "image/jpeg");
 
     /// <summary>A linked book with MAM id <paramref name="mamId"/> whose folder holds <paramref name="files"/>.</summary>
@@ -57,14 +59,14 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1);
         var source = new FakeCoverSource(_ => Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 
         Assert.Equal(new CoverRunSummary(1, 0), summary);
         Assert.Equal([0xFF, 0xD8, 0xFF], await File.ReadAllBytesAsync(Path.Combine(folder, "cover.jpg")));
         Assert.Equal(["01.mp3", "cover.jpg"], Directory.GetFiles(folder).Select(Path.GetFileName).Order());
         Assert.NotNull(CheckedAt(context, 1));
 
-        await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
         Assert.Equal([1L], source.Asked);
     }
 
@@ -74,7 +76,7 @@ public sealed class CoverWriterTests : IDisposable
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         var folder = await SeedLinkedAsync(context, 1);
 
-        await new CoverWriter(context, new FakeCoverSource(_ => new MamImage([1], "image/png")), [BookLibrary]).RunAsync();
+        await new CoverWriter(context, new FakeCoverSource(_ => new MamImage([1], "image/png")), [BookLibrary], Options).RunAsync();
 
         Assert.True(File.Exists(Path.Combine(folder, "cover.png")));
     }
@@ -86,7 +88,7 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1, "01.mp3", "folder.png");
         var source = new FakeCoverSource(_ => Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 
         Assert.Equal(new CoverRunSummary(0, 0), summary);
         Assert.Empty(source.Asked);
@@ -101,30 +103,31 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1);
         var source = new FakeCoverSource(_ => null);
 
-        Assert.Equal(new CoverRunSummary(0, 0), await new CoverWriter(context, source, [BookLibrary]).RunAsync());
-        await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        Assert.Equal(new CoverRunSummary(0, 0), await new CoverWriter(context, source, [BookLibrary], Options).RunAsync());
+        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 
         Assert.Equal(["01.mp3"], Directory.GetFiles(folder).Select(Path.GetFileName));
         Assert.Equal([1L], source.Asked);
     }
 
     [Fact]
-    public async Task RunAsync_ManyBooks_FetchesAtMostTheRunsLimitAndTheRestNextRun()
+    public async Task RunAsync_ManyBooks_FetchesAtMostCoversFromMamAndTheRestNextRun()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
-        for (var mamId = 1; mamId <= CoverWriter.MaxFetchesPerRun + 5; mamId++)
+        for (var mamId = 1; mamId <= 5; mamId++)
         {
             await SeedLinkedAsync(context, mamId);
         }
 
         var source = new FakeCoverSource(_ => Jpeg);
+        var three = new CoverWriterOptions(MaxFetchesPerRun: 3);
 
-        var first = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
-        var second = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        var first = await new CoverWriter(context, source, [BookLibrary], three).RunAsync();
+        var second = await new CoverWriter(context, source, [BookLibrary], three).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(CoverWriter.MaxFetchesPerRun, 5), first);
-        Assert.Equal(new CoverRunSummary(5, 0), second);
-        Assert.Equal(Enumerable.Range(1, CoverWriter.MaxFetchesPerRun + 5).Select(i => (long)i), source.Asked);
+        Assert.Equal(new CoverRunSummary(3, 2), first);
+        Assert.Equal(new CoverRunSummary(2, 0), second);
+        Assert.Equal([1L, 2, 3, 4, 5], source.Asked);
     }
 
     [Fact]
@@ -135,7 +138,7 @@ public sealed class CoverWriterTests : IDisposable
         await SeedLinkedAsync(context, 2);
         var source = new FakeCoverSource(_ => throw new MamRateLimitedException("MAM says too many requests."));
 
-        var summary = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 
         Assert.Equal(new CoverRunSummary(0, 2), summary);
         Assert.Equal([1L], source.Asked);
@@ -150,7 +153,7 @@ public sealed class CoverWriterTests : IDisposable
         var second = await SeedLinkedAsync(context, 2);
         var source = new FakeCoverSource(mamId => mamId == 1 ? throw new HttpRequestException("timed out") : Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary]).RunAsync();
+        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 
         Assert.Equal(new CoverRunSummary(1, 0), summary);
         Assert.True(File.Exists(Path.Combine(second, "cover.jpg")));
@@ -167,7 +170,7 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var library = new Library { LibraryDir = LibraryDir, Category = "comics", Method = method, Layout = layout };
 
-        await new CoverWriter(context, source, [library]).RunAsync();
+        await new CoverWriter(context, source, [library], Options).RunAsync();
 
         Assert.Empty(source.Asked);
         Assert.NotNull(CheckedAt(context, 1));
@@ -181,7 +184,7 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var other = new Library { LibraryDir = Path.Combine(_root, "other"), Category = "ebooks", Method = LibraryLinkMethod.Hardlink };
 
-        await new CoverWriter(context, source, [other]).RunAsync();
+        await new CoverWriter(context, source, [other], Options).RunAsync();
 
         Assert.Empty(source.Asked);
     }
