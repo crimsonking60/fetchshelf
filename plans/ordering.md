@@ -52,7 +52,7 @@ Search page (PR #67), with the `MamPageGate` the bookmark toggle uses.
 
 **Release point (reached):** phases 1 and 2 are fixes and groundwork with nothing to configure for most users.
 
-## Phase 3: seeing and protecting
+## Phase 3: seeing and protecting (done)
 
 Done:
 
