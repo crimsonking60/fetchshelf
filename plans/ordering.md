@@ -1,12 +1,12 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 10 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 9 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93) and `language-aware-books.md` (PR #96)
-were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96) and
+`search-bookmark-and-more-like-this.md` (PR #97) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
 2026-11-18. The order follows four rules:
 
 1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
@@ -28,7 +28,6 @@ or how, so they are worth doing before the plans come up:
 | Check | Plan | Decides |
 |---|---|---|
 | Whether MAM's API reports freeleech windows | `freeleech-awareness.md` | a direct field or detection from search results |
-| Whether quotes make a phrase in author/series/narrator search (the bookmark endpoint: checked, there is none) | `search-bookmark-and-more-like-this.md` | whether names are quoted |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
 
@@ -79,8 +78,8 @@ Done:
     Audiobookshelf, and the books it has count as owned.
 4. **`language-aware-books.md`** — done (PR #96): a book in two languages is two books in the Follow job, and
     `language_in_folder` keeps two editions of a title out of one library folder.
-5. **`search-bookmark-and-more-like-this.md`** — "more like this" only: MAM authorizes no bookmark endpoint, so the
-    bookmark toggle is dropped. Its searches take MAM through `MamPageGate` (PR #67).
+5. **`search-bookmark-and-more-like-this.md`** — done (PR #97): authors, narrators and series on the Search page link
+    to a search for more of the same, the name as a quoted phrase. No bookmarking: MAM authorizes no bookmark endpoint.
 6. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
     the other blocks; before other download clients, which reuse its client names.
 
@@ -143,6 +142,4 @@ Done in the order above, each builds on the one before; done in parallel, they c
 - **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93, and ownership is per
   language since PR #96): `collection-torrents.md`.
 - **`DownloadRunner`:** `download-client-and-save-path.md`, `other-download-clients.md`.
-- **The Search page:** `search-bookmark-and-more-like-this.md`,
-  `download-client-and-save-path.md` (the qBittorrent choice).
 - **Every user of a torrent id as a qBittorrent hash:** `collection-torrents.md`, `other-download-clients.md`.
