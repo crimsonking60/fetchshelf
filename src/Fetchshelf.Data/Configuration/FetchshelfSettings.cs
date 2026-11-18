@@ -59,6 +59,9 @@ public sealed class FetchshelfSettings
     /// <summary>The `metadata_opf` of every `[[library]]` that does not set its own.</summary>
     public bool MetadataOpf { get; set; }
 
+    /// <summary>`covers_from_mam`: the Link job writes MAM's cover into book folders that have no image.</summary>
+    public bool CoversFromMam { get; set; }
+
     /// <summary>
     /// When true, the database uses SQLite's write-ahead log, so pages can read while a job writes. Off by default:
     /// the log's shared-memory file can't work when the database is on a network share, so it's for local disks only.

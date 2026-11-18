@@ -13,9 +13,10 @@ public static class JobOutcomes
 {
     /// <summary>
     /// What the Link job linked, and the backlog it left: torrents beyond the run's MAM lookups, and those MAM didn't
-    /// know, which wait a day. A run with only a backlog isn't "Nothing new to link".
+    /// know, which wait a day. A run with only a backlog isn't "Nothing new to link". With `covers_from_mam`, the covers
+    /// written and those left for later runs.
     /// </summary>
-    public static JobOutcome Link(LinkRunSummary summary)
+    public static JobOutcome Link(LinkRunSummary summary, CoverRunSummary? covers = null)
     {
         var backlog = summary.WaitingForLookup > 0 || summary.WaitingForMam > 0;
         var line = summary.Linked > 0 || summary.Failed > 0 ? Count(summary.Linked, "torrent", "torrents") + " linked"
@@ -31,17 +32,29 @@ public static class JobOutcomes
             line += $"; {Count(summary.WaitingForMam, "torrent", "torrents")} MAM didn't know, looked up again once a day";
         }
 
+        if (covers is { Written: > 0 } or { Waiting: > 0 })
+        {
+            line += $"; {Count(covers.Written, "cover", "covers")} written" + (covers.Waiting > 0 ? $", up to {covers.Waiting} more in the next runs" : "");
+        }
+
+        var counts = new Dictionary<string, long>
+        {
+            ["linked"] = summary.Linked,
+            ["failed"] = summary.Failed,
+            ["waiting_for_lookup"] = summary.WaitingForLookup,
+            ["waiting_for_mam"] = summary.WaitingForMam,
+        };
+        if (covers is not null)
+        {
+            counts["covers_written"] = covers.Written;
+            counts["covers_waiting"] = covers.Waiting;
+        }
+
         return Finish(
             line,
             summary.Failed,
             "could not be linked; see the Errors page",
-            new()
-            {
-                ["linked"] = summary.Linked,
-                ["failed"] = summary.Failed,
-                ["waiting_for_lookup"] = summary.WaitingForLookup,
-                ["waiting_for_mam"] = summary.WaitingForMam,
-            });
+            counts);
     }
 
     public static JobOutcome Clean(CleanRunSummary summary) => Finish(

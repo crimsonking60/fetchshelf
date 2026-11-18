@@ -644,6 +644,30 @@ public sealed class LinkRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshAndRelink_LookAtTheCoverAgain()
+    {
+        WriteSourceFile("book.m4b");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var runner = CreateRunner(context, new FakeMetadataLookup(OrganizerTestSupport.BuildMetadata()), libraries);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", DownloadsDir)], new Dictionary<string, List<QBittorrentFile>> { ["hash1"] = [new() { Name = "book.m4b", Size = 4 }] });
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        async Task<DateTimeOffset?> CoverCheckedAfter(Func<Task> action)
+        {
+            (await context.Torrents.SingleAsync()).CoverCheckedAt = DateTimeOffset.UtcNow;
+            await context.SaveChangesAsync();
+            await action();
+            context.ChangeTracker.Clear();
+            return (await context.Torrents.SingleAsync()).CoverCheckedAt;
+        }
+
+        Assert.Null(await CoverCheckedAfter(() => runner.RefreshAsync("hash1")));
+        Assert.Null(await CoverCheckedAfter(() => runner.RelinkAsync("hash1", [(new QBittorrentConnection(), client)])));
+    }
+
+    [Fact]
     public async Task RefreshAndRelinkAsync_FolderChanged_MovesTheBookToTheNewFolder()
     {
         WriteSourceFile("book.m4b");

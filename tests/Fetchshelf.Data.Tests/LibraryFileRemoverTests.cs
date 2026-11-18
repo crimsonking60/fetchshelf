@@ -24,6 +24,8 @@ public sealed class LibraryFileRemoverTests : IDisposable
         Write("metadata.json");
         Write("metadata.opf");
         Write("cover.jpg");
+        Write("cover.png");
+        Write("cover.webp");
 
         var removed = LibraryFileRemover.Remove(
             Path.Combine(_root, "book"), [new("Disc 1/01.mp3", 1), new("Disc 2/01.mp3", 1)], folderSharedWithAnotherTorrent: false);

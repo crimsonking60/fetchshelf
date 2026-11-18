@@ -218,6 +218,26 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
+    public void Load_CoversFromMam_OffUnlessSetInFileOrFromEnvironmentVariable()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Assert.False(ConfigLoader.Load(ConfigPath).CoversFromMam);
+
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", "true");
+        try
+        {
+            Assert.True(ConfigLoader.Load(ConfigPath).CoversFromMam);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", null);
+        }
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ncovers_from_mam = true\n");
+        Assert.True(ConfigLoader.Load(ConfigPath).CoversFromMam);
+    }
+
+    [Fact]
     public void Load_GlobalMetadataSettingsFromEnvironmentVariables_ReachLibrariesWithoutTheirOwn()
     {
         File.WriteAllText(ConfigPath, """
