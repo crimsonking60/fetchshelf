@@ -1,13 +1,13 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 11 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 10 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92) and `follow-audiobookshelf-series.md` (PR #93) were built and
-moved to `plans/done/`. Two plans are new: `language-aware-books.md` and `collection-torrents.md`; the second was parked
-for a while and taken up again on 2026-11-18. The order follows four rules:
+(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93) and `language-aware-books.md` (PR #96)
+were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+2026-11-18. The order follows four rules:
 
 1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
@@ -77,11 +77,8 @@ Done:
     search with no request per bookmark.
 3. **`follow-audiobookshelf-series.md`** — done (PR #93): `[follow] audiobookshelf_series` follows the series in
     Audiobookshelf, and the books it has count as owned.
-4. **`language-aware-books.md`** — builds on step 3 (PR #93), which changed the Follow job and `LibraryQueries`: the
-    Audiobookshelf book rows it added count as owned too, and have no language. `folder_template` (PR #73) can
-    already express `language_in_folder = "other"`, so only the clash rule is new. The
-    first searches after the upgrade can list many other-language finds; a dry run from the Jobs page (PR #89)
-    shows them first.
+4. **`language-aware-books.md`** — done (PR #96): a book in two languages is two books in the Follow job, and
+    `language_in_folder` keeps two editions of a title out of one library folder.
 5. **`search-bookmark-and-more-like-this.md`** — "more like this" only: MAM authorizes no bookmark endpoint, so the
     bookmark toggle is dropped. Its searches take MAM through `MamPageGate` (PR #67).
 6. **`download-client-and-save-path.md`** — after file lists so `[[file_list]]` gets `client` and `save_path` with
@@ -112,8 +109,8 @@ Done:
     comic collections are still common, such as an Ultimate Spider-Man collection that MAM gives no series and whose
     145 `cbr` issues lost to its one `cbz` annual. Its "Collections without a series range" section has two gaps to
     settle first: choosing the format per book rather than per torrent, and detecting a collection from its file names.
-    After the series layout, which places the split books as numbered files, and after `language-aware-books.md`,
-    whose per-language series ownership the books inherit. Before `other-download-clients.md`: both change every place
+    After the series layout, which places the split books as numbered files, and after `language-aware-books.md`
+    (PR #96), whose per-language series ownership and `language_in_folder` the books inherit. Before `other-download-clients.md`: both change every place
     that uses a torrent's id as a qBittorrent hash, and the refactor is easier with the collection's mapping in place.
 14. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
@@ -132,21 +129,19 @@ Parked plans are left out of the order until they are taken up again.
 | Plan | Needs first | Better after |
 |---|---|---|
 | `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` |
-| `collection-torrents.md` | | `language-aware-books.md` |
 
 ## Plans that touch the same code
 
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
-- **`LinkRunner`** (it takes the library write gate from PR #79 per torrent): `language-aware-books.md` (the clash rule),
+- **`LinkRunner`** (it takes the library write gate from PR #79 per torrent, and the language clash rule from PR #96):
   `covers-from-mam.md`, the library check, `collection-torrents.md`.
-- **`FolderNameComputer`, `FolderLayout`, `SeriesLayoutNamer` and `SyncMismatch`:** `language-aware-books.md`, the
-  library check. A series library (PR #92) holding one series in two languages puts both in one series folder;
-  `language-aware-books.md` decides whether `language_in_folder` applies to series folders.
+- **`FolderNameComputer`, `FolderLayout`, `SeriesLayoutNamer` and `SyncMismatch`** (with `language_in_folder` since
+  PR #96, which marks a series library's file names rather than its folders): the library check.
 - **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88):
   `covers-from-mam.md` (`cover.png`, `cover.webp`), `collection-torrents.md`.
-- **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93): `language-aware-books.md`,
-  `collection-torrents.md`.
+- **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93, and ownership is per
+  language since PR #96): `collection-torrents.md`.
 - **`DownloadRunner`:** `download-client-and-save-path.md`, `other-download-clients.md`.
 - **The Search page:** `search-bookmark-and-more-like-this.md`,
   `download-client-and-save-path.md` (the qBittorrent choice).
