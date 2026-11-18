@@ -42,6 +42,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<AudiobookshelfSeriesBookEntity> AudiobookshelfSeriesBooks => Set<AudiobookshelfSeriesBookEntity>();
 
+    public DbSet<StoppedSeriesEntity> StoppedSeries => Set<StoppedSeriesEntity>();
+
     /// <summary>The people and series rows the last save added for its torrents, dropped again if that save failed.</summary>
     internal List<object> PendingProjectionRows { get; } = [];
 
@@ -132,6 +134,12 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasOne<FollowEntity>().WithMany().HasForeignKey(f => f.FollowId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(f => new { f.FollowId, f.MamId }).IsUnique();
             entity.HasIndex(f => f.Status);
+        });
+
+        modelBuilder.Entity<StoppedSeriesEntity>(entity =>
+        {
+            entity.ToTable("StoppedSeries");
+            entity.HasKey(s => s.NameKey);
         });
 
         modelBuilder.Entity<AudiobookshelfSeriesBookEntity>(entity =>

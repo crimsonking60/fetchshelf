@@ -140,3 +140,15 @@ public sealed class AudiobookshelfSeriesBookEntity
 
     public required DateTimeOffset SyncedAt { get; set; }
 }
+
+/// <summary>
+/// A series someone stopped following, so `[follow] audiobookshelf_series` doesn't follow it again on the next run.
+/// Following the series again removes the row.
+/// </summary>
+public sealed class StoppedSeriesEntity
+{
+    /// <summary><c>SeriesNameKey</c> of the series.</summary>
+    public required string NameKey { get; set; }
+
+    public required DateTimeOffset StoppedAt { get; set; }
+}

@@ -314,6 +314,49 @@ public sealed class AudiobookshelfSeriesSyncTests : IDisposable
         Assert.Equal(0, summary.AddedFromAudiobookshelf);
     }
 
+    private static FollowService Service(Harness harness) => new(
+        harness.Context,
+        new MamClient(new HttpClient(new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))), new MamClientOptions { MamId = "c" }),
+        new MamAccessGate(),
+        new SelectionRunner(harness.Context, new EventStore(harness.Context), [], SelectionTestSupport.PreferenceLists),
+        Settings(),
+        new Clock());
+
+    [Fact]
+    public async Task Run_SeriesStoppedFollowing_IsNotFollowedAgain()
+    {
+        var harness = CreateHarness();
+        await harness.RunAsync(Settings());
+        var expanse = await harness.Context.Follows.AsNoTracking().SingleAsync(f => f.DisplayName == "The Expanse");
+
+        await Service(harness).StopAsync(expanse.Id);
+        harness.Context.ChangeTracker.Clear();
+        var summary = await harness.RunAsync(Settings());
+
+        Assert.Equal(0, summary.AddedFromAudiobookshelf);
+        Assert.Equal(["Earthseed"], await harness.Context.Follows.Select(f => f.DisplayName).ToListAsync());
+        // Its books still count as owned: they are in Audiobookshelf.
+        Assert.Contains(await harness.Context.AudiobookshelfSeriesBooks.ToListAsync(), b => b.Name == "The Expanse");
+    }
+
+    [Fact]
+    public async Task Run_SeriesFollowedAgainByHand_AndStoppedAgain_StaysStopped()
+    {
+        var harness = CreateHarness();
+        await harness.RunAsync(Settings());
+        var service = Service(harness);
+        await service.StopAsync((await harness.Context.Follows.AsNoTracking().SingleAsync(f => f.DisplayName == "The Expanse")).Id);
+
+        var again = await service.SetAsync(FollowKind.Series, SeriesNameKey.Of("The Expanse"), "The Expanse", FollowMode.Watch);
+        Assert.Empty(harness.Context.StoppedSeries);
+
+        await service.StopAsync(again.Id);
+        harness.Context.ChangeTracker.Clear();
+        await harness.RunAsync(Settings());
+
+        Assert.DoesNotContain(await harness.Context.Follows.Select(f => f.DisplayName).ToListAsync(), name => name == "The Expanse");
+    }
+
     private static string Record(long mamId, string title, string number) => $$"""
         {
             "id": {{mamId}}, "title": "{{title}}", "author_info": "{\"1\":\"James S. A. Corey\"}",

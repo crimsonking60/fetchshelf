@@ -544,6 +544,19 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("SelectedTorrents");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.StoppedSeriesEntity", b =>
+                {
+                    b.Property<string>("NameKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("StoppedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("NameKey");
+
+                    b.ToTable("StoppedSeries", (string)null);
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.TorrentEntity", b =>
                 {
                     b.Property<string>("Id")

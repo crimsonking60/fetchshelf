@@ -17,7 +17,7 @@ public sealed record AudiobookshelfSeriesSyncSummary(int Series, int Added, IRea
 /// <summary>
 /// Reads the series of Audiobookshelf's book libraries for `[follow] audiobookshelf_series`, at the start of each Follow run.
 /// Each series not followed in any mode is followed in the configured one; a series ignored, or followed already, keeps
-/// its mode, and one that leaves Audiobookshelf stays followed. The books are kept as <see cref="AudiobookshelfSeriesBookEntity"/>
+/// its mode, one that leaves Audiobookshelf stays followed, and one someone stopped following isn't followed again. The books are kept as <see cref="AudiobookshelfSeriesBookEntity"/>
 /// rows, which the library counts as owned, so a book Audiobookshelf has from before Fetchshelf isn't searched for or
 /// downloaded again. A dry run writes nothing.
 /// </summary>
@@ -57,6 +57,7 @@ public sealed class AudiobookshelfSeriesSync(
         var now = _time.GetUtcNow();
         var rows = await BookRowsAsync(series, now, cancellationToken);
         var followed = (await dbContext.Follows.Where(f => f.Kind == FollowKind.Series).Select(f => f.NameKey).ToListAsync(cancellationToken))
+            .Concat(await dbContext.StoppedSeries.Select(s => s.NameKey).ToListAsync(cancellationToken))
             .ToHashSet(StringComparer.Ordinal);
         var newSeries = series
             .Select(s => (Name: CleanName(s.Name), Key: SeriesNameKey.Of(CleanName(s.Name))))

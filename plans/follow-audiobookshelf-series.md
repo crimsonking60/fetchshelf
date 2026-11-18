@@ -100,6 +100,9 @@ once spreads their searches over many runs rather than sending 400 at once.
   - An item with neither audio nor an ebook counts as both formats: wrongly taking a book for owned only skips a
     download.
   - This table and the `Follows.Source` column are the migration.
+- **Stopped series.** Stopping a follow deletes it, so the next sync would have followed the series again (found in the
+  dev test). A stopped series is now remembered in `StoppedSeries` and skipped by the sync, and following it again by
+  hand clears that. This is a second migration, as the dev database already had the first applied.
 - **Series names.** A series name with a number Audiobookshelf kept from a folder (`Earthseed #1, 2`,
   `Doctor Who #The Krotons`) is cut at `" #"`, so it is followed once, under a name MAM's series have.
 - **The real run.** The sync was run against the user's Audiobookshelf (three book libraries): 1,561 series became

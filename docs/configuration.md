@@ -781,7 +781,8 @@ With `audiobookshelf_series`, each run of the Follow job first reads the series 
 - **Each series not followed in any mode is followed**: `"follow"` lists what is found on the **Following** page,
   `"auto"` selects it. The follow says *from Audiobookshelf* on the **Following** page. A series already followed,
   on *Auto* or ignored keeps its mode, and one that leaves Audiobookshelf stays followed: the follow is yours from
-  then on, to change or stop like any other.
+  then on, to change or stop like any other. A series you stop following isn't followed again from Audiobookshelf;
+  follow it again from the **Series** page to take it back.
 - **The books Audiobookshelf has count as owned**, in the format it has them (an audiobook, an ebook, or both; an
   item with neither counts as both), so the Follow job doesn't search for or download what is already there. The
   **Series** page lists Audiobookshelf's series too, with the entries it has. Books Fetchshelf linked itself, and

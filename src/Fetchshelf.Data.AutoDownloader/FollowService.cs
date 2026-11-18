@@ -190,6 +190,16 @@ public sealed class FollowService(
             throw new ArgumentException("Only a series can be ignored.", nameof(mode));
         }
 
+        if (kind == FollowKind.Series)
+        {
+            // Followed again: stopped once more, it is remembered again.
+            await dbContext.StoppedSeries.Where(s => s.NameKey == nameKey).ExecuteDeleteAsync(cancellationToken);
+            foreach (var stopped in dbContext.StoppedSeries.Local.Where(s => s.NameKey == nameKey).ToList())
+            {
+                dbContext.Entry(stopped).State = EntityState.Detached;
+            }
+        }
+
         var follow = await FindAsync(kind, nameKey, cancellationToken);
         if (follow is null)
         {
@@ -218,6 +228,13 @@ public sealed class FollowService(
     /// </summary>
     public async Task StopAsync(int followId, CancellationToken cancellationToken = default)
     {
+        // A stopped series is remembered, so `audiobookshelf_series` doesn't follow it again on the next run.
+        if (await dbContext.Follows.AsNoTracking().FirstOrDefaultAsync(f => f.Id == followId, cancellationToken) is { Kind: FollowKind.Series } series
+            && !await dbContext.StoppedSeries.AnyAsync(s => s.NameKey == series.NameKey, cancellationToken))
+        {
+            dbContext.StoppedSeries.Add(new StoppedSeriesEntity { NameKey = series.NameKey, StoppedAt = _time.GetUtcNow() });
+        }
+
         await dbContext.Follows.Where(f => f.Id == followId).ExecuteDeleteAsync(cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Follow, ErrorLog.FollowKey(followId), cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
