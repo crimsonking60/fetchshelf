@@ -1,5 +1,8 @@
 # Make more of a freeleech window — implementation plan
 
+**Parked on 2026-11-18:** MAM's API has no way to tell when a freeleech window is on (see "Found so far" below), so
+stage 2 has nothing reliable to build on.
+
 ## Context
 
 Now and then everything on MAM is free for a while: a site-wide freeleech event, or the account's own personal

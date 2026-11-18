@@ -1,6 +1,6 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 6 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 5 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
@@ -28,7 +28,6 @@ or how, so they are worth doing before the plans come up:
 
 | Check | Plan | Decides |
 |---|---|---|
-| Whether MAM's API reports freeleech windows | `freeleech-awareness.md` | a direct field or detection from search results |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
 
@@ -92,30 +91,29 @@ Done:
     for book folders without an image. Series libraries are left out: comics carry their cover inside the file.
 9. **`statistics-and-metrics.md`** — done (PR #102): a Statistics page with the library's totals and the grabs by
     month, cost and grabber, and `metrics = true` for a Prometheus `/metrics`.
-10. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
 
 **Release point.**
 
 ## Phase 5: the large ones
 
-11. **`25-Library-check.md`** (#25) — it compares folders with the names the Link job would compute,
+10. **`25-Library-check.md`** (#25) — it compares folders with the names the Link job would compute,
     `folder_template` (PR #73) and the series layout's folders and file names (PR #92) included. Its open questions have
     proposed answers to confirm first.
-12. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
+11. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
     `safe-folder-names.md` (PR #73), whose `FileNameRules` it only has to make the Windows default. Its step 3 widens
     the hardlink fallback for Windows, while `link-and-tag-details.md` (PR #72) narrowed it on Linux to the errors that
     mean "not possible here": the Windows errors join that list rather than the fallback catching everything again.
-13. **`collection-torrents.md`** — splits a collection into one library book each. Taken up again on 2026-11-18:
+12. **`collection-torrents.md`** — splits a collection into one library book each. Taken up again on 2026-11-18:
     comic collections are still common, such as an Ultimate Spider-Man collection that MAM gives no series and whose
     145 `cbr` issues lost to its one `cbz` annual. Its "Collections without a series range" section has two gaps to
     settle first: choosing the format per book rather than per torrent, and detecting a collection from its file names.
     After the series layout, which places the split books as numbered files, and after `language-aware-books.md`
     (PR #96), whose per-language series ownership and `language_in_folder` the books inherit. Before `other-download-clients.md`: both change every place
     that uses a torrent's id as a qBittorrent hash, and the refactor is easier with the collection's mapping in place.
-14. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
+13. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
     code and nobody has asked for it yet.
-15. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
+14. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
     after the rest; build only if the answer is yes.
 
 ## Parked
@@ -123,6 +121,8 @@ Done:
 Parked plans are left out of the order until they are taken up again.
 
 - **`parked/email-notifications.md`** — moved to `plans/parked/` on 2026-11-17.
+- **`parked/freeleech-awareness.md`** — moved to `plans/parked/` on 2026-11-18: MAM's API has no way to tell when a
+  freeleech window is on.
 
 ## Dependencies
 
