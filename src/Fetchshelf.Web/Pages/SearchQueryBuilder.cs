@@ -119,6 +119,31 @@ public static class SearchQueryBuilder
         };
     }
 
+    /// <summary>
+    /// The address of a search for more by the same author, narrator or series: the name as a phrase, looked for in
+    /// <paramref name="field"/> only, in the language chosen on the page (<paramref name="language"/>, unset for the
+    /// top-level <c>languages</c>), from page 1 in MAM's own order. A name with a space is quoted, which MAM's search
+    /// reads as a phrase, so "Brandon Sanderson" doesn't also match every Brandon. Plain route values, so the link opens
+    /// in a new tab and can be bookmarked.
+    /// </summary>
+    /// <param name="field">"author", "narrator" or "series".</param>
+    public static Dictionary<string, string> MoreLike(string field, string name, string? language)
+    {
+        // A quote or backslash inside would end the phrase early or escape the closing quote.
+        var cleaned = string.Join(' ', name.Replace('"', ' ').Replace('\\', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var values = new Dictionary<string, string>
+        {
+            ["Q"] = cleaned.Contains(' ', StringComparison.Ordinal) ? $"\"{cleaned}\"" : cleaned,
+            ["In"] = field,
+        };
+        if (!string.IsNullOrWhiteSpace(language))
+        {
+            values["Lang"] = language;
+        }
+
+        return values;
+    }
+
     private static MamSearchField ToField(string name) =>
         AutograbSearchOptions.TryParseSearchField(name, out var field)
             ? field

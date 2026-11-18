@@ -53,3 +53,17 @@ torrent is bookmarked.
 
 - Bookmarking, and removing the bookmark after a bookmark autograb downloaded the torrent: MAM authorizes no
   bookmark endpoint (see section 2).
+
+## As built
+
+- **The quotes check, answered without a live search.** MAM's search uses Sphinx's extended syntax, where `"…"` is a
+  phrase. The original app sent author names as quoted phrases, and Fetchshelf's own list searches
+  (`ListMamQueryBuilder`) have done so against the real account since the Hardcover lists. So names with a space are
+  quoted. A quote or backslash in a name is taken out, so it can't end the phrase early.
+- **What the links keep.** The Search page has no category choice; `MoreLike` keeps the language (`Lang`) and starts
+  the rest afresh: the name, its one field, page 1, MAM's own order, every torrent.
+- **Where the links are.** The details view links every author, narrator and series. A result row links each author,
+  except an anthology's author list long enough to be shortened, which stays plain text with its balloon.
+- **Language in the details.** The details view takes the page's `Lang` too, passed by the result row's title links,
+  so its links keep the language.
+- **Release notes** are left for the release PR.

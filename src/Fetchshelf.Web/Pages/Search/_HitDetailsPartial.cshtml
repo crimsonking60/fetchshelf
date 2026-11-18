@@ -34,11 +34,33 @@ else if (Model.Record is { } record)
             <img class="hit-cover" src="@thumbnail" alt="Cover" loading="lazy" referrerpolicy="no-referrer" />
         }
         <div class="meta-block">
-            <p><span class="label">Authors</span><span class="value">@string.Join(", ", record.Authors.Values)</span></p>
-            <p><span class="label">Narrators</span><span class="value">@(record.Narrators.Count == 0 ? "-" : string.Join(", ", record.Narrators.Values))</span></p>
-            <p><span class="label">Series</span><span class="value">@(Model.Metadata is { Series.Count: > 0 } withSeries
-                ? string.Join(", ", withSeries.Series.Select(s => LibraryMetadataJsonBuilder.FormatSequence(s) is { } number ? $"{s.Name} #{number}" : s.Name))
-                : "-")</span></p>
+            @* Each name leads to a search for more by that author or narrator, or in that series. *@
+            <p><span class="label">Authors</span><span class="value">@foreach (var (author, i) in record.Authors.OrderBy(kv => kv.Key).Select((kv, i) => (kv.Value, i)))
+                {
+                    @(i > 0 ? ", " : "")<a class="more-like" asp-page="/Index" asp-all-route-data='SearchQueryBuilder.MoreLike("author", author, Model.Lang)'>@author</a>
+                }</span></p>
+            <p><span class="label">Narrators</span><span class="value">@if (record.Narrators.Count == 0)
+                {
+                    <text>-</text>
+                }
+                else
+                {
+                    @foreach (var (narrator, i) in record.Narrators.OrderBy(kv => kv.Key).Select((kv, i) => (kv.Value, i)))
+                    {
+                        @(i > 0 ? ", " : "")<a class="more-like" asp-page="/Index" asp-all-route-data='SearchQueryBuilder.MoreLike("narrator", narrator, Model.Lang)'>@narrator</a>
+                    }
+                }</span></p>
+            <p><span class="label">Series</span><span class="value">@if (Model.Metadata is { Series.Count: > 0 } withSeries)
+                {
+                    @foreach (var (series, i) in withSeries.Series.Select((s, i) => (s, i)))
+                    {
+                        @(i > 0 ? ", " : "")<a class="more-like" asp-page="/Index" asp-all-route-data='SearchQueryBuilder.MoreLike("series", series.Name, Model.Lang)'>@series.Name</a>@(LibraryMetadataJsonBuilder.FormatSequence(series) is { } number ? $" #{number}" : "")
+                    }
+                }
+                else
+                {
+                    <text>-</text>
+                }</span></p>
             <p><span class="label">Media type</span><span class="value">@(Model.Metadata?.MediaType.ToString() ?? record.MediaTypeId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
             <p><span class="label">Language</span><span class="value">@(Model.Metadata?.Language.ToString() ?? record.LanguageId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
             <p><span class="label">Categories</span><span class="value">@(Model.Genres.Count == 0 ? "-" : string.Join(", ", Model.Genres))</span></p>

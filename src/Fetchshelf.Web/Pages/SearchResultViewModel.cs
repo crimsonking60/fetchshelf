@@ -10,6 +10,9 @@ public sealed record SearchResultViewModel(
     long MamId, string Title, string AuthorsDisplay, long SizeBytes, string SizeDisplay, bool IsFree, bool IsPersonalFreeleech, bool IsVip,
     bool WedgePreHighlighted, MamResultStatus Status, string MediaTypeSlug, string MediaTypeLabel)
 {
+    /// <summary>The authors one by one, in MAM's order, each linking to more by them.</summary>
+    public IReadOnlyList<string> Authors { get; init; } = [];
+
     /// <summary>True when qBittorrent has the torrent, false when it doesn't, null when qBittorrent couldn't be asked.</summary>
     public bool? InQBittorrent { get; init; }
 
@@ -71,6 +74,7 @@ public sealed record SearchResultViewModel(
         MediaTypeSlug: MediaTypeSlugOf(record),
         MediaTypeLabel: MediaTypeLabelOf(record))
         {
+            Authors = record.Authors.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList(),
             MetadataQuality = RateMetadata(record),
             FormatQuality = preferenceLists is null ? null : RateFormats(record, preferenceLists),
             IsSnatchedByMe = record.IsSnatchedByMe,

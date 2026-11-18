@@ -105,4 +105,31 @@ public class SearchQueryBuilderTests
 
         Assert.Equal(("seeders", "vip"), (choices.Sort, choices.Type));
     }
+
+    [Theory]
+    [InlineData("author", "Brandon Sanderson", "\"Brandon Sanderson\"")]
+    [InlineData("narrator", "Kramer", "Kramer")]
+    [InlineData("series", "  The   Stormlight Archive ", "\"The Stormlight Archive\"")]
+    [InlineData("author", "Dwayne \"The Rock\" Johnson", "\"Dwayne The Rock Johnson\"")]
+    [InlineData("author", "Back\\slash", "\"Back slash\"")]
+    public void MoreLike_LooksForTheNameAsAPhrase_InThatFieldOnly(string field, string name, string expected)
+    {
+        var values = SearchQueryBuilder.MoreLike(field, name, language: null);
+
+        Assert.Equal(new Dictionary<string, string> { ["Q"] = expected, ["In"] = field }, values);
+    }
+
+    [Fact]
+    public void MoreLike_KeepsTheChosenLanguage() =>
+        Assert.Equal("any", SearchQueryBuilder.MoreLike("author", "Jo Nesbø", "any")["Lang"]);
+
+    [Fact]
+    public void MoreLike_TheSearchItGives_LooksInTheFieldWithTheQuotedName()
+    {
+        var values = SearchQueryBuilder.MoreLike("series", "The Expanse", language: null);
+        var query = SearchQueryBuilder.Build(SearchQueryBuilder.Choices(values["Q"], [values["In"]], null, null, 1), []);
+
+        Assert.Equal("\"The Expanse\"", query.Text);
+        Assert.Equal([Fetchshelf.Clients.Mam.MamSearchField.Series], query.SearchFields);
+    }
 }

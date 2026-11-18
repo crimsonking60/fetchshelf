@@ -20,6 +20,10 @@ public class DetailModel(
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
+    /// <summary>The Search page's language choice, kept by the links to more by an author, narrator or series.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Lang { get; set; }
+
     public long MamId { get; private set; }
 
     public MamTorrentRecord? Record { get; private set; }
