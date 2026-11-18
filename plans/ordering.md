@@ -1,13 +1,13 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-18, for the 13 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-18, for the 12 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
-(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90) and `mam-bookmarks-list.md` (PR #91) were built and moved to `plans/done/`. Three plans are new:
-`language-aware-books.md`, `series-layout-for-comics.md` and `collection-torrents.md`; the last was parked for a while and
-taken up again on 2026-11-18. The order follows four rules:
+(PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91) and `series-layout-for-comics.md` (PR #92) were built and
+moved to `plans/done/`. Two plans are new: `language-aware-books.md` and `collection-torrents.md`; the second was parked
+for a while and taken up again on 2026-11-18. The order follows four rules:
 
 1. **Protect first.** Five of the plans add a database migration. The before-upgrade backup from
    `database-backup-and-export.md` is in place (PR #65), so each of them is backed up before it upgrades a database.
@@ -30,7 +30,6 @@ or how, so they are worth doing before the plans come up:
 | Whether MAM's API reports freeleech windows | `freeleech-awareness.md` | a direct field or detection from search results |
 | Whether quotes make a phrase in author/series/narrator search (the bookmark endpoint: checked, there is none) | `search-bookmark-and-more-like-this.md` | whether names are quoted |
 | Audiobookshelf's `/api/libraries/{id}/series` answer | `follow-audiobookshelf-series.md` | the parser |
-| The fields Komga's `series.json` parser requires | `series-layout-for-comics.md` | what `MylarSeriesJsonBuilder` writes |
 | The Transmission RPC version that has `labels` | `other-download-clients.md` | the minimum version |
 | The Windows build spike (step 1 of that plan) | `5-Windows-version.md` | Razor Pages in the Windows build, or a class library |
 
@@ -89,11 +88,10 @@ Done:
 
 **Release point.**
 
-7. **`series-layout-for-comics.md`** — builds on `safe-folder-names.md` (PR #73): the series layout uses its name
-    rules, and refuses its `folder_template`. Before
-    the covers, so they can be written in Komga's names in a series folder rather than as one `cover.jpg` per book
-    folder, and before the library check, which has to compute series folders too. No migration.
-8. **`covers-from-mam.md`** — after the series layout, which changes the same part of the Link job.
+7. **`series-layout-for-comics.md`** — done (PR #92): `layout = "series"`, one folder per series and one numbered
+    file per book, with a Mylar `series.json`, for Komga.
+8. **`covers-from-mam.md`** — after the series layout (PR #92), which changed the same part of the Link job: in a
+    series library, covers go in Komga's names in the series folder rather than as one `cover.jpg` per book folder.
 9. **`statistics-and-metrics.md`** — `/metrics` follows `allowed_hosts` (PR #80), and its page links to the account
     history (PR #78).
 10. **`freeleech-awareness.md`** stage 2 — only if step 0 found a way to tell when a window is on.
@@ -102,8 +100,8 @@ Done:
 
 ## Phase 5: the large ones
 
-11. **`25-Library-check.md`** (#25) — after the series layout, since it compares folders with the names the Link job
-    would compute, `folder_template` (PR #73) and series folders included. Its open questions have
+11. **`25-Library-check.md`** (#25) — it compares folders with the names the Link job would compute,
+    `folder_template` (PR #73) and the series layout's folders and file names (PR #92) included. Its open questions have
     proposed answers to confirm first.
 12. **`5-Windows-version.md`** (#5) — its step 2 was mostly done by `composition-root.md`, and its folder-name rules by
     `safe-folder-names.md` (PR #73), whose `FileNameRules` it only has to make the Windows default. Its step 3 widens
@@ -133,24 +131,20 @@ Parked plans are left out of the order until they are taken up again.
 | Plan | Needs first | Better after |
 |---|---|---|
 | `other-download-clients.md` | `download-client-and-save-path.md` | `collection-torrents.md` |
-| `25-Library-check.md` | | `series-layout-for-comics.md` |
-| `covers-from-mam.md` | | `series-layout-for-comics.md` |
 | `language-aware-books.md` | | `follow-audiobookshelf-series.md` |
-| `collection-torrents.md` | | `series-layout-for-comics.md`, `language-aware-books.md` |
+| `collection-torrents.md` | | `language-aware-books.md` |
 
 ## Plans that touch the same code
 
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
 - **`LinkRunner`** (it takes the library write gate from PR #79 per torrent): `language-aware-books.md` (the clash rule),
-  `series-layout-for-comics.md`, `covers-from-mam.md`, the library check, `collection-torrents.md`.
-- **`FolderNameComputer`, `FolderLayout` and `SyncMismatch`:** `language-aware-books.md`,
-  `series-layout-for-comics.md`, the library check. A series library holding one series in two languages puts both
-  in one series folder; whether `language_in_folder` applies to series folders is decided by whichever of the two
-  plans comes second.
+  `covers-from-mam.md`, the library check, `collection-torrents.md`.
+- **`FolderNameComputer`, `FolderLayout`, `SeriesLayoutNamer` and `SyncMismatch`:** `language-aware-books.md`, the
+  library check. A series library (PR #92) holding one series in two languages puts both in one series folder;
+  `language-aware-books.md` decides whether `language_in_folder` applies to series folders.
 - **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88):
-  `series-layout-for-comics.md` (`series.json`), `covers-from-mam.md` (`cover.png`, `cover.webp`),
-  `collection-torrents.md`.
+  `covers-from-mam.md` (`cover.png`, `cover.webp`), `collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`:** `follow-audiobookshelf-series.md`, `language-aware-books.md`,
   `collection-torrents.md`.
 - **`DownloadRunner`:** `download-client-and-save-path.md`, `other-download-clients.md`.
