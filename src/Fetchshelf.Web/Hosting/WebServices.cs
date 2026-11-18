@@ -1,5 +1,7 @@
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Opds;
+using Fetchshelf.Data.Statistics;
+using Fetchshelf.Web.Metrics;
 using Fetchshelf.Web.Opds;
 
 namespace Fetchshelf.Web.Hosting;
@@ -18,6 +20,13 @@ public static class WebServices
         }
 
         services.AddScoped<Pages.Account.AccountSummaryBuilder>();
+        services.AddScoped<LibraryStatistics>();
+        services.AddMemoryCache();
+        if (settings.Metrics)
+        {
+            services.AddScoped<MetricsCollector>();
+        }
+
         services.AddRazorPages(options =>
         {
             options.Conventions.AddPageRoute("/Torrents/Detail", "torrents/{id}");

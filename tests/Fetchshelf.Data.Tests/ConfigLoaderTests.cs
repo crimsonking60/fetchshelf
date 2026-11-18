@@ -237,6 +237,16 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Equal(20, ConfigLoader.Load(ConfigPath).CoversFromMam);
     }
 
+    [Fact]
+    public void Load_Metrics_OffUnlessSet()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Assert.False(ConfigLoader.Load(ConfigPath).Metrics);
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\nmetrics = true\n");
+        Assert.True(ConfigLoader.Load(ConfigPath).Metrics);
+    }
+
     [Theory]
     [InlineData(-1)]
     [InlineData(101)]

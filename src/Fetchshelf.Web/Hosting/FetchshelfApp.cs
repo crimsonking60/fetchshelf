@@ -2,6 +2,7 @@ using Fetchshelf.Core.Jobs;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Web.Metrics;
 using Fetchshelf.Web.Opds;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
@@ -70,6 +71,13 @@ public static class FetchshelfApp
            .WithStaticAssets();
         app.MapThemeEndpoint();
         app.MapHealthChecks("/health");
+        if (settings.Metrics)
+        {
+            // No login, like the pages; allowed_hosts applies as to every endpoint.
+            app.MapGet("/metrics", async (MetricsCollector collector, CancellationToken ct) =>
+                Results.Text(PrometheusText.Format(await collector.CollectAsync(ct)), PrometheusText.ContentType));
+        }
+
         if (settings.Opds is { } opds)
         {
             app.MapOpdsEndpoints(opds);

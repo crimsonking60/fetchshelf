@@ -1714,6 +1714,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 | **Search** (home) | Search MAM and download books by hand. |
 | **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
+| **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
@@ -1778,6 +1779,21 @@ needs nothing: the calls resume by themselves.
 
 The **Jobs** page shows the ratio, the unsatisfied snatches, the wedges and the ratio budget above the job
 list, with the pause notice when MAM calls are paused, and a link here.
+
+### Statistics
+
+Totals from what Fetchshelf has recorded, worked out at most once a minute:
+
+- **Library:** how many books, and the size of their linked files; the books by media type, by language and by
+  library; and the books added in each of the last 12 months.
+- **Downloads:** the torrents grabbed in each of the last 12 months, by what they cost: freeleech, VIP, personal
+  freeleech, a wedge spent, or ratio; the size of what was grabbed, ratio against free; and which autograb, list,
+  follow or other part of Fetchshelf grabbed them. A grabber no longer in the configuration shows as *Other*.
+- **Jobs:** each job's runs in the last 30 days, with how many failed and how many ended with some items failed.
+  Each job's name opens its history.
+
+Months are calendar months in UTC. The ratio, upload and bonus points over time are on the **Account** page. For a
+monitoring system such as Prometheus and Grafana, see [`metrics`](configuration.md#prometheus-metrics).
 
 ### Selected
 

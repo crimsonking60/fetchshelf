@@ -500,3 +500,12 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .search-fields label { display: inline-flex; align-items: center; gap: 0.3rem; }
 .search-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.8rem 0; }
 .search-pager #results-count { color: var(--text-muted); }
+
+/* ---- Statistics page ------------------------------------------------------ */
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0 1rem; align-items: start; }
+.stat-table .num { text-align: right; font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap; }
+.stat-table .bar-cell { width: 35%; }
+.stat-bar { display: inline-block; height: 0.65rem; min-width: 1px; vertical-align: middle; background: var(--accent); border-radius: 2px; }
+.stat-bar[style="width: 0%"] { min-width: 0; }
+.stat-bar-free { background: var(--c-info); }
