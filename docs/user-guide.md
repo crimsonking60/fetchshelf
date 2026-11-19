@@ -1627,9 +1627,11 @@ Whether a collection is split is decided, first that applies:
   the same torrent are books of that series: `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3.
 - **Each book picks its own format** from its own files by your `ebook_types`, as the other formats of a collection are
   usually other books, not copies.
-- **The books are books everywhere:** the Clean job, duplicates, selection, Hardcover lists, the Follow and Upgrade jobs,
-  the Series page, OPDS and Audiobookshelf see each of them. A book held both from a collection and as a single torrent
-  is two copies, and the Clean job keeps the better one, as for any two copies.
+- **The books are books everywhere:** the Clean job, duplicates, selection, Hardcover lists, the Follow job, the Series
+  page, OPDS and Audiobookshelf see each of them. A book held both from a collection and as a single torrent is two
+  copies, and the Clean job keeps the better one, as for any two copies. The Upgrade job leaves them alone: they came
+  with their collection, and a large one would mean a search for each of its books, so they aren't marked *could be
+  upgraded* either.
 - **qBittorrent has one torrent, the collection's.** Its category, tags, **Start**, **Stop** and removal are on the
   collection's page, which lists its books; a book's page links back to it. Clean and Unlink act on one book, and apply
   `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Unlink** on the collection's

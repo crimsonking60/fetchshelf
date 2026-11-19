@@ -164,7 +164,9 @@ public sealed class UpgradeRunner(
     /// </summary>
     private async Task<(List<TorrentEntity> Due, HashSet<string> Upgradable)> DueAsync(CancellationToken cancellationToken)
     {
+        // A book of a split collection isn't searched for: it came with its collection, and many come at once.
         var query = dbContext.Torrents.AsNoTracking().Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null
+            && t.CollectionTorrentId == null
             && (t.ChosenAudioExtension != null || t.ChosenEbookExtension != null));
         if (settings.Libraries.Count > 0)
         {

@@ -269,6 +269,8 @@ passing over a collection whose books are all owned already.
 - **The Torrents list** (asked for during review): a split collection is one row; its books show with *Books of
   collections too*, or when the search or an author, narrator or series filter looks for them. Unlink on a collection
   unlinks its books, so the bulk action works on the collection's row.
+- **Upgrades** (decided during review): the Upgrade job skips the books of a split collection, and they aren't *could be
+  upgraded* (`LibraryCopyRank.CouldBeUpgraded`), as a large collection would otherwise mean one MAM search per book.
 - **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
   later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
   Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

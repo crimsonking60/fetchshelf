@@ -938,7 +938,7 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
 
-What each run does: it picks the books that could be better, never-searched first and then the longest ago,
+What each run does: it picks the books that could be better (not the books of a [split collection](user-guide.md#collections)), never-searched first and then the longest ago,
 searches MAM for each by its title and authors (as a Hardcover list searches) in its language and media type, and
 keeps the results that are the same book (as for duplicates) in a better format. The best of them that a `grab`
 block accepts is selected; when selection turns it down, the next is tried. A torrent already known to Fetchshelf,
