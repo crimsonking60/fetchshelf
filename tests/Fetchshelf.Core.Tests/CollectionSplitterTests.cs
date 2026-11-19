@@ -107,6 +107,8 @@ public class CollectionSplitterTests
     [InlineData("Ultimate Spider-Man 000.5", "Ultimate Spider-Man", "0.5")]
     [InlineData("Ultimate Six 05 - The Ultimates and Ultimate Spider-Man", "Ultimate Six", "5")]
     [InlineData("Ultimatum - Spider-Man Requiem 02", "Ultimatum - Spider-Man Requiem", "2")]
+    [InlineData("Ultimates 2 001", "Ultimates 2", "1")]
+    [InlineData("Ultimate X4 002", "Ultimate X4", "2")]
     [InlineData("Saga #12", "Saga", "12")]
     [InlineData("Berserk v07", "Berserk", "7")]
     [InlineData("Berserk Vol. 7", "Berserk", "7")]
@@ -188,6 +190,22 @@ public class CollectionSplitterTests
 
         Assert.Equal(["Ultimate Six", "Ultimate Six", "Ultimate Six", "Ultimate Spider-Man"], books.Select(b => b.Metadata.Series[0].Name));
         Assert.Equal("Ultimate Six 01", books[0].Metadata.Title);
+    }
+
+    [Fact]
+    public void ASeriesSpelledSeveralWays_IsNamedAsMostOfItsFilesSpellIt()
+    {
+        var names = new[] { "Ultimate Spider-Man Annual 01", "Ultimate Spider-man Annual 02", "Ultimate Spider-Man Annual 03", "Miles Morales - Ultimate Spider-Man 007" };
+
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Marvel Ultimate Universe Comic Collection" },
+            Files([.. names.Select(n => $"C/{n}.cbr"), "C/Miles Morales Ultimate Spider-Man 001.cbr", "C/Miles Morales Ultimate Spider-Man 002.cbr"]),
+            EbookTypes)!;
+
+        Assert.Equal(
+            ["Miles Morales Ultimate Spider-Man", "Miles Morales Ultimate Spider-Man", "Miles Morales Ultimate Spider-Man", "Ultimate Spider-Man Annual", "Ultimate Spider-Man Annual", "Ultimate Spider-Man Annual"],
+            books.Select(b => b.Metadata.Series[0].Name));
+        Assert.Equal("Ultimate Spider-Man Annual 02", books.Single(b => b.Metadata.Series[0].Entries[0].Display == "2" && b.Metadata.Title.Contains("Annual")).Metadata.Title);
     }
 
     [Fact]

@@ -62,6 +62,12 @@ public static partial class CollectionSplitter
             return null;
         }
 
+        // One series spelled several ways in its file names, such as "Spider-man" and "Spider-Man", is named as most are.
+        var spellings = numbered.Values.OfType<(string Series, decimal Number)>()
+            .GroupBy(n => TitleNormalizer.Normalize(n.Series))
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(n => n.Series, StringComparer.Ordinal).OrderByDescending(s => s.Count()).ThenBy(s => s.Key, StringComparer.Ordinal).First().Key);
         var listed = range is null ? [] : NumberedList(collection.Description);
         var sizes = files.ToDictionary(f => f.Path, f => f.SizeBytes, StringComparer.Ordinal);
         var result = new List<CollectionBook>();
@@ -86,7 +92,7 @@ public static partial class CollectionSplitter
             else if (numbered[group.Name] is var (series, issue))
             {
                 // The torrent's title may name the series better than its file names do.
-                var better = BetterSeriesName(series, collection);
+                var better = BetterSeriesName(spellings[TitleNormalizer.Normalize(series)], collection);
                 (title, seriesName, number) = (
                     better != series && cleaned.StartsWith(series, StringComparison.Ordinal) ? better + cleaned[series.Length..] : cleaned,
                     better,
@@ -276,9 +282,10 @@ public static partial class CollectionSplitter
     [GeneratedRegex(@"^(?<series>.*?[^\s#])\s*(?:#|\b(?:v|vol|volume)\.?)\s*(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
     private static partial Regex MarkedNumberPattern();
 
-    // A number without a marker: the series ends with neither a digit, a dot nor a #, so 000.5 is all number; a title may
-    // follow the number after " - ".
-    [GeneratedRegex(@"^(?<series>.*?[^\d.\s#])\s+(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
+    // A number without a marker: the series ends with neither a dot nor a #, so 000.5 is all number, and is the shortest
+    // that leaves a number at the end, so "Ultimates 2 001" is issue 1 of "Ultimates 2"; a title may follow the number
+    // after " - ".
+    [GeneratedRegex(@"^(?<series>.*?[^.\s#])\s+(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
     private static partial Regex TrailingNumberPattern();
 
     [GeneratedRegex(@"\s*\b(?:v|vol|volume)\.?\s*\d+$", RegexOptions.IgnoreCase)]
