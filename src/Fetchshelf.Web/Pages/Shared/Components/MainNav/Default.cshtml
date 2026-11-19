@@ -1,0 +1,42 @@
+@using Fetchshelf.Web.Navigation
+@model NavModel
+@{
+    var currentPage = (string?)ViewContext.RouteData.Values["page"] ?? "";
+}
+@functions {
+    private static string? Current(string currentPage, NavEntry entry) => NavModel.IsCurrent(currentPage, entry.Page) ? "page" : null;
+}
+@* Entries on the bar, then one button for each menu of related pages, then the rare ones at the far end. A menu is a native <details>, so it opens without a script; nav.js only closes it again. *@
+<nav class="site-nav" aria-label="Main">
+    @foreach (var entry in Model.Primary)
+    {
+        <a asp-page="@entry.Page" aria-current="@Current(currentPage, entry)">@entry.Label@if (entry.Badge is { } badge)
+            {
+                <span id="@badge.Id" class="nav-badge" title="@badge.Title">@badge.Count</span>
+            }</a>
+    }
+    @foreach (var group in Model.Groups)
+    {
+        var groupCurrent = group.Entries.Any(e => NavModel.IsCurrent(currentPage, e.Page));
+        <details class="nav-menu@(groupCurrent ? " current" : "")">
+            <summary>@group.Label@if (group.BadgeTotal > 0)
+                {
+                    <span class="nav-badge" title="@string.Join(", ", group.Entries.Where(e => e.Badge is not null).Select(e => $"{e.Label}: {e.Badge!.Count}"))">@group.BadgeTotal</span>
+                }</summary>
+            <div class="nav-panel">
+                @foreach (var entry in group.Entries)
+                {
+                    <a asp-page="@entry.Page" aria-current="@Current(currentPage, entry)">@entry.Label@if (entry.Badge is { } badge)
+                        {
+                            <span id="@badge.Id" class="nav-badge" title="@badge.Title">@badge.Count</span>
+                        }</a>
+                }
+            </div>
+        </details>
+    }
+    @for (var i = 0; i < Model.Trailing.Count; i++)
+    {
+        var entry = Model.Trailing[i];
+        <a asp-page="@entry.Page" class="@(i == 0 ? "nav-trailing" : null)" aria-current="@Current(currentPage, entry)">@entry.Label</a>
+    }
+</nav>
