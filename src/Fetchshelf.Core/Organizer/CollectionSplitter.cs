@@ -81,7 +81,7 @@ public static partial class CollectionSplitter
                 var leading = LeadingNumber(cleaned);
                 title = epub?.Title ?? leading?.Title ?? cleaned;
                 number = epub is { SeriesName: { } epubSeries, SeriesNumber: { } epubNumber } && SameName(epubSeries, range.Name) ? epubNumber
-                    : leading?.Number ?? FromList(listed, title);
+                    : leading?.Number ?? numbered[group.Name]?.Number ?? FromList(listed, title);
             }
             else if (numbered[group.Name] is var (series, issue))
             {
@@ -190,8 +190,8 @@ public static partial class CollectionSplitter
             : null;
 
     /// <summary>
-    /// A name such as <c>Ultimate Spider-Man 033</c>, <c>Ultimate Spider-Man 000.5</c> or <c>Ultimate Six 05 - The
-    /// Ultimates</c>: its series and number.
+    /// A name such as <c>Ultimate Spider-Man 033</c>, <c>Ultimate Spider-Man 000.5</c>, <c>Ultimate Six 05 - The
+    /// Ultimates</c> or <c>Running the Kingdom v01</c> (also <c>Vol. 1</c>, <c>Volume 1</c>, <c>#1</c>): its series and number.
     /// </summary>
     private static (string Series, decimal Number)? NumberedName(string name) =>
         TrailingNumberPattern().Match(name) is { Success: true } m && Parse(m.Groups["number"].Value) is { } number
@@ -239,8 +239,9 @@ public static partial class CollectionSplitter
     [GeneratedRegex(@"^(?<number>\d{1,4}(\.\d+)?)\s*[-.:)_]\s*(?<title>\S.*)$")]
     private static partial Regex LeadingNumberPattern();
 
-    // The series ends with neither a digit nor a dot, so 000.5 is all number; a title may follow the number after " - ".
-    [GeneratedRegex(@"^(?<series>.*?[^\d.\s])\s*#?\s*(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
+    // The series ends with neither a digit nor a dot, so 000.5 is all number; a volume marker (v, vol., volume, #) may
+    // come before the number, and a title after it, following " - ".
+    [GeneratedRegex(@"^(?<series>.*?[^\d.\s])\s*(?:(?:\bv|\bvol|\bvolume|#)\.?\s*)?(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingNumberPattern();
 
     [GeneratedRegex(@"^\s*#?(?<number>\d{1,4}(\.\d+)?)\s*[-.:)]?\s+(?<title>\S[^\r\n]*?)\s*$", RegexOptions.Multiline)]

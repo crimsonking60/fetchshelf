@@ -243,7 +243,9 @@ passing over a collection whose books are all owned already.
   stream; the Link job opens the epub in the download folder.
 - **Tried on the real Ultimate Spider-Man collection's file list** (146 files, from the dev instance's qBittorrent):
   every file got its series and number, 134 *Ultimate Spider-Man* issues with #0.5, 7 *Ultimate Six*, 3 Annuals and 2
-  *Ultimatum*, after the name pattern learned `000.5` and `Ultimate Six 05 - <title>`.
+  *Ultimatum*, after the name pattern learned `000.5` and `Ultimate Six 05 - <title>`. A two-volume manga
+  (`… v01 - Yuki Suzuki.cbz`, MAM range `1-2`) then showed that a range collection must also take a number from the end
+  of a name, after a volume marker (`v01`, `Vol. 1`, `Volume 1`, `#1`).
 - **Link job:** a split collection's own record keeps no folder and gets `CollectionBookCount`; each later run only
   brings its books' category and client state in step, as they follow the collection's torrent. Each book is placed
   through the existing `PlaceFiles` (or the series layout's file), gets its cover as `cover.jpg`/`.png`/`.webp` (not in a

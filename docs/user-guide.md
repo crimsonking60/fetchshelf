@@ -1621,8 +1621,9 @@ Whether a collection is split is decided, first that applies:
   Calibre export), else the files that share a name. Disc folders mean one book. Audiobooks aren't split.
 - **Each book's details.** The collection's authors, language, category and tags; the book's own title, series number,
   ISBN and description from its epub when it has them, else its title from its folder or file name (a Calibre id such
-  as `(1019)` and a trailing ` - author` left out), and its number from a leading number in the name (`04 - Mort`) or a
-  numbered list in MAM's description, which also matches a title cut short there. Files named after another series in
+  as `(1019)` and a trailing ` - author` left out), and its number from a leading number in the name (`04 - Mort`), a
+  number at its end (`Berserk v07`, `Vol. 7`, `Volume 7`, `#7`), or a numbered list in MAM's description, which also
+  matches a title cut short there. Files named after another series in
   the same torrent are books of that series: `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3.
 - **Each book picks its own format** from its own files by your `ebook_types`, as the other formats of a collection are
   usually other books, not copies.

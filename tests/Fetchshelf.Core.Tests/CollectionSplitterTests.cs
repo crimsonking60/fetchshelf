@@ -108,6 +108,9 @@ public class CollectionSplitterTests
     [InlineData("Ultimate Six 05 - The Ultimates and Ultimate Spider-Man", "Ultimate Six", "5")]
     [InlineData("Ultimatum - Spider-Man Requiem 02", "Ultimatum - Spider-Man Requiem", "2")]
     [InlineData("Saga #12", "Saga", "12")]
+    [InlineData("Berserk v07", "Berserk", "7")]
+    [InlineData("Berserk Vol. 7", "Berserk", "7")]
+    [InlineData("Berserk Volume 07", "Berserk", "7")]
     public void NumberedNames_GiveTheirSeriesAndNumber(string name, string series, string number)
     {
         var paths = new[] { $"C/{name}.cbr", "C/Saga 001.cbr", "C/Saga 002.cbr", "C/Saga 003.cbr" };
@@ -116,6 +119,29 @@ public class CollectionSplitterTests
             .Single(b => b.Metadata.Title == name);
 
         Assert.Equal((series, number), (book.Metadata.Series[0].Name, book.Metadata.Series[0].Entries[0].Display));
+    }
+
+    [Fact]
+    public void VolumesOfARange_GetTheirNumbersFromTheirNames()
+    {
+        const string Folder = "Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v01 - v02";
+        var manga = Collection(mediaType: MediaType.Manga) with
+        {
+            Authors = ["Yuki Suzuki"],
+            Series = [SeriesParser.Parse("Reincarnated Into a Game as the Hero's Friend: Running the Kingdom Behind the Scenes", "1-2")],
+        };
+
+        var books = CollectionSplitter.Split(
+            manga,
+            Files(
+                $"{Folder}/Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v02 - Yuki Suzuki.cbz",
+                $"{Folder}/Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v01 - Yuki Suzuki.cbz"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v01", "1"), ("Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v02", "2")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)));
+        Assert.All(books, b => Assert.Equal(manga.Series[0].Name, b.Metadata.Series[0].Name));
     }
 
     [Fact]
