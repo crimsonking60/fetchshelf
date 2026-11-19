@@ -31,7 +31,20 @@
     }
 </form>
 
-@if (Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count == 0)
+@if (Model.Running)
+{
+    @* Polls until the check ends, then the whole page reloads with its findings. *@
+    <div id="check-running" hx-get="?handler=Status" hx-trigger="every 2s" hx-swap="none"></div>
+    <p id="running-message" class="notice" role="status">
+        The check is running. @if (Model.CheckedAt is { } previous)
+        {
+            <text>The findings below are from the previous check, of <local-time value="previous" />, and can't be acted on until it ends; </text>
+        }
+        the page shows what this one finds when it ends.
+    </p>
+}
+
+@if (!Model.Running && Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count == 0)
 {
     <p id="no-findings-message" class="empty">The library matches the records.</p>
 }
@@ -72,7 +85,7 @@
                 }
             </tbody>
         </table>
-        <div class="actions"><button type="submit" class="danger">Delete selected</button></div>
+        <div class="actions"><button type="submit" class="danger" disabled="@Model.Running">Delete selected</button></div>
     </form>
 }
 
@@ -116,8 +129,8 @@
             </tbody>
         </table>
         <div class="actions">
-            <button type="submit" asp-page-handler="Relink">Relink selected</button>
-            <button type="submit" asp-page-handler="RemoveRecord" class="danger">Remove record</button>
+            <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
+            <button type="submit" asp-page-handler="RemoveRecord" class="danger" disabled="@Model.Running">Remove record</button>
         </div>
     </form>
 }

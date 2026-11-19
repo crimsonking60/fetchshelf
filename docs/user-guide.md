@@ -1955,7 +1955,9 @@ Fetchshelf's records and the library folders can drift apart: after going back t
 moved or deleted by hand, or after a `library_dir` changes. The **Library check** job compares every library's folder
 with the records. It runs only when started, with **Run now** on the **Jobs** page or **Run the check** on its page,
 as walking a large library on a NAS can take a while. It waits for, and holds off, the Link and Clean jobs while it
-walks. Its findings are kept until the next check or a restart, and are on the **Library check** page:
+walks. Its findings are kept until the next check or a restart, and are on the **Library check** page. While a
+check runs, the page shows the previous check's findings with their buttons turned off, as the new findings replace
+them when it ends; the page reloads itself then.
 
 | Finding | Means | Actions |
 |---|---|---|

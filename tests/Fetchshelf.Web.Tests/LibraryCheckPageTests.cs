@@ -136,6 +136,58 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
+    public async Task WhileACheckRuns_SaysTheFindingsAreThePreviousChecks_AndRefusesToActOnThem()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        var folder = MakeFolder("Author/Old");
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, folder, "Audiobooks")], DateTimeOffset.UtcNow);
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, async ct =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+        });
+        var run = fixture.JobRegistry.TriggerAsync(Fetchshelf.Data.Configuration.JobNames.LibraryCheck);
+        await started.Task;
+
+        var page = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/LibraryCheck"));
+        var afterDelete = await PostAsync(client, "Delete", Results(fixture).Findings[0].Id);
+        var status = await client.GetAsync("/LibraryCheck?handler=Status");
+
+        Assert.Contains("The findings below are from the previous check", page);
+        Assert.Contains("hx-get=\"?handler=Status\"", page);
+        Assert.Contains("<button type=\"submit\" class=\"danger\" disabled=\"disabled\">Delete selected</button>", page);
+        Assert.Contains("The Library check is running, so these are the previous check's findings.", afterDelete);
+        Assert.True(Directory.Exists(folder));
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, status.StatusCode);
+
+        fixture.JobRegistry.Cancel(Fetchshelf.Data.Configuration.JobNames.LibraryCheck);
+        await run;
+        var ended = await client.GetAsync("/LibraryCheck?handler=Status");
+        Assert.Equal("true", ended.Headers.GetValues("HX-Refresh").Single());
+    }
+
+    [Fact]
+    public async Task Delete_FindingsANewerCheckReplaced_DoesNothingAndSaysSo()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        var folder = MakeFolder("Author/Old");
+        var finding = new LibraryFinding(LibraryFindingKind.UnknownFolder, folder, "Audiobooks");
+        Results(fixture).Set([finding], DateTimeOffset.UtcNow);
+        var oldId = Results(fixture).Findings[0].Id;
+        var html = await client.GetStringAsync("/LibraryCheck");
+        Results(fixture).Set([finding], DateTimeOffset.UtcNow); // a newer check, with new ids
+
+        using var content = new FormUrlEncodedContent([new("selectedIds", oldId.ToString(System.Globalization.CultureInfo.InvariantCulture)), new("__RequestVerificationToken", Token(html))]);
+        var answer = System.Net.WebUtility.HtmlDecode(await (await client.PostAsync("/LibraryCheck?handler=Delete", content)).Content.ReadAsStringAsync());
+
+        Assert.Contains("1 of the ticked findings is from an earlier check", answer);
+        Assert.True(Directory.Exists(folder));
+    }
+
+    [Fact]
     public async Task JobsPage_LinksTheJobToItsFindings()
     {
         using var fixture = new FetchshelfWebAppFixture();
