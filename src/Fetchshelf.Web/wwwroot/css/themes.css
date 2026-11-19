@@ -113,3 +113,32 @@
     --on-danger: #ffffff;
     --c-vip: #a8386a;
 }
+
+/* "Match system", the choice of a visitor who has made none: the dark default above while the system is dark, and
+   Light Warm while it is light. The values are Light Warm's, kept equal to its block by a test. */
+@media (prefers-color-scheme: light) {
+    :root[data-theme="system"] {
+        color-scheme: light;
+        --bg: #f3e6c8;
+        --surface: #fffaf0;
+        --surface-2: #ebd9ab;
+        --field: #fffdf7;
+        --text: #2b2112;
+        --text-muted: #67562f;
+        --border: #dcc99a;
+        --border-strong: #8f7430;
+        --accent: #b8860b;
+        --accent-line: #8f6600;
+        --on-accent: #231a05;
+        --link: #7d5300;
+        --focus: #a0471a;
+        --zebra: #f8efd9;
+        --row-hover: #efe0bb;
+        --c-info: #1f5f99;
+        --c-ok: #2f6b34;
+        --c-warn: #aa3f00;
+        --c-danger: #b3261e;
+        --on-danger: #ffffff;
+        --c-vip: #9a2e5c;
+    }
+}

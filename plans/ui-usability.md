@@ -394,7 +394,7 @@ One branch and PR per step, as usual; each step is shippable alone.
 |---|---|---|
 | 1 | Table base rules (section 2 rules 1–6) and Torrents column merge, with the `SortState` type and the sort tag helper on Torrents | biggest visible win; screenshot at 820 and 2560 px before/after |
 | 2 | Grouped menu: `NavModel`, markup, `nav.js`, badges, sticky header | built (PR: grouped menu). The ratio on the Account entry is left out for now: it needs the account snapshot on every page |
-| 2b | Theme menu in the header and "Match system" (section 5, changes 6 and 7) | split from step 2; reverses the earlier choice of the theme selector in the footer, which `AppVersionTests` pins |
+| 2b | Theme menu in the header and "Match system" (section 5, changes 6 and 7) | built (stacked PR); the footer selector is gone, and `AppVersionTests` now pins the menu in the header |
 | 3 | Jobs page groups, job cell layout, next-run text | built (PR: Jobs page groups). Left out: the collapse of a long autograb group (the 2-second refresh would reopen it) and the short local time |
 | 4 | Search results, Selected, Series, Events, Errors columns; filter disclosure and chips | built (stacked PR). Search: authors under the title, quality under the media type (5 columns); Selected: grabber and dates under the title; Series: authors under the name, missing under the library range; Torrents: filters folded with chips. Left for later: the Select/Wedge button pair as one button with a toggle, and filter chips on Search, Series, Events and Errors |
 | 5 | Sticky bulk-action bar on Torrents/Selected/Errors | |

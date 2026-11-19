@@ -4,10 +4,15 @@ namespace Fetchshelf.Web;
 public static class Themes
 {
     public const string CookieName = "fs-theme";
-    public const string Default = "dark-warm";
+
+    /// <summary>The choice of a visitor who has made none: the system's own preference, Dark Warm when it is dark and Light Warm when it is light (see themes.css).</summary>
+    public const string System = "system";
+
+    public const string Default = System;
 
     public static IReadOnlyList<(string Id, string Label)> All { get; } =
     [
+        (System, "Match system"),
         ("dark-warm", "Dark Warm"),
         ("dark-cool", "Dark Cool"),
         ("light-warm", "Light Warm"),
