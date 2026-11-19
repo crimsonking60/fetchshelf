@@ -1,7 +1,7 @@
 @model Fetchshelf.Web.Pages.PagerViewModel
 
-<p class="muted">
-    Showing @Model.ShownCount of @Model.TotalCount. Page @Model.PageNumber of @Model.TotalPages.
+<p class="muted pager-info">
+    <span>Showing @Model.ShownCount of @Model.TotalCount. Page @Model.PageNumber of @Model.TotalPages.</span>
     @if (Model.ShowsPageSizes)
     {
         @* Not a form field (the list can sit inside a bulk-action form): choosing a size opens the first page at that size. *@
@@ -19,16 +19,38 @@
 
 @if (Model.TotalPages > 1)
 {
-    <nav id="@Model.Id" class="actions" aria-label="@Model.Label">
+    @* Centered, with an arrow at each end that stays in place (dimmed on the first and last page) and the page numbers between. *@
+    <nav id="@Model.Id" class="pager" aria-label="@Model.Label">
         @if (Model.PageNumber > 1)
         {
-            <a id="pager-first" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(1)">First</a>
-            <a id="pager-prev" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber - 1)">Previous</a>
+            <a id="pager-prev" class="pager-arrow" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber - 1)" rel="prev"><span aria-hidden="true">&lsaquo;</span> Prev</a>
+        }
+        else
+        {
+            <span class="pager-arrow disabled" aria-disabled="true"><span aria-hidden="true">&lsaquo;</span> Prev</span>
+        }
+        @foreach (var item in Model.Items())
+        {
+            if (item.Page is not { } number)
+            {
+                <span class="pager-gap" aria-hidden="true">&hellip;</span>
+            }
+            else if (number == Model.PageNumber)
+            {
+                <span class="pager-page current" aria-current="page">@number</span>
+            }
+            else
+            {
+                <a class="pager-page" id="@(number == 1 ? "pager-first" : number == Model.TotalPages ? "pager-last" : null)" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(number)" aria-label="Page @number">@number</a>
+            }
         }
         @if (Model.PageNumber < Model.TotalPages)
         {
-            <a id="pager-next" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber + 1)">Next</a>
-            <a id="pager-last" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.TotalPages)">Last</a>
+            <a id="pager-next" class="pager-arrow" asp-page="@Model.Page" asp-all-route-data="Model.RouteValuesFor(Model.PageNumber + 1)" rel="next">Next <span aria-hidden="true">&rsaquo;</span></a>
+        }
+        else
+        {
+            <span class="pager-arrow disabled" aria-disabled="true">Next <span aria-hidden="true">&rsaquo;</span></span>
         }
     </nav>
 }

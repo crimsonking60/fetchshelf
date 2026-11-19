@@ -570,7 +570,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .search-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; }
 .search-fields-label { color: var(--text-muted); }
 .search-fields label { display: inline-flex; align-items: center; gap: 0.3rem; }
-.search-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.8rem 0; }
+.search-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin: 0.8rem 0; }
 .search-pager #results-count { color: var(--text-muted); }
 
 /* ---- Statistics page ------------------------------------------------------ */
@@ -589,3 +589,19 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 /* ---- Torrent page --------------------------------------------------------- */
 
 .torrent-links { display: flex; gap: 1rem; margin-top: -0.25rem; }
+
+/* ---- pager --------------------------------------------------------------- */
+
+/* The count on one side, the page size on the other; the arrows and numbers are centered under them. */
+.pager-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 1.5rem; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.5rem 0 1rem; }
+.pager > a, .pager > span {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+    min-width: 2.5rem; height: 2.5rem; padding: 0 0.6rem;
+    border: 1px solid var(--border-strong); border-radius: 4px;
+    background: var(--surface-2); color: var(--text); text-decoration: none; font-weight: 500;
+}
+.pager > a:hover { background: var(--row-hover); border-color: var(--accent-line); }
+.pager > .current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.pager > .disabled { opacity: 0.45; cursor: not-allowed; }
+.pager > .pager-gap { min-width: 1.5rem; padding: 0; border: 0; background: none; color: var(--text-muted); }
