@@ -17,7 +17,7 @@
 }
 
 <div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s" : null)" hx-swap="innerHTML">
-    @await Html.PartialAsync("_JobListPartial", Model.Jobs)
+    @await Html.PartialAsync("_JobListPartial", Model.JobList)
 </div>
 
 @if (Model.BulkOperations.Count > 0)
@@ -34,17 +34,6 @@
                     <button type="submit">Cancel</button>
                 </form>
             </div>
-        }
-    </div>
-}
-
-@* Outside the polled list: what is configured only changes with a restart. *@
-@if (Model.Unconfigured.Count > 0)
-{
-    <div id="unconfigured-jobs" class="unconfigured-jobs muted">
-        @foreach (var name in Model.Unconfigured)
-        {
-            <p>@name is not configured</p>
         }
     </div>
 }

@@ -10,10 +10,8 @@ public class IndexModel(
     IJobRegistry jobRegistry, FetchshelfSettings settings, Account.AccountSummaryBuilder accountSummaryBuilder, BulkOperationQueue bulkOperations)
     : PageModel
 {
-    public IReadOnlyList<JobStatusViewModel> Jobs { get; private set; } = [];
-
-    /// <summary>Kinds of optional job with nothing configured, listed below the jobs.</summary>
-    public IReadOnlyList<string> Unconfigured { get; private set; } = [];
+    /// <summary>The jobs in their groups, and the kinds of optional job with nothing configured.</summary>
+    public JobListViewModel JobList { get; private set; } = new([], []);
 
     /// <summary>The Torrents page's bulk actions running or waiting: not jobs, but work going on all the same.</summary>
     public IReadOnlyList<BulkOperation> BulkOperations { get; private set; } = [];
@@ -23,8 +21,7 @@ public class IndexModel(
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Jobs = BuildJobViewModels();
-        Unconfigured = UnconfiguredJobs.For(settings);
+        JobList = BuildJobList();
         BulkOperations = bulkOperations.Active();
         Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildStripAsync(cancellationToken) : null;
     }
@@ -32,8 +29,8 @@ public class IndexModel(
     /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>
     public PartialViewResult OnGetJobsPartial()
     {
-        Jobs = BuildJobViewModels();
-        return Partial("_JobListPartial", Jobs);
+        JobList = BuildJobList();
+        return Partial("_JobListPartial", JobList);
     }
 
     /// <summary>
@@ -50,8 +47,8 @@ public class IndexModel(
             _ = jobRegistry.TriggerAsync(jobName, dryRun ? JobTrigger.DryRun : JobTrigger.Manual, CancellationToken.None);
         }
 
-        Jobs = BuildJobViewModels();
-        return Partial("_JobListPartial", Jobs);
+        JobList = BuildJobList();
+        return Partial("_JobListPartial", JobList);
     }
 
     /// <summary>
@@ -62,16 +59,10 @@ public class IndexModel(
     public PartialViewResult OnPostCancel(string jobName, long? runNumber)
     {
         jobRegistry.Cancel(jobName, runNumber);
-        Jobs = BuildJobViewModels();
-        return Partial("_JobListPartial", Jobs);
+        JobList = BuildJobList();
+        return Partial("_JobListPartial", JobList);
     }
 
-    private static readonly string[] PriorityJobOrder = ["Download", "Link", "Clean"];
-
-    private IReadOnlyList<JobStatusViewModel> BuildJobViewModels() =>
-        jobRegistry.GetAll()
-            .Select(JobStatusViewModel.From)
-            .OrderBy(j => Array.IndexOf(PriorityJobOrder, j.Name) is var i && i >= 0 ? i : int.MaxValue)
-            .ThenBy(j => j.Name, StringComparer.Ordinal)
-            .ToList();
+    private JobListViewModel BuildJobList() =>
+        JobGrouping.Build(jobRegistry.GetAll().Select(JobStatusViewModel.From), settings);
 }
