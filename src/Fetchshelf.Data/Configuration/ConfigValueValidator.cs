@@ -131,11 +131,11 @@ internal static partial class ConfigValueValidator
             }
 
             CheckAtLeast("keep_points", bonus.KeepPoints, 0, label);
-            if (bonus.UploadAmounts.Select(gb => (int?)gb).FirstOrDefault(gb => !BonusSettings.UploadAmountsMamSells.Contains(gb!.Value)) is { } badAmount)
+            if (bonus.UploadAmounts.Select(gb => (int?)gb).FirstOrDefault(gb => !BonusSettings.UploadAmountsAllowed.Contains(gb!.Value)) is { } badAmount)
             {
                 throw Invalid(
-                    $"'upload_amounts' in {label} can only hold amounts MAM sells: "
-                    + $"{string.Join(", ", BonusSettings.UploadAmountsMamSells.SkipLast(1))} or {BonusSettings.UploadAmountsMamSells[^1]} GB; got {badAmount}.");
+                    $"'upload_amounts' in {label} can only hold the amounts MAM allows automated purchases of: "
+                    + $"{string.Join(", ", BonusSettings.UploadAmountsAllowed.SkipLast(1))} or {BonusSettings.UploadAmountsAllowed[^1]} GB; got {badAmount}.");
             }
 
             if (bonus.WedgeEvery is < 0 or > BonusSettings.MaxWedgeEveryHours)

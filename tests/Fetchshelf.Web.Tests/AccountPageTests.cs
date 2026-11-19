@@ -312,8 +312,8 @@ public partial class AccountPageTests
 
             [bonus]
             bonus_interval = 0
-            keep_points = 30000
-            upload_amounts = [20, 5]
+            keep_points = 10000
+            upload_amounts = [50]
             """);
         var client = await StartAndReadAccountAsync(fixture);
         using (var scope = fixture.CreateScope())
@@ -332,9 +332,9 @@ public partial class AccountPageTests
 
         var html = await client.GetStringAsync("/Account");
 
-        // 11,250 above keep_points: 20 GB (10,000), and the 1,250 left don't pay for 5 GB.
-        Assert.Contains("would buy 20 GB of upload credit:", html);
-        Assert.Contains("the 1,250 points above keep_points 30,000 don&#x27;t pay for 5 GB (2,500)", html);
+        // 31,250 above keep_points: 50 GB (25,000), and the 6,250 left don't pay for another 50 GB.
+        Assert.Contains("would buy 50 GB of upload credit:", html);
+        Assert.Contains("the 6,250 points above keep_points 10,000 don&#x27;t pay for 50 GB (25,000)", html);
         Assert.Contains("<td>a wedge</td>", html);
         Assert.Contains("91,250 → 41,250", html);
     }
