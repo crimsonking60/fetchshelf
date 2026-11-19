@@ -262,13 +262,23 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
-    public async Task JobsPage_LinksTheJobToItsFindings()
+    public async Task JobsPage_LinksTheJobToItsFindings_AfterRunNow()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, _ => Task.CompletedTask);
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old", "Audiobooks")], DateTimeOffset.UtcNow);
+
+        var html = await fixture.CreateClient().GetStringAsync("/Jobs");
+
+        Assert.Matches("Run now</button>\\s*</form>\\s*<a id=\"library-check-findings\" href=\"/LibraryCheck\">Findings</a>", html);
+    }
+
+    [Fact]
+    public async Task JobsPage_WithoutFindings_HasNoFindingsLink()
     {
         using var fixture = new FetchshelfWebAppFixture();
         fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, _ => Task.CompletedTask);
 
-        var html = await fixture.CreateClient().GetStringAsync("/Jobs");
-
-        Assert.Matches("<a id=\"library-check-findings\" href=\"/LibraryCheck\">Findings</a>", html);
+        Assert.DoesNotContain("library-check-findings", await fixture.CreateClient().GetStringAsync("/Jobs"));
     }
 }

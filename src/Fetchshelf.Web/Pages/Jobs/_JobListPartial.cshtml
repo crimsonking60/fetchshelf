@@ -29,10 +29,6 @@ else
                 <tr class="@(job.Failing is null ? null : "failing")">
                     <td>
                         <a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a>
-                        @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck)
-                        {
-                            <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
-                        }
                     </td>
                     @if (Settings.JobExplanations)
                     {
@@ -81,6 +77,10 @@ else
                             }
                             <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                         </form>
+                        @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck && LibraryCheck.Findings.Count > 0)
+                        {
+                            <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
+                        }
                         @if (!job.IsRunning && job.HasDryRun && Settings.DryJobButtons)
                         {
                             @* Decides as Run now would, writes nothing, and lists what it would have selected in the job's history. *@
