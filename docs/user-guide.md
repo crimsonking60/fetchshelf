@@ -1627,8 +1627,12 @@ library writes them, its own cover, and its own record on the **Torrents** page.
   collection's page, which lists its books; a book's page links back to it. Clean and Unlink act on one book, and apply
   `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Refresh** and **Relink** on a book
   act on the whole collection.
+- **One torrent at a time:** with the top-level `split_collections` on, an ebook or comic torrent's page has **Split into
+  its books** by **Refresh and relink**, ticked as its library's `split_collections` is. Tick or untick it and click
+  **Refresh and relink**: the choice is kept for that torrent, overriding its library from then on, also for the Link
+  job and bulk **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
-  it. Relinking a split collection in a library that no longer splits links it as one book again.
+  it. Relinking a split collection that is no longer to be split links it as one book again.
 - Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.
 
 ### Better formats replace worse ones

@@ -260,6 +260,10 @@ passing over a collection whose books are all owned already.
 - **Pages:** a book's page links its collection and hides the torrent's actions (category and tags, Start, Stop,
   removal), which are refused for a book if posted; a collection's page lists its books and has no Clean or Unlink. The
   Torrents list marks both. Remove record on a collection removes its books too. The Config page shows both settings.
+- **Per torrent** (asked for during review): `TorrentEntity.SplitCollection`, null to follow the library, else
+  overriding it; still only with the top-level switch on. The torrent page offers **Split into its books** in the
+  **Refresh and relink** form, ticked as the torrent's choice or its library's, for ebook-side torrents that aren't a
+  collection's book; the choice is stored only when it differs from the library.
 - **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
   later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
   Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

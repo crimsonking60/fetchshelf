@@ -117,6 +117,26 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(true, false, true, true)] // chosen on the torrent's page, in a library that doesn't split
+    [InlineData(false, true, true, false)] // chosen not to, in a library that splits
+    [InlineData(true, true, false, false)] // the top-level switch off: never
+    public async Task Relink_TheTorrentsOwnChoice_OverridesItsLibrary_ButNotTheTopLevelSwitch(
+        bool choice, bool librarySplits, bool splitOn, bool split)
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(files));
+        (await context.Torrents.SingleAsync()).SplitCollection = choice;
+        await context.SaveChangesAsync();
+
+        var result = await Runner(context, EbookLibrary(librarySplits), splitOn).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))]);
+
+        Assert.True(result.Succeeded, result.Message);
+        context.ChangeTracker.Clear();
+        Assert.Equal(split ? 2 : 0, await context.Torrents.CountAsync(t => t.CollectionTorrentId == Hash));
+    }
+
     [Fact]
     public async Task Link_ASecondRun_LeavesTheBooksAndFollowsTheTorrentsCategory()
     {

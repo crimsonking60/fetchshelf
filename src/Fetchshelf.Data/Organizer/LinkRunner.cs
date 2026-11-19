@@ -311,7 +311,7 @@ public sealed class LinkRunner(
 
         var library = libraries[matchedIndex.Value];
         var files = await client.ListFilesAsync(torrent.Hash, cancellationToken);
-        if (SplitCollection(library, metadata, files, mappedSavePath) is { } books)
+        if (SplitCollection(library, metadata, files, mappedSavePath, existing?.SplitCollection) is { } books)
         {
             await LinkBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath);
             return;
@@ -359,14 +359,15 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
-    /// The books of a collection, when <paramref name="library"/> splits collections (its `split_collections` and the
-    /// top-level one) and the torrent is one (<see cref="CollectionSplitter"/>); null otherwise. An epub is read in the
+    /// The books of a collection, when splitting is on (the top-level `split_collections`), the torrent's own choice or
+    /// else <paramref name="library"/>'s `split_collections` says to split, and the torrent is one (<see cref="CollectionSplitter"/>); null otherwise. An epub is read in the
     /// download folder for its own title, series number, ISBN and description.
     /// </summary>
+    /// <param name="choice">The torrent's own choice from its page (<see cref="TorrentEntity.SplitCollection"/>); null follows the library.</param>
     private IReadOnlyList<CollectionBook>? SplitCollection(
-        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath)
+        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, bool? choice)
     {
-        if (!options.SplitCollections || !library.SplitCollections)
+        if (!options.SplitCollections || !(choice ?? library.SplitCollections))
         {
             return null;
         }
@@ -891,7 +892,7 @@ public sealed class LinkRunner(
         }
 
         var files = await client.ListFilesAsync(torrentId, cancellationToken);
-        var books = SplitCollection(library, metadata, files, mappedSavePath);
+        var books = SplitCollection(library, metadata, files, mappedSavePath, existing.SplitCollection);
         if (books is not null)
         {
             return await RelinkAsBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath, cancellationToken);

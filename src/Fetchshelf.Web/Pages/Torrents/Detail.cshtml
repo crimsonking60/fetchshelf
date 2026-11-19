@@ -161,7 +161,15 @@
         {
             <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
         }
-        <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
+        <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">
+            @Html.AntiForgeryToken()
+            @if (Model.OffersSplit)
+            {
+                <input type="hidden" name="splitShown" value="true" />
+                <label title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books</label>
+            }
+            <button type="submit">Refresh and relink</button>
+        </form>
         @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)
         {
             <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it."))">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>

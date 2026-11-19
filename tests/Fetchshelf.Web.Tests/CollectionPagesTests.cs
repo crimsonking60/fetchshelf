@@ -62,6 +62,73 @@ public class CollectionPagesTests
         Assert.DoesNotContain("Remove from qBittorrent with data", html);
     }
 
+    private static FetchshelfWebAppFixture SplittingFixture(bool librarySplits) => new($"""
+        mam_id = ""
+        split_collections = true
+
+        [[library]]
+        name = "Ebooks"
+        category = "ebooks"
+        library_dir = "/library/ebooks"
+        split_collections = {(librarySplits ? "true" : "false")}
+        """);
+
+    private static async Task SeedEbookAsync(FetchshelfWebAppFixture fixture)
+    {
+        await fixture.CreateClient().GetAsync("/Jobs"); // starts the host, which creates the database
+        var metadata = OrganizerTestSupport.BuildMetadata("Discworld") with { MediaType = Fetchshelf.Core.Metadata.MediaType.Ebook };
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, metadata, libraryPath: "/library/ebooks/Discworld");
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        dbContext.Torrents.Single().LinkerName = "Ebooks";
+        await dbContext.SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TorrentPage_OffersSplitting_StartingAsItsLibrary(bool librarySplits)
+    {
+        using var fixture = SplittingFixture(librarySplits);
+        await SeedEbookAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync($"/torrents/{Hash}");
+
+        Assert.Contains("name=\"splitShown\"", html);
+        Assert.Equal(librarySplits, html.Contains("name=\"split\" value=\"true\" checked=\"checked\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TorrentPage_WithoutTheTopLevelSwitch_OffersNoSplitting()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedEbookAsync(fixture);
+
+        Assert.DoesNotContain("splitShown", await fixture.CreateClient().GetStringAsync($"/torrents/{Hash}"));
+    }
+
+    [Theory]
+    [InlineData(false, false)] // unticked in a library that splits: kept as this torrent's own choice
+    [InlineData(true, null)] // ticked, as its library does: follows the library
+    public async Task RefreshAndRelink_StoresTheChoice_OnlyWhenItDiffersFromTheLibrary(bool ticked, bool? stored)
+    {
+        using var fixture = SplittingFixture(librarySplits: true);
+        await SeedEbookAsync(fixture);
+        var client = fixture.CreateClient();
+        var html = await client.GetStringAsync($"/torrents/{Hash}");
+        var token = System.Text.RegularExpressions.Regex.Match(html, @"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]+)""").Groups[1].Value;
+        var form = new List<KeyValuePair<string, string>> { new("splitShown", "true"), new("__RequestVerificationToken", token) };
+        if (ticked)
+        {
+            form.Add(new("split", "true"));
+        }
+
+        await client.PostAsync($"/torrents/{Hash}?handler=RefreshAndRelink", new FormUrlEncodedContent(form));
+
+        using var scope = fixture.CreateScope();
+        Assert.Equal(stored, scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents.Single().SplitCollection);
+    }
+
     [Fact]
     public async Task TorrentsList_SaysWhichRowsAreCollectionsAndTheirBooks()
     {

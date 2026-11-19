@@ -22,6 +22,12 @@ public partial class AddCollectionBooks : Migration
             type: "TEXT",
             nullable: true);
 
+        migrationBuilder.AddColumn<bool>(
+            name: "SplitCollection",
+            table: "Torrents",
+            type: "INTEGER",
+            nullable: true);
+
         migrationBuilder.CreateIndex(
             name: "IX_Torrents_CollectionTorrentId",
             table: "Torrents",
@@ -41,6 +47,10 @@ public partial class AddCollectionBooks : Migration
 
         migrationBuilder.DropColumn(
             name: "CollectionTorrentId",
+            table: "Torrents");
+
+        migrationBuilder.DropColumn(
+            name: "SplitCollection",
             table: "Torrents");
     }
 }

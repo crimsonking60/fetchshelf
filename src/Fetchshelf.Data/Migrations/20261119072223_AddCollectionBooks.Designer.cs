@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Fetchshelf.Data.Migrations
 {
     [DbContext(typeof(FetchshelfDbContext))]
-    [Migration("20261119070408_AddCollectionBooks")]
+    [Migration("20261119072223_AddCollectionBooks")]
     partial class AddCollectionBooks
     {
         /// <inheritdoc />
@@ -662,6 +662,9 @@ namespace Fetchshelf.Data.Migrations
 
                     b.Property<string>("SeedingState")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool?>("SplitCollection")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Title")
                         .IsRequired()

@@ -97,4 +97,10 @@ public sealed class TorrentEntity
 
     /// <summary>For a collection linked as its books: how many book records it has. Null for any other record.</summary>
     public int? CollectionBookCount { get; set; }
+
+    /// <summary>
+    /// Whether this torrent is split into its books when it is a collection, chosen on its page: true or false overrides
+    /// its library's `split_collections`; null follows it. Either way only with the top-level `split_collections` on.
+    /// </summary>
+    public bool? SplitCollection { get; set; }
 }

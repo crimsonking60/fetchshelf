@@ -1114,7 +1114,7 @@ library, in file order, that accepts it is used.
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
-| `split_collections` | `false` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. Needs the top-level `split_collections = true` too; setting it without that stops startup, as it would do nothing. See [Collections](user-guide.md#collections). |
+| `split_collections` | `false` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. Needs the top-level `split_collections = true` too; setting it without that stops startup, as it would do nothing. A torrent's own page can override it for that torrent. See [Collections](user-guide.md#collections). |
 | `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
 | `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |

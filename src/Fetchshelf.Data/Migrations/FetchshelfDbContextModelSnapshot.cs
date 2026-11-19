@@ -660,6 +660,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("SeedingState")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool?>("SplitCollection")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
