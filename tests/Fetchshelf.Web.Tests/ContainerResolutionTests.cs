@@ -144,7 +144,7 @@ public sealed class ContainerResolutionTests
         await fixture.CreateClient().GetAsync("/health");
 
         Assert.Equal(
-            ["Audiobookshelf", "Backup", "Bonus", "Bookmarks", "Clean", "Download", "Follow", "hardcover_list[0]", "Link", "Upgrade"],
+            ["Audiobookshelf", "Backup", "Bonus", "Bookmarks", "Clean", "Download", "Follow", "hardcover_list[0]", "Library check", "Link", "Upgrade"],
             fixture.JobRegistry.GetAll().Select(job => job.Name).Order(StringComparer.OrdinalIgnoreCase));
     }
 }

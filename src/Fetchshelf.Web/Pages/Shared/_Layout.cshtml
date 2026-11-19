@@ -37,8 +37,15 @@
     [
         ("/Events/Index", "Events"),
         ("/Errors/Index", "Errors"),
-        ("/Duplicates/Index", "Duplicates"),
     ]);
+    // Only while the last Library check found something; the page is reachable from its job on the Jobs page either way.
+    var libraryFindings = LibraryCheck.Findings.Count;
+    if (libraryFindings > 0)
+    {
+        navItems.Add(("/LibraryCheck/Index", "Library check"));
+    }
+
+    navItems.Add(("/Duplicates/Index", "Duplicates"));
     // Only of use to those who follow lists; the page itself stays reachable either way.
     if (Settings.HardcoverList.Count > 0 || Settings.FileList.Count > 0 || Settings.BookmarksList.Count > 0)
     {
@@ -91,6 +98,10 @@
                     else if (navPage == "/Following/Index")
                     {
                         @await Component.InvokeAsync("FollowBadge")
+                    }
+                    else if (navPage == "/LibraryCheck/Index")
+                    {
+                        <span id="library-check-badge" class="nav-badge" title="Findings of the last Library check">@libraryFindings</span>
                     }</a>
             }
         </nav>

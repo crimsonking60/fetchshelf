@@ -509,3 +509,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .stat-bar { display: inline-block; height: 0.65rem; min-width: 1px; vertical-align: middle; background: var(--accent); border-radius: 2px; }
 .stat-bar[style="width: 0%"] { min-width: 0; }
 .stat-bar-free { background: var(--c-info); }
+
+/* ---- Library check page ---------------------------------------------------- */
+
+.finding-note { margin-top: 0.2rem; color: var(--c-warn); }

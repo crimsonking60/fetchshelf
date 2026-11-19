@@ -1,0 +1,166 @@
+@page
+@model Fetchshelf.Web.Pages.LibraryCheck.IndexModel
+@using Fetchshelf.Core.AutoDownloader
+@using Fetchshelf.Core.Organizer
+@{
+    ViewData["Title"] = "Library check";
+    var unknownFolders = Model.Of(LibraryFindingKind.UnknownFolder);
+    var unknownFiles = Model.Of(LibraryFindingKind.UnknownFile);
+    var foldersMissing = Model.Of(LibraryFindingKind.FolderMissing);
+    var filesMissing = Model.Of(LibraryFindingKind.FilesMissing);
+}
+
+<h2>Library check</h2>
+@await Html.PartialAsync("_PageExplanation", "The Library check compares the library folders with what Fetchshelf has on record: folders no book points at, such as an old folder left behind after going back to a database backup, and books whose folder or files are gone. Run it after the Link job has caught up. Each folder or file is checked again before it is deleted, so one a book uses by then is left alone.")
+
+@if (Model.ActionMessage is { } actionMessage)
+{
+    <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
+}
+
+<form method="post" asp-page-handler="Run" class="actions">
+    @Html.AntiForgeryToken()
+    <button type="submit" disabled="@Model.Running">@(Model.Running ? "Checking…" : "Run the check")</button>
+    @if (Model.CheckedAt is { } checkedAt)
+    {
+        <span class="muted">Last checked <local-time value="checkedAt" />.</span>
+    }
+    else
+    {
+        <span class="muted">Not checked since Fetchshelf started.</span>
+    }
+</form>
+
+@if (Model.Running)
+{
+    @* Polls until the check ends, then the whole page reloads with its findings. *@
+    <div id="check-running" hx-get="?handler=Status" hx-trigger="every 2s" hx-swap="none"></div>
+    <p id="running-message" class="notice" role="status">
+        The check is running; the page shows what it finds when it ends.
+        @if (Model.CheckedAt is { } previous)
+        {
+            <text>Until then, the findings below are from the previous check, of <local-time value="previous" />, and can't be acted on.</text>
+        }
+    </p>
+}
+
+@if (!Model.Running && Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count == 0)
+{
+    <p id="no-findings-message" class="empty">The library matches the records.</p>
+}
+
+@if (unknownFolders.Count + unknownFiles.Count > 0)
+{
+    <h3>Unknown folders and files</h3>
+    <p>No book points at these. Deleting removes them from the disk, and the folders left empty above them.</p>
+    <form method="post" asp-page-handler="Delete">
+        @Html.AntiForgeryToken()
+        <table id="unknown">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.unknown-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Folder or file</th>
+                    <th>Library</th>
+                    <th>Size</th>
+                    <th>Newest file</th>
+                    <th>Probably</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (id, finding, _) in unknownFolders.Concat(unknownFiles))
+                {
+                    <tr>
+                        <td><input class="unknown-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Path" /></td>
+                        <td>@finding.Path@(finding.Kind == LibraryFindingKind.UnknownFolder ? $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})" : "")</td>
+                        <td>@finding.LibraryName</td>
+                        <td class="nowrap">@DownloadBudget.FormatBytes(finding.Bytes)</td>
+                        <td><local-time value="finding.NewestAt" /></td>
+                        <td>
+                            @if (finding.ProbablyOlderFolderOf is { } book)
+                            {
+                                <text>an older folder of </text><a asp-page="/Torrents/Detail" asp-route-id="@book.TorrentId">@book.Title</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="actions"><button type="submit" class="danger" disabled="@Model.Running">Delete selected</button></div>
+    </form>
+}
+
+@if (foldersMissing.Count + filesMissing.Count > 0)
+{
+    <h3>Books whose folder or files are gone</h3>
+    <p>
+        <em>What to do</em> says, for each book, what the check found when it asked qBittorrent. <strong>Relink</strong> places
+        a book's files again from qBittorrent, when it still has the torrent, a library accepts it and the book has an
+        author; what stops it is put right on the book's own pages first. <strong>Remove record</strong> makes Fetchshelf
+        forget the book.
+    </p>
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <table id="missing">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.missing-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Book</th>
+                    <th>Folder on record</th>
+                    <th>What is gone</th>
+                    <th>What to do</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (id, finding, note) in foldersMissing.Concat(filesMissing))
+                {
+                    <tr>
+                        <td><input class="missing-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Title" /></td>
+                        <td><a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">@finding.Title</a>@(finding.Authors.Count > 0 ? $" by {string.Join(", ", finding.Authors)}" : "")</td>
+                        <td>@finding.Path</td>
+                        <td>
+                            @if (finding.Kind == LibraryFindingKind.FolderMissing)
+                            {
+                                <text>The folder</text>
+                            }
+                            else
+                            {
+                                @(finding.MissingFiles.Count == 1 ? "1 file" : $"{finding.MissingFiles.Count} files")@: (@string.Join(", ", finding.MissingFiles.Take(5))@(finding.MissingFiles.Count > 5 ? ", …" : ""))
+                            }
+                        </td>
+                        <td class="what-to-do">
+                            @switch (finding.Blocker)
+                            {
+                                case RelinkBlocker.None:
+                                    <text><strong>Relink</strong>: qBittorrent has the torrent and a library accepts it.</text>
+                                    break;
+                                case RelinkBlocker.NotInQBittorrent:
+                                    <text>qBittorrent no longer has the torrent, so Relink has nothing to link from. <strong>Remove record</strong>, unless you add the torrent to qBittorrent again.</text>
+                                    break;
+                                case RelinkBlocker.NotFinished:
+                                    <text>The torrent is still downloading in qBittorrent. Check again once it has finished.</text>
+                                    break;
+                                case RelinkBlocker.NoLibraryAccepts:
+                                    <text>No library accepts its qBittorrent category (@(string.IsNullOrEmpty(finding.BlockerDetail) ? "none" : finding.BlockerDetail)), save path or tags. Give it a library's category on its <a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">torrent page</a>, then <strong>Relink</strong>.</text>
+                                    break;
+                                case RelinkBlocker.NoAuthor:
+                                    <text>The book has no author, which its folder name needs. Add one on its <a asp-page="/Torrents/Edit" asp-route-id="@finding.TorrentId">Edit page</a>, then <strong>Relink</strong>.</text>
+                                    break;
+                                case RelinkBlocker.Unknown:
+                                    <text>qBittorrent couldn't be asked (@finding.BlockerDetail), so whether Relink can help isn't known.</text>
+                                    break;
+                            }
+                            @if (note is not null)
+                            {
+                                <div class="finding-note">@note</div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="actions">
+            <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
+            <button type="submit" asp-page-handler="RemoveRecord" class="danger" disabled="@Model.Running">Remove record</button>
+        </div>
+    </form>
+}
