@@ -42,4 +42,22 @@ public class SortStateTests
         Assert.Equal("none", state.AriaSort("Added"));
         Assert.Equal("ascending", state.Toggle("Title").AriaSort("Title"));
     }
+
+    [Fact]
+    public void Apply_OrdersByTheKeyInTheDirection_IgnoringTheCaseOfText()
+    {
+        string[] names = ["banana", "Apple", "cherry"];
+
+        Assert.Equal(["Apple", "banana", "cherry"], new SortState("Name", false).Apply(names, n => n));
+        Assert.Equal(["cherry", "banana", "Apple"], new SortState("Name", true).Apply(names, n => n));
+    }
+
+    [Fact]
+    public void Apply_RowsWithEqualKeys_KeepTheOrderTheyCameIn()
+    {
+        (string Name, int Rank)[] rows = [("b", 1), ("a", 1), ("c", 0)];
+
+        Assert.Equal(["c", "b", "a"], new SortState("Rank", false).Apply(rows, r => r.Rank).Select(r => r.Name));
+        Assert.Equal(["b", "a", "c"], new SortState("Rank", true).Apply(rows, r => r.Rank).Select(r => r.Name));
+    }
 }

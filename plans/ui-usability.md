@@ -399,7 +399,7 @@ One branch and PR per step, as usual; each step is shippable alone.
 | 4 | Search results, Selected, Series, Events, Errors columns; filter disclosure and chips | built (stacked PR). Search: authors under the title, quality under the media type (5 columns); Selected: grabber and dates under the title; Series: authors under the name, missing under the library range; Torrents: filters folded with chips. Left for later: the Select/Wedge button pair as one button with a toggle, and filter chips on Search, Series, Events and Errors |
 | 5 | Sticky bulk-action bar on Torrents/Selected/Errors | |
 | 5b | New pager on every paged list (Torrents, Series, Events, Following, Lists, Jobs history, Search) | built (stacked PR): centered arrows and numbered pages on every list, including Search. The compact pager above long tables is left for later; First and Last are the numbers 1 and the last page |
-| 5c | Sortable headers on the pages in the sort table | after step 4, so the merged columns are known |
+| 5c | Sortable headers on the pages in the sort table | built (stacked PR) for Series (name, books, following), Events (time, type), Errors (job, last failed) and Selected (title, cost); the sort is kept by paging links and filter forms. Left out: authors and series on Torrents (they need the metadata the list reads only when searching), Search (MAM sorts) and the Lists, Duplicates and Library check pages |
 | 6 | Items 1–3, 5, 8, 9 of section 4 | small, can be split further |
 | 7 | Items 4, 6, 7 of section 4 | optional |
 | 0 | Themes (section 5): the contrast test, `--accent-line`, `--on-danger`, zebra, warn colors | first, since later steps use the new tokens; the theme menu and "Match system" (changes 6 and 7) come with step 2, as they sit in the header |

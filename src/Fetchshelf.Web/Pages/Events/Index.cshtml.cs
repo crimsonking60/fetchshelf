@@ -22,6 +22,15 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
     [BindProperty(SupportsGet = true)]
     public string? Field { get; set; }
 
+    /// <summary>"OccurredAt" (the default) or "Type".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string Sort { get; set; } = "OccurredAt";
+
+    [BindProperty(SupportsGet = true)]
+    public string Dir { get; set; } = SortState.DescendingValue;
+
+    public SortState SortState => SortState.From(Sort, Dir);
+
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
@@ -66,6 +75,8 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
             [nameof(Linker)] = Linker ?? string.Empty,
             [nameof(Field)] = FiltersByField ? Field ?? string.Empty : string.Empty,
             [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture),
+            [nameof(Sort)] = Sort,
+            [nameof(Dir)] = Dir,
         };
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
@@ -120,7 +131,10 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
         // DateTimeOffset column (see the same note in Pages/Torrents/Index.cshtml.cs).
         var matched = await query.ToListAsync();
         TotalCount = matched.Count;
-        (var page, PageNumber, TotalPages) = Paging.Slice(matched.OrderByDescending(e => e.OccurredAt), TotalCount, PageNumber, PageSize);
+        // Rows with the same time or type are kept newest first, whichever way the list is sorted.
+        var newestFirst = matched.OrderByDescending(e => e.OccurredAt);
+        var ordered = Sort == "Type" ? SortState.Apply(newestFirst, e => EventLabels.For(e.Kind)) : SortState.Apply(matched, e => e.OccurredAt);
+        (var page, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
         Events = page;
 
         var torrentIds = page.Where(e => e.TorrentId != null).Select(e => e.TorrentId!).Distinct().ToList();

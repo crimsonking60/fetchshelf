@@ -19,6 +19,19 @@ public class IndexModel(FetchshelfDbContext dbContext, IJobRegistry jobRegistry)
     [BindProperty(SupportsGet = true)]
     public ErrorStage? Stage { get; set; }
 
+    /// <summary>"Job" (the default: the jobs in the order of their work, newest first within one) or "LastFailed".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string Sort { get; set; } = "Job";
+
+    [BindProperty(SupportsGet = true)]
+    public string Dir { get; set; } = SortState.Ascending;
+
+    public SortState SortState => SortState.From(Sort, Dir);
+
+    /// <summary>The filter as route values, for the headings' links.</summary>
+    public Dictionary<string, string> RouteValues =>
+        Stage is { } stage ? new() { [nameof(Stage)] = stage.ToString() } : [];
+
     public IReadOnlyList<ErroredTorrentViewModel> Errors { get; private set; } = [];
 
     /// <summary>The failing jobs, one line each, or one line for several that the same MAM refusal stopped.</summary>
@@ -52,9 +65,9 @@ public class IndexModel(FetchshelfDbContext dbContext, IJobRegistry jobRegistry)
             .GroupBy(t => t.MamId.ToString(CultureInfo.InvariantCulture))
             .ToDictionary(g => g.Key, g => g.First().Id);
 
-        Errors = entities
-            .OrderBy(e => e.Stage)
-            .ThenByDescending(e => e.OccurredAt)
+        var newestFirst = entities.OrderByDescending(e => e.OccurredAt);
+        var ordered = Sort == "LastFailed" ? SortState.Apply(entities, e => e.OccurredAt) : SortState.Apply(newestFirst, e => e.Stage);
+        Errors = ordered
             .Select(e => ErroredTorrentViewModel.From(e, trackedTitles, torrentIdsByMamId))
             .ToList();
     }

@@ -28,8 +28,8 @@ else
             <thead>
                 <tr>
                     <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
-                    <th>Title</th>
-                    <th class="col-fit">Cost</th>
+                    <th sort-by="Title" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Title</th>
+                    <th class="col-fit" sort-by="Cost" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Cost</th>
                     <th>Category</th>
                     <th>Tags</th>
                     <th class="col-fit"></th>
