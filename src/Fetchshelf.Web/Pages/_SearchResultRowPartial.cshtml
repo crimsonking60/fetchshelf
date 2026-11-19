@@ -7,8 +7,8 @@
 <tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()" data-in-qbittorrent="@(result.InQBittorrent == true ? "true" : null)">
     @* A click opens the details in a dialog over the results, which stay as they are; the link itself is the full page, for a new tab. *@
     <td><a asp-page="/Search/Detail" asp-route-mamId="@result.MamId" asp-route-Q="@Context.Request.Query["Q"]" asp-route-Lang="@(language.Length > 0 ? language : null)"
-           hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = result.MamId, Lang = language.Length > 0 ? language : null })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@result.Title</a></td>
-    <td>
+           hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = result.MamId, Lang = language.Length > 0 ? language : null })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@result.Title</a>
+        <div class="sub unclamped">
         @if (result.AuthorsShortened)
         {
             @* Focusable so the full list is also reachable by keyboard and touch (:focus-within shows the balloon). *@
@@ -22,9 +22,10 @@
                 @(i > 0 ? ", " : "")<a class="more-like" asp-page="/Index" asp-all-route-data='SearchQueryBuilder.MoreLike("author", result.Authors[i], language)'>@result.Authors[i]</a>
             }
         }
+        </div>
     </td>
-    <td>@result.MediaTypeLabel</td>
-    <td class="nowrap">
+    <td class="col-fit">@result.MediaTypeLabel
+        <div class="sub unclamped">
         @if (result.QualityGrade is { } grade)
         {
             @* Focusable so what is missing is also reachable by keyboard and touch, like the authors' balloon. *@
@@ -40,6 +41,7 @@
                 </span>
             </span>
         }
+        </div>
     </td>
     <td>
         @await Html.PartialAsync("_SearchResultStatusPartial", new SearchResultStatusViewModel(result.MamId, result.Status))

@@ -32,14 +32,12 @@ else
         <thead>
             <tr>
                 <th>Series</th>
-                <th>Authors</th>
                 <th>In the library</th>
-                <th>Missing</th>
-                <th>Media types</th>
-                <th>Following</th>
+                <th class="col-fit">Media types</th>
+                <th class="col-fit">Following</th>
                 @if (Model.CanFollow)
                 {
-                    <th></th>
+                    <th class="col-fit"></th>
                 }
             </tr>
         </thead>

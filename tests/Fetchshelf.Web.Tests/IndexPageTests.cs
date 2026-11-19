@@ -563,15 +563,15 @@ public partial class IndexPageTests
     }
 
     [Fact]
-    public async Task Get_Results_ShowMediaTypeColumn()
+    public async Task Get_Results_ShowTheMediaTypeInTheFormatColumn()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
         var client = fixture.CreateClient();
 
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
-        Assert.Contains("<th>Media type</th>", html);
-        Assert.Contains("<td>Audiobook</td>", html);
+        Assert.Contains("<th class=\"col-fit\">Format</th>", html);
+        Assert.Matches("<td class=\"col-fit\">Audiobook\\s", html);
     }
 
     [Fact]

@@ -251,6 +251,7 @@ th, td { padding: 0.35rem 0.6rem; text-align: left; vertical-align: middle; over
    .col-clip stays on one line with an ellipsis (the full text goes in the cell's title); a cell with neither is
    flexible and wraps at word boundaries. Paths and ids that must break anywhere carry .break. */
 .col-fit { width: 1%; white-space: nowrap; }
+.col-min { min-width: 12rem; }
 .col-clip { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .break, td code, td.mono, tbody tr:has(> th) > td { overflow-wrap: anywhere; }
 /* Second line of a cell: the authors and series under a title, the language under a media type. */
@@ -416,6 +417,13 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* The Torrents filters: one line that opens the dropdowns, with the ones in use shown as chips beside it. */
+.filter-panel { margin: 0.2rem 0; }
+.filter-panel > summary { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.3rem 0.1rem; color: var(--text-muted); font-weight: 500; }
+.filter-panel[open] > summary { color: var(--text); }
+.filter-panel > summary::before { content: "\25B8"; font-size: 0.8em; }
+.filter-panel[open] > summary::before { content: "\25BE"; }
+
 /* Jobs: one panel for each group (standard, configured, autograb), its heading on a band of its own. */
 .next-run { color: var(--text-muted); white-space: nowrap; }
 .job-group { margin: 1.25rem 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; }
@@ -426,7 +434,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 .job-group table { margin: 0; border: 0; }
 .job-name { min-width: 9rem; }
 /* The job's own sentence, all of it: it is what the page is for, unlike an anthology's authors. */
-td .sub.job-description { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; max-width: 22rem; }
+td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; max-width: 22rem; }
 /* Run now, Dry run and Findings side by side. */
 .job-actions form { display: inline-block; margin: 0 0.3rem 0 0; }
 .job-actions a { margin-right: 0.3rem; }

@@ -69,13 +69,15 @@ public class SearchMetadataQualityTests
     }
 
     [Fact]
-    public async Task ResultsTable_HasAQualityColumn()
+    public async Task ResultsTable_ShowsTheQualityUnderTheFormat()
     {
         var html = await ResultsHtmlAsync(SearchJson("""
             "narrator_info": "{}", "isbn": null, "description": null
             """));
 
-        Assert.Contains("<th>Quality</th>", html);
+        Assert.Contains("<th class=\"col-fit\">Format</th>", html);
+        Assert.Contains("class=\"quality-pill ", html);
+        Assert.DoesNotContain("<th>Quality</th>", html);
         Assert.DoesNotContain("<th>Metadata</th>", html);
     }
 

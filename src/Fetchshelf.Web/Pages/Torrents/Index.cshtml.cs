@@ -103,6 +103,36 @@ public class IndexModel(
 
     public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding, CollectionBooks);
 
+    /// <summary>The dropdown filters in use, each with the query that drops it, shown as chips under the filters.</summary>
+    public IReadOnlyList<FilterChip> FilterChips
+    {
+        get
+        {
+            var query = Query;
+            List<FilterChip> chips = [];
+            void Add(string label, string? value, Func<TorrentListQuery, TorrentListQuery> without)
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    chips.Add(new FilterChip(label, value, without(query)));
+                }
+            }
+
+            static string LabelOf(IReadOnlyList<(string Value, string Label)> options, string? value) =>
+                options.FirstOrDefault(o => o.Value == value).Label ?? value ?? string.Empty;
+
+            Add("Status", LabelOf(TorrentListFilters.StatusOptions, Status), q => q with { Status = null });
+            Add("Library", Library, q => q with { Library = null });
+            Add("Category", QbCategory, q => q with { QbCategory = null });
+            Add("Problems", LabelOf(TorrentListFilters.ProblemOptions, Problem), q => q with { Problem = null });
+            Add("Seeding", LabelOf(TorrentListFilters.SeedingOptions, Seeding), q => q with { Seeding = null });
+            Add("Collections", CollectionBooks == ShowCollectionBooks ? "books too" : CollectionBooks, q => q with { CollectionBooks = null });
+            Add("Media type", MediaType, q => q with { MediaType = null });
+            Add("Language", Language, q => q with { Language = null });
+            return chips;
+        }
+    }
+
     /// <summary>The author, narrator and series filters in use, with the names they stand for.</summary>
     public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
 
@@ -460,3 +490,6 @@ public class IndexModel(
 
 /// <summary>An author, narrator or series filter in use: its query parameter and key, and the name shown for it.</summary>
 public sealed record NameFilter(string Parameter, string Key, string Label, string Name, TorrentListQuery Without);
+
+/// <summary>A dropdown filter in use on the Torrents page: its name and value, and the query without it.</summary>
+public sealed record FilterChip(string Label, string Value, TorrentListQuery Without);

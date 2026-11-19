@@ -14,6 +14,12 @@
             <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" aria-label="Search" />
             <button type="submit">Search</button>
         </div>
+        @* The filters fold away behind one line, which stays open while any is in use; the chips say which are, and each drops its own. *@
+        <details class="filter-panel" open="@Model.Query.HasFilters">
+        <summary><span>Filters</span>@if (Model.FilterChips.Count > 0)
+            {
+                <span class="nav-badge" title="Filters in use">@Model.FilterChips.Count</span>
+            }</summary>
         <div class="toolbar">
             <select name="Status" aria-label="Status" onchange="this.form.requestSubmit()">
                 <option value="">Any status</option>
@@ -80,6 +86,17 @@
                    asp-all-route-data="Model.Query.WithoutFilters().ToRouteValues()">Clear filters</a>
             }
         </div>
+        </details>
+        @if (Model.FilterChips.Count > 0)
+        {
+            <div class="toolbar">
+                @foreach (var chip in Model.FilterChips)
+                {
+                    <span class="name-filter">@chip.Label: @chip.Value
+                        <a asp-page="/Torrents/Index" asp-all-route-data="chip.Without.ToRouteValues()" aria-label="Stop filtering by @chip.Label.ToLowerInvariant()">&times;</a></span>
+                }
+            </div>
+        }
         @* Author, narrator and series are filtered by following a name's link; each shows here with a way to drop it. *@
         @if (Model.NameFilters.Count > 0)
         {
