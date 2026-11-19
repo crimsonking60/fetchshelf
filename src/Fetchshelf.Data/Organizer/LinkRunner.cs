@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Fetchshelf.Clients.Abs;
 using Fetchshelf.Clients.Mam;
@@ -59,6 +60,15 @@ public sealed class LinkRunner(
     private int _batchCount;
     private const int BatchSize = 100;
 
+    /// <summary>
+    /// The longest a batch stays open. Torrents whose files are checked or placed on a slow disk can make 100 of them take
+    /// a minute, and the batch's transaction holds the write lock all that time: another job's save then waited out its
+    /// 30 second busy timeout and failed with "database is locked".
+    /// </summary>
+    private static readonly TimeSpan BatchMaxAge = TimeSpan.FromSeconds(2);
+
+    private long _batchStartedAt;
+
     /// <summary>The error a torrent gets when MAM has no torrent with its info-hash. Such a torrent is looked up again only after <see cref="NotOnMamRetryAfter"/>.</summary>
     public const string NotOnMamError = "MAM has no torrent with this info-hash.";
 
@@ -114,7 +124,12 @@ public sealed class LinkRunner(
                 }
 
                 using var heldGate = gate;
-                _batch ??= await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                if (_batch is null)
+                {
+                    _batch = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                    _batchStartedAt = Stopwatch.GetTimestamp();
+                }
+
                 try
                 {
                     await ProcessFinishedTorrentAsync(connection, client, torrent, cancellationToken);
@@ -135,7 +150,7 @@ public sealed class LinkRunner(
                     dbContext.ChangeTracker.Clear();
                 }
 
-                if (++_batchCount >= BatchSize)
+                if (++_batchCount >= BatchSize || Stopwatch.GetElapsedTime(_batchStartedAt) >= BatchMaxAge)
                 {
                     await CommitBatchAsync();
                 }
