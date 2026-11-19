@@ -312,7 +312,81 @@ Ordered by value for cost.
 Not proposed: a sidebar (it costs about 14 rem of the width that the tables need), a card layout for tables (loses the
 scan-down-a-column reading that this app is for), a framework or build step.
 
-## 5. Order of work
+## 5. Themes
+
+The four themes keep their names and characters: **Dark Warm** (brown-black with goldenrod, the default), **Dark Cool**
+(navy with steel blue), **Light Warm** (parchment with bronze) and **Light Cool** (pale steel with blue). Only values
+change, and only where measured below.
+
+### Evaluation
+
+Measured with WCAG 2.x contrast ratios on the values in `themes.css`, for every pair the CSS uses (2026-11-19).
+
+**Sound, no change needed**
+- Body and muted text: at least 12.0:1 and 5.1:1 respectively on every surface, zebra and hover row in all four
+  themes (the rule in the file header, "AA 4.5:1 on all", holds).
+- Links: 4.8:1 to 10.6:1 on all surfaces; links are also underlined, so they never rely on color alone.
+- Field outlines (`--border-strong`): 3.3:1 to 4.9:1 against bg, surface and field (the 3:1 non-text rule holds).
+- Focus ring: 4.3:1 to 14.1:1 against bg and surface in all themes.
+- Status badges: the badge text on its own tint is 4.5:1 to 7.0:1 in all themes (the tint is opaque, mixed with
+  `--surface`, so row stripes and hover do not lower it). Light Cool's `--c-info` on its tint is exactly 4.5:1: the
+  minimum, with no room to lighten it.
+- Each status is also written as text ("Linked", "Selected"), not only colored, and the row "spine" is a second cue.
+- The four feel distinct and consistent: the status colors keep the same roles in every theme.
+
+**Problems found**
+1. **Light Warm's accent is too pale for anything but a filled button.** `--accent` #b8860b is 2.6:1 on the page
+   background, 3.1:1 on panels and 2.3:1 on the header bar, under the 3:1 needed for non-text indicators. It is used for
+   the current-page underline in the nav (on the header bar: 2.3:1, hard to see), chart lines, stat bars and the page
+   explanation's left border, and, from this plan, for sort arrows and the current page chip. Light Cool is fine
+   (4.1:1 on the header bar). The dark themes are fine (6.0:1 and up).
+2. **The red count badge uses a hard-coded `#fff`** (`.nav-badge`). On Dark Warm's and Dark Cool's light-salmon
+   `--c-danger` that is 2.6:1 and 2.5:1, so the error count on the menu is hard to read in both dark themes. The light
+   themes are fine (6.5:1). The menu in this plan puts such badges on more buttons, so it has to be right.
+3. **Row stripes are nearly invisible in the dark themes.** Zebra against surface is 1.05:1 (Dark Warm) and 1.06:1
+   (Dark Cool); Light Warm has 1.10:1. Together with 1.3:1 hairlines (`--border`), a 25–100 row table has little to guide
+   the eye along a wide row, which is exactly the problem of wide tables on a tablet. Hover (1.2–1.3:1) is visible.
+4. **Panels barely separate from the page.** Panel against page is 1.09:1 (Dark Warm) to 1.19:1 (Light Warm). Panels
+   (filters, notices, cards) are found by their borders alone.
+5. **Light Warm's warning and link colors are the same brown** (`--c-warn` #9a5200, `--link` #7d5300: 1.15:1 apart,
+   similar hue). Links are underlined and warnings are badges, so nothing breaks, but the "warn orange" role the file
+   header promises reads as "brown" on a parchment page. In Dark Warm, warn orange (#f0a24a) and link gold (#efbf55) are
+   1.23:1 apart, for the same reason.
+6. **Hard-coded colors outside the tokens:** `#fff` on the badge (above), `#000` for shadows, and `#ff0000` for the
+   development banner. The shadows are intended and the banner is intentionally theme-independent; only the badge is a bug.
+7. **The theme is chosen at the very bottom of every page,** and the default is always Dark Warm, whatever the
+   operating system prefers. Someone on a light tablet in daylight gets the dark theme first, and has to scroll to the
+   footer to change it.
+8. **Nothing guards the rules.** The contrast claims in the `themes.css` header are checked by hand. A new token or a
+   tweak can break one without a failing test.
+
+### Changes
+
+| # | Change | Result |
+|---|---|---|
+| 1 | New token `--accent-line`, used wherever the accent is a line, bar, arrow or border rather than a fill: nav underline, sort arrows, stat bars, sparkline, explanation border, current-page chip outline. In the dark themes and Light Cool it equals `--accent`. Light Warm: `#8f6600`, a deeper bronze (4.2:1 on the page, 5.0:1 on panels, 3.7:1 on the header bar). The filled-button `--accent` stays goldenrod `#b8860b` with its dark `--on-accent` text (5.3:1), so Light Warm still looks like Light Warm. | Passes 3:1 for indicators everywhere |
+| 2 | New token `--on-danger`: dark `#1a1510` / `#0f1620` on the dark themes (7.0:1 and 7.3:1), white on the light themes (6.5:1). `.nav-badge` uses it. | Count badges readable in all four |
+| 3 | Zebra a step stronger in the dark themes: Dark Warm `--zebra` `#2d241a` (1.09:1), Dark Cool about 1.10:1 (`#1f2c3d`, to be checked by the test); the light themes are unchanged. `--row-hover` stays. Text on the new zebra stays above 10:1. | Visible stripes without turning the table into stripes |
+| 4 | Panel against page: Dark Warm `--bg` a touch darker (`#17120d`), so `--surface` reaches about 1.12:1; the others are unchanged. No shadows are added. | Panels are seen without relying on the border |
+| 5 | Warn colors moved away from the link hue, same roles: Dark Warm `--c-warn` `#f28a3a` (6.7:1 on panels; 1.45:1 from the link instead of 1.23:1); Light Warm `--c-warn` `#b34200` (5.5:1 on panels; 4.4:1 on its tint, so the tint there is mixed at 10% instead of 14%, or the color darkened one step, whichever the test accepts). | Warning is orange-red, not brown or gold |
+| 6 | The theme choice moves out of the footer: an icon button at the header's right edge (next to Config) opens the four names in a small menu, in the same `<details>` pattern as the nav menus. The footer select goes. | One tap from every page |
+| 7 | A fifth choice, "Match system", is the default for new visitors: Dark Warm when the system is dark, Light Warm when it is light (the warm pair keeps the app's character). It sets no cookie until a theme is picked, and is done with a CSS `prefers-color-scheme` rule while `data-theme` is left unset, so there is no flash. The four names stay as they are; an existing cookie wins. | Light tablets start light |
+| 8 | A test in `Fetchshelf.Web.Tests` parses `themes.css` and asserts, for every theme: text and muted text 4.5:1 on bg, surface, surface-2, zebra and hover; link 4.5:1 on the same; `--accent-line` 3:1 on bg, surface and surface-2; `--border-strong` 3:1 on bg, surface and field; `--focus` 3:1 on bg and surface; each `--c-*` 4.5:1 on its own 14% tint; `--on-accent` on `--accent` 4.5:1; `--on-danger` on `--c-danger` 4.5:1. The values above are the ones to land on, and the test is the way to adjust them. | The header comment becomes a checked fact |
+
+### What is not changed
+
+- The names, the base hue families of each palette (bg, surface, text, accent), the default theme, and the status roles
+  (info blue, ok green, warn orange, danger red, VIP rose).
+- No further palette, no high-contrast theme, no color picker. "Match system" is the only addition.
+- No cue is made by color alone: the sort arrows, pager chips and menu badges carry shapes or text.
+
+### Checks
+
+Screenshots of Torrents, Jobs and Search in all four themes at 820 px, before and after, compared side by side; the
+contrast test above; a look at the Account charts and the Statistics bars in Light Warm, where `--accent-line` changes
+their color.
+
+## 6. Order of work
 
 One branch and PR per step, as usual; each step is shippable alone.
 
@@ -327,6 +401,7 @@ One branch and PR per step, as usual; each step is shippable alone.
 | 5c | Sortable headers on the pages in the sort table | after step 4, so the merged columns are known |
 | 6 | Items 1–3, 5, 8, 9 of section 4 | small, can be split further |
 | 7 | Items 4, 6, 7 of section 4 | optional |
+| 0 | Themes (section 5): the contrast test, `--accent-line`, `--on-danger`, zebra, warn colors | first, since later steps use the new tokens; the theme menu and "Match system" (changes 6 and 7) come with step 2, as they sit in the header |
 
 Each step is checked in the browser at 820 × 1180 (iPad portrait), 1280 and 2560 px, in one warm and one cool theme,
 with a configuration that has everything and one that has nothing optional (menu and Jobs groups).
