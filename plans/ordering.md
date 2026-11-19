@@ -1,6 +1,6 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-19, for the 2 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-19, for the 3 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
@@ -100,10 +100,13 @@ Done:
 11. **`collection-torrents.md`** — done (PR #105): `split_collections` (top level as every library's default, per library,
     and per torrent on its page) links a collection as one book each, ebooks and comics, found from MAM's range or
     numbered file names; each book picks its own format.
-12. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
+12. **`bulk-split-choice.md`** — a bulk "Split collections" action and a "Split choice" filter on the Torrents page,
+    so collections split (or not) one by one can be put back to what their library says without opening each. Small;
+    builds on `collection-torrents.md` and `bulk-actions-in-background.md`.
+13. **`other-download-clients.md`** — a large refactor that moves every qBittorrent user behind an interface, then
     Transmission; Deluge and rTorrent only when asked for. Last of the building plans, because it touches the most
     code and nobody has asked for it yet.
-13. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
+14. **`library-explorer.md`** — the plan itself says to decide first whether Audiobookshelf already covers it. Decide
     after the rest; build only if the answer is yes.
 
 ## Parked
