@@ -294,6 +294,26 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void ABookTheTorrentHoldsTwice_IsOneBook_TheBestCopyKept()
+    {
+        const string Top = "The Dark Tower";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "The Dark Tower Collection (2007-2016)", Authors = ["Stephen King"] },
+            [
+                new($"{Top}/The Dark Tower - The Drawing of Three - The Prisoner (01-05)/The Dark Tower - The Drawing of the Three - The Prisoner 01 (of 05) (digital).cbr", 100),
+                new($"{Top}/The Dark Tower - The Drawing of the Three - The Prisoner (001-005)/The Dark Tower - The Drawing of the Three - The Prisoner 01 (of 05) (digital).cbr", 200),
+                new($"{Top}/The Dark Tower - The Drawing of the Three - The Prisoner (001-005)/The Dark Tower - The Drawing of the Three - The Prisoner 02 (of 05) (2014) (digital).cbr", 100),
+                new($"{Top}/The Dark Tower - The Drawing of Three - The Prisoner (01-05)/The Dark Tower - The Drawing of the Three - The Prisoner 02 (of 05) (2014) (digital).cbz", 100),
+                new($"{Top}/The Dark Tower - The Drawing of the Three - The Prisoner (001-005)/The Dark Tower - The Drawing of the Three - The Prisoner 03 (of 05) (2014) (digital).cbr", 100),
+            ],
+            EbookTypes)!;
+
+        Assert.Equal(
+            [(1, "The Dark Tower - The Drawing of the Three - The Prisoner 01", 200L, "cbr"), (2, "The Dark Tower - The Drawing of the Three - The Prisoner 02", 100L, "cbz"), (3, "The Dark Tower - The Drawing of the Three - The Prisoner 03", 100L, "cbr")],
+            books.Select(b => (b.Position, b.Metadata.Title, b.Metadata.TotalSizeBytes, b.Format)));
+    }
+
+    [Fact]
     public void ARangeAfterAHyphen_IsNoNumber()
     {
         Assert.Null(CollectionSplitter.Split(

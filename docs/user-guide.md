@@ -1620,7 +1620,8 @@ Whether a collection is split is decided, first that applies:
   Ultimates.cbr` or `Doonesbury-1970.cbz`. A book is a sub-folder of the torrent when every file is in one and each
   folder's files share one name (a Calibre export); else the files in one folder that share a name once release tags
   in brackets are left out, so `Saga 001 (Digital).cbz` and `Saga 001.cbr` are one book in two formats, and a
-  `Variant Covers` folder's files go with the issues above it. Disc folders mean one book. Audiobooks aren't split.
+  `Variant Covers` folder's files go with the issues above it. A book the torrent holds twice, with the same title,
+  series and number (a series in two folders), is one book, its best copy kept. Disc folders mean one book. Audiobooks aren't split.
 - **Each book's details.** The collection's authors, language, category and tags; the book's own title, series number,
   ISBN and description from its epub when it has them, else its title from its folder or file name (trailing groups in
   brackets, such as a Calibre id `(1019)`, a year `(2014)` or release tags `(Digital)`, and a trailing ` - author` left

@@ -118,7 +118,33 @@ public static partial class CollectionSplitter
             result.Add(new CollectionBook(index + 1, metadata, chosen, format.ToLowerInvariant(), null));
         }
 
-        return WithCovers(result, files);
+        return WithCovers(WithoutRepeats(result, ebookTypes), files);
+    }
+
+    /// <summary>
+    /// The books with one of each kept when the torrent holds a book twice, such as a series in two folders spelled
+    /// differently: the same title, series and number. The one kept has the best format, then the most bytes; the rest
+    /// are numbered again in order.
+    /// </summary>
+    private static List<CollectionBook> WithoutRepeats(List<CollectionBook> books, IReadOnlyList<string> ebookTypes) =>
+        books
+            .GroupBy(b => (
+                Title: b.Metadata.Title.ToUpperInvariant(),
+                Series: b.Metadata.Series.FirstOrDefault()?.Name.ToUpperInvariant(),
+                Number: b.Metadata.Series.FirstOrDefault()?.Entries.FirstOrDefault()?.FirstNumber))
+            .Select(g => g
+                .OrderBy(b => FormatRank(ebookTypes, b.Format))
+                .ThenByDescending(b => b.Metadata.TotalSizeBytes)
+                .ThenBy(b => b.Position)
+                .First())
+            .OrderBy(b => b.Position)
+            .Select((b, i) => b with { Position = i + 1 })
+            .ToList();
+
+    private static int FormatRank(IReadOnlyList<string> ebookTypes, string format)
+    {
+        var rank = ebookTypes.ToList().FindIndex(t => string.Equals(t, format, StringComparison.OrdinalIgnoreCase));
+        return rank < 0 ? int.MaxValue : rank;
     }
 
     /// <summary>Whether a media type is on the ebook side, the one split.</summary>
