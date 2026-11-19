@@ -29,4 +29,14 @@ public sealed record SortState(string Column, bool Descending)
     /// <summary>The value of the <c>aria-sort</c> attribute for <paramref name="column"/>'s heading.</summary>
     public string AriaSort(string column) =>
         !IsSortedBy(column) ? "none" : Descending ? "descending" : "ascending";
+
+    /// <summary>
+    /// <paramref name="source"/> ordered by <paramref name="key"/> in this state's direction; text compares without regard
+    /// to case. Rows with equal keys keep the order they came in.
+    /// </summary>
+    public IEnumerable<T> Apply<T, TKey>(IEnumerable<T> source, Func<T, TKey> key)
+    {
+        IComparer<TKey> comparer = typeof(TKey) == typeof(string) ? (IComparer<TKey>)(object)StringComparer.OrdinalIgnoreCase : Comparer<TKey>.Default;
+        return Descending ? source.OrderByDescending(key, comparer) : source.OrderBy(key, comparer);
+    }
 }

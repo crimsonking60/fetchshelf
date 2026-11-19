@@ -86,10 +86,10 @@ else
             <thead>
                 <tr>
                     <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.error-select').forEach(c => c.checked = this.checked)" /></th>
-                    <th class="col-fit">Job</th>
+                    <th class="col-fit" sort-by="Job" sort-state="Model.SortState" sort-page="/Errors/Index" sort-route="Model.RouteValues">Job</th>
                     <th>Torrent or book</th>
                     <th>Error</th>
-                    <th class="col-fit">Last failed</th>
+                    <th class="col-fit" sort-by="LastFailed" sort-first-descending="true" sort-state="Model.SortState" sort-page="/Errors/Index" sort-route="Model.RouteValues">Last failed</th>
                     <th class="col-fit"></th>
                 </tr>
             </thead>

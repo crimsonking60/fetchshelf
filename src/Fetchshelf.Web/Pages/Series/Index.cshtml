@@ -19,6 +19,8 @@
         }
     </select>
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
+    <input type="hidden" name="Sort" value="@Model.Sort" />
+    <input type="hidden" name="Dir" value="@Model.Dir" />
     <button type="submit">Search</button>
 </form>
 
@@ -31,10 +33,10 @@ else
     <table id="series">
         <thead>
             <tr>
-                <th>Series</th>
-                <th>In the library</th>
+                <th sort-by="Name" sort-state="Model.SortState" sort-page="/Series/Index" sort-route="Model.RouteValues">Series</th>
+                <th sort-by="Books" sort-first-descending="true" sort-state="Model.SortState" sort-page="/Series/Index" sort-route="Model.RouteValues">In the library</th>
                 <th class="col-fit">Media types</th>
-                <th class="col-fit">Following</th>
+                <th class="col-fit" sort-by="Following" sort-state="Model.SortState" sort-page="/Series/Index" sort-route="Model.RouteValues">Following</th>
                 @if (Model.CanFollow)
                 {
                     <th class="col-fit"></th>

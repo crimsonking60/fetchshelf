@@ -41,6 +41,8 @@
         </select>
     }
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
+    <input type="hidden" name="Sort" value="@Model.Sort" />
+    <input type="hidden" name="Dir" value="@Model.Dir" />
     @if (Model.HasFilters)
     {
         <a id="clear-filters" asp-page="/Events/Index" asp-all-route-data="Model.ClearedRouteValues()">Clear filters</a>
@@ -56,8 +58,8 @@ else
     <table>
         <thead>
             <tr>
-                <th class="col-fit">Occurred at</th>
-                <th class="col-fit">Type</th>
+                <th class="col-fit" sort-by="OccurredAt" sort-first-descending="true" sort-state="Model.SortState" sort-page="/Events/Index" sort-route="Model.FilterRouteValues()">Occurred at</th>
+                <th class="col-fit" sort-by="Type" sort-state="Model.SortState" sort-page="/Events/Index" sort-route="Model.FilterRouteValues()">Type</th>
                 <th>Torrent</th>
                 <th>Details</th>
             </tr>

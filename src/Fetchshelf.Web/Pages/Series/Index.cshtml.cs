@@ -22,6 +22,15 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
     [BindProperty(SupportsGet = true)]
     public string? Show { get; set; }
 
+    /// <summary>"Name" (the default), "Books" or "Following".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string Sort { get; set; } = "Name";
+
+    [BindProperty(SupportsGet = true)]
+    public string Dir { get; set; } = SortState.Ascending;
+
+    public SortState SortState => SortState.From(Sort, Dir);
+
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
@@ -45,7 +54,7 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
     public int TotalPages { get; private set; } = 1;
 
     public Dictionary<string, string> RouteValues =>
-        new Dictionary<string, string> { [nameof(Q)] = Q ?? string.Empty, [nameof(Show)] = Show ?? string.Empty, [nameof(PageSize)] = PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) }
+        new Dictionary<string, string> { [nameof(Q)] = Q ?? string.Empty, [nameof(Show)] = Show ?? string.Empty, [nameof(PageSize)] = PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture), [nameof(Sort)] = Sort, [nameof(Dir)] = Dir }
             .Where(pair => pair.Value.Length > 0)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
@@ -70,9 +79,25 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
             .Where(s => text.Length == 0 || s.Name.Contains(text, StringComparison.CurrentCultureIgnoreCase) || byAuthor.Contains(s.NameKey))
             .ToList();
         TotalCount = matched.Count;
-        (var page, PageNumber, TotalPages) = Paging.Slice(matched, TotalCount, PageNumber, PageSize);
+        var byName = matched.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase);
+        var ordered = Sort switch
+        {
+            "Books" => SortState.Apply(byName, s => s.Books),
+            "Following" => SortState.Apply(byName, s => FollowRank(follows.GetValueOrDefault(s.NameKey)?.Mode)),
+            _ => SortState.Apply(matched, s => s.Name),
+        };
+        (var page, PageNumber, TotalPages) = Paging.Slice(ordered, TotalCount, PageNumber, PageSize);
         Rows = await ToRowsAsync(page, follows);
     }
+
+    /// <summary>The order of the Following column: automatic first, then followed, ignored, and not followed last.</summary>
+    private static int FollowRank(FollowMode? mode) => mode switch
+    {
+        FollowMode.Download => 0,
+        FollowMode.Watch => 1,
+        FollowMode.Ignore => 2,
+        _ => 3,
+    };
 
     /// <summary>Follows, watches, ignores or stops following one series; from htmx it answers with the row alone.</summary>
     /// <param name="mode">"Download", "Watch", "Ignore", or "Stop" to stop following.</param>
