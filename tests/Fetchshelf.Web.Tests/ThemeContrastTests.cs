@@ -6,7 +6,7 @@ namespace Fetchshelf.Web.Tests;
 /// <summary>Checks the contrast rules that the header of themes.css states, for every theme, against the values in the file.</summary>
 public partial class ThemeContrastTests
 {
-    public static TheoryData<string> ThemeIds => new() { "dark-warm", "dark-cool", "light-warm", "light-cool" };
+    public static TheoryData<string> ThemeIds => new() { "dark-warm", "dark-cool", "light-warm", "light-cool", "system" };
 
     private static readonly string[] Surfaces = ["bg", "surface", "surface-2", "zebra", "row-hover"];
 
@@ -74,6 +74,15 @@ public partial class ThemeContrastTests
         Assert.True(zebra >= 1.06, $"{theme}: zebra against surface is {zebra:0.00}:1");
         var panel = Contrast(t["surface"], t["bg"]);
         Assert.True(panel >= 1.09, $"{theme}: surface against bg is {panel:0.00}:1");
+    }
+
+    [Fact]
+    public void MatchSystem_InALightSystem_HasLightWarmsValues()
+    {
+        var system = Load("system");
+        var lightWarm = Load("light-warm");
+
+        Assert.Equal(lightWarm.OrderBy(p => p.Key), system.OrderBy(p => p.Key));
     }
 
     private static void AssertRatio(Dictionary<string, (double R, double G, double B)> t, string fg, string bg, double minimum)
