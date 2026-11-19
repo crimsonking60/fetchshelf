@@ -5,6 +5,63 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.15 - 2026-11-19
+
+A collection torrent, such as all of Discworld or a run of comic issues, can be linked as one library book each. A
+new Library check finds library folders and records that don't match. A Statistics page shows the library and what
+was grabbed, with an optional Prometheus endpoint, and the Link job can fetch covers from MAM for books without one.
+The Bonus job buys upload credit only in the amounts MAM allows automations to buy.
+
+### Upgrading
+
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.15/configuration/#backup) section, a backup is taken first, named
+  `data-<time>-2026.11.14-before-2026.11.15.db`; without one, back up your data folder yourself.
+- **Check `upload_amounts` in `[bonus]` before upgrading.** It may now hold only 50 and 100, the amounts MAM's rules
+  allow automated purchases of; startup stops with an error naming any other amount, such as 1, 5, 20 or 25. Without
+  `upload_amounts`, the default is now `[100, 50]`, so points below 25,000 above `keep_points` are left unspent. See
+  [`[bonus]`](https://fetchshelf.readthedocs.io/en/v2026.11.15/configuration/#bonus).
+- **Nothing is split until asked for.** `split_collections` is off unless set, and collections linked before stay as
+  one book until they are relinked with it on. Splitting goes by MAM's details and the file and folder names, whose
+  conventions vary widely: look over a collection's books after it is first split. See
+  [Collections](https://fetchshelf.readthedocs.io/en/v2026.11.15/user-guide/#collections).
+- Nothing else is needed: covers from MAM and the metrics endpoint are off unless set, and the Library check runs only
+  when started.
+
+### Added
+
+- `split_collections`, at the top level as every library's default and on a `[[library]]`, links a collection of
+  ebooks, comics, manga or periodicals as one book each, with its own folder (or file in a series library), metadata,
+  cover and record (#105). A collection is found from MAM's series range or from numbered file names; each book takes
+  its own format, and its title, series and number from its epub or its name. A torrent's page has **Split into its
+  books** to choose for that torrent. The **Torrents** page shows a collection as one row, with a *Books of
+  collections* filter to list its books. See [Collections](https://fetchshelf.readthedocs.io/en/v2026.11.15/user-guide/#collections).
+- The **Library check** job and page list library folders and files no record knows of, and records whose folder or
+  files are gone, each with what to do about it and buttons to do it (#103). On the **Jobs** page, its **Findings**
+  link follows **Run now** when there are findings. See [Checking the library](https://fetchshelf.readthedocs.io/en/v2026.11.15/user-guide/#checking-the-library).
+- A **Statistics** page: the library's totals by media type, language, library and format, what was grabbed by month,
+  cost and grabber, and each job's runs over the last 30 days (#102). `metrics = true` serves the same as Prometheus metrics at `/metrics`. See
+  [Statistics](https://fetchshelf.readthedocs.io/en/v2026.11.15/user-guide/#statistics) and [Prometheus metrics](https://fetchshelf.readthedocs.io/en/v2026.11.15/configuration/#prometheus-metrics).
+- `covers_from_mam`: how many covers each Link run fetches from MAM for book folders without an image, `0` (none) by
+  default (#101). See [Covers](https://fetchshelf.readthedocs.io/en/v2026.11.15/user-guide/#covers).
+- A torrent's page links to the torrent on MAM (#105).
+
+### Changed
+
+- `upload_amounts` in `[bonus]` may hold only 50 and 100 GB, the amounts MAM allows automated purchases of, and
+  defaults to `[100, 50]` (#104, #111).
+- The Upgrade job leaves books of a collection alone, and they aren't marked *could be upgraded* (#105).
+- The Clean job never takes two books of one collection for copies of each other (#109).
+- Account page: the *Important Tracker Errors* warning says MAM keeps counting a tracker error for 48 hours after it
+  last occurred, and the link to the snatch lists on MAM opens in a new tab.
+
+### Fixed
+
+- Collections are told apart better from their file names (#106–#110): trailing release tags and years in brackets,
+  underscored and hyphenated names, series names ending in a number, one series spelled several ways, folders of
+  issues, a volume given by a folder's name, variant covers, magazine issues by month and year, and a book the torrent
+  holds twice. The torrent's title names a series only when it adds no collection words, authors or years.
+
 ## 2026.11.14 - 2026-11-18
 
 A book in two languages is two books: the Follow job decides each language on its own, and two editions with the same
