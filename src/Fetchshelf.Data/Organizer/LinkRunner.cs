@@ -33,7 +33,8 @@ public enum RefreshOutcome
 /// <summary>The settings the Link job links by, besides the libraries and the format lists.</summary>
 /// <param name="ExcludeNarratorInLibraryDir">`exclude_narrator_in_library_dir`: folder names leave out the narrator.</param>
 /// <param name="FirstLanguage">The first of the top-level `languages`, which `language_in_folder = "other"` leaves unmarked.</param>
-public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null);
+/// <param name="SplitCollections">The top-level `split_collections`: a library's own `split_collections` splits only with it.</param>
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null, bool SplitCollections = false);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -225,6 +226,15 @@ public sealed class LinkRunner(
                 return;
             }
 
+            if (existing.CollectionBookCount is > 0)
+            {
+                // Linked as its books: they follow the collection's torrent in qBittorrent.
+                await SyncBooksAsync(existing, torrent, cancellationToken);
+                await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
             if (existing.LibraryPath is not null)
             {
                 // Already linked: sync and recompute mismatch; do not touch files or metadata here.
@@ -301,6 +311,12 @@ public sealed class LinkRunner(
 
         var library = libraries[matchedIndex.Value];
         var files = await client.ListFilesAsync(torrent.Hash, cancellationToken);
+        if (SplitCollection(library, metadata, files, mappedSavePath) is { } books)
+        {
+            await LinkBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath);
+            return;
+        }
+
         var (bestAudioExtension, bestEbookExtension, formatError) = ChooseFormats(library, metadata, files);
         if (formatError is not null)
         {
@@ -340,6 +356,159 @@ public sealed class LinkRunner(
         await CommitBatchAsync(); // the files are in place: their record must not wait for the rest of the batch
         _linked++;
         _logger.LogInformation("{Placement}", DescribePlacement(torrent.Name, placement));
+    }
+
+    /// <summary>
+    /// The books of a collection, when <paramref name="library"/> splits collections (its `split_collections` and the
+    /// top-level one) and the torrent is one (<see cref="CollectionSplitter"/>); null otherwise. An epub is read in the
+    /// download folder for its own title, series number, ISBN and description.
+    /// </summary>
+    private IReadOnlyList<CollectionBook>? SplitCollection(
+        Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath)
+    {
+        if (!options.SplitCollections || !library.SplitCollections)
+        {
+            return null;
+        }
+
+        EpubInfo? ReadEpub(string relativePath)
+        {
+            try
+            {
+                using var stream = File.OpenRead(Path.Combine(mappedSavePath, relativePath));
+                return EpubMetadataReader.Read(stream);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        }
+
+        return CollectionSplitter.Split(
+            metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), library.EbookTypes ?? formatPreferenceLists.EbookTypes, ReadEpub);
+    }
+
+    /// <summary>
+    /// Links a collection as its books: each placed as a single download of it would be, with its own folder (or, in a
+    /// series library, its own file in the series folder), metadata files, cover, record and Linked event. The
+    /// collection's record keeps what qBittorrent and MAM know of the torrent, and no folder of its own.
+    /// </summary>
+    private async Task LinkBooksAsync(
+        TorrentEntity? collection, QBittorrentTorrent torrent, Library library, TorrentMetadata metadata, IReadOnlyList<CollectionBook> books,
+        IReadOnlyList<QBittorrentFile> files, string mappedSavePath)
+    {
+        // Files are placed from here on: recording them must not be cut short by a cancellation.
+        var cancellationToken = CancellationToken.None;
+        if (collection is null)
+        {
+            collection = new TorrentEntity
+            {
+                Id = torrent.Hash,
+                MamId = metadata.MamId,
+                NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+                Title = metadata.Title,
+                MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            dbContext.Torrents.Add(collection);
+        }
+
+        var known = await dbContext.Torrents.Where(t => t.CollectionTorrentId == torrent.Hash).ToDictionaryAsync(t => t.Id, cancellationToken);
+        var placements = new List<string>();
+        foreach (var book in books)
+        {
+            var id = CollectionBookId.For(torrent.Hash, book.Position);
+            var chosen = files.Where(f => book.Files.Contains(f.Name, StringComparer.Ordinal)).ToList();
+            var folder = await BookFolderAsync(library, book.Metadata, id, Directory.Exists, cancellationToken);
+            var placement = PlaceFiles(library, book.Metadata, chosen, mappedSavePath, null, book.Format, folder);
+            LinkCover(library, book, placement.Folder, mappedSavePath);
+
+            if (!known.TryGetValue(id, out var record))
+            {
+                record = new TorrentEntity
+                {
+                    Id = id,
+                    MamId = metadata.MamId,
+                    NormalizedTitleKey = TitleNormalizer.Normalize(book.Metadata.Title),
+                    Title = book.Metadata.Title,
+                    MetadataJson = TorrentMetadataSerializer.Serialize(book.Metadata),
+                    CreatedAt = DateTimeOffset.UtcNow,
+                };
+                dbContext.Torrents.Add(record);
+            }
+            else
+            {
+                // Details edited by hand on a book are kept, as for any torrent.
+                var current = TorrentMetadataSerializer.Deserialize(record.MetadataJson);
+                var kept = HandEdits.KeepOver(current, book.Metadata);
+                record.MetadataJson = TorrentMetadataSerializer.Serialize(kept);
+                record.Title = kept.Title;
+                record.NormalizedTitleKey = TitleNormalizer.Normalize(kept.Title);
+            }
+
+            record.CollectionTorrentId = torrent.Hash;
+            record.UnlinkedAt = null;
+            record.ReplacedWithTorrentId = null;
+            record.ReplacedAt = null;
+            RecordPlacement(record, torrent, library, placement, null, book.Format);
+            await AppendLinkedEventAsync(record, library, placement.Folder, cancellationToken);
+            placements.Add(DescribePlacement(book.Metadata.Title, placement));
+        }
+
+        // A book of an earlier split that is no longer one of them (the torrent's files changed) is unlinked.
+        var positions = books.Select(b => CollectionBookId.For(torrent.Hash, b.Position)).ToHashSet(StringComparer.Ordinal);
+        foreach (var gone in known.Values.Where(r => !positions.Contains(r.Id) && r.LibraryPath is not null))
+        {
+            gone.LibraryPath = null;
+            gone.LinkedFilesJson = null;
+            gone.UnlinkedAt = DateTimeOffset.UtcNow;
+        }
+
+        collection.LibraryPath = null;
+        collection.LinkedFilesJson = null;
+        collection.CollectionBookCount = books.Count;
+        collection.ChosenAudioExtension = null;
+        collection.ChosenEbookExtension = null;
+        collection.QBittorrentCategory = torrent.Category;
+        collection.LinkerName = library.Name;
+        collection.LibraryMismatchState = null;
+        ClientStatuses.Update(collection, torrent.State);
+        await ErrorLog.ClearAsync(dbContext, ErrorStage.Linker, torrent.Hash, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await CommitBatchAsync(); // the files are in place: their records must not wait for the rest of the batch
+        _linked += books.Count;
+        _logger.LogInformation(
+            "Linked the collection {Torrent} as {Count} books: {Books}", torrent.Name, books.Count, string.Join("; ", placements));
+    }
+
+    /// <summary>
+    /// Links a book's cover, an image from its own folder in the torrent, as <c>cover.jpg</c> (or <c>.png</c>,
+    /// <c>.webp</c>) beside its files, unless the folder has one already. Not in a series library, whose folders hold
+    /// many books, nor without files placed.
+    /// </summary>
+    private static void LinkCover(Library library, CollectionBook book, string folder, string mappedSavePath)
+    {
+        if (book.CoverFile is not { } cover || library.IsSeriesLayout || library.Method == LibraryLinkMethod.NoLink)
+        {
+            return;
+        }
+
+        var extension = Path.GetExtension(cover).ToLowerInvariant() is ".jpeg" ? ".jpg" : Path.GetExtension(cover).ToLowerInvariant();
+        var destination = Path.Combine(folder, "cover" + extension);
+        if (!File.Exists(destination))
+        {
+            FileLinker.Link(Path.Combine(mappedSavePath, cover), destination, library.Method);
+        }
+    }
+
+    /// <summary>A split collection's books follow its torrent: its category and its state in qBittorrent.</summary>
+    private async Task SyncBooksAsync(TorrentEntity collection, QBittorrentTorrent torrent, CancellationToken cancellationToken)
+    {
+        foreach (var book in await dbContext.Torrents.Where(t => t.CollectionTorrentId == collection.Id).ToListAsync(cancellationToken))
+        {
+            book.QBittorrentCategory = torrent.Category;
+            ClientStatuses.Update(book, torrent.State);
+        }
     }
 
     /// <summary>
@@ -625,8 +794,10 @@ public sealed class LinkRunner(
     /// Re-runs the metadata lookup for a tracked torrent, storing changed fields as an Updated event and pushing them to
     /// Audiobookshelf.
     /// </summary>
+    /// <remarks>A book of a split collection refreshes its collection, the torrent MAM knows; Relink re-derives the books.</remarks>
     public async Task<RefreshOutcome> RefreshAsync(string torrentId, CancellationToken cancellationToken = default)
     {
+        torrentId = CollectionBookId.HashOf(torrentId);
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
             ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
 
@@ -675,6 +846,8 @@ public sealed class LinkRunner(
         bool refreshFromMam,
         CancellationToken cancellationToken)
     {
+        // A book of a split collection is relinked with its collection, the torrent qBittorrent has.
+        torrentId = CollectionBookId.HashOf(torrentId);
         var existing = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == torrentId, cancellationToken)
             ?? throw new InvalidOperationException($"Torrent '{torrentId}' is not tracked.");
 
@@ -718,6 +891,12 @@ public sealed class LinkRunner(
         }
 
         var files = await client.ListFilesAsync(torrentId, cancellationToken);
+        var books = SplitCollection(library, metadata, files, mappedSavePath);
+        if (books is not null)
+        {
+            return await RelinkAsBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath, cancellationToken);
+        }
+
         var (audio, ebook, formatError) = ChooseFormats(library, metadata, files);
         if (formatError is not null)
         {
@@ -734,6 +913,7 @@ public sealed class LinkRunner(
         }
 
         await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
+        await RemoveBooksAsync(existing, cancellationToken); // linked as its books before, and now as one
 
         var oldPath = existing.LibraryPath;
         var oldPathUse = oldPath is null ? null : await LibraryFileRemover.FolderUseByOthersAsync(dbContext, oldPath, existing.Id, cancellationToken);
@@ -782,7 +962,7 @@ public sealed class LinkRunner(
         string torrentId, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
         CancellationToken cancellationToken = default)
     {
-        if (await FindInQBittorrentAsync(torrentId, connections, cancellationToken) is not var (connection, _, torrent))
+        if (await FindInQBittorrentAsync(CollectionBookId.HashOf(torrentId), connections, cancellationToken) is not var (connection, _, torrent))
         {
             return (RelinkBlocker.NotInQBittorrent, null);
         }
@@ -801,6 +981,80 @@ public sealed class LinkRunner(
         return TorrentMetadataSerializer.Deserialize(metadataJson).Authors.Count == 0 && !libraries[index].IsSeriesLayout
             ? (RelinkBlocker.NoAuthor, torrent.Category)
             : (RelinkBlocker.None, torrent.Category);
+    }
+
+    /// <summary>
+    /// Relinks a collection as its books: the files of its earlier placement, as one book or as its books, are removed,
+    /// and the books placed again (<see cref="LinkBooksAsync"/>). Refused, changing nothing, while any book's files are
+    /// missing from the download folder.
+    /// </summary>
+    private async Task<RelinkResult> RelinkAsBooksAsync(
+        TorrentEntity collection, QBittorrentTorrent torrent, Library library, TorrentMetadata metadata, IReadOnlyList<CollectionBook> books,
+        IReadOnlyList<QBittorrentFile> files, string mappedSavePath, CancellationToken cancellationToken)
+    {
+        if (library.Method != LibraryLinkMethod.NoLink
+            && books.SelectMany(b => b.Files).Count(f => !File.Exists(Path.Combine(mappedSavePath, f))) is var missing and > 0)
+        {
+            return Refuse(collection, $"{missing} of its files are not in {mappedSavePath}; check path_mapping.");
+        }
+
+        await ApplyRefreshedMetadataAsync(collection, metadata, cancellationToken);
+        try
+        {
+            if (collection.LibraryPath is { } oldPath)
+            {
+                var use = await LibraryFileRemover.FolderUseByOthersAsync(dbContext, oldPath, collection.Id, cancellationToken);
+                LibraryFileRemover.Remove(oldPath, DeserializeLinkedFiles(collection.LinkedFilesJson), use.Shared, use.Files, LibraryContaining(oldPath)?.LibraryDir);
+            }
+
+            foreach (var book in await dbContext.Torrents.Where(t => t.CollectionTorrentId == collection.Id && t.LibraryPath != null).ToListAsync(cancellationToken))
+            {
+                await RemoveFilesAsync(book, cancellationToken);
+            }
+
+            await LinkBooksAsync(collection, torrent, library, metadata, books, files, mappedSavePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError("Could not relink {Title}: {Error}", collection.Title, ex.Message);
+            await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, ex.Message, cancellationToken: cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return new RelinkResult(false, $"Relinking failed part-way: {ex.Message} Fix the cause and relink again.");
+        }
+
+        return new RelinkResult(true, $"Linked {collection.Title} as {books.Count} books.");
+    }
+
+    /// <summary>
+    /// A collection linked as its books before, now relinked as one: the books' files and records go, as the collection's
+    /// own record takes over.
+    /// </summary>
+    private async Task RemoveBooksAsync(TorrentEntity collection, CancellationToken cancellationToken)
+    {
+        if (collection.CollectionBookCount is not > 0)
+        {
+            return;
+        }
+
+        foreach (var book in await dbContext.Torrents.Where(t => t.CollectionTorrentId == collection.Id).ToListAsync(cancellationToken))
+        {
+            if (book.LibraryPath is not null)
+            {
+                await RemoveFilesAsync(book, cancellationToken);
+            }
+
+            dbContext.Torrents.Remove(book);
+        }
+
+        collection.CollectionBookCount = null;
+    }
+
+    /// <summary>Removes a linked record's files from its folder, keeping what another record there still uses.</summary>
+    private async Task RemoveFilesAsync(TorrentEntity record, CancellationToken cancellationToken)
+    {
+        var path = record.LibraryPath!;
+        var use = await LibraryFileRemover.FolderUseByOthersAsync(dbContext, path, record.Id, cancellationToken);
+        LibraryFileRemover.Remove(path, DeserializeLinkedFiles(record.LinkedFilesJson), use.Shared, use.Files, LibraryContaining(path)?.LibraryDir);
     }
 
     private RelinkResult Refuse(TorrentEntity existing, string reason)

@@ -49,7 +49,7 @@ public static class MamResultStatuses
             // The Download job records a torrent as it hands it to qBittorrent, with no client status yet; the Link job
             // stores the status once it sees the torrent finished. Until then it is still downloading. A metadata-only
             // record was never downloaded through Fetchshelf, so it counts as owned.
-            var clientStatus = liveStates?.GetValueOrDefault(torrent.Id) ?? torrent.ClientStatus;
+            var clientStatus = liveStates?.GetValueOrDefault(Fetchshelf.Core.Organizer.CollectionBookId.HashOf(torrent.Id)) ?? torrent.ClientStatus;
             var status = torrent.LibraryPath is not null ? MamResultStatus.Linked
                 : !MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id)
                     && Fetchshelf.Data.Organizer.ClientStatuses.IsUnfinished(clientStatus) ? MamResultStatus.Downloading

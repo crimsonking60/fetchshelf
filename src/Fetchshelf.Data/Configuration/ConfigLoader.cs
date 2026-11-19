@@ -49,6 +49,7 @@ public static partial class ConfigLoader
         ["metadata_opf"] = (s, n, v) => s.MetadataOpf = ParseBool(n, v),
         ["covers_from_mam"] = (s, n, v) => s.CoversFromMam = ParseInt(n, v),
         ["metrics"] = (s, n, v) => s.Metrics = ParseBool(n, v),
+        ["split_collections"] = (s, n, v) => s.SplitCollections = ParseBool(n, v),
         ["link_method"] = (s, n, v) => s.LinkMethod = ParseLinkMethod(n, v),
         ["search_interval"] = (s, n, v) => s.SearchInterval = ParseInt(n, v),
         ["link_interval"] = (s, n, v) => s.LinkInterval = ParseInt(n, v),
@@ -530,6 +531,13 @@ public static partial class ConfigLoader
             }
 
             ValidateLayout(library);
+            if (library.SplitCollections && !settings.SplitCollections)
+            {
+                var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
+                throw new ConfigurationException(
+                    $"Invalid configuration: {which} sets 'split_collections', which does nothing until the top-level 'split_collections = true' turns splitting on.");
+            }
+
             if (library.LanguageInFolder == LanguageInFolder.Other && settings.Languages.Count == 0)
             {
                 var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";

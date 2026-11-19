@@ -228,3 +228,38 @@ passing over a collection whose books are all owned already.
 - On the live instance, after a release: relink torrent 339727, then check the folders in
   `/data/fs-ebooks/Terry Pratchett/Discworld/`, the OPDS catalog (40 books under the series, in order), the Series
   page, and the Duplicates page for the six books also held as singles.
+
+## As built
+
+- **Book ids are `<hash>-<n>`**, not `<hash>/<n>`: a slash would be two segments in the torrent page's `torrents/{id}`
+  and in OPDS's book addresses. `CollectionBookId` (Core) builds them, tells them apart (a 40 or 64 character hex hash,
+  a dash, a number) and gives `HashOf`, the hash qBittorrent and MAM know.
+- **`CollectionSplitter`** (Core) as designed, with the decisions: it works on every ebook-side file before a format is
+  chosen, each book picking its own; detection from MAM's range or from three or more `<series> <number>` names; disc
+  folders mean one book. The number comes from the epub (`calibre:series_index`, or EPUB 3's `group-position`), when its
+  series is the collection's, a leading number in the name, or the description's numbered list (a cut-short title
+  matching by prefix either way). The "a book already in the library" source for the number was left out. Covers: an
+  image in the book's own folder, `cover.*` first, else its only one. `EpubMetadataReader` (Core) reads the OPF from a
+  stream; the Link job opens the epub in the download folder.
+- **Tried on the real Ultimate Spider-Man collection's file list** (146 files, from the dev instance's qBittorrent):
+  every file got its series and number, 134 *Ultimate Spider-Man* issues with #0.5, 7 *Ultimate Six*, 3 Annuals and 2
+  *Ultimatum*, after the name pattern learned `000.5` and `Ultimate Six 05 - <title>`.
+- **Link job:** a split collection's own record keeps no folder and gets `CollectionBookCount`; each later run only
+  brings its books' category and client state in step, as they follow the collection's torrent. Each book is placed
+  through the existing `PlaceFiles` (or the series layout's file), gets its cover as `cover.jpg`/`.png`/`.webp` (not in a
+  series library), a Linked event, and the Link job counts books. Details edited by hand on a book are kept on a relink.
+- **Relink** of a book relinks its collection; a collection linked as one book is split, and a split one in a library that
+  no longer splits is linked as one again, its book records removed.
+- **Mapping to the collection's hash:** `QBittorrentConnectionResolver`, `QBittorrentActions`, `ClientStatusChecker`,
+  `LinkRunner.RefreshAsync` (a book refreshes its collection) and `RelinkBlockerAsync`, the bulk Set category (which sets
+  the collection's and its books' category), `QBittorrentPresence` and the Search page's statuses.
+  `RetroactiveTagApplier` leaves books out, as the collection's record stands for the torrent. The cover pass
+  (`covers_from_mam`) leaves books out: MAM's cover is the collection's.
+- **Clean and Unlink:** `on_cleaned`/`on_unlinked` only once the collection's last linked book goes; the seeding hold and
+  `OnCleanedHeld` are the collection's record's, which the Seeding job matches.
+- **Pages:** a book's page links its collection and hides the torrent's actions (category and tags, Start, Stop,
+  removal), which are refused for a book if posted; a collection's page lists its books and has no Clean or Unlink. The
+  Torrents list marks both. Remove record on a collection removes its books too. The Config page shows both settings.
+- **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
+  later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
+  Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

@@ -197,8 +197,26 @@ public sealed class Cleaner(
             keeper is null ? connection?.OnUnlinked : connection?.OnCleaned;
 
         var details = new List<string>();
-        var owning = await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), member.Id, cancellationToken);
-        if (owning is null)
+
+        // A book of a split collection shares the collection's torrent with its other books: the torrent is only acted on
+        // once the last of them goes, and its seeding is the collection's.
+        var (torrentRecord, actOnTorrent) = (member, true);
+        if (member.CollectionTorrentId is { } collectionId)
+        {
+            actOnTorrent = !await dbContext.Torrents.AnyAsync(
+                t => t.CollectionTorrentId == collectionId && t.Id != member.Id && t.LibraryPath != null && t.ReplacedWithTorrentId == null,
+                cancellationToken);
+            torrentRecord = await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == collectionId, cancellationToken) ?? member;
+        }
+
+        var owning = actOnTorrent
+            ? await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), member.Id, cancellationToken)
+            : null;
+        if (!actOnTorrent)
+        {
+            details.Add($"{settingName} not applied: other books of its collection are still linked");
+        }
+        else if (owning is null)
         {
             if (connections.Any(c => SettingOf(c.Connection) is not null))
             {
@@ -207,10 +225,10 @@ public sealed class Cleaner(
         }
         else if (SettingOf(connections.First(c => c.Client == owning).Connection) is { } setting)
         {
-            if (keeper is not null && seedingHold?.HoldsBack(member) is { } why)
+            if (keeper is not null && seedingHold?.HoldsBack(torrentRecord) is { } why)
             {
                 // A client rule acting on the on_cleaned category could remove it before MAM counts it as seeded.
-                member.OnCleanedHeld = true;
+                torrentRecord.OnCleanedHeld = true;
                 details.Add($"held {settingName} back: {why}");
             }
             else

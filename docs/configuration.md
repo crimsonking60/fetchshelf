@@ -219,6 +219,7 @@ These go at the top of the file, before any section.
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
 | `metrics` | `false` | Serve Prometheus metrics at `/metrics`. See [Prometheus metrics](#prometheus-metrics). |
+| `split_collections` | `false` | Turns splitting collections into one library book each on. A library splits only when it sets its own [`split_collections`](#library) too. See [Collections](user-guide.md#collections). |
 | `covers_from_mam` | `0` | How many covers each Link run fetches from MAM for book folders that have no image, `0` to `100`. They are written as `cover.jpg` (or `cover.png`, `cover.webp`); books already in the library get theirs over the following runs. `0` fetches none. Series libraries are left out. The covers come from MAM's image server, which isn't among the parts of MAM its API documentation authorizes automating. See [Covers](user-guide.md#covers). |
 | `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
@@ -1113,6 +1114,7 @@ library, in file order, that accepts it is used.
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
+| `split_collections` | `false` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. Needs the top-level `split_collections = true` too; setting it without that stops startup, as it would do nothing. See [Collections](user-guide.md#collections). |
 | `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
 | `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |

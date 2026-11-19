@@ -103,7 +103,9 @@ public sealed class CoverWriter(
     private bool NeedsCover(TorrentEntity torrent)
     {
         var folder = torrent.LibraryPath!;
+        // A book of a split collection shares its MAM id with the collection: MAM's cover is the collection's, not the book's.
         return torrent.MamId > 0
+            && torrent.CollectionTorrentId is null
             && LibraryFolders.IndexContaining(libraries, folder) is { } index
             && libraries[index] is { IsSeriesLayout: false, Method: not LibraryLinkMethod.NoLink }
             && Directory.Exists(folder)

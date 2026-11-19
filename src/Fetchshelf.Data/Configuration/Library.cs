@@ -69,6 +69,12 @@ public sealed class Library
     [YamlIgnore]
     public bool IsSeriesLayout => Layout == LibraryLayout.Series;
 
+    /// <summary>
+    /// `split_collections`: link a collection of books as one book each, when the top-level `split_collections` is on
+    /// too. Off by default.
+    /// </summary>
+    public bool SplitCollections { get; set; }
+
     public List<string> AllowTags { get; set; } = [];
 
     public List<string> DenyTags { get; set; } = [];

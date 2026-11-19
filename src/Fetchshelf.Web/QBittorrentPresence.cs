@@ -70,7 +70,7 @@ public sealed record QBittorrentPresence(
     public string? CategoryOf(long mamId, IEnumerable<string> knownHashes) =>
         CategoryByMamId.TryGetValue(mamId, out var category)
             ? category
-            : knownHashes.Select(h => CategoryByHash.GetValueOrDefault(h)).FirstOrDefault(c => c is not null);
+            : knownHashes.Select(h => CategoryByHash.GetValueOrDefault(Fetchshelf.Core.Organizer.CollectionBookId.HashOf(h))).FirstOrDefault(c => c is not null);
 }
 
 /// <summary>

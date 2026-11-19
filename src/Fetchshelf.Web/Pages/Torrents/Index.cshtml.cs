@@ -204,7 +204,10 @@ public class IndexModel(
         }
         else if (action == "removeRecord")
         {
-            var toRemove = await dbContext.Torrents.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
+            // A collection's books go with it: they are derived from it.
+            var toRemove = await dbContext.Torrents
+                .Where(t => selectedIds.Contains(t.Id) || (t.CollectionTorrentId != null && selectedIds.Contains(t.CollectionTorrentId)))
+                .ToListAsync();
             dbContext.Torrents.RemoveRange(toRemove);
             await dbContext.SaveChangesAsync();
         }

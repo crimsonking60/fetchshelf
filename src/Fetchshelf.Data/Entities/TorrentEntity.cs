@@ -88,4 +88,13 @@ public sealed class TorrentEntity
     /// MAM had none. Null until then; linking the torrent again, or Refresh, sets it back to null so it is looked at again.
     /// </summary>
     public DateTimeOffset? CoverCheckedAt { get; set; }
+
+    /// <summary>
+    /// For a book of a split collection: the collection's record, the one qBittorrent and MAM know. Null for any other
+    /// record. A book's id is <see cref="Core.Organizer.CollectionBookId"/>'s.
+    /// </summary>
+    public string? CollectionTorrentId { get; set; }
+
+    /// <summary>For a collection linked as its books: how many book records it has. Null for any other record.</summary>
+    public int? CollectionBookCount { get; set; }
 }

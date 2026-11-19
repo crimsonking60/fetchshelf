@@ -91,7 +91,7 @@ public sealed class ClientStatusChecker(FetchshelfDbContext dbContext)
         var finishedMamIds = new List<long>();
         foreach (var torrent in tracked)
         {
-            if (inClient.TryGetValue(torrent.Id, out var live))
+            if (inClient.TryGetValue(Core.Organizer.CollectionBookId.HashOf(torrent.Id), out var live))
             {
                 ClientStatuses.Update(torrent, live.State);
                 torrent.QBittorrentCategory = live.Category;

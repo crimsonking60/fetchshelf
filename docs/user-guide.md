@@ -1600,6 +1600,37 @@ The covers come from MAM's image server, as the Search page's covers do. It isn'
 documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at
 most 100 covers per run.
 
+### Collections
+
+A collection is one torrent holding several books of one series, such as all of Discworld, or a run of comic issues.
+Linked as it is, it becomes one "book" in one folder. With `split_collections = true` at the top level and on a
+`[[library]]`, a collection linked into that library becomes one book each instead, placed as a single download of it
+would be: its own folder (or, in a series library, its own file in the series folder), its own metadata files as the
+library writes them, its own cover, and its own record on the **Torrents** page.
+
+- **What counts as a collection.** An ebook, comic, manga or periodical torrent whose files fall into at least two
+  books, either from MAM's series giving a range such as `1-40`, or from at least three files named after one series and
+  a number, such as `Ultimate Spider-Man 033.cbr`, `Ultimate Spider-Man 000.5.cbr` or `Ultimate Six 05 - The
+  Ultimates.cbr`. A book is a sub-folder of the torrent when every file is in one (a
+  Calibre export), else the files that share a name. Disc folders mean one book. Audiobooks aren't split.
+- **Each book's details.** The collection's authors, language, category and tags; the book's own title, series number,
+  ISBN and description from its epub when it has them, else its title from its folder or file name (a Calibre id such
+  as `(1019)` and a trailing ` - author` left out), and its number from a leading number in the name (`04 - Mort`) or a
+  numbered list in MAM's description, which also matches a title cut short there. Files named after another series in
+  the same torrent are books of that series: `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3.
+- **Each book picks its own format** from its own files by your `ebook_types`, as the other formats of a collection are
+  usually other books, not copies.
+- **The books are books everywhere:** the Clean job, duplicates, selection, Hardcover lists, the Follow and Upgrade jobs,
+  the Series page, OPDS and Audiobookshelf see each of them. A book held both from a collection and as a single torrent
+  is two copies, and the Clean job keeps the better one, as for any two copies.
+- **qBittorrent has one torrent, the collection's.** Its category, tags, **Start**, **Stop** and removal are on the
+  collection's page, which lists its books; a book's page links back to it. Clean and Unlink act on one book, and apply
+  `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Refresh** and **Relink** on a book
+  act on the whole collection.
+- **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
+  it. Relinking a split collection in a library that no longer splits links it as one book again.
+- Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.
+
 ### Better formats replace worse ones
 
 Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of

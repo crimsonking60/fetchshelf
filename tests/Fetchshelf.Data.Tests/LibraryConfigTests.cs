@@ -312,4 +312,45 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Null(connection.OnUnlinked);
         Assert.Null(connection.OnInvalidTorrent);
     }
+
+    [Fact]
+    public void Load_SplitCollections_OffByDefault_AndOnWithBothSettings()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            split_collections = true
+
+            [[library]]
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+            split_collections = true
+
+            [[library]]
+            category = "audiobooks"
+            library_dir = "/library/audiobooks"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.True(settings.SplitCollections);
+        Assert.Equal([true, false], settings.Library.Select(l => l.SplitCollections));
+    }
+
+    [Fact]
+    public void Load_ALibrarysSplitCollections_WithoutTheTopLevelOne_IsRefused()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            name = "Ebooks"
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+            split_collections = true
+            """);
+
+        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains("the [[library]] 'Ebooks' sets 'split_collections', which does nothing until the top-level 'split_collections = true'", error.Message);
+    }
 }

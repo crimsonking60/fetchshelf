@@ -115,7 +115,8 @@ public sealed class RetroactiveTagApplier(
         var torrents = await dbContext.Torrents.AsNoTracking().ToListAsync(cancellationToken);
         foreach (var torrent in torrents)
         {
-            if (MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id))
+            // A book of a split collection is in qBittorrent as its collection, whose own record the rule is applied to.
+            if (MetadataOnlyTorrentId.IsMetadataOnly(torrent.Id) || torrent.CollectionTorrentId is not null)
             {
                 continue;
             }

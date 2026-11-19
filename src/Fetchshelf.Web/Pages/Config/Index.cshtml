@@ -58,6 +58,7 @@
             <tr><th>metadata_opf</th><td>@settings.MetadataOpf</td></tr>
             <tr><th>covers_from_mam</th><td>@settings.CoversFromMam</td></tr>
             <tr><th>metrics</th><td>@settings.Metrics</td></tr>
+            <tr><th>split_collections</th><td>@settings.SplitCollections</td></tr>
             <tr><th>database_wal</th><td>@settings.DatabaseWal</td></tr>
             <tr><th>search_interval</th><td>@settings.SearchInterval</td></tr>
             <tr><th>link_interval</th><td>@settings.LinkInterval</td></tr>
@@ -107,7 +108,7 @@
     else
     {
         <table>
-            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Layout</th></tr></thead>
+            <thead><tr><th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Layout</th><th>Split collections</th></tr></thead>
             <tbody>
                 @foreach (var library in settings.Library)
                 {
@@ -120,6 +121,7 @@
                         <td>@MetadataFiles(library)</td>
                         <td>@Fetchshelf.Data.Configuration.EnumYamlConverter.NameOf(library.FolderNames)</td>
                         <td>@Layout(library)</td>
+                        <td>@(library.SplitCollections ? "yes" : "no")</td>
                     </tr>
                 }
             </tbody>
