@@ -21,6 +21,12 @@ Checked from the code and from screenshots at 820 px wide (iPad portrait) agains
   Autograb jobs ("BM 1 Free", "BM 2 Small ratio", ...) are mixed in with Bonus, Follow and the rest, so the list has
   no structure. The Job column wraps ("Down/load", "Clea/n") because the Description column takes the space. The
   description repeats the same sentence for every autograb job. "Next run in" shows "908m 52s", which nobody can read.
+- **Paging.** `_Pager.cshtml` is a left-aligned sentence ("Showing 25 of 7412. Page 1 of 297.") followed by text links
+  that come and go (First/Previous only after page 1, Next/Last only before the end), so the links move around between
+  pages. No page numbers, so reaching page 40 means typing `PageNumber=40` in the address bar. The Search page's pager
+  (`_SearchPagerPartial.cshtml`) has only Previous and Next.
+- **Sorting.** Only Torrents' Title column sorts, as an ordinary underlined link with no sign of the current order or
+  direction. Search sorts through a select. Series, Selected, Events, Errors and the rest cannot be sorted at all.
 - **General.** Page explanations are 4–5 lines on every page and sit above the content on every visit. Checkboxes and
   buttons in tables are about 1 rem, too small for touch. Active filters are a row of selects, with no sign of which are
   set. Bulk-action buttons sit below a long table, out of sight until the last row is reached.
@@ -142,6 +148,82 @@ The Torrents filters are seven selects on two rows. They become one row: the sea
 110 px of vertical space on every visit and shows which filters are active. The same chip pattern is used on Search,
 Series, Events and Errors.
 
+### Page navigation
+
+One pager component for every paged list (`_Pager.cshtml`, `_SearchPagerPartial.cshtml`), in the style used by most
+well-made list UIs: centered, arrows at the ends, numbered pages in between.
+
+```
+        Showing 26–50 of 7,412                                    Per page [25 ▾]
+
+                     ‹ Prev   1  …  4  5 [6] 7  8  …  297   Next ›
+```
+
+- **Centered** under the table, with the count line and the page-size select on one row above or beside it
+  (count left, size right, the arrows centered below on narrow widths). The same pager also goes above long tables, in a
+  compact form (arrows and "26–50 of 7,412" only), since a table of 100 rows is long.
+- **Arrows always present.** `‹` and `›` (with the words "Prev"/"Next" at 52 rem and wider) are shown on every page and
+  render as disabled (dimmed, `aria-disabled="true"`, no link) at the ends, so nothing shifts. First and Last are not
+  separate links: page 1 and the last page are always among the numbers.
+- **Page numbers.** The first and last page, the current page and two on each side of it, with "…" where pages are
+  left out; at most 9 items, so the width is constant. The current page is a filled chip in the accent color with
+  `aria-current="page"`; the others are bordered squares of at least 2.5 rem, so they are touch targets on an iPad.
+  Fewer than 8 pages are all shown. The "…" can be a small number field ("go to page") later; not in the first version.
+- **Keyboard and touch.** The links are ordinary links in a `<nav aria-label>`, so Tab and Enter work; `[` and `]`
+  (or `←`/`→` while the table has focus) are an optional later addition together with the shortcuts in section 4.
+- **Search page.** MAM reports the number of results found, so the same numbered pager is used there; the page size
+  is MAM's, and only the page count and the current page are needed. Snatched-before results left out of a page do not
+  change the page numbers (the count line still says "N left out").
+- **After htmx swaps** (Torrents' bulk actions, Check qBittorrent) the pager is part of the swapped list, as today, so
+  it keeps the filters, sort and page; the page-size select keeps working without a form, as now.
+- **Implementation.** `PagerViewModel` gets `Items()`, returning the sequence of numbers and gaps (for example
+  `[1, Gap, 4, 5, 6, 7, 8, Gap, 297]`) so the view only loops. This is pure logic, unit tested for: one page, 7 pages,
+  the first, middle and last page of 297, and a page number past the end (clamped by `Paging.Window` as now).
+  `.pager` styles in `site.css`; no JavaScript.
+
+### Sortable columns
+
+Today a sortable header looks like any link: underlined, with no sign of whether the list is sorted by it. Sortable
+columns become a consistent pattern with a visible state.
+
+```
+ Title ▲        Authors        Series        Added ▾        Size ⇅
+ ^ sorted ascending                         ^ sorted descending   ^ sortable, not in use
+```
+
+- **No underlines in headers.** `thead th a` gets `text-decoration: none` and inherits the header color; the whole
+  header cell is the click target (the link is stretched with padding, or `th` handles the click through the link's
+  `::after { inset: 0 }`), at least 2.25 rem high.
+- **Arrows.** A sorted column shows `▲` (ascending) or `▼` (descending) in the accent color, with the header text in full
+  text color. A sortable column that is not in use shows a dim `⇅` that turns brighter on hover/focus, so it is visible
+  which headers can be clicked at all. Arrows are drawn with CSS (`::after` on `a.sort`, an inline SVG mask, or plain
+  characters) so they follow the theme tokens.
+- **Behaviour.** A click sorts ascending; clicking the sorted column again flips it; a third click does not remove the
+  sort (the list always has an order). Text columns start ascending, numbers and dates descending (newest and largest
+  first). The sort and its direction are in the route values, as Torrents' title sort is now, so they survive paging,
+  filters and bulk actions; changing the sort goes back to page 1.
+- **Accessibility.** The sorted `th` has `aria-sort="ascending"` or `"descending"`; the arrow is `aria-hidden`.
+- **Which columns.**
+
+| Page | Sortable columns |
+|---|---|
+| Torrents | Title, Authors (first author), Series, Format, Status, and added date |
+| Search | the Sort select stays for MAM's orders (MAM sorts, not Fetchshelf); the select is replaced by arrows on the Title, Size and Added headers only where MAM supports that order, otherwise the select is kept |
+| Series | Series, In the library, Missing, Following |
+| Selected | Title, Cost, Created |
+| Events | Occurred at, Type |
+| Errors | Job, Last failed |
+| Jobs | none (the groups are the order) |
+| Lists, Duplicates, Library check | none at first |
+
+  A page that cannot sort by a column in the database (Torrents is paged in the database) only offers columns with an
+  index or a cheap `ORDER BY`; sorting by a joined name (author, series) needs checking against the 10k-torrent
+  scale plan before it is offered.
+- **Implementation.** A tag helper `<th sort-by="Title" sort="@Model.Query">Title</th>` (in `TagHelpers/`) renders the
+  link, arrow and `aria-sort` from the current sort, so every page uses the same markup. The sort parsing already
+  existing on Torrents' query (`ToggleTitleSort`) becomes a small shared type (`SortState`: column, direction;
+  `Toggle(column)`) with unit tests for the toggle rules above.
+
 ## 3. Jobs page
 
 Three groups, each its own section with a heading, a one-line caption and a background band so the separation is visible
@@ -221,8 +303,7 @@ Ordered by value for cost.
 7. **Consistent button hierarchy.** One primary button per page region; destructive actions (Remove selected, Unlink)
    separated from the rest of the bulk bar by a gap and confirmation dialogs instead of `confirm()`. Today
    `button.primary` is applied by selector for GET forms only, so primary actions differ between pages. (Medium)
-8. **Pagination**: top and bottom pager with the count ("1–50 of 7,412"), page size selector kept in the cookie that
-   exists. Torrents has only a bottom one. (Small)
+8. **Pagination and sorting** are covered under section 2.
 9. **Feedback in place.** After "Run now", the row's button turns into "Running…" with the spinner already in the CSS;
    after bulk actions the sticky bar shows progress, linking to the bulk operation. (Small)
 10. **Contrast and focus checks on all themes** for the new elements (badges on the menu button, sticky bar), using the
@@ -237,11 +318,13 @@ One branch and PR per step, as usual; each step is shippable alone.
 
 | Step | Content | Notes |
 |---|---|---|
-| 1 | Table base rules (section 2 rules 1–6) and Torrents column merge | biggest visible win; screenshot at 820 and 2560 px before/after |
+| 1 | Table base rules (section 2 rules 1–6) and Torrents column merge, with the `SortState` type and the sort tag helper on Torrents | biggest visible win; screenshot at 820 and 2560 px before/after |
 | 2 | Grouped menu: `NavModel`, markup, `nav.js`, badges, sticky header | unit tests for `NavModel` |
 | 3 | Jobs page groups, job cell layout, next-run text | unit tests for grouping and the time text |
 | 4 | Search results, Selected, Series, Events, Errors columns; filter disclosure and chips | |
 | 5 | Sticky bulk-action bar on Torrents/Selected/Errors | |
+| 5b | New pager on every paged list (Torrents, Series, Events, Following, Lists, Jobs history, Search) | unit tests for `PagerViewModel.Items()`; may come right after step 1, as it is independent of the rest |
+| 5c | Sortable headers on the pages in the sort table | after step 4, so the merged columns are known |
 | 6 | Items 1–3, 5, 8, 9 of section 4 | small, can be split further |
 | 7 | Items 4, 6, 7 of section 4 | optional |
 
