@@ -25,6 +25,7 @@
         + (library.LanguageInFolder == LanguageInFolder.Other ? "; language of other books marked" : "");
 }
 
+<div class="config-page">
 <h2>Config</h2>
 @await Html.PartialAsync("_PageExplanation", "This page is a read-only view of Fetchshelf's active configuration, loaded from config.toml. Secrets like mam_id and passwords are hidden, but you can trigger an autograbber, or preview a tag rule and apply it, directly from here.")
 
@@ -508,3 +509,4 @@
         })();
     </script>
 </section>
+</div>

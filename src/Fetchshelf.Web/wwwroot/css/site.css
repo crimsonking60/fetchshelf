@@ -268,6 +268,12 @@ thead th {
     border-bottom: 2px solid var(--border-strong);
 }
 thead th a { color: inherit; }
+/* Config's blocks have many columns of short values: headings wrap, so the table never outgrows the window (a browser
+   that shrinks a page to fit its widest part would shrink the menu with it). */
+.config-page thead th { white-space: normal; vertical-align: bottom; }
+.config-page td { overflow-wrap: anywhere; }
+.config-page th, .config-page td { padding-inline: 0.35rem; }
+.config-page thead th { overflow-wrap: normal; font-size: 0.8125rem; }
 
 /* Sortable headings: no underline, the whole cell is the target, and an arrow shows the state (aria-sort drives it). */
 thead th:has(> a.sort) { padding: 0; }
