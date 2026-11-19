@@ -155,7 +155,7 @@ public sealed class LibraryCheckPageTests : IDisposable
         var afterDelete = await PostAsync(client, "Delete", Results(fixture).Findings[0].Id);
         var status = await client.GetAsync("/LibraryCheck?handler=Status");
 
-        Assert.Contains("The findings below are from the previous check", page);
+        Assert.Contains("Until then, the findings below are from the previous check", page);
         Assert.Contains("hx-get=\"?handler=Status\"", page);
         Assert.Contains("<button type=\"submit\" class=\"danger\" disabled=\"disabled\">Delete selected</button>", page);
         Assert.Contains("The Library check is running, so these are the previous check's findings.", afterDelete);
@@ -166,6 +166,39 @@ public sealed class LibraryCheckPageTests : IDisposable
         await run;
         var ended = await client.GetAsync("/LibraryCheck?handler=Status");
         Assert.Equal("true", ended.Headers.GetValues("HX-Refresh").Single());
+    }
+
+    [Fact]
+    public async Task RunTheCheck_AQuickCheck_ComesBackWithItsFindings_NotSayingItRuns()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        var results = Results(fixture);
+        fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, _ =>
+        {
+            results.Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old", "Audiobooks")], DateTimeOffset.UtcNow);
+            return Task.CompletedTask;
+        });
+
+        var html = await PostAsync(client, "Run");
+
+        Assert.Contains("/lib/Author/Old", html);
+        Assert.Contains("Last checked", html);
+        Assert.DoesNotContain("running", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunTheCheck_ALongCheck_ComesBackSayingItRuns()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, ct => Task.Delay(Timeout.Infinite, ct));
+
+        var html = await PostAsync(client, "Run");
+
+        Assert.Contains("The check is running; the page shows what it finds when it ends.", html);
+        Assert.DoesNotContain("Until then", html);
+        fixture.JobRegistry.Cancel(Fetchshelf.Data.Configuration.JobNames.LibraryCheck);
     }
 
     [Fact]

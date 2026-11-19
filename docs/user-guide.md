@@ -1957,7 +1957,8 @@ with the records. It runs only when started, with **Run now** on the **Jobs** pa
 as walking a large library on a NAS can take a while. It waits for, and holds off, the Link and Clean jobs while it
 walks. Its findings are kept until the next check or a restart, and are on the **Library check** page. While a
 check runs, the page shows the previous check's findings with their buttons turned off, as the new findings replace
-them when it ends; the page reloads itself then.
+them when it ends; the page reloads itself then. A check that ends within two seconds, as on a small library, comes
+back with its findings straight away.
 
 | Finding | Means | Actions |
 |---|---|---|

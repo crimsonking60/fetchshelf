@@ -73,11 +73,17 @@ public class IndexModel(
         return RedirectToPage();
     }
 
-    /// <summary><b>Run the check</b>: starts the job, which goes on after the page has come back.</summary>
-    public IActionResult OnPostRun()
+    /// <summary>How long <b>Run the check</b> waits for the check to end before the page comes back with it still running.</summary>
+    public static readonly TimeSpan RunWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// <b>Run the check</b>: starts the job and waits up to <see cref="RunWait"/> for it, so a small library's check comes
+    /// back with its findings. A longer one goes on after the page has come back, which then says it is running.
+    /// </summary>
+    public async Task<IActionResult> OnPostRunAsync()
     {
-        _ = jobRegistry.TriggerAsync(JobNames.LibraryCheck, JobTrigger.Manual, CancellationToken.None);
-        ActionMessage = "The Library check is running; the page shows what it found when it ends.";
+        var run = jobRegistry.TriggerAsync(JobNames.LibraryCheck, JobTrigger.Manual, CancellationToken.None);
+        await Task.WhenAny(run, Task.Delay(RunWait, HttpContext.RequestAborted));
         return RedirectToPage();
     }
 

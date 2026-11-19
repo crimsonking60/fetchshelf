@@ -36,11 +36,11 @@
     @* Polls until the check ends, then the whole page reloads with its findings. *@
     <div id="check-running" hx-get="?handler=Status" hx-trigger="every 2s" hx-swap="none"></div>
     <p id="running-message" class="notice" role="status">
-        The check is running. @if (Model.CheckedAt is { } previous)
+        The check is running; the page shows what it finds when it ends.
+        @if (Model.CheckedAt is { } previous)
         {
-            <text>The findings below are from the previous check, of <local-time value="previous" />, and can't be acted on until it ends; </text>
+            <text>Until then, the findings below are from the previous check, of <local-time value="previous" />, and can't be acted on.</text>
         }
-        the page shows what this one finds when it ends.
     </p>
 }
 
