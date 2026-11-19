@@ -494,6 +494,21 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 .details-full { white-space: pre-line; overflow-wrap: anywhere; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.9rem; }
+
+/* The bulk-action bar: the buttons under a list, fixed to the bottom of the window while the list is on screen and
+   rows are ticked (bulk-bar.js hides it otherwise), so they are in reach however long the list is. */
+.bulk-bar {
+    position: sticky; bottom: 0; z-index: 8;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+    margin: 0.5rem 0 0.9rem; padding: 0.6rem 0.75rem;
+    background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 4px;
+    box-shadow: 0 -4px 14px color-mix(in srgb, #000 28%, transparent);
+}
+.bulk-bar[hidden] { display: none; }
+.bulk-bar form { margin: 0; }
+.bulk-count { margin-right: 0.5rem; font-weight: 600; }
+.bulk-category { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-left: auto; }
+.bulk-category label { display: inline-flex; align-items: center; gap: 0.4rem; }
 .actions form { margin: 0; }
 
 /* ---- responsive ---------------------------------------------------------- */

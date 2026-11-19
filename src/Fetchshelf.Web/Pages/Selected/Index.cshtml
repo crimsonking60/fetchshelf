@@ -82,7 +82,9 @@ else
             </tbody>
         </table>
 
-        <div class="actions">
+        @* Fixed to the bottom of the window while rows are ticked, so the buttons are in reach at the end of a long list (bulk-bar.js). *@
+        <div class="bulk-bar" data-bulk-bar>
+            <span class="bulk-count" data-bulk-count>Nothing selected</span>
             <button type="submit" class="danger">Remove selected</button>
         </div>
     </form>
