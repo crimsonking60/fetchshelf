@@ -12,26 +12,24 @@
 }
 else
 {
-    <table>
+    @* One row per torrent, in six kinds of cell: authors and series sit under the title and the library mismatch inside the status, so the title gets the width. *@
+    <table class="torrent-table">
         <thead>
             <tr>
-                <th><input type="checkbox" onclick="document.querySelectorAll('.torrent-select').forEach(c => c.checked = this.checked)" /></th>
-                <th><a asp-page="/Torrents/Index" asp-all-route-data="Model.Query.ToggleTitleSort().ToRouteValues()">Title</a></th>
-                <th>Authors</th>
-                <th>Series</th>
-                <th>Media type</th>
-                <th>Language</th>
-                <th>Category</th>
-                <th>Client status</th>
-                <th>Mismatch</th>
-                <th></th>
+                <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.torrent-select').forEach(c => c.checked = this.checked)" /></th>
+                <th sort-by="Title" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Title</th>
+                <th class="col-fit" sort-by="Format" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Format</th>
+                <th sort-by="Category" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Category</th>
+                <th sort-by="Status" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Status</th>
+                <th class="col-fit" sort-by="CreatedAt" sort-first-descending="true" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Added</th>
+                <th class="col-fit"></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var torrent in Model.Torrents)
             {
                 <tr>
-                    <td><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" /></td>
+                    <td class="col-fit"><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" aria-label="Select @torrent.Title" /></td>
                     <td>
                         <a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a>
                         @if (torrent.Unlinked)
@@ -50,21 +48,32 @@ else
                         {
                             <span class="muted upgrade-note" title="A better format of this book is possible">(@upgradeNote)</span>
                         }
+                        @if (torrent.Authors.Count > 0 || torrent.Series.Count > 0)
+                        {
+                            <div class="sub">
+                                <partial name="_NameLinks" model="new NameLinksViewModel(torrent.Authors, nameof(IndexModel.Author), Model.Query)" />
+                                @if (torrent.Authors.Count > 0 && torrent.Series.Count > 0)
+                                {
+                                    <span class="muted"> · </span>
+                                }
+                                <partial name="_NameLinks" model="new NameLinksViewModel(torrent.Series, nameof(IndexModel.Series), Model.Query)" />
+                            </div>
+                        }
                     </td>
-                    <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Authors, nameof(IndexModel.Author), Model.Query)" /></td>
-                    <td><partial name="_NameLinks" model="new NameLinksViewModel(torrent.Series, nameof(IndexModel.Series), Model.Query)" /></td>
-                    <td class="nowrap"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a></td>
-                    <td><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></td>
-                    <td>@torrent.QBittorrentCategory</td>
-                    <td class="nowrap">@QBittorrentStateLabel.For(torrent.ClientStatus)@if (torrent.RemovedFromMam)
+                    <td class="col-fit"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a><div class="sub"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></div></td>
+                    <td class="col-clip" title="@torrent.QBittorrentCategory">@torrent.QBittorrentCategory</td>
+                    <td class="col-fit">@QBittorrentStateLabel.For(torrent.ClientStatus)@if (torrent.RemovedFromMam)
                         {
                             <span class="muted">(removed from MAM)</span>
+                        }@if (LibraryMismatchLabel.For(torrent.LibraryMismatchState) is { } mismatch)
+                        {
+                            <span class="status-badge status-not-in-qbittorrent" title="@torrent.LibraryMismatchState">@mismatch</span>
                         }@if (Model.SeedingNote(torrent) is { } seedingNote)
                         {
-                            <br /><span class="muted seeding-note">@seedingNote</span>
+                            <div class="sub seeding-note">@seedingNote</div>
                         }</td>
-                    <td class="nowrap" title="@torrent.LibraryMismatchState">@(LibraryMismatchLabel.For(torrent.LibraryMismatchState) ?? "-")</td>
-                    <td class="nowrap"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
+                    <td class="col-fit" title="@torrent.CreatedAt.ToString("u")">@torrent.CreatedAt.ToString("yyyy-MM-dd")</td>
+                    <td class="col-fit"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
                 </tr>
             }
         </tbody>

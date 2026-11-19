@@ -74,7 +74,7 @@ else
                             <a asp-page="/Torrents/Detail" asp-route-id="@e.TorrentId" title="@e.TorrentId">@Model.TorrentLabel(e)</a>
                         }
                     </td>
-                    <td>
+                    <td class="break">
                         @{ var details = EventLabels.Details(e); }
                         @if (EventLabels.Shortened(details) is { } shortened)
                         {

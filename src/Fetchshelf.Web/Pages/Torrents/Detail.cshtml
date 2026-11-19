@@ -51,7 +51,7 @@
             <tbody>
                 @foreach (var book in Model.Books)
                 {
-                    <tr><td><a asp-page="/Torrents/Detail" asp-route-id="@book.Id">@book.Title</a></td><td>@(book.LibraryPath ?? "not linked")</td></tr>
+                    <tr><td><a asp-page="/Torrents/Detail" asp-route-id="@book.Id">@book.Title</a></td><td class="break">@(book.LibraryPath ?? "not linked")</td></tr>
                 }
             </tbody>
         </table>
