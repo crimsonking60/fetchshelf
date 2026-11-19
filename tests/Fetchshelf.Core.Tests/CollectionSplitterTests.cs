@@ -164,6 +164,33 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void IssuesNamedAfterAVolume_TakeTheTorrentsBetterWordedTitleAsTheirSeries()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Batman: Black and White", Authors = ["Neil Gaiman"] },
+            Files(Enumerable.Range(1, 4).Select(i => $"Batman - Black and White/Black  White Vol 1 #{i:00}.cbr").ToArray()),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Batman: Black and White Vol 1 #01", "Batman: Black and White Vol 1", "1"), ("Batman: Black and White Vol 1 #04", "Batman: Black and White Vol 1", "4")],
+            new[] { books[0], books[3] }.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Name, b.Metadata.Series[0].Entries[0].Display)));
+    }
+
+    [Fact]
+    public void TheTorrentsTitle_IsNotTakenForASeriesWithWordsItLacks()
+    {
+        var names = new[] { "Ultimate Six 01", "Ultimate Six 02", "Ultimate Six 03", "Ultimate Spider-Man 001" };
+
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Ultimate Spider-Man" },
+            Files(names.Select(n => $"C/{n}.cbr").ToArray()),
+            EbookTypes)!;
+
+        Assert.Equal(["Ultimate Six", "Ultimate Six", "Ultimate Six", "Ultimate Spider-Man"], books.Select(b => b.Metadata.Series[0].Name));
+        Assert.Equal("Ultimate Six 01", books[0].Metadata.Title);
+    }
+
+    [Fact]
     public void FewerThanThreeNumberedNames_WithoutARange_IsNotACollection()
     {
         Assert.Null(CollectionSplitter.Split(
