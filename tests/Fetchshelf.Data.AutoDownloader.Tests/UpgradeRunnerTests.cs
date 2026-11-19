@@ -166,6 +166,27 @@ public sealed class UpgradeRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ABookOfASplitCollection_IsNotSearchedFor()
+    {
+        var harness = CreateHarness(Results(Record(2, filetype: "m4b")));
+        var book = Copy("939c95997a312c59cd9a2e2a89fb47aab0db5848-1");
+        book.CollectionTorrentId = "939c95997a312c59cd9a2e2a89fb47aab0db5848";
+        Add(harness, book);
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(0, summary.Searched);
+        Assert.Empty(harness.Searches);
+        Assert.False(Fetchshelf.Data.Organizer.LibraryCopyRank.CouldBeUpgraded(Stored(harness, book.Id), new FormatPreferenceLists
+        {
+            AudioTypes = ["m4b", "mp3"],
+            EbookTypes = ["epub"],
+            MusicTypes = [],
+            RadioTypes = [],
+        }));
+    }
+
+    [Fact]
     public async Task ItsOwnUnsatBuffer_LowersTheRunsLimit()
     {
         var harness = CreateHarness(Results(Record(2, filetype: "m4b")));

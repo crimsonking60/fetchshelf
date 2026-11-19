@@ -53,6 +53,7 @@ public static class LibraryCopyRank
     public static bool CouldBeUpgraded(TorrentEntity torrent, FormatPreferenceLists preferenceLists) =>
         torrent.LibraryPath is not null
         && torrent.ReplacedWithTorrentId is null
+        && torrent.CollectionTorrentId is null // a book of a split collection is left as it is: it came with the collection
         && ChosenFormat(torrent) is not null
         && Of(torrent, preferenceLists) > 0;
 

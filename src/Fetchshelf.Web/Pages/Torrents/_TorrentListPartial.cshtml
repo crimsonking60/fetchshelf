@@ -38,6 +38,14 @@ else
                         {
                             <span class="muted">(unlinked)</span>
                         }
+                        @if (torrent.CollectionTorrentId is { } collectionId)
+                        {
+                            <span class="muted">(from <a asp-page="/Torrents/Detail" asp-route-id="@collectionId">a collection</a>)</span>
+                        }
+                        else if (torrent.CollectionBookCount is { } bookCount)
+                        {
+                            <span class="muted">(collection of @bookCount books)</span>
+                        }
                         @if (torrent.UpgradeNote is { } upgradeNote)
                         {
                             <span class="muted upgrade-note" title="A better format of this book is possible">(@upgradeNote)</span>

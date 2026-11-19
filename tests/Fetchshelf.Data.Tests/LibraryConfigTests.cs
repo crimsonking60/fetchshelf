@@ -312,4 +312,53 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Null(connection.OnUnlinked);
         Assert.Null(connection.OnInvalidTorrent);
     }
+
+    [Fact]
+    public void Load_SplitCollections_OffByDefault()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+            """);
+
+        Assert.False(Assert.Single(ConfigLoader.Load(ConfigPath).Library).SplitCollections);
+    }
+
+    [Fact]
+    public void Load_TopLevelSplitCollections_IsEveryLibrarysDefault_ALibraryMaySayOtherwise()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            split_collections = true
+
+            [[library]]
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+
+            [[library]]
+            category = "comics"
+            library_dir = "/library/comics"
+            split_collections = false
+            """);
+
+        Assert.Equal([true, false], ConfigLoader.Load(ConfigPath).Library.Select(l => l.SplitCollections));
+    }
+
+    [Fact]
+    public void Load_ALibrarysSplitCollections_WithoutTheTopLevelOne_SplitsThatLibrary()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+            split_collections = true
+            """);
+
+        Assert.True(Assert.Single(ConfigLoader.Load(ConfigPath).Library).SplitCollections);
+    }
 }

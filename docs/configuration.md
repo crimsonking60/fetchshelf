@@ -219,6 +219,7 @@ These go at the top of the file, before any section.
 | `metadata_json` | `true` | Whether every `[[library]]` that does not set its own `metadata_json` writes a `metadata.json`. See [`[[library]]`](#library). |
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
 | `metrics` | `false` | Serve Prometheus metrics at `/metrics`. See [Prometheus metrics](#prometheus-metrics). |
+| `split_collections` | `false` | Whether every `[[library]]` that does not set its own [`split_collections`](#library) splits a collection into one library book each. See [Collections](user-guide.md#collections). |
 | `covers_from_mam` | `0` | How many covers each Link run fetches from MAM for book folders that have no image, `0` to `100`. They are written as `cover.jpg` (or `cover.png`, `cover.webp`); books already in the library get theirs over the following runs. `0` fetches none. Series libraries are left out. The covers come from MAM's image server, which isn't among the parts of MAM its API documentation authorizes automating. See [Covers](user-guide.md#covers). |
 | `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
@@ -937,7 +938,7 @@ Upgrade job; better copies other searches happen to find are still taken.
 | `dry_run` | `false` | Search MAM, but select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | one `free` block | Repeatable `[[upgrade.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter). Without any, one block with `cost = "free"` and no filter is used, so upgrades only take free copies. `metadata_only` costs are not allowed. The top-level `languages` doesn't apply: a book is searched in its own language. |
 
-What each run does: it picks the books that could be better, never-searched first and then the longest ago,
+What each run does: it picks the books that could be better (not the books of a [split collection](user-guide.md#collections)), never-searched first and then the longest ago,
 searches MAM for each by its title and authors (as a Hardcover list searches) in its language and media type, and
 keeps the results that are the same book (as for duplicates) in a better format. The best of them that a `grab`
 block accepts is selected; when selection turns it down, the next is tried. A torrent already known to Fetchshelf,
@@ -1113,6 +1114,7 @@ library, in file order, that accepts it is used.
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
+| `split_collections` | global `split_collections` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. A torrent's own page can override it for that torrent. See [Collections](user-guide.md#collections). |
 | `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
 | `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |

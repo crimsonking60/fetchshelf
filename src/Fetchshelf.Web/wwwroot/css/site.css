@@ -513,3 +513,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 /* ---- Library check page ---------------------------------------------------- */
 
 .finding-note { margin-top: 0.2rem; color: var(--c-warn); }
+
+/* ---- Torrent page --------------------------------------------------------- */
+
+.torrent-links { display: flex; gap: 1rem; margin-top: -0.25rem; }

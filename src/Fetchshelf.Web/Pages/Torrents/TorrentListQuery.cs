@@ -7,7 +7,7 @@ namespace Fetchshelf.Web.Pages.Torrents;
 /// </summary>
 public sealed record TorrentListQuery(
     string? Q, string? Status, string? Library, string? QbCategory, string? Problem, string? Language, string? MediaType, string Sort, string Dir, int PageSize,
-    string? Author = null, string? Narrator = null, string? Series = null, string? Seeding = null)
+    string? Author = null, string? Narrator = null, string? Series = null, string? Seeding = null, string? CollectionBooks = null)
 {
     /// <summary>The query as route values for a link, leaving out empty values.</summary>
     public Dictionary<string, string> ToRouteValues()
@@ -25,6 +25,7 @@ public sealed record TorrentListQuery(
             [nameof(Narrator)] = Narrator ?? string.Empty,
             [nameof(Series)] = Series ?? string.Empty,
             [nameof(Seeding)] = Seeding ?? string.Empty,
+            [nameof(CollectionBooks)] = CollectionBooks ?? string.Empty,
             [nameof(Sort)] = Sort,
             [nameof(Dir)] = Dir,
             [nameof(PageSize)] = PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -37,7 +38,7 @@ public sealed record TorrentListQuery(
         !string.IsNullOrEmpty(Status) || !string.IsNullOrEmpty(Library) || !string.IsNullOrEmpty(QbCategory) || !string.IsNullOrEmpty(Problem)
         || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType)
         || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series)
-        || !string.IsNullOrEmpty(Seeding);
+        || !string.IsNullOrEmpty(Seeding) || !string.IsNullOrEmpty(CollectionBooks);
 
     /// <summary>The query with every filter cleared, keeping the search text, sort and page size.</summary>
     public TorrentListQuery WithoutFilters() =>
@@ -53,6 +54,7 @@ public sealed record TorrentListQuery(
             Narrator = null,
             Series = null,
             Seeding = null,
+            CollectionBooks = null,
         };
 
     /// <summary>Sorted by title: ascending first, reversed when already sorted by title ascending.</summary>

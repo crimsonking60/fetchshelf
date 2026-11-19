@@ -589,6 +589,12 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("ClientStatus")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CollectionBookCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CollectionTorrentId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset?>("CoverCheckedAt")
                         .HasColumnType("TEXT");
 
@@ -654,6 +660,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<string>("SeedingState")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool?>("SplitCollection")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -665,6 +674,8 @@ namespace Fetchshelf.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CollectionTorrentId");
 
                     b.HasIndex("Language");
 

@@ -177,6 +177,20 @@ public sealed class CoverWriterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ABookOfASplitCollection_GetsNoCoverFromMam_WhichIsTheCollections()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedLinkedAsync(context, 1);
+        (await context.Torrents.SingleAsync()).CollectionTorrentId = "939c95997a312c59cd9a2e2a89fb47aab0db5848";
+        await context.SaveChangesAsync();
+        var source = new FakeCoverSource(_ => Jpeg);
+
+        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+
+        Assert.Empty(source.Asked);
+    }
+
+    [Fact]
     public async Task RunAsync_BookOutsideEveryLibrary_IsLeftAlone()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

@@ -8,11 +8,55 @@
 @if (Model.Torrent is { } torrent)
 {
     <h2>@torrent.Metadata.Title</h2>
+    @if (torrent.MamLink is not null || torrent.AbsLink is not null)
+    {
+        <p class="torrent-links">
+            @if (torrent.MamLink is not null)
+            {
+                <a id="mam-link" href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a>
+            }
+            @if (torrent.AbsLink is not null)
+            {
+                <a id="abs-link" href="@torrent.AbsLink" target="_blank">Open in Audiobookshelf</a>
+            }
+        </p>
+    }
     @if (Model.ActionMessage is { } actionMessage)
     {
         <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
     }
     @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, unlink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
+    @if (Model.Collection is var (collectionId, collectionTitle))
+    {
+        <p id="collection-of" class="notice">
+            A book of the collection <a asp-page="/Torrents/Detail" asp-route-id="@collectionId">@collectionTitle</a>, linked as a book of its own.
+            qBittorrent has the collection's torrent, which its other books share: its category, tags, <strong>Start</strong>,
+            <strong>Stop</strong> and removal are on the collection's page. <strong>Refresh</strong> and <strong>Refresh and
+            relink</strong> act on the whole collection.
+        </p>
+    }
+    else if (Model.IsBook)
+    {
+        <p id="collection-of" class="notice">A book of a collection whose record is gone; Refresh and relink brings the collection back.</p>
+    }
+
+    @if (Model.Books.Count > 0)
+    {
+        <p id="collection-books" class="notice">
+            A collection, linked as its @Model.Books.Count books: each has its own page, folder and record. Clean, Unlink and
+            Relink act on a book; <strong>Refresh and relink</strong> here relinks them all.
+        </p>
+        <table id="books">
+            <thead><tr><th>Book</th><th>Folder</th></tr></thead>
+            <tbody>
+                @foreach (var book in Model.Books)
+                {
+                    <tr><td><a asp-page="/Torrents/Detail" asp-route-id="@book.Id">@book.Title</a></td><td>@(book.LibraryPath ?? "not linked")</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+
     <div class="meta-block">
         <p><span class="label">Authors</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Authors(torrent.Metadata), nameof(IndexModel.Author))" /></span></p>
         <p><span class="label">Narrators</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Narrators(torrent.Metadata), nameof(IndexModel.Narrator))" /></span></p>
@@ -67,15 +111,6 @@
             <span class="muted">An estimate from qBittorrent's seeding time; the Account page has MAM's own counts.</span>
         </p>
     }
-    @if (torrent.MamLink is not null)
-    {
-        <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
-    }
-    @if (torrent.AbsLink is not null)
-    {
-        <p id="abs-link"><a href="@torrent.AbsLink" target="_blank">Open in Audiobookshelf</a></p>
-    }
-
     <h3>Linked files</h3>
     <ul>
         @foreach (var file in torrent.LinkedFiles)
@@ -90,23 +125,26 @@
         <p>Progress: @(state.Progress * 100)% - State: <span title="@state.State">@QBittorrentStateLabel.For(state.State)</span></p>
         <p>Category: @state.Category - Tags: @string.Join(", ", state.TagList)</p>
 
-        @* Untick a tag to remove it; add new ones, separated by commas. *@
-        <form id="category-tags-form" method="post" asp-page-handler="SetCategoryAndTags" asp-route-id="@torrent.Id" class="edit-form">
-            @Html.AntiForgeryToken()
-            <label>Category @await Html.PartialAsync("_LibraryCategorySelect", new LibraryCategorySelectViewModel(Model.CategoryOptions, state.Category, "category-select"))</label>
-            @if (state.TagList.Count > 0)
-            {
-                <fieldset>
-                    <legend>Tags</legend>
-                    @foreach (var tag in state.TagList)
-                    {
-                        <label><input type="checkbox" name="tags" value="@tag" checked /> @tag</label>
-                    }
-                </fieldset>
-            }
-            <label>Add tags <input type="text" name="newTags" placeholder="Separate tags with commas" /></label>
-            <button type="submit">Set category and tags</button>
-        </form>
+        @if (!Model.IsBook)
+        {
+            @* Untick a tag to remove it; add new ones, separated by commas. *@
+            <form id="category-tags-form" method="post" asp-page-handler="SetCategoryAndTags" asp-route-id="@torrent.Id" class="edit-form">
+                @Html.AntiForgeryToken()
+                <label>Category @await Html.PartialAsync("_LibraryCategorySelect", new LibraryCategorySelectViewModel(Model.CategoryOptions, state.Category, "category-select"))</label>
+                @if (state.TagList.Count > 0)
+                {
+                    <fieldset>
+                        <legend>Tags</legend>
+                        @foreach (var tag in state.TagList)
+                        {
+                            <label><input type="checkbox" name="tags" value="@tag" checked /> @tag</label>
+                        }
+                    </fieldset>
+                }
+                <label>Add tags <input type="text" name="newTags" placeholder="Separate tags with commas" /></label>
+                <button type="submit">Set category and tags</button>
+            </form>
+        }
     }
 
     <h3>Actions</h3>
@@ -115,7 +153,10 @@
         <strong>Refresh and relink</strong> keeps details edited by hand, and moves the book's folder to match them.
     </p>
     <div class="actions">
-        <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
+        @if (Model.Books.Count == 0)
+        {
+            <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
+        }
         @if (Model.EditedByHand)
         {
             <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" onsubmit="return confirm('Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead.')">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
@@ -124,14 +165,25 @@
         {
             <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
         }
-        <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh and relink</button></form>
-        @if (torrent.UnlinkedAt is null)
+        <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">
+            @Html.AntiForgeryToken()
+            @if (Model.OffersSplit)
+            {
+                <input type="hidden" name="splitShown" value="true" />
+                <label title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books</label>
+            }
+            <button type="submit">Refresh and relink</button>
+        </form>
+        @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)
         {
             <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it."))">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
         }
-        <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
-        <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-        <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone."))">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+        @if (!Model.IsBook)
+        {
+            <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
+            <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
+            <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone."))">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+        }
         @if (torrent.ReplacedWithTorrentId is not null)
         {
             <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>

@@ -6,10 +6,10 @@
 
 ## Decisions (2026-11-19)
 
-- **Settings.** Splitting is off unless turned on twice: a top-level `split_collections = true` turns the feature on,
-  and each `[[library]]` that should split sets its own `split_collections = true`. Both default to `false`. A
-  collection is split only when both are on for the library it is linked into; otherwise it is linked as one book, as
-  before. A library's `split_collections` without the top-level one is refused at load, as it would do nothing.
+- **Settings** (changed during review from a two-part switch): `split_collections` works as `metadata_json` does. The
+  top-level one is the default for every `[[library]]` that doesn't set its own, `false` unless set; a library's own
+  overrides it; and a torrent's own choice, on its page, overrides its library. That choice is always offered, whatever
+  the configuration says.
 - **Formats per book.** The splitter runs before the format is chosen, on every file of the ebook side, and each book
   picks its own best format by its library's or the global `ebook_types`. A collection's other formats are usually
   other books, not copies (gap 1).
@@ -211,8 +211,8 @@ feature branch and one pull request into `main`.
    the last book.
 5. **Pages:** Torrents list, torrent pages, Duplicates.
 6. **Docs:** the user guide (linking, Clean, Unlink, collections), the configuration reference (`split_collections`
-   at the top level and per `[[library]]`), and the release notes' **Upgrading**: nothing changes until both settings
-   are on; collections linked earlier stay as they are until relinked.
+   at the top level and per `[[library]]`), and the release notes' **Upgrading**: nothing changes unless
+   `split_collections` is set or a torrent's page asks for it; collections linked earlier stay as they are until relinked.
 
 Later, outside this plan: audiobook collections; a Hardcover ISBN lookup for numbers and descriptions; selection
 passing over a collection whose books are all owned already.
@@ -228,3 +228,49 @@ passing over a collection whose books are all owned already.
 - On the live instance, after a release: relink torrent 339727, then check the folders in
   `/data/fs-ebooks/Terry Pratchett/Discworld/`, the OPDS catalog (40 books under the series, in order), the Series
   page, and the Duplicates page for the six books also held as singles.
+
+## As built
+
+- **Book ids are `<hash>-<n>`**, not `<hash>/<n>`: a slash would be two segments in the torrent page's `torrents/{id}`
+  and in OPDS's book addresses. `CollectionBookId` (Core) builds them, tells them apart (a 40 or 64 character hex hash,
+  a dash, a number) and gives `HashOf`, the hash qBittorrent and MAM know.
+- **`CollectionSplitter`** (Core) as designed, with the decisions: it works on every ebook-side file before a format is
+  chosen, each book picking its own; detection from MAM's range or from three or more `<series> <number>` names; disc
+  folders mean one book. The number comes from the epub (`calibre:series_index`, or EPUB 3's `group-position`), when its
+  series is the collection's, a leading number in the name, or the description's numbered list (a cut-short title
+  matching by prefix either way). The "a book already in the library" source for the number was left out. Covers: an
+  image in the book's own folder, `cover.*` first, else its only one. `EpubMetadataReader` (Core) reads the OPF from a
+  stream; the Link job opens the epub in the download folder.
+- **Tried on the real Ultimate Spider-Man collection's file list** (146 files, from the dev instance's qBittorrent):
+  every file got its series and number, 134 *Ultimate Spider-Man* issues with #0.5, 7 *Ultimate Six*, 3 Annuals and 2
+  *Ultimatum*, after the name pattern learned `000.5` and `Ultimate Six 05 - <title>`. A two-volume manga
+  (`… v01 - Yuki Suzuki.cbz`, MAM range `1-2`) then showed that a range collection must also take a number from the end
+  of a name, after a volume marker (`v01`, `Vol. 1`, `Volume 1`, `#1`).
+- **Link job:** a split collection's own record keeps no folder and gets `CollectionBookCount`; each later run only
+  brings its books' category and client state in step, as they follow the collection's torrent. Each book is placed
+  through the existing `PlaceFiles` (or the series layout's file), gets its cover as `cover.jpg`/`.png`/`.webp` (not in a
+  series library), a Linked event, and the Link job counts books. Details edited by hand on a book are kept on a relink.
+- **Relink** of a book relinks its collection; a collection linked as one book is split, and a split one in a library that
+  no longer splits is linked as one again, its book records removed.
+- **Mapping to the collection's hash:** `QBittorrentConnectionResolver`, `QBittorrentActions`, `ClientStatusChecker`,
+  `LinkRunner.RefreshAsync` (a book refreshes its collection) and `RelinkBlockerAsync`, the bulk Set category (which sets
+  the collection's and its books' category), `QBittorrentPresence` and the Search page's statuses.
+  `RetroactiveTagApplier` leaves books out, as the collection's record stands for the torrent. The cover pass
+  (`covers_from_mam`) leaves books out: MAM's cover is the collection's.
+- **Clean and Unlink:** `on_cleaned`/`on_unlinked` only once the collection's last linked book goes; the seeding hold and
+  `OnCleanedHeld` are the collection's record's, which the Seeding job matches.
+- **Pages:** a book's page links its collection and hides the torrent's actions (category and tags, Start, Stop,
+  removal), which are refused for a book if posted; a collection's page lists its books and has no Clean or Unlink. The
+  Torrents list marks both. Remove record on a collection removes its books too. The Config page shows both settings.
+- **Per torrent** (asked for during review): `TorrentEntity.SplitCollection`, null to follow the library, else
+  overriding it. The torrent page offers **Split into its books** in the **Refresh and relink** form, ticked as the
+  torrent's choice or its library's, for every ebook-side torrent that isn't a collection's book, whatever the
+  configuration; the choice is stored only when it differs from the library.
+- **The Torrents list** (asked for during review): a split collection is one row; its books show with *Books of
+  collections too*, or when the search or an author, narrator or series filter looks for them. Unlink on a collection
+  unlinks its books, so the bulk action works on the collection's row.
+- **Upgrades** (decided during review): the Upgrade job skips the books of a split collection, and they aren't *could be
+  upgraded* (`LibraryCopyRank.CouldBeUpgraded`), as a large collection would otherwise mean one MAM search per book.
+- **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
+  later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
+  Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

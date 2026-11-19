@@ -47,6 +47,24 @@ public class DetailModel(
     public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Following.FollowState> Followed { get; private set; } =
         new Dictionary<(Data.Entities.FollowKind, string), Following.FollowState>();
 
+    /// <summary>For a book of a split collection: the collection's record, which qBittorrent and MAM know; null otherwise.</summary>
+    public (string Id, string Title)? Collection { get; private set; }
+
+    /// <summary>For a collection linked as its books: the books, in their order; empty otherwise.</summary>
+    public IReadOnlyList<CollectionBookRow> Books { get; private set; } = [];
+
+    /// <summary>
+    /// Whether the page offers <b>Split into its books</b>: for an ebook-side torrent, whatever the configuration says,
+    /// but not for one of a collection's books, whose relink is its collection's.
+    /// </summary>
+    public bool OffersSplit { get; private set; }
+
+    /// <summary>Whether <b>Split into its books</b> starts ticked: the torrent's own choice, else its library's `split_collections`.</summary>
+    public bool Splits { get; private set; }
+
+    /// <summary>Whether this is a book of a split collection, whose qBittorrent actions are its collection's.</summary>
+    public bool IsBook => Torrent is { } torrent && CollectionBookId.IsBook(torrent.Id);
+
     /// <summary>What the last action did, shown once after the redirect back to this page.</summary>
     [TempData]
     public string? ActionMessage { get; set; }
@@ -63,6 +81,27 @@ public class DetailModel(
         }
 
         Torrent = loaded;
+        if (!CollectionBookId.IsBook(id) && CollectionSplitter.IsEbookSide(loaded.Metadata.MediaType)
+            && await dbContext.Torrents.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id) is { } record)
+        {
+            OffersSplit = true;
+            Splits = record.SplitCollection ?? await LibrarySplitsAsync(record);
+        }
+
+        if (CollectionBookId.IsBook(id))
+        {
+            var collectionId = CollectionBookId.HashOf(id);
+            Collection = await dbContext.Torrents.AsNoTracking().Where(t => t.Id == collectionId)
+                .Select(t => new ValueTuple<string, string>(t.Id, t.Title)).FirstOrDefaultAsync();
+        }
+        else
+        {
+            Books = (await dbContext.Torrents.AsNoTracking().Where(t => t.CollectionTorrentId == id)
+                    .Select(t => new CollectionBookRow(t.Id, t.Title, t.LibraryPath)).ToListAsync())
+                .OrderBy(b => int.Parse(b.Id[(b.Id.LastIndexOf('-') + 1)..], System.Globalization.CultureInfo.InvariantCulture))
+                .ToList();
+        }
+
         if (settings.Follow is not null)
         {
             Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext, HttpContext.RequestAborted);
@@ -107,8 +146,17 @@ public class DetailModel(
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostRefreshAndRelinkAsync(string id)
+    /// <param name="split">Whether <b>Split into its books</b> was ticked.</param>
+    /// <param name="splitShown">Whether the form offered it, so an unticked box (which sends nothing) means "don't split".</param>
+    public async Task<IActionResult> OnPostRefreshAndRelinkAsync(string id, bool split = false, bool splitShown = false)
     {
+        if (splitShown && await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == id) is { } record)
+        {
+            // Stored only as an exception to the library, so a later change of the library's setting still reaches it.
+            record.SplitCollection = split == await LibrarySplitsAsync(record) ? null : split;
+            await dbContext.SaveChangesAsync();
+        }
+
         using var gate = await writeGate.AcquireAsync(HttpContext.RequestAborted);
         try
         {
@@ -151,10 +199,11 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostRemoveRecordAsync(string id)
     {
-        var entity = await dbContext.Torrents.FindAsync(id);
-        if (entity is not null)
+        // A collection's books go with it: they are derived from it.
+        var records = await dbContext.Torrents.Where(t => t.Id == id || t.CollectionTorrentId == id).ToListAsync();
+        if (records.Count > 0)
         {
-            dbContext.Torrents.Remove(entity);
+            dbContext.Torrents.RemoveRange(records);
             await dbContext.SaveChangesAsync();
         }
 
@@ -174,20 +223,67 @@ public class DetailModel(
         return RedirectToPage(new { id });
     }
 
+    /// <summary>
+    /// Whether the torrent's library splits collections (its `split_collections`, the global one unless it sets its own):
+    /// the library that linked it, by name or by its folder or its books', else the library whose category it has. Else
+    /// the global `split_collections`.
+    /// </summary>
+    private async Task<bool> LibrarySplitsAsync(Data.Entities.TorrentEntity record)
+    {
+        var path = record.LibraryPath
+            ?? await dbContext.Torrents.AsNoTracking().Where(t => t.CollectionTorrentId == record.Id && t.LibraryPath != null)
+                .Select(t => t.LibraryPath).FirstOrDefaultAsync();
+        var library = settings.Library.FirstOrDefault(l => l.Name is not null && l.Name == record.LinkerName)
+            ?? (path is not null && LibraryFolders.IndexContaining(settings.Library, path) is { } index ? settings.Library[index] : null)
+            ?? settings.Library.FirstOrDefault(l => l.Category is not null && l.Category == record.QBittorrentCategory);
+        return library?.SplitCollections ?? settings.SplitCollections;
+    }
+
+    /// <summary>
+    /// A book of a split collection is in qBittorrent as its collection, so what is done to the torrent there is done on
+    /// the collection's page, where it is clear that every book of it follows.
+    /// </summary>
+    private IActionResult? RefuseForBook(string id)
+    {
+        if (!CollectionBookId.IsBook(id))
+        {
+            return null;
+        }
+
+        ActionMessage = "This book is in qBittorrent as its collection's torrent, shared with the collection's other books. Do this on the collection's page.";
+        ActionFailed = true;
+        return RedirectToPage(new { id });
+    }
+
     public async Task<IActionResult> OnPostStartAsync(string id)
     {
+        if (RefuseForBook(id) is { } refused)
+        {
+            return refused;
+        }
+
         await WithOwningClientAsync(id, client => client.StartAsync(id));
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostStopAsync(string id)
     {
+        if (RefuseForBook(id) is { } refused)
+        {
+            return refused;
+        }
+
         await WithOwningClientAsync(id, client => client.StopAsync(id));
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostRemoveWithDataAsync(string id)
     {
+        if (RefuseForBook(id) is { } refused)
+        {
+            return refused;
+        }
+
         await WithOwningClientAsync(id, client => client.DeleteWithDataAsync(id));
         return RedirectToPage("/Torrents/Index");
     }
@@ -198,6 +294,11 @@ public class DetailModel(
     /// </summary>
     public async Task<IActionResult> OnPostSetCategoryAndTagsAsync(string id, string? category, List<string> tags, string? newTags)
     {
+        if (RefuseForBook(id) is { } refused)
+        {
+            return refused;
+        }
+
         category ??= string.Empty;
         // Only a library's category, one of extra_categories, or the one the torrent already has, which the dropdown also offers.
         var currentCategory = await dbContext.Torrents.Where(t => t.Id == id).Select(t => t.QBittorrentCategory).FirstOrDefaultAsync();
@@ -276,7 +377,7 @@ public class DetailModel(
             var client = await QBittorrentConnectionResolver.ResolveAsync(connections.Select(c => c.Client).ToList(), id);
             if (client is not null)
             {
-                clientState = await client.GetTorrentAsync(id);
+                clientState = await client.GetTorrentAsync(CollectionBookId.HashOf(id)); // a book shows its collection's torrent
             }
         }
         catch (HttpRequestException)
@@ -308,3 +409,6 @@ public class DetailModel(
             : null;
     }
 }
+
+/// <summary>One book of a split collection, as the collection's page lists it.</summary>
+public sealed record CollectionBookRow(string Id, string Title, string? LibraryPath);

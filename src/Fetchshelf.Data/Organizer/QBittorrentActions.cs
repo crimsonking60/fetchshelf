@@ -7,8 +7,10 @@ namespace Fetchshelf.Data.Organizer;
 public static class QBittorrentActions
 {
     /// <summary>Sets the setting's category, creating it in qBittorrent if needed, and adds its tags.</summary>
+    /// <param name="hash">A record's id: a book of a split collection is acted on through its collection's torrent.</param>
     public static async Task ApplyAsync(QBittorrentClient client, string hash, QBittorrentCategoryAndTags setting, CancellationToken cancellationToken = default)
     {
+        hash = Core.Organizer.CollectionBookId.HashOf(hash);
         if (!string.IsNullOrEmpty(setting.Category))
         {
             await client.SetCategoryAsync(hash, setting.Category, cancellationToken);

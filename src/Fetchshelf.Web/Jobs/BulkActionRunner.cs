@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -115,10 +116,15 @@ public sealed class BulkActionRunner(
                     return (false, "qBittorrent doesn't have it.");
                 }
 
-                await client.SetCategoryAsync(id, operation.Category!);
+                // A book of a split collection is in qBittorrent as its collection: the category is the collection's and its books'.
+                var hash = CollectionBookId.HashOf(id);
+                await client.SetCategoryAsync(hash, operation.Category!);
                 // Shown in the list straight away; the Link job keeps it in step with qBittorrent from now on.
-                var torrent = await dbContext.Torrents.FirstAsync(t => t.Id == id);
-                torrent.QBittorrentCategory = operation.Category;
+                foreach (var torrent in await dbContext.Torrents.Where(t => t.Id == hash || t.CollectionTorrentId == hash).ToListAsync())
+                {
+                    torrent.QBittorrentCategory = operation.Category;
+                }
+
                 await dbContext.SaveChangesAsync();
                 return (true, string.Empty);
         }

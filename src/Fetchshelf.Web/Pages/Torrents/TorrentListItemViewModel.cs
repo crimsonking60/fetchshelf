@@ -27,6 +27,12 @@ public sealed record TorrentListItemViewModel(
 
     public long? SeedingSeconds { get; init; }
 
+    /// <summary>For a book of a split collection: the collection's record; null otherwise.</summary>
+    public string? CollectionTorrentId { get; init; }
+
+    /// <summary>For a collection linked as its books: how many; null otherwise.</summary>
+    public int? CollectionBookCount { get; init; }
+
     /// <param name="metadata">The entity's metadata when the caller has already read it, so it isn't read twice.</param>
     public static TorrentListItemViewModel From(TorrentEntity entity, TorrentMetadata? metadata = null)
     {
@@ -47,6 +53,8 @@ public sealed record TorrentListItemViewModel(
         {
             SeedingState = entity.SeedingState,
             SeedingSeconds = entity.SeedingSeconds,
+            CollectionTorrentId = entity.CollectionTorrentId,
+            CollectionBookCount = entity.CollectionBookCount,
         };
     }
 }
