@@ -184,7 +184,13 @@ public static partial class CollectionSplitter
     /// </summary>
     private static string Clean(string name, IReadOnlyList<string> authors)
     {
-        var cleaned = Spaces().Replace(TrailingBracketGroups().Replace(name, ""), " ").Trim();
+        var underscored = !name.Contains(' ', StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal);
+        var cleaned = Spaces().Replace(TrailingBracketGroups().Replace(underscored ? name.Replace('_', ' ') : name, ""), " ").Trim();
+        if (underscored && UnderscoredIssue().Match(cleaned) is { Success: true } issue)
+        {
+            cleaned = issue.Value; // what followed the number was in brackets, now lost to underscores
+        }
+
         foreach (var author in authors)
         {
             var suffix = " - " + author;
@@ -210,7 +216,7 @@ public static partial class CollectionSplitter
         var title = Clean(collection.Title, collection.Authors);
         var titleWords = Words(title);
         var seriesWords = Words(bare);
-        return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords) && !SameName(bare, title)
+        return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords)
             ? (volume.Success ? $"{title} {volume.Value.Trim()}" : title)
             : series;
     }
@@ -287,6 +293,11 @@ public static partial class CollectionSplitter
     // after " - ".
     [GeneratedRegex(@"^(?<series>.*?[^.\s#])\s+(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
     private static partial Regex TrailingNumberPattern();
+
+    // An underscored name's series and number, as in "Umbrella_Academy_-_Dallas_002__2008___Steam-DCP_" (brackets
+    // replaced by underscores too); a title after " - " is kept.
+    [GeneratedRegex(@"^.*?[^.\s#]\s+\d{1,4}(\.\d+)?(?=\s|$)(\s+-\s+\S.*)?")]
+    private static partial Regex UnderscoredIssue();
 
     [GeneratedRegex(@"\s*\b(?:v|vol|volume)\.?\s*\d+$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingVolume();

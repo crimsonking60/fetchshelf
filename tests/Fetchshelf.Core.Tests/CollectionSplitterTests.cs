@@ -209,6 +209,23 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void UnderscoredNames_AreReadAsSpacedOnes_WithoutWhatFollowsTheNumber()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "The Umbrella Academy: Dallas (1-6) [CBR]", Authors = ["Gerard Way"] },
+            Files(
+                "The Umbrella Academy - Dallas/Umbrella_Academy_-_Dallas_001_of_06_Both_Covers_2008_Minutemen-BroomhandleMauser_Locke.cbr",
+                "The Umbrella Academy - Dallas/Umbrella_Academy_-_Dallas_002__2008___Steam-DCP_.cbr",
+                "The Umbrella Academy - Dallas/Umbrella_Academy_-_Dallas_006__2009___Steam_.cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("The Umbrella Academy: Dallas 001", "1"), ("The Umbrella Academy: Dallas 002", "2"), ("The Umbrella Academy: Dallas 006", "6")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)));
+        Assert.All(books, b => Assert.Equal("The Umbrella Academy: Dallas", b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
     public void FewerThanThreeNumberedNames_WithoutARange_IsNotACollection()
     {
         Assert.Null(CollectionSplitter.Split(
