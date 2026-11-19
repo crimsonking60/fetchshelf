@@ -1,58 +1,5 @@
 @{
     var theme = Themes.Resolve(Context.Request.Cookies[Themes.CookieName]);
-    var currentPage = (string?)ViewContext.RouteData.Values["page"] ?? "";
-
-    // Search lives at /Index; every other nav entry owns the folder it points into (Torrents/Detail keeps "Torrents" lit).
-    bool IsCurrent(string navPage) =>
-        navPage == "/Index"
-            ? currentPage == "/Index"
-            : currentPage.StartsWith(navPage[..(navPage.LastIndexOf('/') + 1)], StringComparison.Ordinal);
-
-    var navItems = new List<(string Page, string Label)>
-    {
-        ("/Index", "Search"),
-        ("/Jobs/Index", "Jobs"),
-    };
-    // Only of use with a MAM account to read; the page itself stays reachable either way.
-    if (Settings.BackgroundJobsEnabled)
-    {
-        navItems.Add(("/Account/Index", "Account"));
-    }
-
-    navItems.Add(("/Statistics/Index", "Statistics"));
-
-    navItems.AddRange(
-    [
-        ("/Selected/Index", "Selected"),
-        ("/Torrents/Index", "Torrents"),
-        ("/Series/Index", "Series"),
-    ]);
-    // Only of use with a [follow] section; the page itself says so when there is none.
-    if (Settings.Follow is not null)
-    {
-        navItems.Add(("/Following/Index", "Following"));
-    }
-
-    navItems.AddRange(
-    [
-        ("/Events/Index", "Events"),
-        ("/Errors/Index", "Errors"),
-    ]);
-    // Only while the last Library check found something; the page is reachable from its job on the Jobs page either way.
-    var libraryFindings = LibraryCheck.Findings.Count;
-    if (libraryFindings > 0)
-    {
-        navItems.Add(("/LibraryCheck/Index", "Library check"));
-    }
-
-    navItems.Add(("/Duplicates/Index", "Duplicates"));
-    // Only of use to those who follow lists; the page itself stays reachable either way.
-    if (Settings.HardcoverList.Count > 0 || Settings.FileList.Count > 0 || Settings.BookmarksList.Count > 0)
-    {
-        navItems.Add(("/Lists/Index", "Lists"));
-    }
-
-    navItems.Add(("/Config/Index", "Config"));
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="@theme">
@@ -69,6 +16,7 @@
     <link rel="stylesheet" href="~/css/site.css" />
     <script src="~/lib/htmx/htmx.min.js"></script>
     <script src="~/js/theme.js" defer></script>
+    <script src="~/js/nav.js" defer></script>
     <script src="~/js/errors.js" defer></script>
     <script src="~/js/local-time.js" defer></script>
 </head>
@@ -88,23 +36,7 @@
                 Fetchshelf
             </a>
         </h1>
-        <nav class="site-nav" aria-label="Main">
-            @foreach (var (navPage, label) in navItems)
-            {
-                <a asp-page="@navPage" aria-current="@(IsCurrent(navPage) ? "page" : null)">@label@if (navPage == "/Errors/Index")
-                    {
-                        @await Component.InvokeAsync("ErrorBadge")
-                    }
-                    else if (navPage == "/Following/Index")
-                    {
-                        @await Component.InvokeAsync("FollowBadge")
-                    }
-                    else if (navPage == "/LibraryCheck/Index")
-                    {
-                        <span id="library-check-badge" class="nav-badge" title="Findings of the last Library check">@libraryFindings</span>
-                    }</a>
-            }
-        </nav>
+        @await Component.InvokeAsync("MainNav")
     </header>
     <main>
         @RenderBody()

@@ -393,7 +393,8 @@ One branch and PR per step, as usual; each step is shippable alone.
 | Step | Content | Notes |
 |---|---|---|
 | 1 | Table base rules (section 2 rules 1–6) and Torrents column merge, with the `SortState` type and the sort tag helper on Torrents | biggest visible win; screenshot at 820 and 2560 px before/after |
-| 2 | Grouped menu: `NavModel`, markup, `nav.js`, badges, sticky header | unit tests for `NavModel` |
+| 2 | Grouped menu: `NavModel`, markup, `nav.js`, badges, sticky header | built (PR: grouped menu). The ratio on the Account entry is left out for now: it needs the account snapshot on every page |
+| 2b | Theme menu in the header and "Match system" (section 5, changes 6 and 7) | split from step 2; reverses the earlier choice of the theme selector in the footer, which `AppVersionTests` pins |
 | 3 | Jobs page groups, job cell layout, next-run text | unit tests for grouping and the time text |
 | 4 | Search results, Selected, Series, Events, Errors columns; filter disclosure and chips | |
 | 5 | Sticky bulk-action bar on Torrents/Selected/Errors | |
