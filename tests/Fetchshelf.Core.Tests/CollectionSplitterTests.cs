@@ -226,6 +226,64 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void FoldersOfIssues_AreSplitIntoTheirIssues_EachVolumeItsOwnSeries()
+    {
+        const string Top = "Daredevil Collection (1964-2016)";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Daredevil Collection (1964-2016)", Authors = ["Marvel Comics"] },
+            Files(
+                $"{Top}/Daredevil v1 01-380+Annuals (1964-1998)/Daredevil v1 001 (1964) (digital) (G85-Empire).cbr",
+                $"{Top}/Daredevil v1 01-380+Annuals (1964-1998)/Daredevil v1 002 (1964) (digital) (G85-Empire).cbr",
+                $"{Top}/Daredevil v1 01-380+Annuals (1964-1998)/Daredevil v1 051 (1969) marvel apr- 36p c2c.cbr",
+                $"{Top}/Daredevil v1 01-380+Annuals (1964-1998)/Annuals/Daredevil v1 Annual 001 (1967) (Digital) (AnHeroGold-Empire).cbz",
+                $"{Top}/Daredevil v1 01-380+Annuals (1964-1998)/Annuals/Daredevil v1 Annual 001 (1967).cbr",
+                $"{Top}/Daredevil v2 ½-119+500-512 &Extras (1998-2009)/Daredevil 001 (1998) (digital) (Son of Ultron-Empire).cbr",
+                $"{Top}/Daredevil v2 ½-119+500-512 &Extras (1998-2009)/Daredevil Annual 01 (2007) (digital) (Minutemen-InnerDemons).cbr",
+                $"{Top}/Daredevil v3 01-036+Annual (2011-2014)/Daredevil 001 (2011) (digital) (Minutemen-InnerDemons).cbr",
+                $"{Top}/Mini-Series/Daredevil Noir (001-004) (2009)/Daredevil Noir 01 (2009) (digital) (Minutemen-PhD).cbr",
+                $"{Top}/Mini-Series/Daredevil Noir (001-004) (2009)/Daredevil Noir 02 (2009) (digital) (Minutemen-PhD).cbr",
+                $"{Top}/Mini-Series/Daredevil Noir (001-004) (2009)/Variant Covers/Daredevil Noir 01 (2009) (Variant Cover Only) [extracted] (Archangel-DCP).cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [
+                ("Daredevil Noir 01", "Daredevil Noir", "1"), ("Daredevil Noir 02", "Daredevil Noir", "2"),
+                ("Daredevil v1 001", "Daredevil v1", "1"), ("Daredevil v1 002", "Daredevil v1", "2"), ("Daredevil v1 051", "Daredevil v1", "51"),
+                ("Daredevil v1 Annual 001", "Daredevil v1 Annual", "1"), ("Daredevil v2 001", "Daredevil v2", "1"),
+                ("Daredevil v2 Annual 01", "Daredevil v2 Annual", "1"), ("Daredevil v3 001", "Daredevil v3", "1"),
+            ],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name, b.Metadata.Series.FirstOrDefault()?.Entries[0].Display)).Order());
+        Assert.Equal("cbz", books.Single(b => b.Metadata.Title == "Daredevil v1 Annual 001").Format); // one book in two formats
+        Assert.Equal(2, books.Single(b => b.Metadata.Title == "Daredevil Noir 01").Files.Count); // with its variant cover
+    }
+
+    [Fact]
+    public void YearsAfterAHyphen_AreNumbers_AndACollectionsTitleIsNoSeriesName()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Complete Doonesbury - G. B. Trudeau", Authors = ["G B Trudeau"] },
+            Files(
+                "Complete Doonesbury (1970-2013)/Doonesbury-1970.cbz",
+                "Complete Doonesbury (1970-2013)/Doonesbury-1971.cbz",
+                "Complete Doonesbury (1970-2013)/Doonesbury-1972.cbz",
+                "Complete Doonesbury (1970-2013)/Extra/BullTales.cbz"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("BullTales", null, null), ("Doonesbury-1970", "Doonesbury", "1970"), ("Doonesbury-1971", "Doonesbury", "1971"), ("Doonesbury-1972", "Doonesbury", "1972")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name, b.Metadata.Series.FirstOrDefault()?.Entries[0].Display)));
+    }
+
+    [Fact]
+    public void ARangeAfterAHyphen_IsNoNumber()
+    {
+        Assert.Null(CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook),
+            Files("C/Saga 1-6.cbr", "C/Saga 7-12.cbr", "C/Saga 13-18.cbr"),
+            EbookTypes));
+    }
+
+    [Fact]
     public void FewerThanThreeNumberedNames_WithoutARange_IsNotACollection()
     {
         Assert.Null(CollectionSplitter.Split(

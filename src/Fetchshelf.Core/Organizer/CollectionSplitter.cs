@@ -44,14 +44,14 @@ public static partial class CollectionSplitter
         }
 
         var books = files.Where(f => ebookTypes.Contains(Extension(f.Path), StringComparer.OrdinalIgnoreCase)).ToList();
-        var groups = Group(books.Select(f => f.Path).ToList());
+        var groups = Group(books.Select(f => f.Path).ToList(), collection.Authors);
         if (groups is null || groups.Count < 2)
         {
             return null;
         }
 
         var range = collection.Series.FirstOrDefault(s => s.Entries.Any(e => e.Kind == SeriesEntryKind.Range && e.LastNumber > e.FirstNumber));
-        var numbered = groups.ToDictionary(g => g.Name, g => NumberedName(Clean(g.Name, collection.Authors)));
+        var numbered = groups.ToDictionary(g => g, g => NumberedName(Clean(g.Name, collection.Authors)));
         var largestNamedSeries = numbered.Values.OfType<(string Series, decimal Number)>()
             .GroupBy(n => TitleNormalizer.Normalize(n.Series))
             .Select(g => g.Count())
@@ -87,12 +87,13 @@ public static partial class CollectionSplitter
                 var leading = LeadingNumber(cleaned);
                 title = epub?.Title ?? leading?.Title ?? cleaned;
                 number = epub is { SeriesName: { } epubSeries, SeriesNumber: { } epubNumber } && SameName(epubSeries, range.Name) ? epubNumber
-                    : leading?.Number ?? numbered[group.Name]?.Number ?? FromList(listed, title);
+                    : leading?.Number ?? numbered[group]?.Number ?? FromList(listed, title);
             }
-            else if (numbered[group.Name] is var (series, issue))
+            else if (numbered[group] is var (series, issue))
             {
-                // The torrent's title may name the series better than its file names do.
-                var better = BetterSeriesName(spellings[TitleNormalizer.Normalize(series)], collection);
+                // The folder may say which volume of the series its issues are; the torrent's title may name the series
+                // better than its file names do.
+                var better = BetterSeriesName(WithFolderVolume(spellings[TitleNormalizer.Normalize(series)], group.Files[0]), collection);
                 (title, seriesName, number) = (
                     better != series && cleaned.StartsWith(series, StringComparison.Ordinal) ? better + cleaned[series.Length..] : cleaned,
                     better,
@@ -127,10 +128,12 @@ public static partial class CollectionSplitter
     private sealed record FileGroup(string Name, List<string> Files);
 
     /// <summary>
-    /// The books: one per sub-folder below the torrent's own folder when every file sits in one; else one per file name,
-    /// whatever its format. Null when nothing can be told apart, or a disc folder says it is one book across discs.
+    /// The books: one per sub-folder below the torrent's own folder when every file sits in one and each folder's files
+    /// share one name (one book in its formats, as a Calibre export has it); else one per file name in a folder, whatever
+    /// its format, and with release tags in brackets left out, so <c>Saga 001 (Digital).cbz</c> and <c>Saga 001.cbr</c> are one
+    /// book. Null when nothing can be told apart, or a disc folder says it is one book across discs.
     /// </summary>
-    private static List<FileGroup>? Group(List<string> paths)
+    private static List<FileGroup>? Group(List<string> paths, IReadOnlyList<string> authors)
     {
         if (paths.Count == 0)
         {
@@ -144,19 +147,49 @@ public static partial class CollectionSplitter
             return null; // one book across discs
         }
 
-        if (segments.All(s => s.Length > top + 1))
-        {
-            return segments
+        string NameKey(string path) => BookFolder(path) + "/" + TitleNormalizer.Normalize(Clean(System.IO.Path.GetFileNameWithoutExtension(path), authors));
+        List<FileGroup> ByName(IEnumerable<string> files) => files
+            .GroupBy(NameKey, StringComparer.Ordinal)
+            .Select(g => new FileGroup(g.Select(System.IO.Path.GetFileNameWithoutExtension).OfType<string>().Order(StringComparer.Ordinal).First(), g.ToList()))
+            .ToList();
+
+        var folders = segments.All(s => s.Length > top + 1)
+            ? segments
                 .Select((s, i) => (Folder: string.Join('/', s[..(top + 1)]), Name: s[top], Path: paths[i]))
                 .GroupBy(x => x.Folder, StringComparer.Ordinal)
-                .Select(g => new FileGroup(g.First().Name, g.Select(x => x.Path).ToList()))
-                .ToList();
+                .ToList()
+            : null;
+
+        // A folder of several books, such as a comic series' issues, means the folders aren't books.
+        return folders is not null && folders.All(g => g.Select(x => NameKey(x.Path)).Distinct(StringComparer.Ordinal).Count() == 1)
+            ? folders.Select(g => new FileGroup(g.First().Name, g.Select(x => x.Path).ToList())).ToList()
+            : ByName(paths);
+    }
+
+    /// <summary>The folder a file's book is in: its own, or for a folder of variant covers, the one above.</summary>
+    private static string BookFolder(string path)
+    {
+        var folder = System.IO.Path.GetDirectoryName(path.Replace('\\', '/'))?.Replace('\\', '/') ?? "";
+        return VariantCoversFolder().IsMatch(System.IO.Path.GetFileName(folder)) ? System.IO.Path.GetDirectoryName(folder)?.Replace('\\', '/') ?? "" : folder;
+    }
+
+    /// <summary>
+    /// A series with the volume its folder names, when the folder's name is the series' start and a volume such as
+    /// <c>v2</c>: <c>Daredevil</c> in <c>Daredevil v2 ½-119+500-512 &amp;Extras</c> is <c>Daredevil v2</c>, and
+    /// <c>Daredevil Annual</c> there <c>Daredevil v2 Annual</c>. Otherwise the series as it is.
+    /// </summary>
+    private static string WithFolderVolume(string series, string path)
+    {
+        var folder = System.IO.Path.GetFileName(BookFolder(path));
+        if (FolderVolume().Match(folder) is not { Success: true } m || TrailingVolume().IsMatch(series) || series.Contains(m.Groups["volume"].Value, StringComparison.OrdinalIgnoreCase))
+        {
+            return series;
         }
 
-        return paths
-            .GroupBy(p => System.IO.Path.GetFileNameWithoutExtension(p), StringComparer.OrdinalIgnoreCase)
-            .Select(g => new FileGroup(g.Key, g.ToList()))
-            .ToList();
+        var start = m.Groups["start"].Value;
+        return series.StartsWith(start, StringComparison.OrdinalIgnoreCase) && (series.Length == start.Length || series[start.Length] == ' ')
+            ? $"{series[..start.Length]} {m.Groups["volume"].Value}{series[start.Length..]}"
+            : series;
     }
 
     /// <summary>The books with their covers: an image in a book's own folder, <c>cover.*</c> first, else its only one.</summary>
@@ -190,6 +223,10 @@ public static partial class CollectionSplitter
         {
             cleaned = issue.Value; // what followed the number was in brackets, now lost to underscores
         }
+        else if (!underscored && IssueBeforeBrackets().Match(cleaned) is { Success: true } tagged)
+        {
+            cleaned = tagged.Groups["issue"].Value; // tags in brackets, then more: "Daredevil v1 051 (1969) marvel apr- 36p c2c"
+        }
 
         foreach (var author in authors)
         {
@@ -206,8 +243,9 @@ public static partial class CollectionSplitter
     /// <summary>
     /// The torrent's title as the series' name, when it names the same series better than the file names do: every word
     /// of <paramref name="series"/> from its names, apart from a trailing volume such as <c>Vol 1</c>, is in the title
-    /// (ignoring "and", "&amp;", "the", "of" and "a"). <c>Black White Vol 1</c> in <c>Batman: Black and White</c> becomes
-    /// <c>Batman: Black and White Vol 1</c>. Otherwise <paramref name="series"/> as it is.
+    /// (ignoring "and", "&amp;", "the", "of" and "a"), and the words it adds name neither a collection nor an author.
+    /// <c>Black White Vol 1</c> in <c>Batman: Black and White</c> becomes <c>Batman: Black and White Vol 1</c>; <c>Doonesbury</c>
+    /// in <c>Complete Doonesbury - G. B. Trudeau</c> stays. Otherwise <paramref name="series"/> as it is.
     /// </summary>
     private static string BetterSeriesName(string series, TorrentMetadata collection)
     {
@@ -216,10 +254,17 @@ public static partial class CollectionSplitter
         var title = Clean(collection.Title, collection.Authors);
         var titleWords = Words(title);
         var seriesWords = Words(bare);
-        return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords)
+        var extra = titleWords.Except(seriesWords).ToHashSet(StringComparer.Ordinal);
+        var authorWords = collection.Authors.SelectMany(Words).ToHashSet(StringComparer.Ordinal);
+        return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords) && !extra.Overlaps(CollectionWords) && !extra.Overlaps(authorWords)
             ? (volume.Success ? $"{title} {volume.Value.Trim()}" : title)
             : series;
     }
+
+    /// <summary>Words that say a title is the collection's, not a series' name: "Complete Doonesbury", "Daredevil Collection".</summary>
+    private static readonly HashSet<string> CollectionWords = new(
+        ["collection", "collected", "complete", "omnibus", "set", "box", "boxed", "bundle", "pack", "library", "anthology", "comics", "series"],
+        StringComparer.Ordinal);
 
     private static readonly HashSet<string> MinorWords = new(["and", "the", "of", "a"], StringComparer.Ordinal);
 
@@ -290,14 +335,23 @@ public static partial class CollectionSplitter
 
     // A number without a marker: the series ends with neither a dot nor a #, so 000.5 is all number, and is the shortest
     // that leaves a number at the end, so "Ultimates 2 001" is issue 1 of "Ultimates 2"; a title may follow the number
-    // after " - ".
-    [GeneratedRegex(@"^(?<series>.*?[^.\s#])\s+(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
+    // after " - ". A hyphen may stand for the space ("Doonesbury-1970"), though not after a digit, so 1-40 is no number.
+    [GeneratedRegex(@"^(?<series>.*?[^.\s#])(?:\s+|(?<!\d)\s*-\s*)(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
     private static partial Regex TrailingNumberPattern();
 
     // An underscored name's series and number, as in "Umbrella_Academy_-_Dallas_002__2008___Steam-DCP_" (brackets
     // replaced by underscores too); a title after " - " is kept.
     [GeneratedRegex(@"^.*?[^.\s#]\s+\d{1,4}(\.\d+)?(?=\s|$)(\s+-\s+\S.*)?")]
     private static partial Regex UnderscoredIssue();
+
+    [GeneratedRegex(@"^(?<issue>.*?\S\s+\d{1,4}(\.\d+)?)\s*[\(\[]")]
+    private static partial Regex IssueBeforeBrackets();
+
+    [GeneratedRegex(@"^(variant\s*covers?|variants?|covers?)$", RegexOptions.IgnoreCase)]
+    private static partial Regex VariantCoversFolder();
+
+    [GeneratedRegex(@"^(?<start>\S.*?)\s+(?<volume>(?:v|vol\.?\s*|volume\s*)\d{1,2})\b", RegexOptions.IgnoreCase)]
+    private static partial Regex FolderVolume();
 
     [GeneratedRegex(@"\s*\b(?:v|vol|volume)\.?\s*\d+$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingVolume();
