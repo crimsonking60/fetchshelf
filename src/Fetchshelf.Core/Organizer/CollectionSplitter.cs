@@ -243,7 +243,7 @@ public static partial class CollectionSplitter
     /// <summary>
     /// The torrent's title as the series' name, when it names the same series better than the file names do: every word
     /// of <paramref name="series"/> from its names, apart from a trailing volume such as <c>Vol 1</c>, is in the title
-    /// (ignoring "and", "&amp;", "the", "of" and "a"), and the words it adds name neither a collection nor an author.
+    /// (ignoring "and", "&amp;", "the", "of" and "a"), and the words it adds name neither a collection, an author nor years.
     /// <c>Black White Vol 1</c> in <c>Batman: Black and White</c> becomes <c>Batman: Black and White Vol 1</c>; <c>Doonesbury</c>
     /// in <c>Complete Doonesbury - G. B. Trudeau</c> stays. Otherwise <paramref name="series"/> as it is.
     /// </summary>
@@ -257,6 +257,7 @@ public static partial class CollectionSplitter
         var extra = titleWords.Except(seriesWords).ToHashSet(StringComparer.Ordinal);
         var authorWords = collection.Authors.SelectMany(Words).ToHashSet(StringComparer.Ordinal);
         return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords) && !extra.Overlaps(CollectionWords) && !extra.Overlaps(authorWords)
+            && !extra.Any(w => w.All(char.IsAsciiDigit))
             ? (volume.Success ? $"{title} {volume.Value.Trim()}" : title)
             : series;
     }
@@ -281,9 +282,12 @@ public static partial class CollectionSplitter
     /// <summary>
     /// A name such as <c>Ultimate Spider-Man 033</c>, <c>Ultimate Spider-Man 000.5</c>, <c>Ultimate Six 05 - The
     /// Ultimates</c> or <c>Running the Kingdom v01</c> (also <c>Vol. 1</c>, <c>Volume 1</c>, <c>#1</c>): its series and number.
+    /// A magazine's <c>Popular Mechanics 10 1927</c> is numbered by its date, 1927.10, so its issues sort by it.
     /// </summary>
     private static (string Series, decimal Number)? NumberedName(string name) =>
-        (MarkedNumberPattern().Match(name) is { Success: true } marked ? marked : TrailingNumberPattern().Match(name)) is { Success: true } m
+        DateIssuePattern().Match(name) is { Success: true } date
+            ? (date.Groups["series"].Value.Trim(), decimal.Parse($"{date.Groups["year"].Value}.{date.Groups["month"].Value.PadLeft(2, '0')}", CultureInfo.InvariantCulture))
+            : (MarkedNumberPattern().Match(name) is { Success: true } marked ? marked : TrailingNumberPattern().Match(name)) is { Success: true } m
         && Parse(m.Groups["number"].Value) is { } number
             ? (m.Groups["series"].Value.Trim(), number)
             : null;
@@ -330,7 +334,8 @@ public static partial class CollectionSplitter
     private static partial Regex LeadingNumberPattern();
 
     // A number after a marker (v, vol., volume, #): the series may then end with a digit, as in "Black White Vol 1 #01".
-    [GeneratedRegex(@"^(?<series>.*?[^\s#])\s*(?:#|\b(?:v|vol|volume)\.?)\s*(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
+    // A year may follow it ("Shop Notes.Vol.13.1917").
+    [GeneratedRegex(@"^(?<series>.*?[^\s#])\s*(?:#|\b(?:v|vol|volume)\.?)\s*(?<number>\d{1,4}(\.\d{1,2}(?!\d))?)(?:[\s._-]+(?:18|19|20)\d\d)?(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
     private static partial Regex MarkedNumberPattern();
 
     // A number without a marker: the series ends with neither a dot nor a #, so 000.5 is all number, and is the shortest
@@ -340,9 +345,13 @@ public static partial class CollectionSplitter
     private static partial Regex TrailingNumberPattern();
 
     // An underscored name's series and number, as in "Umbrella_Academy_-_Dallas_002__2008___Steam-DCP_" (brackets
-    // replaced by underscores too); a title after " - " is kept.
-    [GeneratedRegex(@"^.*?[^.\s#]\s+\d{1,4}(\.\d+)?(?=\s|$)(\s+-\s+\S.*)?")]
+    // replaced by underscores too), or month and year, as in "Popular_Mechanics_10_1927"; a title after " - " is kept.
+    [GeneratedRegex(@"^.*?[^.\s#]\s+(?:(?:0?[1-9]|1[0-2])\s+(?:18|19|20)\d\d|\d{1,4}(\.\d+)?)(?=\s|$)(\s+-\s+\S.*)?")]
     private static partial Regex UnderscoredIssue();
+
+    // A magazine's issue by month and year: "Popular Mechanics 10 1927", "Popular Mechanics-07-1961".
+    [GeneratedRegex(@"^(?<series>.*?[^\d\s._-])[\s_-]+(?<month>0?[1-9]|1[0-2])[\s_.-]+(?<year>(?:18|19|20)\d\d)$")]
+    private static partial Regex DateIssuePattern();
 
     [GeneratedRegex(@"^(?<issue>.*?\S\s+\d{1,4}(\.\d+)?)\s*[\(\[]")]
     private static partial Regex IssueBeforeBrackets();

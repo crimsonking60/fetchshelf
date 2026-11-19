@@ -50,6 +50,7 @@ public sealed class Cleaner(
             .ToListAsync(cancellationToken);
 
         var duplicateGroups = DuplicateCopies.GroupBySameBook(linked, t => TorrentMetadataSerializer.Deserialize(t.MetadataJson))
+            .Select(g => DuplicateCopies.WithoutSiblings(g, t => t.CollectionTorrentId))
             .Where(g => g.Count >= 2)
             .ToList();
         if (duplicateGroups.Count == 0)
@@ -128,6 +129,10 @@ public sealed class Cleaner(
         var others = await dbContext.Torrents
             .Where(t => t.LibraryPath != null && t.ReplacedWithTorrentId == null && t.Id != torrentId)
             .ToListAsync(cancellationToken);
+        if (target.CollectionTorrentId is { } collectionId)
+        {
+            others.RemoveAll(o => o.CollectionTorrentId == collectionId); // books of its own collection are other books
+        }
 
         foreach (var other in others)
         {

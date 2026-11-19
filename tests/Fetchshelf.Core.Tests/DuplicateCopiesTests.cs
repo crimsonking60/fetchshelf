@@ -20,6 +20,20 @@ public class DuplicateCopiesTests
         UploadTime = DateTimeOffset.UtcNow,
     };
 
+    [Theory]
+    [InlineData(new[] { "single", "x-1" }, new[] { "single", "x-1" })] // one book of a collection and a torrent of its own: copies
+    [InlineData(new[] { "x-1", "x-2" }, new string[0])] // two books of one collection: two books
+    [InlineData(new[] { "single", "x-1", "x-2" }, new[] { "single" })] // which of them "single" copies can't be told
+    [InlineData(new[] { "x-1", "y-1" }, new[] { "x-1", "y-1" })] // books of two collections: copies
+    public void WithoutSiblings_LeavesOutBooksOfOneCollectionTogether(string[] ids, string[] kept)
+    {
+        var group = ids.Select(id => new Copy(id, Book("Popular Mechanics 12"))).ToList();
+
+        var result = DuplicateCopies.WithoutSiblings(group, c => c.Id.Contains('-', StringComparison.Ordinal) ? c.Id.Split('-')[0] : null);
+
+        Assert.Equal(kept, result.Select(c => c.Id));
+    }
+
     [Fact]
     public void GroupBySameBook_TwoCopiesOfOneBookAndAnotherBook_GroupsTheCopiesInOrder()
     {

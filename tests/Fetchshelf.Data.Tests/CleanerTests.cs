@@ -115,6 +115,33 @@ public sealed class CleanerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BooksOfOneCollectionAlike_RetiresNone()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var first = await AddLinkedTorrentAsync(context, "hash-1", "m4b", 100, Path.Combine(_root, "first"));
+        var second = await AddLinkedTorrentAsync(context, "hash-2", "mp3", 100, Path.Combine(_root, "second"));
+        first.CollectionTorrentId = second.CollectionTorrentId = "hash";
+        await context.SaveChangesAsync();
+
+        var summary = await CreateCleaner(context).RunAsync([]);
+
+        Assert.Equal(new CleanRunSummary(0, 0), summary);
+        Assert.All(await context.Torrents.ToListAsync(), t => Assert.NotNull(t.LibraryPath));
+    }
+
+    [Fact]
+    public async Task CleanOneAsync_BookOfACollection_IsNoCopyOfAnotherBookOfIt()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var first = await AddLinkedTorrentAsync(context, "hash-1", "m4b", 100, Path.Combine(_root, "first"));
+        var second = await AddLinkedTorrentAsync(context, "hash-2", "mp3", 100, Path.Combine(_root, "second"));
+        first.CollectionTorrentId = second.CollectionTorrentId = "hash";
+        await context.SaveChangesAsync();
+
+        Assert.False(await CreateCleaner(context).CleanOneAsync("hash-2", []));
+    }
+
+    [Fact]
     public async Task RunAsync_LowerRankedDuplicate_LogsWhatWasDone()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
