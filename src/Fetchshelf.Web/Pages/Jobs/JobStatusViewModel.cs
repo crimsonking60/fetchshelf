@@ -23,7 +23,10 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
     /// <summary>The last run's counts, shown on hover over its result.</summary>
     public string? CountsText { get; init; }
 
-    /// <summary>"4m 12s" for a timed job that is idle, else null.</summary>
+    /// <summary>
+    /// When a timed idle job is next due, in the largest sensible units: "in 45s", "in 5 min", "in 1 h 26 min", "in 23 h",
+    /// "in 3 d". Null when the job has no timer or is running. Never minutes beyond an hour and a half.
+    /// </summary>
     public string? NextRunText(DateTimeOffset now)
     {
         if (IsRunning || NextScheduledRun is not { } next)
@@ -31,9 +34,32 @@ public sealed record JobStatusViewModel(string Name, string? Description, DateTi
             return null;
         }
 
-        var remaining = next - now;
-        var seconds = (int)Math.Max(0, Math.Ceiling(remaining.TotalSeconds));
-        return seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m {seconds % 60}s";
+        var seconds = (int)Math.Max(0, Math.Ceiling((next - now).TotalSeconds));
+        if (seconds == 0)
+        {
+            return "due now";
+        }
+
+        if (seconds < 60)
+        {
+            return $"in {seconds}s";
+        }
+
+        var minutes = (seconds + 59) / 60;
+        if (minutes < 60)
+        {
+            return $"in {minutes} min";
+        }
+
+        var hours = minutes / 60;
+        var rest = minutes % 60;
+        if (minutes < 600)
+        {
+            return rest == 0 ? $"in {hours} h" : $"in {hours} h {rest} min";
+        }
+
+        var wholeHours = (minutes + 59) / 60;
+        return wholeHours < 48 ? $"in {wholeHours} h" : $"in {(wholeHours + 23) / 24} d";
     }
 
     /// <summary>"Running for 2m 10s" while the job runs, else null.</summary>

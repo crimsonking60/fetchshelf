@@ -103,6 +103,65 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task JobsPage_ShowsTheGroupsInOrder_EachInItsOwnTable_WithTheUnconfiguredKindsClosingTheConfiguredOnes()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[autograb]]
+            type = "bookmarks"
+            name = "first"
+            """);
+        fixture.JobRegistry.Register("first", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Bonus", _ => Task.CompletedTask);
+        fixture.JobRegistry.Register("Link", _ => Task.CompletedTask);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        var standard = html.IndexOf("id=\"job-group-standard\"", StringComparison.Ordinal);
+        var configured = html.IndexOf("id=\"job-group-configured\"", StringComparison.Ordinal);
+        var autograb = html.IndexOf("id=\"job-group-autograb\"", StringComparison.Ordinal);
+        Assert.True(standard > 0 && standard < configured && configured < autograb);
+        Assert.Equal(3, Regex.Matches(html, "<table class=\"job-table\">").Count);
+        var unconfigured = html.IndexOf("id=\"unconfigured-jobs\"", StringComparison.Ordinal);
+        Assert.True(configured < unconfigured && unconfigured < autograb, "The kinds with nothing configured end the configured group");
+    }
+
+    [Fact]
+    public async Task JobsPage_AutograbJobs_ShowNoDescription_OtherJobsDo()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[autograb]]
+            type = "bookmarks"
+            name = "first"
+            """);
+        fixture.JobRegistry.Register("first", _ => Task.CompletedTask, "Searches MAM for new matches.");
+        fixture.JobRegistry.Register("Bonus", _ => Task.CompletedTask, "Spends bonus points.");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.Contains("Spends bonus points.", html);
+        Assert.DoesNotContain("Searches MAM for new matches.", html);
+    }
+
+    [Fact]
+    public async Task JobsPage_WithNoConfiguredJobs_StillEndsWithTheUnconfiguredKinds()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("Link", _ => Task.CompletedTask);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.DoesNotContain("job-group-configured", html);
+        Assert.Contains("Hardcover list is not configured", html);
+    }
+
+    [Fact]
     public async Task JobsPage_JobExplanationsDisabled_HidesDescriptionColumn()
     {
         using var fixture = new FetchshelfWebAppFixture("mam_id = \"\"\njob_explanations = false\n");

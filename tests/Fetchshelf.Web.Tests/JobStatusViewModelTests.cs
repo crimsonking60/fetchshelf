@@ -11,11 +11,17 @@ public class JobStatusViewModelTests
         new("Link", null, null, "Never run", isRunning, next);
 
     [Theory]
-    [InlineData(45, "45s")]
-    [InlineData(60, "1m 0s")]
-    [InlineData(252, "4m 12s")]
-    [InlineData(-3, "0s")]
-    public void NextRunText_TimedIdleJob_ShowsRemainingTime(int secondsAhead, string expected) =>
+    [InlineData(45, "in 45s")]
+    [InlineData(60, "in 1 min")]
+    [InlineData(252, "in 5 min")]
+    [InlineData(3600, "in 1 h")]
+    [InlineData(5160, "in 1 h 26 min")]
+    [InlineData(54480, "in 16 h")]
+    [InlineData(84960, "in 24 h")]
+    [InlineData(200000, "in 3 d")]
+    [InlineData(0, "due now")]
+    [InlineData(-3, "due now")]
+    public void NextRunText_TimedIdleJob_ShowsRemainingTimeInTheLargestUnits(int secondsAhead, string expected) =>
         Assert.Equal(expected, Job(Now.AddSeconds(secondsAhead)).NextRunText(Now));
 
     [Fact]

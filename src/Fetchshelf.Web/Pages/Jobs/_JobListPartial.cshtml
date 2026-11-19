@@ -1,100 +1,137 @@
-@model IReadOnlyList<Fetchshelf.Web.Pages.Jobs.JobStatusViewModel>
+@using Fetchshelf.Web.Pages.Jobs
+@model JobListViewModel
+@{
+    var now = DateTimeOffset.UtcNow;
+    // The kinds with nothing configured belong with the configured jobs, so they close that group.
+    var notConfiguredShown = Model.NotConfigured.Count == 0;
+}
 
-@if (Model.Count == 0)
+@if (Model.IsEmpty)
 {
     <p id="no-jobs-message" class="empty">No background jobs are registered yet.</p>
 }
-else
+
+@foreach (var group in Model.Groups)
 {
-    <table>
-        <thead>
-            <tr>
-                <th>Job</th>
-                @if (Settings.JobExplanations)
-                {
-                    <th>Description</th>
-                }
-                <th>Last run</th>
-                <th>Result</th>
-                <th></th>
-                <th>Next run in</th>
-            </tr>
-        </thead>
-        <tbody>
-            @{
-                var now = DateTimeOffset.UtcNow;
-            }
-            @foreach (var job in Model)
+    var showNotConfigured = group.Group == JobGroup.Configured && !notConfiguredShown;
+    if (showNotConfigured)
+    {
+        notConfiguredShown = true;
+    }
+
+    <section class="job-group job-group-@group.Group.ToString().ToLowerInvariant()" aria-labelledby="job-group-@group.Group.ToString().ToLowerInvariant()">
+        <header class="job-group-header">
+            <h3 id="job-group-@group.Group.ToString().ToLowerInvariant()">@group.Title <span class="job-count">@group.Jobs.Count</span></h3>
+            @if (group.FailingCount > 0)
             {
-                <tr class="@(job.Failing is null ? null : "failing")">
-                    <td>
-                        <a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a>
-                    </td>
-                    @if (Settings.JobExplanations)
-                    {
-                        <td>@job.Description</td>
-                    }
-                    <td>
-                        @if (job.RunningText(now) is { } runningText)
-                        {
-                            @runningText
-                        }
-                        else if (job.LastStartedAt is { } lastStartedAt)
-                        {
-                            <local-time value="lastStartedAt" />
-                            @if (job.LastDuration is { } duration)
+                <span class="failing-since">@group.FailingCount failing</span>
+            }
+            <p class="muted">@group.Caption</p>
+        </header>
+        <table class="job-table">
+            <thead>
+                <tr>
+                    <th>Job</th>
+                    <th class="col-fit">Last run</th>
+                    <th>Result</th>
+                    <th class="col-fit"></th>
+                    <th class="col-fit">Next run</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var job in group.Jobs)
+                {
+                    <tr class="@(job.Failing is null ? null : "failing")">
+                        <td class="job-name">
+                            <a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a>
+                            @* The same sentence on every autograb job says nothing, so only the other groups explain their jobs. *@
+                            @if (Settings.JobExplanations && group.Group != JobGroup.Autograb && !string.IsNullOrEmpty(job.Description))
                             {
-                                <span class="muted nowrap">(took @Fetchshelf.Web.Pages.Jobs.JobRunLabels.Duration(duration))</span>
+                                <div class="sub job-description">@job.Description</div>
                             }
-                        }
-                        else
-                        {
-                            @:-
-                        }
-                    </td>
-                    <td class="job-result">
-                        @* Empty while the job runs: the previous run's result next to "Running" reads as this run's. *@
-                        @if (!job.IsRunning)
-                        {
-                            <span title="@job.CountsText">@job.LastResultText</span>
-                            @if (job.Failing is { } failing)
+                        </td>
+                        <td class="col-fit">
+                            @if (job.RunningText(now) is { } runningText)
                             {
-                                <div class="failing-since">failing since <local-time value="failing.Since" /> @Fetchshelf.Web.Pages.Errors.FailingJobText.Runs(failing.FailedRuns)</div>
+                                @runningText
                             }
-                        }
-                    </td>
-                    <td>
-                        @* Cancelling loses nothing the next run doesn't redo, so it asks for no confirmation. *@
-                        @{
-                            var handler = job.IsRunning ? "Cancel" : "Trigger";
-                        }
-                        <form method="post" action="?handler=@handler" hx-post="?handler=@handler" hx-target="#job-list" hx-swap="innerHTML">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="jobName" value="@job.Name" />
-                            @if (job.IsRunning)
+                            else if (job.LastStartedAt is { } lastStartedAt)
                             {
-                                <input type="hidden" name="runNumber" value="@job.RunNumber" />
+                                <local-time value="lastStartedAt" />
+                                @if (job.LastDuration is { } duration)
+                                {
+                                    <div class="sub">(took @Fetchshelf.Web.Pages.Jobs.JobRunLabels.Duration(duration))</div>
+                                }
                             }
-                            <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
-                        </form>
-                        @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck && LibraryCheck.Findings.Count > 0)
-                        {
-                            <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
-                        }
-                        @if (!job.IsRunning && job.HasDryRun && Settings.DryJobButtons)
-                        {
-                            @* Decides as Run now would, writes nothing, and lists what it would have selected in the job's history. *@
-                            <form method="post" action="?handler=Trigger" hx-post="?handler=Trigger" hx-target="#job-list" hx-swap="innerHTML">
+                            else
+                            {
+                                @:-
+                            }
+                        </td>
+                        <td class="job-result">
+                            @* Empty while the job runs: the previous run's result next to "Running" reads as this run's. *@
+                            @if (!job.IsRunning)
+                            {
+                                <span title="@job.CountsText">@job.LastResultText</span>
+                                @if (job.Failing is { } failing)
+                                {
+                                    <div class="failing-since">failing since <local-time value="failing.Since" /> @Fetchshelf.Web.Pages.Errors.FailingJobText.Runs(failing.FailedRuns)</div>
+                                }
+                            }
+                        </td>
+                        <td class="col-fit job-actions">
+                            @* Cancelling loses nothing the next run doesn't redo, so it asks for no confirmation. *@
+                            @{
+                                var handler = job.IsRunning ? "Cancel" : "Trigger";
+                            }
+                            <form method="post" action="?handler=@handler" hx-post="?handler=@handler" hx-target="#job-list" hx-swap="innerHTML">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="jobName" value="@job.Name" />
-                                <input type="hidden" name="dryRun" value="true" />
-                                <button type="submit">Dry run</button>
+                                @if (job.IsRunning)
+                                {
+                                    <input type="hidden" name="runNumber" value="@job.RunNumber" />
+                                }
+                                <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                             </form>
-                        }
-                    </td>
-                    <td class="next-run">@job.NextRunText(now)</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                            @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck && LibraryCheck.Findings.Count > 0)
+                            {
+                                <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
+                            }
+                            @if (!job.IsRunning && job.HasDryRun && Settings.DryJobButtons)
+                            {
+                                @* Decides as Run now would, writes nothing, and lists what it would have selected in the job's history. *@
+                                <form method="post" action="?handler=Trigger" hx-post="?handler=Trigger" hx-target="#job-list" hx-swap="innerHTML">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="jobName" value="@job.Name" />
+                                    <input type="hidden" name="dryRun" value="true" />
+                                    <button type="submit">Dry run</button>
+                                </form>
+                            }
+                        </td>
+                        <td class="col-fit next-run">@(job.NextRunText(now) ?? "–")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (showNotConfigured)
+        {
+            <div id="unconfigured-jobs" class="unconfigured-jobs muted">
+                @foreach (var name in Model.NotConfigured)
+                {
+                    <p>@name is not configured</p>
+                }
+            </div>
+        }
+    </section>
+}
+
+@* With no configured group to close, the kinds with nothing configured come last. *@
+@if (!notConfiguredShown)
+{
+    <div id="unconfigured-jobs" class="unconfigured-jobs muted">
+        @foreach (var name in Model.NotConfigured)
+        {
+            <p>@name is not configured</p>
+        }
+    </div>
 }

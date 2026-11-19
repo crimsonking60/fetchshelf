@@ -416,10 +416,23 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Jobs */
+/* Jobs: one panel for each group (standard, configured, autograb), its heading on a band of its own. */
 .next-run { color: var(--text-muted); white-space: nowrap; }
-.unconfigured-jobs { margin-top: 2rem; }
+.job-group { margin: 1.25rem 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; }
+.job-group-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 1rem; padding: 0.45rem 0.75rem; background: var(--surface-2); border-bottom: 2px solid var(--border-strong); border-radius: 4px 4px 0 0; }
+.job-group-header h3 { margin: 0; padding: 0; border: 0; font-size: 1.05rem; }
+.job-group-header p { margin: 0; flex: 1 1 20rem; }
+.job-count { margin-left: 0.2rem; padding: 0 0.45rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border-strong); border-radius: 999px; }
+.job-group table { margin: 0; border: 0; }
+.job-name { min-width: 9rem; }
+/* The job's own sentence, all of it: it is what the page is for, unlike an anthology's authors. */
+td .sub.job-description { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; max-width: 22rem; }
+/* Run now, Dry run and Findings side by side. */
+.job-actions form { display: inline-block; margin: 0 0.3rem 0 0; }
+.job-actions a { margin-right: 0.3rem; }
+.unconfigured-jobs { margin: 0; padding: 0.5rem 0.75rem; border-top: 1px solid var(--border); }
 .unconfigured-jobs p { margin: 0.2rem 0; }
+#job-list > .unconfigured-jobs { margin-top: 1.25rem; padding-left: 0; border-top: 0; }
 .htmx-request table { opacity: 0.85; }
 
 /* Lists */
@@ -491,10 +504,14 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     :root { --header-height: 6rem; }
     .site-nav { order: 3; flex-basis: 100%; }
     .site-nav a, .nav-menu > summary { white-space: nowrap; }
-    main table { display: block; overflow-x: auto; }
     tbody th { width: auto; }
     .list_item { grid-template-columns: 3.5rem 1fr; }
     .list_item > img { width: 3.5rem; }
+}
+
+/* A phone: a table scrolls sideways inside the page. A tablet in portrait (up to 834 px wide) keeps its tables as they are. */
+@media (max-width: 40rem) {
+    main table { display: block; overflow-x: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
