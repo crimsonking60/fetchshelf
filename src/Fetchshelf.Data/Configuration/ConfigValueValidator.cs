@@ -131,9 +131,11 @@ internal static partial class ConfigValueValidator
             }
 
             CheckAtLeast("keep_points", bonus.KeepPoints, 0, label);
-            if (bonus.UploadAmounts.Select(gb => (int?)gb).FirstOrDefault(gb => gb is < 1 or > BonusSettings.MaxUploadAmount) is { } badAmount)
+            if (bonus.UploadAmounts.Select(gb => (int?)gb).FirstOrDefault(gb => !BonusSettings.UploadAmountsMamSells.Contains(gb!.Value)) is { } badAmount)
             {
-                throw Invalid($"'upload_amounts' in {label} must hold whole numbers of GB from 1 to {BonusSettings.MaxUploadAmount}; got {badAmount}.");
+                throw Invalid(
+                    $"'upload_amounts' in {label} can only hold amounts MAM sells: "
+                    + $"{string.Join(", ", BonusSettings.UploadAmountsMamSells.SkipLast(1))} or {BonusSettings.UploadAmountsMamSells[^1]} GB; got {badAmount}.");
             }
 
             if (bonus.WedgeEvery is < 0 or > BonusSettings.MaxWedgeEveryHours)
