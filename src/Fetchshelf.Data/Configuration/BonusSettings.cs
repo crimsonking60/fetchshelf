@@ -18,7 +18,7 @@ public sealed class BonusSettings
     public long KeepPoints { get; set; }
 
     /// <summary>The GB one upload purchase buys, tried largest first; empty buys no upload credit.</summary>
-    public List<int> UploadAmounts { get; set; } = [100, 50, 20, 5, 1];
+    public List<int> UploadAmounts { get; set; } = [100, 50];
 
     /// <summary>Hours between wedge purchases; 0 buys none.</summary>
     public int WedgeEvery { get; set; }
@@ -35,10 +35,10 @@ public sealed class BonusSettings
 
     /// <summary>The most upload credit one purchase may buy, in GB.</summary>
     /// <summary>
-    /// The GB of upload credit MAM sells, the only amounts `upload_amounts` may hold: MAM answers any other with "Invalid
-    /// amount specified" (25 was refused on the live account, 2026-11-18).
+    /// The GB of upload credit an automation may buy, the only amounts `upload_amounts` may hold. MAM sells 1, 5, 20, 50
+    /// and 100 GB, but its rules for automated purchases allow only 50 and 100.
     /// </summary>
-    public static readonly IReadOnlyList<int> UploadAmountsMamSells = [1, 5, 20, 50, 100];
+    public static readonly IReadOnlyList<int> UploadAmountsAllowed = [50, 100];
 
     /// <summary>The longest wait between two wedge purchases: a year.</summary>
     public const int MaxWedgeEveryHours = 8760;

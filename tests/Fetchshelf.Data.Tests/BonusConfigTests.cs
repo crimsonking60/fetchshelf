@@ -35,7 +35,7 @@ public sealed class BonusConfigTests : IDisposable
         var bonus = Load("[bonus]\n").Bonus!;
 
         Assert.Equal((120, 0L, 0, false, 10, false), (bonus.BonusInterval, bonus.KeepPoints, bonus.WedgeEvery, bonus.Vip, bonus.MaxPurchasesPerRun, bonus.DryRun));
-        Assert.Equal([100, 50, 20, 5, 1], bonus.UploadAmounts);
+        Assert.Equal([100, 50], bonus.UploadAmounts);
     }
 
     [Fact]
@@ -57,9 +57,9 @@ public sealed class BonusConfigTests : IDisposable
     }
 
     [Fact]
-    public void Load_EveryAmountMamSells_IsAccepted()
+    public void Load_EveryAmountAutomationsMayBuy_IsAccepted()
     {
-        Assert.Equal([1, 5, 20, 50, 100], Load("[bonus]\nupload_amounts = [1, 5, 20, 50, 100]\n").Bonus!.UploadAmounts);
+        Assert.Equal([50, 100], Load("[bonus]\nupload_amounts = [50, 100]\n").Bonus!.UploadAmounts);
     }
 
     [Fact]
@@ -72,8 +72,10 @@ public sealed class BonusConfigTests : IDisposable
     [InlineData("bonus_interval = 30", "'bonus_interval' in the [bonus] section must be 0 (run only from the Jobs page) or at least 60 minutes; got 30.")]
     [InlineData("bonus_interval = 50000", "'bonus_interval' in the [bonus] section must be between 0")]
     [InlineData("keep_points = -1", "'keep_points' in the [bonus] section must be 0 or more; got -1.")]
-    [InlineData("upload_amounts = [50, 0]", "'upload_amounts' in the [bonus] section can only hold amounts MAM sells: 1, 5, 20, 50 or 100 GB; got 0.")]
-    [InlineData("upload_amounts = [100, 50, 25]", "can only hold amounts MAM sells: 1, 5, 20, 50 or 100 GB; got 25.")]
+    [InlineData("upload_amounts = [50, 0]", "'upload_amounts' in the [bonus] section can only hold the amounts MAM allows automated purchases of: 50 or 100 GB; got 0.")]
+    [InlineData("upload_amounts = [100, 50, 25]", "got 25.")]
+    [InlineData("upload_amounts = [100, 20]", "got 20.")]
+    [InlineData("upload_amounts = [5]", "got 5.")]
     [InlineData("upload_amounts = [500]", "got 500.")]
     [InlineData("wedge_every = 9000", "'wedge_every' in the [bonus] section must be between 0 (buy no wedges) and 8760 hours (a year); got 9000.")]
     [InlineData("max_purchases_per_run = 0", "'max_purchases_per_run' in the [bonus] section must be between 1 and 100; got 0.")]

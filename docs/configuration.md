@@ -973,7 +973,7 @@ section no points are ever spent.
 |---|---|---|
 | `bonus_interval` | `120` | Minutes between runs of the Bonus job: `0` (only from the Jobs page) or `60` to 43200 (30 days). Set only here: the top-level `search_interval` is for jobs that search MAM and doesn't apply. |
 | `keep_points` | `0` | Upload credit and VIP are only bought with points above this. A wedge may use them: `keep_points = 55000` keeps a wedge's worth of points, plus 5,000, from upload credit. |
-| `upload_amounts` | `[100, 50, 20, 5, 1]` | How many GB of upload credit one purchase buys, tried largest first, each as often as the points above `keep_points` allow. Only the amounts MAM sells: 1, 5, 20, 50 and 100. Startup stops with an error naming any other, as MAM would refuse it. `[]` buys no upload credit. |
+| `upload_amounts` | `[100, 50]` | How many GB of upload credit one purchase buys, tried largest first, each as often as the points above `keep_points` allow. Only 50 and 100: MAM sells 1, 5, 20, 50 and 100 GB, but its rules for automated purchases allow only 50 and 100. Startup stops with an error naming any other. `[]` buys no upload credit. |
 | `wedge_every` | `0` | Hours between wedge purchases, up to 8760. `0` buys no wedges. A wedge costs 50,000 points. |
 | `vip` | `false` | Top VIP up to the most MAM allows, once a run, when the points above `keep_points` are at least 15,000. |
 | `max_purchases_per_run` | `10` | Purchases one run makes at most, `1` to `100`. |
