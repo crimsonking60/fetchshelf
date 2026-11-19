@@ -34,7 +34,11 @@ public sealed class BonusSettings
     public const int MinIntervalMinutes = 60;
 
     /// <summary>The most upload credit one purchase may buy, in GB.</summary>
-    public const int MaxUploadAmount = 100;
+    /// <summary>
+    /// The GB of upload credit MAM sells, the only amounts `upload_amounts` may hold: MAM answers any other with "Invalid
+    /// amount specified" (25 was refused on the live account, 2026-11-18).
+    /// </summary>
+    public static readonly IReadOnlyList<int> UploadAmountsMamSells = [1, 5, 20, 50, 100];
 
     /// <summary>The longest wait between two wedge purchases: a year.</summary>
     public const int MaxWedgeEveryHours = 8760;
