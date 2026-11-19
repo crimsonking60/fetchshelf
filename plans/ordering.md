@@ -1,13 +1,13 @@
 # Recommended order of the open plans
 
-Written 2026-11-11 and updated 2026-11-19, for the 4 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
+Written 2026-11-11 and updated 2026-11-19, for the 3 plans in `plans/` (not `plans/done/` or `plans/parked/`). Since the first version,
 `bonus-points.md` (PR #62), `database-backup-and-export.md` (PR #65), `composition-root.md` (PR #66),
 `mam-gate-on-pages.md` (PR #67), `hardcover-matching.md` (PR #70), `per-block-budgets.md` (PR #71),
 `link-and-tag-details.md` (PR #72), `safe-folder-names.md` (PR #73), `account-snapshots.md` (PR #78),
 `bulk-actions-in-background.md` (PR #79), `allowed-hosts-and-opds-login.md` (PR #80), `seeding-obligations.md`
 (PR #88), `jobs-page-dry-run.md` (PR #89), `file-based-lists.md` (PR #90), `mam-bookmarks-list.md` (PR #91), `series-layout-for-comics.md` (PR #92), `follow-audiobookshelf-series.md` (PR #93), `language-aware-books.md` (PR #96),
 `search-bookmark-and-more-like-this.md` (PR #97), `download-client-and-save-path.md` (PR #98), `covers-from-mam.md`
-(PR #101) and `statistics-and-metrics.md` (PR #102) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
+(PR #101), `statistics-and-metrics.md` (PR #102) and `25-Library-check.md` (PR #103) were built and moved to `plans/done/`. `collection-torrents.md` is new: it was parked for a while and taken up again on
 2026-11-18. The order follows four rules:
 
 1. **Protect first.** Three of the plans add a database migration. The before-upgrade backup from
@@ -95,9 +95,8 @@ Done:
 
 ## Phase 5: the large ones
 
-10. **`25-Library-check.md`** (#25) — it compares folders with the names the Link job would compute,
-    `folder_template` (PR #73) and the series layout's folders and file names (PR #92) included. Its open questions have
-    proposed answers to confirm first.
+10. **`25-Library-check.md`** (#25) — done (PR #103): the Library check job and page list unknown folders and files,
+    and books whose folder or files are gone, each with what to do about it.
 11. **`collection-torrents.md`** — splits a collection into one library book each. Taken up again on 2026-11-18:
     comic collections are still common, such as an Ultimate Spider-Man collection that MAM gives no series and whose
     145 `cbr` issues lost to its one `cbz` annual. Its "Collections without a series range" section has two gaps to
@@ -132,9 +131,8 @@ Parked plans are left out of the order until they are taken up again.
 Done in the order above, each builds on the one before; done in parallel, they conflict here:
 
 - **`LinkRunner`** (it takes the library write gate from PR #79 per torrent, and the language clash rule from PR #96;
-  it sets `CoverCheckedAt` back on every placement since PR #101): the library check, `collection-torrents.md`.
-- **`FolderNameComputer`, `FolderLayout`, `SeriesLayoutNamer` and `SyncMismatch`** (with `language_in_folder` since
-  PR #96, which marks a series library's file names rather than its folders): the library check.
+  it sets `CoverCheckedAt` back on every placement since PR #101, and `RelinkBlockerAsync` mirrors Relink's checks for the
+  Library check since PR #103): `collection-torrents.md`.
 - **`LibraryFileRemover` and `Cleaner`** (the Clean job holds `on_cleaned` back for unsatisfied copies since PR #88, and
   every cover name is an extra since PR #101): `collection-torrents.md`.
 - **`FollowRunner` and `LibraryQueries`** (Audiobookshelf's books count as owned since PR #93, and ownership is per
