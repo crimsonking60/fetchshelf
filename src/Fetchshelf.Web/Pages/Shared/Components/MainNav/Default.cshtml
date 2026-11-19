@@ -2,6 +2,9 @@
 @model NavModel
 @{
     var currentPage = (string?)ViewContext.RouteData.Values["page"] ?? "";
+    var currentTheme = Themes.Resolve(ViewContext.HttpContext.Request.Cookies[Themes.CookieName]);
+    var themeLabel = Themes.All.First(t => t.Id == currentTheme).Label;
+    var returnUrl = ViewContext.HttpContext.Request.Path + ViewContext.HttpContext.Request.QueryString;
 }
 @functions {
     private static string? Current(string currentPage, NavEntry entry) => NavModel.IsCurrent(currentPage, entry.Page) ? "page" : null;
@@ -39,4 +42,14 @@
         var entry = Model.Trailing[i];
         <a asp-page="@entry.Page" class="@(i == 0 ? "nav-trailing" : null)" aria-current="@Current(currentPage, entry)">@entry.Label</a>
     }
+    @* Without a script each choice is a link that sets the cookie and comes back; theme.js applies it at once instead. *@
+    <details class="nav-menu theme-menu">
+        <summary title="Theme: @themeLabel"><span aria-hidden="true">&#9680;</span><span class="visually-hidden">Theme: @themeLabel</span></summary>
+        <div class="nav-panel">
+            @foreach (var (id, label) in Themes.All)
+            {
+                <a href="/theme?name=@id&amp;returnUrl=@Uri.EscapeDataString(returnUrl)" data-theme-choice="@id" aria-current="@(id == currentTheme ? "true" : null)">@label</a>
+            }
+        </div>
+    </details>
 </nav>

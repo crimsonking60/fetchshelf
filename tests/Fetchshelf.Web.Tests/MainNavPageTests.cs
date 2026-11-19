@@ -29,7 +29,8 @@ public class MainNavPageTests
         Assert.Contains(">Duplicates</a>", library);
         Assert.DoesNotContain(">Following", library);
         Assert.Matches("<details class=\"nav-menu[^\"]*\">\\s*<summary>Insight", nav);
-        Assert.Contains(">Config</a>", nav[nav.LastIndexOf("</details>", StringComparison.Ordinal)..]);
+        var config = nav.IndexOf(">Config</a>", StringComparison.Ordinal);
+        Assert.True(config > nav.IndexOf("<summary>Insight", StringComparison.Ordinal) && config < nav.IndexOf("theme-menu", StringComparison.Ordinal), "Config comes after the menus, then the theme menu");
     }
 
     [Fact]

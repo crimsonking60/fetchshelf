@@ -35,7 +35,7 @@ public class AppVersionTests
     [InlineData("/")]
     [InlineData("/Jobs")]
     [InlineData("/Torrents")]
-    public async Task EveryPage_EndsWithAFooter_WithTheVersionOnTheLeftAndTheThemeOnTheRight(string page)
+    public async Task EveryPage_EndsWithAFooterWithTheVersion_AndHasTheThemeMenuInTheHeader(string page)
     {
         using var fixture = new FetchshelfWebAppFixture();
 
@@ -44,10 +44,13 @@ public class AppVersionTests
         var header = html[html.IndexOf("<header", StringComparison.Ordinal)..html.IndexOf("</header>", StringComparison.Ordinal)];
         var footer = html[html.IndexOf("<footer class=\"site-footer\">", StringComparison.Ordinal)..];
         Assert.True(html.IndexOf("</main>", StringComparison.Ordinal) < html.IndexOf("<footer", StringComparison.Ordinal), "The footer comes after the page");
-        Assert.DoesNotContain("theme-select", header);
+        Assert.Contains("class=\"nav-menu theme-menu\"", header);
+        foreach (var id in new[] { "system", "dark-warm", "dark-cool", "light-warm", "light-cool" })
+        {
+            Assert.Contains($"data-theme-choice=\"{id}\"", header);
+        }
+
+        Assert.DoesNotContain("theme-select", html);
         Assert.Contains($"<span id=\"site-version\">Fetchshelf version {AppVersion.Current}</span>", footer);
-        Assert.True(
-            footer.IndexOf("site-version", StringComparison.Ordinal) < footer.IndexOf("id=\"theme-select\"", StringComparison.Ordinal),
-            "The version comes before the theme selector");
     }
 }
