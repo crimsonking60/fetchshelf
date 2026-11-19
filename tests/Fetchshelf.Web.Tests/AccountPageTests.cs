@@ -100,9 +100,22 @@ public partial class AccountPageTests
 
         var html = await client.GetStringAsync("/Account");
 
-        var warning = html.IndexOf($"{label}: 2. See the <a href=\"https://www.myanonamouse.net/u/123456\"", StringComparison.Ordinal);
+        var warning = html.IndexOf($"{label}: 2. See the <a href=\"https://www.myanonamouse.net/u/123456\" target=\"_blank\"", StringComparison.Ordinal);
         Assert.True(warning >= 0);
         Assert.True(warning < html.IndexOf("<h3>From MAM</h3>", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("ite", true)]
+    [InlineData("inactHnr", false)]
+    public async Task AccountPage_TrackerErrors_SayHowLongMamKeepsCountingThem(string key, bool noted)
+    {
+        using var fixture = Fixture(MamAccountFixture.WithCounts((key, 2)));
+        var client = await StartAndReadAccountAsync(fixture);
+
+        var html = await client.GetStringAsync("/Account");
+
+        Assert.Equal(noted, html.Contains("for 48 hours after it last occurred", StringComparison.Ordinal));
     }
 
     [Fact]

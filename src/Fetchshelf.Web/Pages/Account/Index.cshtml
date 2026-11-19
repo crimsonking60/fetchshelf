@@ -52,7 +52,11 @@ else
     @foreach (var warning in summary.Warnings)
     {
         <p class="notice error snatch-warning" role="alert">
-            @warning.Label: @warning.Count. See the <a href="@summary.MamProfileUrl" rel="noreferrer">snatch lists on MAM</a>.
+            @warning.Label: @warning.Count. See the <a href="@summary.MamProfileUrl" target="_blank" rel="noopener noreferrer">snatch lists on MAM</a>.
+            @if (warning.Key == "ite")
+            {
+                <span class="tracker-error-note">MAM keeps counting a tracker error for 48 hours after it last occurred, so this stays after the cause is fixed.</span>
+            }
         </p>
     }
 

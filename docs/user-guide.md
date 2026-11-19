@@ -1791,7 +1791,8 @@ a restart, the page only offers **Refresh from MAM**.
 of the limit, wedges, and bonus points. Below them, **Snatches** lists every kind of snatch MAM counts, with
 MAM's own labels, the count and the size. Three kinds are shown first as warnings when there are any, with a
 link to the account's snatch lists on MAM: *Not Seeding - H&R - Not Yet Satisfied* (hit-and-runs), *Not Seeding - Not
-Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*. With a `[seeding]` section, a
+Yet Satisfied*, which turn into hit-and-runs if left, and *Important Tracker Errors*. MAM keeps counting a tracker
+error for 48 hours after it last occurred, so that warning stays for up to two days after the cause is fixed. With a `[seeding]` section, a
 line below gives Fetchshelf's own estimate of which of its torrents those are (see
 [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied)).
 
