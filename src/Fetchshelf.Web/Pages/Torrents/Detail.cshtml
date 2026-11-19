@@ -8,6 +8,19 @@
 @if (Model.Torrent is { } torrent)
 {
     <h2>@torrent.Metadata.Title</h2>
+    @if (torrent.MamLink is not null || torrent.AbsLink is not null)
+    {
+        <p class="torrent-links">
+            @if (torrent.MamLink is not null)
+            {
+                <a id="mam-link" href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a>
+            }
+            @if (torrent.AbsLink is not null)
+            {
+                <a id="abs-link" href="@torrent.AbsLink" target="_blank">Open in Audiobookshelf</a>
+            }
+        </p>
+    }
     @if (Model.ActionMessage is { } actionMessage)
     {
         <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
@@ -98,15 +111,6 @@
             <span class="muted">An estimate from qBittorrent's seeding time; the Account page has MAM's own counts.</span>
         </p>
     }
-    @if (torrent.MamLink is not null)
-    {
-        <p id="mam-link"><a href="@torrent.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
-    }
-    @if (torrent.AbsLink is not null)
-    {
-        <p id="abs-link"><a href="@torrent.AbsLink" target="_blank">Open in Audiobookshelf</a></p>
-    }
-
     <h3>Linked files</h3>
     <ul>
         @foreach (var file in torrent.LinkedFiles)

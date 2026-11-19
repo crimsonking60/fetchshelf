@@ -133,6 +133,20 @@ public class TorrentDetailPageTests
     }
 
     [Fact]
+    public async Task Get_OpenOnMam_IsRightUnderTheTitle()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        var title = html.IndexOf("<h2>", StringComparison.Ordinal);
+        var link = html.IndexOf("<a id=\"mam-link\" href=\"https://www.myanonamouse.net/t/1\"", StringComparison.Ordinal);
+        Assert.InRange(link, title, html.IndexOf("class=\"meta-block\"", StringComparison.Ordinal));
+        Assert.Contains(">Open on MAM</a>", html);
+    }
+
+    [Fact]
     public async Task Get_TorrentStillOnMam_HasNoRemovedNotice()
     {
         using var fixture = new FetchshelfWebAppFixture();
