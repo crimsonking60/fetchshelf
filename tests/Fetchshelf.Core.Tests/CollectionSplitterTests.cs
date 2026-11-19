@@ -107,6 +107,8 @@ public class CollectionSplitterTests
     [InlineData("Ultimate Spider-Man 000.5", "Ultimate Spider-Man", "0.5")]
     [InlineData("Ultimate Six 05 - The Ultimates and Ultimate Spider-Man", "Ultimate Six", "5")]
     [InlineData("Ultimatum - Spider-Man Requiem 02", "Ultimatum - Spider-Man Requiem", "2")]
+    [InlineData("Ultimates 2 001", "Ultimates 2", "1")]
+    [InlineData("Ultimate X4 002", "Ultimate X4", "2")]
     [InlineData("Saga #12", "Saga", "12")]
     [InlineData("Berserk v07", "Berserk", "7")]
     [InlineData("Berserk Vol. 7", "Berserk", "7")]
@@ -142,6 +144,68 @@ public class CollectionSplitterTests
             [("Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v01", "1"), ("Reincarnated Into a Game as the Hero's Friend - Running the Kingdom Behind the Scenes v02", "2")],
             books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)));
         Assert.All(books, b => Assert.Equal(manga.Series[0].Name, b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
+    public void TrailingYearsAndReleaseTagsInBrackets_AreLeftOutOfTheTitleAndNumber()
+    {
+        const string Folder = "American Vampire (v01-v07)(2010-2015) (digital-Empire)";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Authors = ["Scott Snyder"] },
+            Files(
+                $"{Folder}/American Vampire v06 (2014) (Digital) (Zone-Empire).cbr",
+                $"{Folder}/American Vampire v05 (2013) (digital) (X-MAS 2013-Empire).cbr",
+                $"{Folder}/American Vampire v01 (2010) (digital) (X-MAS_2013-Empire).cbr",
+                $"{Folder}/American Vampire v02 [2011] [scan].cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("American Vampire v01", "1"), ("American Vampire v02", "2"), ("American Vampire v05", "5"), ("American Vampire v06", "6")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)).OrderBy(b => b.Item2));
+        Assert.All(books, b => Assert.Equal("American Vampire", b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
+    public void IssuesNamedAfterAVolume_TakeTheTorrentsBetterWordedTitleAsTheirSeries()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Batman: Black and White", Authors = ["Neil Gaiman"] },
+            Files(Enumerable.Range(1, 4).Select(i => $"Batman - Black and White/Black  White Vol 1 #{i:00}.cbr").ToArray()),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Batman: Black and White Vol 1 #01", "Batman: Black and White Vol 1", "1"), ("Batman: Black and White Vol 1 #04", "Batman: Black and White Vol 1", "4")],
+            new[] { books[0], books[3] }.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Name, b.Metadata.Series[0].Entries[0].Display)));
+    }
+
+    [Fact]
+    public void TheTorrentsTitle_IsNotTakenForASeriesWithWordsItLacks()
+    {
+        var names = new[] { "Ultimate Six 01", "Ultimate Six 02", "Ultimate Six 03", "Ultimate Spider-Man 001" };
+
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Ultimate Spider-Man" },
+            Files(names.Select(n => $"C/{n}.cbr").ToArray()),
+            EbookTypes)!;
+
+        Assert.Equal(["Ultimate Six", "Ultimate Six", "Ultimate Six", "Ultimate Spider-Man"], books.Select(b => b.Metadata.Series[0].Name));
+        Assert.Equal("Ultimate Six 01", books[0].Metadata.Title);
+    }
+
+    [Fact]
+    public void ASeriesSpelledSeveralWays_IsNamedAsMostOfItsFilesSpellIt()
+    {
+        var names = new[] { "Ultimate Spider-Man Annual 01", "Ultimate Spider-man Annual 02", "Ultimate Spider-Man Annual 03", "Miles Morales - Ultimate Spider-Man 007" };
+
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Marvel Ultimate Universe Comic Collection" },
+            Files([.. names.Select(n => $"C/{n}.cbr"), "C/Miles Morales Ultimate Spider-Man 001.cbr", "C/Miles Morales Ultimate Spider-Man 002.cbr"]),
+            EbookTypes)!;
+
+        Assert.Equal(
+            ["Miles Morales Ultimate Spider-Man", "Miles Morales Ultimate Spider-Man", "Miles Morales Ultimate Spider-Man", "Ultimate Spider-Man Annual", "Ultimate Spider-Man Annual", "Ultimate Spider-Man Annual"],
+            books.Select(b => b.Metadata.Series[0].Name));
+        Assert.Equal("Ultimate Spider-Man Annual 02", books.Single(b => b.Metadata.Series[0].Entries[0].Display == "2" && b.Metadata.Title.Contains("Annual")).Metadata.Title);
     }
 
     [Fact]

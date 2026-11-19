@@ -246,6 +246,12 @@ passing over a collection whose books are all owned already.
   *Ultimatum*, after the name pattern learned `000.5` and `Ultimate Six 05 - <title>`. A two-volume manga
   (`… v01 - Yuki Suzuki.cbz`, MAM range `1-2`) then showed that a range collection must also take a number from the end
   of a name, after a volume marker (`v01`, `Vol. 1`, `Volume 1`, `#1`).
+- **After release:** *American Vampire (v01-v07)* on the live instance (no MAM series, names such as
+  `American Vampire v06 (2014) (Digital) (Zone-Empire).cbr`) wasn't taken for a collection, as only a numeric Calibre id
+  was taken off the end of a name. Every trailing group in brackets is now (`fix/collection-name-tags`). On the same
+  branch, from *Batman: Black and White* (files `Black  White Vol 1 #01.cbr`): a number after a marker (`#`, `v`, `Vol`)
+  may follow a series ending in a digit, a series never ends in `#`, runs of spaces become one, and a series from the
+  file names takes the torrent's title instead when the title holds every word of it, apart from a trailing volume.
 - **Link job:** a split collection's own record keeps no folder and gets `CollectionBookCount`; each later run only
   brings its books' category and client state in step, as they follow the collection's torrent. Each book is placed
   through the existing `PlaceFiles` (or the series layout's file), gets its cover as `cover.jpg`/`.png`/`.webp` (not in a

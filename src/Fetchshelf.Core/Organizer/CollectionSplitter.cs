@@ -62,6 +62,12 @@ public static partial class CollectionSplitter
             return null;
         }
 
+        // One series spelled several ways in its file names, such as "Spider-man" and "Spider-Man", is named as most are.
+        var spellings = numbered.Values.OfType<(string Series, decimal Number)>()
+            .GroupBy(n => TitleNormalizer.Normalize(n.Series))
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(n => n.Series, StringComparer.Ordinal).OrderByDescending(s => s.Count()).ThenBy(s => s.Key, StringComparer.Ordinal).First().Key);
         var listed = range is null ? [] : NumberedList(collection.Description);
         var sizes = files.ToDictionary(f => f.Path, f => f.SizeBytes, StringComparer.Ordinal);
         var result = new List<CollectionBook>();
@@ -85,7 +91,12 @@ public static partial class CollectionSplitter
             }
             else if (numbered[group.Name] is var (series, issue))
             {
-                (title, seriesName, number) = (cleaned, series, issue);
+                // The torrent's title may name the series better than its file names do.
+                var better = BetterSeriesName(spellings[TitleNormalizer.Normalize(series)], collection);
+                (title, seriesName, number) = (
+                    better != series && cleaned.StartsWith(series, StringComparison.Ordinal) ? better + cleaned[series.Length..] : cleaned,
+                    better,
+                    issue);
             }
             else
             {
@@ -167,10 +178,13 @@ public static partial class CollectionSplitter
         }).ToList();
     }
 
-    /// <summary>A folder or file name without what isn't the title: a trailing Calibre id <c>(1019)</c> and a trailing <c> - author</c>.</summary>
+    /// <summary>
+    /// A folder or file name without what isn't the title: trailing groups in brackets, such as a Calibre id <c>(1019)</c>,
+    /// a year <c>(2014)</c> or release tags <c>(Digital) (Zone-Empire)</c>, and a trailing <c> - author</c>.
+    /// </summary>
     private static string Clean(string name, IReadOnlyList<string> authors)
     {
-        var cleaned = CalibreId().Replace(name, "").Trim();
+        var cleaned = Spaces().Replace(TrailingBracketGroups().Replace(name, ""), " ").Trim();
         foreach (var author in authors)
         {
             var suffix = " - " + author;
@@ -183,6 +197,30 @@ public static partial class CollectionSplitter
         return cleaned.Length == 0 ? name : cleaned;
     }
 
+    /// <summary>
+    /// The torrent's title as the series' name, when it names the same series better than the file names do: every word
+    /// of <paramref name="series"/> from its names, apart from a trailing volume such as <c>Vol 1</c>, is in the title
+    /// (ignoring "and", "&amp;", "the", "of" and "a"). <c>Black White Vol 1</c> in <c>Batman: Black and White</c> becomes
+    /// <c>Batman: Black and White Vol 1</c>. Otherwise <paramref name="series"/> as it is.
+    /// </summary>
+    private static string BetterSeriesName(string series, TorrentMetadata collection)
+    {
+        var volume = TrailingVolume().Match(series);
+        var bare = volume.Success ? series[..volume.Index].Trim() : series;
+        var title = Clean(collection.Title, collection.Authors);
+        var titleWords = Words(title);
+        var seriesWords = Words(bare);
+        return seriesWords.Count > 0 && seriesWords.IsSubsetOf(titleWords) && !SameName(bare, title)
+            ? (volume.Success ? $"{title} {volume.Value.Trim()}" : title)
+            : series;
+    }
+
+    private static readonly HashSet<string> MinorWords = new(["and", "the", "of", "a"], StringComparer.Ordinal);
+
+    /// <summary>The words of a name, lower-cased, without the minor ones.</summary>
+    private static HashSet<string> Words(string name) =>
+        WordPattern().Matches(TextFolding.Fold(name).ToLowerInvariant()).Select(m => m.Value).Where(w => !MinorWords.Contains(w)).ToHashSet(StringComparer.Ordinal);
+
     /// <summary>A name such as <c>04 - Mort</c>: its number and the title after it.</summary>
     private static (decimal Number, string Title)? LeadingNumber(string name) =>
         LeadingNumberPattern().Match(name) is { Success: true } m && Parse(m.Groups["number"].Value) is { } number
@@ -194,7 +232,8 @@ public static partial class CollectionSplitter
     /// Ultimates</c> or <c>Running the Kingdom v01</c> (also <c>Vol. 1</c>, <c>Volume 1</c>, <c>#1</c>): its series and number.
     /// </summary>
     private static (string Series, decimal Number)? NumberedName(string name) =>
-        TrailingNumberPattern().Match(name) is { Success: true } m && Parse(m.Groups["number"].Value) is { } number
+        (MarkedNumberPattern().Match(name) is { Success: true } marked ? marked : TrailingNumberPattern().Match(name)) is { Success: true } m
+        && Parse(m.Groups["number"].Value) is { } number
             ? (m.Groups["series"].Value.Trim(), number)
             : null;
 
@@ -233,16 +272,30 @@ public static partial class CollectionSplitter
 
     private static string Extension(string path) => System.IO.Path.GetExtension(path).TrimStart('.');
 
-    [GeneratedRegex(@"\s*\(\d+\)\s*$")]
-    private static partial Regex CalibreId();
+    [GeneratedRegex(@"(\s*(\([^()]*\)|\[[^\[\]]*\]))+\s*$")]
+    private static partial Regex TrailingBracketGroups();
 
     [GeneratedRegex(@"^(?<number>\d{1,4}(\.\d+)?)\s*[-.:)_]\s*(?<title>\S.*)$")]
     private static partial Regex LeadingNumberPattern();
 
-    // The series ends with neither a digit nor a dot, so 000.5 is all number; a volume marker (v, vol., volume, #) may
-    // come before the number, and a title after it, following " - ".
-    [GeneratedRegex(@"^(?<series>.*?[^\d.\s])\s*(?:(?:\bv|\bvol|\bvolume|#)\.?\s*)?(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
+    // A number after a marker (v, vol., volume, #): the series may then end with a digit, as in "Black White Vol 1 #01".
+    [GeneratedRegex(@"^(?<series>.*?[^\s#])\s*(?:#|\b(?:v|vol|volume)\.?)\s*(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex MarkedNumberPattern();
+
+    // A number without a marker: the series ends with neither a dot nor a #, so 000.5 is all number, and is the shortest
+    // that leaves a number at the end, so "Ultimates 2 001" is issue 1 of "Ultimates 2"; a title may follow the number
+    // after " - ".
+    [GeneratedRegex(@"^(?<series>.*?[^.\s#])\s+(?<number>\d{1,4}(\.\d+)?)(\s+-\s+\S.*)?$")]
     private static partial Regex TrailingNumberPattern();
+
+    [GeneratedRegex(@"\s*\b(?:v|vol|volume)\.?\s*\d+$", RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingVolume();
+
+    [GeneratedRegex(@"[\p{L}\p{N}]+")]
+    private static partial Regex WordPattern();
+
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex Spaces();
 
     [GeneratedRegex(@"^\s*#?(?<number>\d{1,4}(\.\d+)?)\s*[-.:)]?\s+(?<title>\S[^\r\n]*?)\s*$", RegexOptions.Multiline)]
     private static partial Regex ListLine();
