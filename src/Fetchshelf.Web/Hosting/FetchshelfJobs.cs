@@ -49,7 +49,8 @@ public static class FetchshelfJobs
         jobRegistry.Register(JobNames.LibraryCheck, async ct =>
         {
             using var scope = scopeFactory.CreateScope();
-            return JobOutcomes.LibraryCheck(await scope.ServiceProvider.GetRequiredService<LibraryChecker>().RunAsync(ct));
+            return JobOutcomes.LibraryCheck(await scope.ServiceProvider.GetRequiredService<LibraryChecker>()
+                .RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct));
         }, "Compares the library folders with Fetchshelf's records: folders no book points at, and books whose folder or files are gone.");
 
         jobRegistry.Register(JobNames.Clean, async ct =>

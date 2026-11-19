@@ -773,6 +773,36 @@ public sealed class LinkRunner(
         return new RelinkResult(true, description + ".");
     }
 
+    /// <summary>
+    /// What would stop <see cref="RelinkAsync"/> placing the torrent's files again, found the way it finds it, without
+    /// changing anything: whether qBittorrent has it and has finished it, whether a library accepts it, and whether it
+    /// has the author a book-layout library needs. With the torrent's category, for a library to be given.
+    /// </summary>
+    public async Task<(RelinkBlocker Blocker, string? Category)> RelinkBlockerAsync(
+        string torrentId, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken = default)
+    {
+        if (await FindInQBittorrentAsync(torrentId, connections, cancellationToken) is not var (connection, _, torrent))
+        {
+            return (RelinkBlocker.NotInQBittorrent, null);
+        }
+
+        if (!torrent.IsFinished)
+        {
+            return (RelinkBlocker.NotFinished, torrent.Category);
+        }
+
+        if (MatchLibrary(connection, torrent).LibraryIndex is not { } index)
+        {
+            return (RelinkBlocker.NoLibraryAccepts, torrent.Category);
+        }
+
+        var metadataJson = await dbContext.Torrents.AsNoTracking().Where(t => t.Id == torrentId).Select(t => t.MetadataJson).SingleAsync(cancellationToken);
+        return TorrentMetadataSerializer.Deserialize(metadataJson).Authors.Count == 0 && !libraries[index].IsSeriesLayout
+            ? (RelinkBlocker.NoAuthor, torrent.Category)
+            : (RelinkBlocker.None, torrent.Category);
+    }
+
     private RelinkResult Refuse(TorrentEntity existing, string reason)
     {
         _logger.LogWarning("Did not relink {Title}: {Reason} Nothing was changed", existing.Title, reason);

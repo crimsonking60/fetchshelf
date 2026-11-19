@@ -643,6 +643,37 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.Contains("Refreshed Title", updatedEvent.FieldChangesJson);
     }
 
+    [Theory]
+    [InlineData("missing", RelinkBlocker.NotInQBittorrent, null)]
+    [InlineData("downloading", RelinkBlocker.NotFinished, "audiobooks")]
+    [InlineData("other-category", RelinkBlocker.NoLibraryAccepts, "books-elsewhere")]
+    [InlineData("no-author", RelinkBlocker.NoAuthor, "audiobooks")]
+    [InlineData("fine", RelinkBlocker.None, "audiobooks")]
+    public async Task RelinkBlockerAsync_SaysWhatWouldStopRelink_WithTheCategory(string kind, RelinkBlocker expected, string? category)
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var torrent = await OrganizerTestSupport.SeedTorrentAsync(context, "hash1", 1);
+        if (kind == "no-author")
+        {
+            torrent.MetadataJson = TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata() with { Authors = [] });
+            await context.SaveChangesAsync();
+        }
+
+        var inClient = kind switch
+        {
+            "missing" => [],
+            "downloading" => [FinishedTorrent("hash1", DownloadsDir) with { State = "downloading", Progress = 0.5 }],
+            "other-category" => [FinishedTorrent("hash1", DownloadsDir, category: "books-elsewhere")],
+            _ => new List<QBittorrentTorrent> { FinishedTorrent("hash1", DownloadsDir) },
+        };
+        var client = OrganizerTestSupport.CreateQBittorrentClient(inClient, new Dictionary<string, List<QBittorrentFile>>());
+        var runner = CreateRunner(context, new FakeMetadataLookup(), [CreateLibrary(LibraryDir)]);
+
+        var (blocker, foundCategory) = await runner.RelinkBlockerAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.Equal((expected, category), (blocker, foundCategory));
+    }
+
     [Fact]
     public async Task RefreshAndRelink_LookAtTheCoverAgain()
     {

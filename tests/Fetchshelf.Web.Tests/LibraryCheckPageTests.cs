@@ -234,9 +234,31 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         var html = await PostAsync(client, "Relink", Results(fixture).Findings[0].Id);
 
-        Assert.Contains("Relinked 0 of 1. 1 could not be", html);
-        Assert.Contains("<div class=\"finding-note\">Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.</div>", html);
-        Assert.Single(Results(fixture).Findings);
+        Assert.Contains("Relinked 0 of 1. 1 could not be; the What to do column says why", html);
+        Assert.Contains("qBittorrent no longer has the torrent, so Relink has nothing to link from.", html);
+        Assert.DoesNotContain("finding-note", html); // the reason is the What to do, not repeated as a note
+        Assert.Equal(RelinkBlocker.NotInQBittorrent, Assert.Single(Results(fixture).Findings).Finding.Blocker);
+    }
+
+    [Fact]
+    public async Task BooksFindings_SayWhatToDo_WithLinksToWhereItIsDone()
+    {
+        using var fixture = Fixture();
+        LibraryFinding Missing(string id, RelinkBlocker blocker, string? detail = null) =>
+            new(LibraryFindingKind.FolderMissing, $"/lib/{id}", "Audiobooks") { TorrentId = id, Title = id, Blocker = blocker, BlockerDetail = detail };
+        Results(fixture).Set(
+            [
+                Missing("ready", RelinkBlocker.None), Missing("category", RelinkBlocker.NoLibraryAccepts, "mouse"),
+                Missing("author", RelinkBlocker.NoAuthor), Missing("gone", RelinkBlocker.NotInQBittorrent),
+            ],
+            DateTimeOffset.UtcNow);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck"));
+
+        Assert.Contains("<strong>Relink</strong>: qBittorrent has the torrent and a library accepts it.", html);
+        Assert.Contains("No library accepts its qBittorrent category (mouse), save path or tags. Give it a library's category on its <a href=\"/torrents/category\">torrent page</a>", html);
+        Assert.Contains("The book has no author, which its folder name needs. Add one on its <a href=\"/torrents/author/edit\">Edit page</a>", html);
+        Assert.Contains("qBittorrent no longer has the torrent", html);
     }
 
     [Fact]

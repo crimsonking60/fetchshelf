@@ -143,6 +143,12 @@ other 10k tests (`/data/tmp`) should keep a check of the 10k library under a min
   First queued as the Torrents page's bulk Relink, which dropped the findings at once and reported failures only in the
   log; changed after trying it on the dev instance. While a check runs, the page shows the previous findings with the
   actions off, and reloads itself when it ends; a post for findings a newer check replaced does nothing and says so.
+- **What stops Relink is shown up front.** The check asks qBittorrent, through `LinkRunner.RelinkBlockerAsync` (the
+  same order of checks as Relink: in qBittorrent, finished, a library accepts it, an author), and each book's row has a
+  *What to do* with the remedy and a link to the torrent page (category) or its Edit page (author). After a failed
+  Relink the blocker is asked again, so the row stays current; a note is kept only for a reason the blocker doesn't
+  cover, such as files missing from the download folder. Asked for on the dev instance, where five old records showed
+  "Relink selected" for books it couldn't relink, the reasons only in the log.
 - **Relative paths** on record (left from an older configuration) and in the configuration are resolved against the
   working folder with `Path.GetFullPath`, as Fetchshelf's file operations resolve them. The Jobs page links the job to the page; the menu
   shows it with a count while there are findings.

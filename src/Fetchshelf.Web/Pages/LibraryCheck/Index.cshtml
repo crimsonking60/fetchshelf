@@ -93,8 +93,9 @@
 {
     <h3>Books whose folder or files are gone</h3>
     <p>
-        <strong>Relink</strong> places the book's files again from qBittorrent, when it still has the torrent and a library
-        accepts it; a book it couldn't relink stays here with the reason. <strong>Remove record</strong> makes Fetchshelf
+        <em>What to do</em> says, for each book, what the check found when it asked qBittorrent. <strong>Relink</strong> places
+        a book's files again from qBittorrent, when it still has the torrent, a library accepts it and the book has an
+        author; what stops it is put right on the book's own pages first. <strong>Remove record</strong> makes Fetchshelf
         forget the book.
     </p>
     <form method="post">
@@ -106,6 +107,7 @@
                     <th>Book</th>
                     <th>Folder on record</th>
                     <th>What is gone</th>
+                    <th>What to do</th>
                 </tr>
             </thead>
             <tbody>
@@ -123,6 +125,29 @@
                             else
                             {
                                 @(finding.MissingFiles.Count == 1 ? "1 file" : $"{finding.MissingFiles.Count} files")@: (@string.Join(", ", finding.MissingFiles.Take(5))@(finding.MissingFiles.Count > 5 ? ", …" : ""))
+                            }
+                        </td>
+                        <td class="what-to-do">
+                            @switch (finding.Blocker)
+                            {
+                                case RelinkBlocker.None:
+                                    <text><strong>Relink</strong>: qBittorrent has the torrent and a library accepts it.</text>
+                                    break;
+                                case RelinkBlocker.NotInQBittorrent:
+                                    <text>qBittorrent no longer has the torrent, so Relink has nothing to link from. <strong>Remove record</strong>, unless you add the torrent to qBittorrent again.</text>
+                                    break;
+                                case RelinkBlocker.NotFinished:
+                                    <text>The torrent is still downloading in qBittorrent. Check again once it has finished.</text>
+                                    break;
+                                case RelinkBlocker.NoLibraryAccepts:
+                                    <text>No library accepts its qBittorrent category (@(string.IsNullOrEmpty(finding.BlockerDetail) ? "none" : finding.BlockerDetail)), save path or tags. Give it a library's category on its <a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">torrent page</a>, then <strong>Relink</strong>.</text>
+                                    break;
+                                case RelinkBlocker.NoAuthor:
+                                    <text>The book has no author, which its folder name needs. Add one on its <a asp-page="/Torrents/Edit" asp-route-id="@finding.TorrentId">Edit page</a>, then <strong>Relink</strong>.</text>
+                                    break;
+                                case RelinkBlocker.Unknown:
+                                    <text>qBittorrent couldn't be asked (@finding.BlockerDetail), so whether Relink can help isn't known.</text>
+                                    break;
                             }
                             @if (note is not null)
                             {

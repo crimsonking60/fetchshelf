@@ -1973,10 +1973,17 @@ back with its findings straight away.
 - **Delete selected** checks each folder or file again first: it must still be inside a library's folder, and no book
   may use it by then. Folders left empty above it are removed too, up to the library's folder, and each deletion is an
   event. Audiobookshelf marks a deleted book's item missing on its next scan.
-- **Relink selected** relinks each book as on its torrent page, which needs qBittorrent to still have the torrent and a
-  library to accept it. A book it relinks leaves the list; one it can't stays, with the reason under it, such as no
-  library accepting its category or the book having no author. **Remove record** makes Fetchshelf forget the book, as
-  on its torrent page.
+- For each book whose folder or files are gone, the check asks qBittorrent what **Relink** would run into, and *What to
+  do* says:
+  - **Relink**, when qBittorrent has the torrent and a library accepts it;
+  - give it a library's category on its torrent page, then Relink, when no library accepts its qBittorrent category,
+    save path or tags;
+  - add an author on its Edit page, then Relink, when the book has no author;
+  - **Remove record**, when qBittorrent no longer has the torrent (unless you add it to qBittorrent again);
+  - check again later, when the torrent is still downloading.
+- **Relink selected** relinks each ticked book as on its torrent page. A book it relinks leaves the list; one it can't
+  stays, with *What to do* brought up to date. **Remove record** makes Fetchshelf forget the book, as on its torrent
+  page.
 - Folders and files whose name starts with `.` or `@`, such as a NAS's `@eaDir`, are left out, and folder links aren't
   followed. A relative path, in the configuration or on record from an older configuration, is taken from Fetchshelf's
   working folder, as its file operations take it, and shown in full. Books in a `no_link` library have no folder of their own, so they are never missing.

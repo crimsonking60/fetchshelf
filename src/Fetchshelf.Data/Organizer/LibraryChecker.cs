@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -47,12 +48,12 @@ public sealed class LibraryCheckResults
 
     public NumberedFinding? Get(int id) => Findings.FirstOrDefault(f => f.Id == id);
 
-    /// <summary>Notes on findings what happened when they were acted on, by id.</summary>
-    public void SetNotes(IReadOnlyDictionary<int, string> notes)
+    /// <summary>Puts what was learned acting on findings in their place, by id: the finding as it stands now, and a note.</summary>
+    public void Update(IReadOnlyDictionary<int, (LibraryFinding Finding, string? Note)> updates)
     {
         lock (_lock)
         {
-            _findings = _findings.Select(f => notes.TryGetValue(f.Id, out var note) ? f with { Note = note } : f).ToList();
+            _findings = _findings.Select(f => updates.TryGetValue(f.Id, out var update) ? f with { Finding = update.Finding, Note = update.Note } : f).ToList();
         }
     }
 
@@ -86,13 +87,19 @@ public sealed class LibraryChecker(
     LibraryCheckResults results,
     LibraryWriteGate? writeGate = null,
     TimeProvider? timeProvider = null,
-    ILogger<LibraryChecker>? logger = null)
+    ILogger<LibraryChecker>? logger = null,
+    LinkRunner? linkRunner = null)
 {
     private readonly LibraryWriteGate _writeGate = writeGate ?? new LibraryWriteGate();
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly ILogger<LibraryChecker> _logger = logger ?? NullLogger<LibraryChecker>.Instance;
 
-    public async Task<LibraryCheckSummary> RunAsync(CancellationToken cancellationToken = default)
+    /// <param name="connections">
+    /// The qBittorrent connections, asked for each book whose folder or files are gone what would stop Relink
+    /// (<see cref="LinkRunner.RelinkBlockerAsync"/>); without them, or without a <see cref="LinkRunner"/>, nobody is asked.
+    /// </param>
+    public async Task<LibraryCheckSummary> RunAsync(
+        IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)>? connections = null, CancellationToken cancellationToken = default)
     {
         using var _ = await _writeGate.AcquireAsync(cancellationToken);
         var books = (await dbContext.Torrents.AsNoTracking()
@@ -128,6 +135,11 @@ public sealed class LibraryChecker(
             .Select(l => new CheckedLibrary(l.Name ?? l.LibraryDir, Path.GetFullPath(l.LibraryDir), l.IsSeriesLayout, l.Method != LibraryLinkMethod.NoLink))
             .ToList();
         var findings = LibraryCheckComparer.Compare(checkedLibraries, folders, books, ReadIdentity);
+        if (linkRunner is not null && connections is not null)
+        {
+            findings = await WithRelinkBlockersAsync(findings, connections, cancellationToken);
+        }
+
         results.Set(findings, _time.GetUtcNow());
         var summary = new LibraryCheckSummary(
             findings.Count(f => f.Kind == LibraryFindingKind.UnknownFolder), findings.Count(f => f.Kind == LibraryFindingKind.UnknownFile),
@@ -136,6 +148,34 @@ public sealed class LibraryChecker(
             "Library check: {Folders} folders walked, {Books} linked books; {Findings} findings",
             folders.Count, books.Count, summary.Total);
         return summary;
+    }
+
+    /// <summary>Each book's finding with what would stop Relink; a qBittorrent that doesn't answer makes it unknown.</summary>
+    private async Task<List<LibraryFinding>> WithRelinkBlockersAsync(
+        List<LibraryFinding> findings, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<LibraryFinding>(findings.Count);
+        foreach (var finding in findings)
+        {
+            if (finding.TorrentId is not { } torrentId)
+            {
+                result.Add(finding);
+                continue;
+            }
+
+            try
+            {
+                var (blocker, category) = await linkRunner!.RelinkBlockerAsync(torrentId, connections, cancellationToken);
+                result.Add(finding with { Blocker = blocker, BlockerDetail = category });
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                result.Add(finding with { Blocker = RelinkBlocker.Unknown, BlockerDetail = ex.Message });
+            }
+        }
+
+        return result;
     }
 
     /// <summary>Lists <paramref name="root"/> and every folder below it, each with the files directly in it.</summary>

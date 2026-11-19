@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -78,6 +79,21 @@ public sealed class LibraryCheckerTests : IDisposable
         var summary = await new LibraryChecker(context, relative, results).RunAsync();
 
         Assert.Equal(0, summary.Total);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithQBittorrent_SaysWhatWouldStopRelinkingEachBook()
+    {
+        using var context = CreateContext();
+        await LinkAsync(context, 1, "Author/Gone", "gone.m4b");
+        var formats = new FormatPreferenceLists { AudioTypes = ["m4b"], EbookTypes = ["epub"], MusicTypes = [], RadioTypes = [] };
+        var linkRunner = new LinkRunner(context, new EventStore(context), new FakeMetadataLookup(), Libraries, formats, new LinkRunnerOptions(false));
+        var client = OrganizerTestSupport.CreateQBittorrentClient([], new Dictionary<string, List<Fetchshelf.Clients.QBittorrent.QBittorrentFile>>());
+        var results = new LibraryCheckResults();
+
+        await new LibraryChecker(context, Libraries, results, linkRunner: linkRunner).RunAsync([(new QBittorrentConnection(), client)]);
+
+        Assert.Equal(RelinkBlocker.NotInQBittorrent, Assert.Single(results.Findings).Finding.Blocker);
     }
 
     [Fact]

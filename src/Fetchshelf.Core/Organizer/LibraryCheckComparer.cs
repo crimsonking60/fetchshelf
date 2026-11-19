@@ -33,6 +33,28 @@ public enum LibraryFindingKind
     FilesMissing,
 }
 
+/// <summary>What would stop Relink placing a book's files again, as the Library check found when it asked qBittorrent.</summary>
+public enum RelinkBlocker
+{
+    /// <summary>Nothing: Relink can place the files.</summary>
+    None,
+
+    /// <summary>qBittorrent no longer has the torrent, so there is nothing to link from.</summary>
+    NotInQBittorrent,
+
+    /// <summary>qBittorrent has the torrent, but it hasn't finished downloading.</summary>
+    NotFinished,
+
+    /// <summary>No library accepts the torrent's qBittorrent category, save path and tags.</summary>
+    NoLibraryAccepts,
+
+    /// <summary>The book has no author, which a book-layout library's folder names need.</summary>
+    NoAuthor,
+
+    /// <summary>qBittorrent couldn't be asked.</summary>
+    Unknown,
+}
+
 /// <summary>One thing the Library check found that doesn't match.</summary>
 /// <param name="Path">The folder or file found, or the book's folder on record.</param>
 public sealed record LibraryFinding(LibraryFindingKind Kind, string Path, string? LibraryName)
@@ -58,6 +80,15 @@ public sealed record LibraryFinding(LibraryFindingKind Kind, string Path, string
 
     /// <summary>For an unknown folder that looks like a linked book: that book, which it is probably an older folder of.</summary>
     public KnownBook? ProbablyOlderFolderOf { get; init; }
+
+    /// <summary>For a book's finding: what would stop Relink, when the check could ask qBittorrent; null when it didn't.</summary>
+    public RelinkBlocker? Blocker { get; init; }
+
+    /// <summary>
+    /// What goes with <see cref="Blocker"/>: the torrent's qBittorrent category for
+    /// <see cref="RelinkBlocker.NoLibraryAccepts"/>, why qBittorrent couldn't be asked for <see cref="RelinkBlocker.Unknown"/>.
+    /// </summary>
+    public string? BlockerDetail { get; init; }
 }
 
 /// <summary>

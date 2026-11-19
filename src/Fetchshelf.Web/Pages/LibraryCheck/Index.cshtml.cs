@@ -145,7 +145,7 @@ public class IndexModel(
         }
 
         var books = BookFindings(selectedIds);
-        var (relinked, notes) = (new List<int>(), new Dictionary<int, string>());
+        var (relinked, notRelinked) = (new List<int>(), new Dictionary<int, (LibraryFinding, string?)>());
         var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
         using (await writeGate.AcquireAsync(HttpContext.RequestAborted))
         {
@@ -160,22 +160,24 @@ public class IndexModel(
                     }
                     else
                     {
-                        notes[id] = result.Message;
+                        // What stops it now, which may have changed since the check; the message only when that isn't it.
+                        var (blocker, category) = await linkRunner.RelinkBlockerAsync(finding.TorrentId!, connections, HttpContext.RequestAborted);
+                        notRelinked[id] = (finding with { Blocker = blocker, BlockerDetail = category }, blocker == RelinkBlocker.None ? result.Message : null);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     logger.LogWarning("Library check: relinking {Title} failed: {Error}", finding.Title, ex.Message);
-                    notes[id] = $"Not relinked: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent")}";
+                    notRelinked[id] = (finding, $"Not relinked: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent")}");
                 }
             }
         }
 
         results.Remove(relinked);
-        results.SetNotes(notes);
+        results.Update(notRelinked);
         ActionMessage = $"Relinked {relinked.Count} of {books.Count}."
-            + (notes.Count > 0 ? $" {notes.Count} could not be, as noted on {(notes.Count == 1 ? "it" : "each")}; Remove record forgets such a book." : "");
-        ActionFailed = notes.Count > 0;
+            + (notRelinked.Count > 0 ? $" {notRelinked.Count} could not be; the What to do column says why, and what to do about it." : "");
+        ActionFailed = notRelinked.Count > 0;
         return RedirectToPage();
     }
 
