@@ -85,12 +85,12 @@ else
         <table>
             <thead>
                 <tr>
-                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.error-select').forEach(c => c.checked = this.checked)" /></th>
-                    <th>Job</th>
+                    <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.error-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th class="col-fit">Job</th>
                     <th>Torrent or book</th>
                     <th>Error</th>
-                    <th>Last failed</th>
-                    <th></th>
+                    <th class="col-fit">Last failed</th>
+                    <th class="col-fit"></th>
                 </tr>
             </thead>
             <tbody>
@@ -98,8 +98,8 @@ else
                 {
                     var name = error.Title ?? "(unknown torrent)";
                     <tr>
-                        <td><input class="error-select" type="checkbox" name="selectedIds" value="@error.Id" aria-label="Select @name" /></td>
-                        <td class="nowrap">@error.Job</td>
+                        <td class="col-fit"><input class="error-select" type="checkbox" name="selectedIds" value="@error.Id" aria-label="Select @name" /></td>
+                        <td class="col-fit">@error.Job</td>
                         <td>
                             @if (error.TorrentDetailId is not null)
                             {
@@ -116,8 +116,8 @@ else
                             <div class="muted mono">@error.KeyLabel @error.Key</div>
                         </td>
                         <td class="break">@error.ErrorText</td>
-                        <td><local-time value="error.OccurredAt" /></td>
-                        <td>
+                        <td class="col-fit"><local-time value="error.OccurredAt" /></td>
+                        <td class="col-fit">
                             @if (error.CanRestore)
                             {
                                 <button form="restore-@error.Id" type="submit" class="nowrap">Retry download</button>

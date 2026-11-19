@@ -5,13 +5,20 @@
     var mode = row.Follow?.Mode;
 }
 <tr id="@row.RowId">
-    <td><a asp-page="/Torrents/Index" asp-route-Series="@row.Key">@row.Name</a></td>
-    @* Comics and anthologies list many people; the first few, by number of books, say whose series it is. *@
-    <td title="@(row.Authors.Count > 3 ? string.Join(", ", row.Authors) : null)">@string.Join(", ", row.Authors.Take(3))@(row.Authors.Count > 3 ? $" and {row.Authors.Count - 3} more" : "")</td>
-    <td>@(row.Owned.Length > 0 ? row.Owned : $"{row.Books} without a number")</td>
-    <td>@(mode == FollowMode.Ignore ? "" : row.Missing)</td>
-    <td>@string.Join(", ", row.MediaTypes)</td>
-    <td class="nowrap">
+    <td>
+        <a asp-page="/Torrents/Index" asp-route-Series="@row.Key">@row.Name</a>
+        @* Comics and anthologies list many people; the first few, by number of books, say whose series it is. *@
+        <div class="sub unclamped" title="@(row.Authors.Count > 3 ? string.Join(", ", row.Authors) : null)">@string.Join(", ", row.Authors.Take(3))@(row.Authors.Count > 3 ? $" and {row.Authors.Count - 3} more" : "")</div>
+    </td>
+    <td>
+        @(row.Owned.Length > 0 ? row.Owned : $"{row.Books} without a number")
+        @if (mode != FollowMode.Ignore && !string.IsNullOrEmpty(row.Missing))
+        {
+            <div class="sub unclamped">Missing: @row.Missing</div>
+        }
+    </td>
+    <td class="col-fit">@string.Join(", ", row.MediaTypes)</td>
+    <td class="col-fit">
         @switch (mode)
         {
             case FollowMode.Download: <span class="status-badge status-linked">Auto</span> break;
@@ -21,7 +28,7 @@
     </td>
     @if (Model.CanFollow)
     {
-        <td class="nowrap">
+        <td class="col-fit">
             @* Each button sets one mode; the one in use is left out, and "Stop" undoes any. *@
             @foreach (var (value, label, title) in new[]
             {

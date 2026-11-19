@@ -27,26 +27,27 @@ else
         <table>
             <thead>
                 <tr>
-                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
                     <th>Title</th>
-                    <th>Cost</th>
+                    <th class="col-fit">Cost</th>
                     <th>Category</th>
                     <th>Tags</th>
-                    <th>Grabber</th>
-                    <th>Created</th>
-                    <th>Started</th>
-                    <th></th>
+                    <th class="col-fit"></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var selection in Model.Selections)
                 {
                     <tr>
-                        <td><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
-                        <td>@selection.Title</td>
+                        <td class="col-fit"><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
+                        <td>
+                            @selection.Title
+                            @* Who selected it and when, under the title: three columns of plain text were most of the table's width. *@
+                            <div class="sub unclamped">@selection.GrabberName · created <local-time value="selection.CreatedAt" />@if (selection.StartedAt is { } startedAt) { <text> · started <local-time value="startedAt" /></text> }</div>
+                        </td>
                         @if (selection.StartedAt is null)
                         {
-                            <td>
+                            <td class="col-fit">
                                 <select form="update-@selection.Id" name="cost" aria-label="Cost for @selection.Title">
                                     @foreach (var cost in Fetchshelf.Web.Pages.Selected.IndexModel.CostChoicesFor(selection))
                                     {
@@ -70,10 +71,7 @@ else
                             <td>@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)@if (selection.HasPlacement) { <partial name="_SelectionPlacementPartial" model="selection" /> }</td>
                             <td>@(selection.Tags.Count == 0 ? "-" : string.Join(", ", selection.Tags))</td>
                         }
-                        <td>@selection.GrabberName</td>
-                        <td><local-time value="selection.CreatedAt" /></td>
-                        <td><local-time value="selection.StartedAt" /></td>
-                        <td>
+                        <td class="col-fit">
                             @if (selection.StartedAt is null)
                             {
                                 <button form="update-@selection.Id" type="submit">Update</button>

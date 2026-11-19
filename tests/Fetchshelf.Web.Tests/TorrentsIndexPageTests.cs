@@ -235,6 +235,37 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_NoFilter_FoldsTheFiltersAway_WithoutChips()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents");
+
+        Assert.Matches("<details class=\"filter-panel\">", html);
+        Assert.DoesNotContain("Stop filtering by", html);
+    }
+
+    [Fact]
+    public async Task Get_FiltersInUse_OpenThePanel_AndShowAChipThatDropsOnlyThatFilter()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Kings&Language=English&MediaType=Audiobook"));
+
+        Assert.Contains("<details class=\"filter-panel\" open=\"open\">", html);
+        Assert.Contains("title=\"Filters in use\">2</span>", html);
+        var anchor = Regex.Match(html, "<a [^>]*aria-label=\"Stop filtering by language\"[^>]*>").Value;
+        var dropLanguage = Regex.Match(anchor, "href=\"([^\"]*)\"").Groups[1].Value;
+        Assert.Contains("MediaType=Audiobook", dropLanguage);
+        Assert.Contains("Q=Kings", dropLanguage);
+        Assert.DoesNotContain("Language=", dropLanguage);
+    }
+
+    [Fact]
     public async Task Get_Filtered_DropdownShowsTheFilter_AndClearFiltersKeepsTheSearch()
     {
         using var fixture = new FetchshelfWebAppFixture();

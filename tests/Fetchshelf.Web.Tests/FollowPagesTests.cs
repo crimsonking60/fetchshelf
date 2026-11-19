@@ -339,8 +339,7 @@ public partial class FollowPagesTests
         var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Series"));
 
         Assert.Contains(">The Expanse</a>", html);
-        Assert.Contains("<td>1, 2, 4</td>", html);
-        Assert.Contains("<td>3</td>", html);
+        Assert.Matches("<td>\\s*1, 2, 4\\s*<div class=\"sub unclamped\">Missing: 3</div>", html);
         Assert.DoesNotContain("handler=Mode", html);
         Assert.DoesNotContain(">Following</a>", html);
     }

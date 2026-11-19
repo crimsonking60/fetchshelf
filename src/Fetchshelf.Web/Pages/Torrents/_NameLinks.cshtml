@@ -1,6 +1,6 @@
 @model Fetchshelf.Web.Pages.Torrents.NameLinksViewModel
 @* Each name links to the Torrents page filtered by it, keeping the list's other filters when it has any; a name without a key can't be filtered by. The commas between the names are drawn by site.css, so none sits after a space. *@
-@for (var i = 0; i < Model.Names.Count; i++)
+<span class="names">@for (var i = 0; i < Model.Names.Count; i++)
 {
     var name = Model.Names[i];
     <span class="name-item">@if (name.Key.Length == 0)
@@ -11,4 +11,4 @@
     {
         <a asp-page="/Torrents/Index" asp-all-route-data="Model.RouteValuesFor(name)">@name.Name</a>
     }</span>
-}
+}</span>

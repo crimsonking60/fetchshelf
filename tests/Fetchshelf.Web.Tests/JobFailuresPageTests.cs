@@ -98,9 +98,9 @@ public partial class JobFailuresPageTests
 
         var html = await client.GetStringAsync("/Errors");
 
-        Assert.Contains("<td class=\"nowrap\">Snatchlist</td>", html);
-        Assert.Contains("<td class=\"nowrap\">Hardcover list</td>", html);
-        Assert.Contains("<td class=\"nowrap\">Audiobookshelf</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Snatchlist</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Hardcover list</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Audiobookshelf</td>", html);
         Assert.Contains("<a href=\"/torrents/hash1\">Snatched Book</a>", html);
         Assert.Contains("<a href=\"/Lists/Detail/hardcover%3Astatus%3Awant_to_read\">Dune</a>", html);
         Assert.Contains("Hardcover id 312460", html);
@@ -117,7 +117,7 @@ public partial class JobFailuresPageTests
 
         var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Errors"));
 
-        Assert.Contains("<td class=\"nowrap\">File list</td>", html);
+        Assert.Contains("<td class=\"col-fit\">File list</td>", html);
         Assert.Contains("<a href=\"/Lists/Detail/file%3AGoodreads%20to-read\">Dune</a>", html);
         Assert.Contains("Book id isbn:9780441172719", html);
     }
@@ -132,7 +132,7 @@ public partial class JobFailuresPageTests
 
         var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Errors"));
 
-        Assert.Contains("<td class=\"nowrap\">Bookmarks list</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Bookmarks list</td>", html);
         Assert.Contains("<a href=\"/Lists/Detail/mam%3Abookmarks\">Dune</a>", html);
         Assert.Contains("MAM id 11", html);
     }

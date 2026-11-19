@@ -264,7 +264,7 @@ public class EventsPageTests
 
         var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
 
-        Assert.Contains("<td class=\"nowrap\">Removed from MAM</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Removed from MAM</td>", html);
         Assert.Contains("<option value=\"RemovedFromMam\">Removed from MAM</option>", html);
         Assert.DoesNotContain(">RemovedFromMam<", html);
     }
@@ -286,7 +286,7 @@ public class EventsPageTests
 
         var html = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
 
-        Assert.Contains("<td class=\"nowrap\">Bonus purchase</td>", html);
+        Assert.Contains("<td class=\"col-fit\">Bonus purchase</td>", html);
         Assert.Contains("Bought 50 GB of upload credit with bonus points, 99,999 → 74,999", System.Net.WebUtility.HtmlDecode(html));
     }
 

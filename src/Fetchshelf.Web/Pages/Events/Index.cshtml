@@ -56,8 +56,8 @@ else
     <table>
         <thead>
             <tr>
-                <th>Occurred at</th>
-                <th>Type</th>
+                <th class="col-fit">Occurred at</th>
+                <th class="col-fit">Type</th>
                 <th>Torrent</th>
                 <th>Details</th>
             </tr>
@@ -66,9 +66,9 @@ else
             @foreach (var e in Model.Events)
             {
                 <tr>
-                    <td><local-time value="e.OccurredAt" /></td>
-                    <td class="nowrap">@EventLabels.For(e.Kind)</td>
-                    <td class="nowrap">
+                    <td class="col-fit"><local-time value="e.OccurredAt" /></td>
+                    <td class="col-fit">@EventLabels.For(e.Kind)</td>
+                    <td class="col-min">
                         @if (e.TorrentId is not null)
                         {
                             <a asp-page="/Torrents/Detail" asp-route-id="@e.TorrentId" title="@e.TorrentId">@Model.TorrentLabel(e)</a>
