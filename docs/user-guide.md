@@ -1657,6 +1657,22 @@ Whether a collection is split is decided, first that applies:
   it. Relinking a split collection that is no longer to be split links it as one book again.
 - Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.
 
+**Splitting is a best effort.** How the books of a collection are named, numbered and laid out in folders varies
+widely from one uploader to the next, and Fetchshelf goes by what it can read from MAM's details and the file and
+folder names. Some collections will not be split as expected: not taken for a collection at all, split into the wrong
+books, or given the wrong series, numbers or titles. Look over a collection's books on its page after it is first
+split. When they are wrong, there are several ways out:
+
+- **Link it as one book.** Untick **Split into its books** on the collection's page and click **Refresh and relink**.
+  The choice is kept for that torrent, so the Link job and bulk **Relink** leave it as one book from then on.
+- **Correct a book by hand.** **Edit** on a book's page changes its title, series, number and other details, and
+  **Refresh and relink** then moves it to match. Details edited by hand are kept when the collection is relinked.
+- **Take out a book that doesn't belong.** **Unlink** on the book's page removes just that book from the library,
+  such as an extra, a preview or a variant cover that came out as a book of its own. Relinking the collection links
+  it again, as it does every book of the collection.
+- **Find what went wrong.** The **Library check** lists library folders that no record knows of and records whose
+  files are gone, which is where a collection that was split, then linked again differently, can leave things behind.
+
 ### Better formats replace worse ones
 
 Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
