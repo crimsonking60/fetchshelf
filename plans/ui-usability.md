@@ -61,7 +61,7 @@ Checked from the code and from screenshots at 820 px wide (iPad portrait) agains
 | Right edge | Config | always |
 
 Why this grouping: Search, Torrents, Selected and Jobs are the work loop (find, queue, watch it happen). Series,
-Following, Lists, Duplicates and Library check all answer "what is in my library and what is missing". Events and
+Following, Lists, Duplicates and Library check all answer "what is in the library and what is missing". Events and
 Statistics are looking back. Errors is a to-do list, not history, so it stays on the bar.
 Account is moved to the right edge and doubles as the account strip, so the ratio is visible from every page and the strip
 at the top of the Jobs page is not needed. Config is rare, so it goes last.
