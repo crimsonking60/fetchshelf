@@ -404,16 +404,26 @@ public class IndexModel(
             .Where(t => string.IsNullOrWhiteSpace(Q) || TorrentSearchMatcher.Matches(metadataById[t.Id] = TorrentMetadataSerializer.Deserialize(t.MetadataJson), Q))
             .ToList();
 
-        IEnumerable<TorrentEntity> ordered = (Sort, Dir) switch
+        var descending = SortState.From(Sort, Dir).Descending;
+        IEnumerable<TorrentEntity> ordered = Sort switch
         {
-            ("Title", "asc") => matched.OrderBy(t => t.Title, StringComparer.Ordinal),
-            ("Title", _) => matched.OrderByDescending(t => t.Title, StringComparer.Ordinal),
-            (_, "asc") => matched.OrderBy(t => t.CreatedAt),
-            _ => matched.OrderByDescending(t => t.CreatedAt),
+            "Title" => Order(matched, t => t.Title, descending),
+            "Format" => Order(matched, t => $"{t.MediaType}\u0001{t.Language}", descending),
+            "Category" => Order(matched, t => t.QBittorrentCategory ?? string.Empty, descending),
+            "Status" => Order(matched, t => t.ClientStatus ?? string.Empty, descending),
+            _ => Order(matched, t => t.CreatedAt, descending),
         };
 
         TotalCount = matched.Count;
         return (ordered, metadataById);
+    }
+
+    /// <summary>Orders by one column in the direction asked for; equal values keep a stable order by title, then id.</summary>
+    private static IEnumerable<TorrentEntity> Order<TKey>(IEnumerable<TorrentEntity> source, Func<TorrentEntity, TKey> key, bool descending)
+    {
+        var comparer = typeof(TKey) == typeof(string) ? (IComparer<TKey>)(object)StringComparer.Ordinal : Comparer<TKey>.Default;
+        var ordered = descending ? source.OrderByDescending(key, comparer) : source.OrderBy(key, comparer);
+        return ordered.ThenBy(t => t.Title, StringComparer.Ordinal).ThenBy(t => t.Id, StringComparer.Ordinal);
     }
 
     /// <summary>

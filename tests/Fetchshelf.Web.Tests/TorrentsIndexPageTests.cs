@@ -187,6 +187,54 @@ public class TorrentsIndexPageTests
     }
 
     [Fact]
+    public async Task Get_Headings_ShowTheSortAndLinkToTheOppositeOrder_WithoutThePageNumber()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        var client = fixture.CreateClient();
+
+        var byAddedNewestFirst = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?PageNumber=2"));
+        var byTitleDescending = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Sort=Title&Dir=desc&PageNumber=2"));
+
+        Assert.Contains("aria-sort=\"descending\"", byAddedNewestFirst);
+        Assert.Matches(@"<th[^>]*aria-sort=""descending""[^>]*><a class=""sort"" href=""[^""]*Sort=CreatedAt[^""]*Dir=asc", byAddedNewestFirst);
+        Assert.Matches(@"<th[^>]*aria-sort=""none""[^>]*><a class=""sort"" href=""[^""]*Sort=Title[^""]*Dir=asc", byAddedNewestFirst);
+        Assert.Matches(@"<th[^>]*aria-sort=""descending""[^>]*><a class=""sort"" href=""[^""]*Sort=Title[^""]*Dir=asc", byTitleDescending);
+        Assert.DoesNotMatch(@"class=""sort"" href=""[^""]*PageNumber", byTitleDescending);
+    }
+
+    [Theory]
+    [InlineData("Category", "asc", "Alpha Book", "Beta Book")]
+    [InlineData("Category", "desc", "Beta Book", "Alpha Book")]
+    [InlineData("Status", "asc", "Beta Book", "Alpha Book")]
+    [InlineData("CreatedAt", "asc", "Beta Book", "Alpha Book")]
+    public async Task Get_SortByAColumn_OrdersTheRows(string sort, string dir, string first, string second)
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash-a", "Alpha Book", t => { t.QBittorrentCategory = "audiobooks"; t.ClientStatus = "uploading"; t.CreatedAt = DateTimeOffset.UtcNow; });
+        await SeedAsync(fixture, "hash-b", "Beta Book", t => { t.QBittorrentCategory = "books"; t.ClientStatus = "stalledUP"; t.CreatedAt = DateTimeOffset.UtcNow.AddDays(-2); });
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync($"/torrents?Sort={sort}&Dir={dir}");
+
+        Assert.True(html.IndexOf(first, StringComparison.Ordinal) < html.IndexOf(second, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Get_Row_ShowsAuthorsUnderTheTitle_AndAMismatchAsABadgeInTheStatus()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, "hash1", "Moved Audiobook", t => { t.LibraryPath = "/a"; t.LinkerName = "Audiobooks"; t.LibraryMismatchState = "NewPath"; });
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents");
+
+        Assert.Matches(@"Moved Audiobook</a>\s*<div class=""sub"">", html);
+        Assert.Contains("status-badge status-not-in-qbittorrent\" title=\"NewPath\">Different folder", html);
+        Assert.DoesNotContain("<th>Mismatch</th>", html);
+    }
+
+    [Fact]
     public async Task Get_Filtered_DropdownShowsTheFilter_AndClearFiltersKeepsTheSearch()
     {
         using var fixture = new FetchshelfWebAppFixture();

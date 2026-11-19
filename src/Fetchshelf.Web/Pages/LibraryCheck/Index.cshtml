@@ -71,7 +71,7 @@
                 {
                     <tr>
                         <td><input class="unknown-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Path" /></td>
-                        <td>@finding.Path@(finding.Kind == LibraryFindingKind.UnknownFolder ? $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})" : "")</td>
+                        <td class="break">@finding.Path@(finding.Kind == LibraryFindingKind.UnknownFolder ? $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})" : "")</td>
                         <td>@finding.LibraryName</td>
                         <td class="nowrap">@DownloadBudget.FormatBytes(finding.Bytes)</td>
                         <td><local-time value="finding.NewestAt" /></td>
@@ -116,7 +116,7 @@
                     <tr>
                         <td><input class="missing-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Title" /></td>
                         <td><a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">@finding.Title</a>@(finding.Authors.Count > 0 ? $" by {string.Join(", ", finding.Authors)}" : "")</td>
-                        <td>@finding.Path</td>
+                        <td class="break">@finding.Path</td>
                         <td>
                             @if (finding.Kind == LibraryFindingKind.FolderMissing)
                             {

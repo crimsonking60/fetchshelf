@@ -57,7 +57,6 @@ public sealed record TorrentListQuery(
             CollectionBooks = null,
         };
 
-    /// <summary>Sorted by title: ascending first, reversed when already sorted by title ascending.</summary>
-    public TorrentListQuery ToggleTitleSort() =>
-        this with { Sort = "Title", Dir = Sort == "Title" && Dir == "asc" ? "desc" : "asc" };
+    /// <summary>The sort as a state, for the column headings.</summary>
+    public SortState SortState => SortState.From(Sort, Dir);
 }
