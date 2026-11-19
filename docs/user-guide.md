@@ -1631,7 +1631,10 @@ Whether a collection is split is decided, first that applies:
   is two copies, and the Clean job keeps the better one, as for any two copies.
 - **qBittorrent has one torrent, the collection's.** Its category, tags, **Start**, **Stop** and removal are on the
   collection's page, which lists its books; a book's page links back to it. Clean and Unlink act on one book, and apply
-  `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Refresh** and **Relink** on a book
+  `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Unlink** on the collection's
+  row on the **Torrents** page unlinks all its books.
+- **On the Torrents page** a split collection is one row unless you ask for its books (see the *Books of collections*
+  filter), so a large collection doesn't fill the list. **Refresh** and **Relink** on a book
   act on the whole collection.
 - **One torrent at a time:** every ebook or comic torrent's page has **Split into its books** by **Refresh and relink**,
   whatever the configuration says, ticked as its library's `split_collections` is. Tick or untick it and click **Refresh
@@ -1864,6 +1867,10 @@ reported, so they cannot be chosen by hand.
     from qBittorrent, torrents removed from MAM (found by an autograb with
     [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
+  - *Books of collections*, once a collection has been [split into its books](#collections): *Collections as one
+    row*, the default, lists each such collection once, marked *collection of 146 books*, with its books on its page;
+    a book's own row shows only when the search, or an author, narrator or series, looks for it. *Books of collections
+    too* lists every book.
   - *Author*, *Narrator* and *Series*: click an author or series name in the list, or an author, narrator
     or series on a torrent's page, to see only that author's, narrator's or series' torrents. The filter
     shows above the list with the name; its **×** drops it. Names are matched the way duplicates are, so

@@ -59,6 +59,18 @@ public class IndexModel(
         };
     }
 
+    /// <summary>
+    /// <see cref="ShowCollectionBooks"/> to list the books of split collections too. Without it each collection is one row,
+    /// and a book's row shows only when the search or a title, author, narrator or series filter looks for it.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? CollectionBooks { get; set; }
+
+    public const string ShowCollectionBooks = "show";
+
+    /// <summary>Whether any collection is linked as its books, so the page offers <see cref="CollectionBooks"/>.</summary>
+    public bool HasCollectionBooks { get; private set; }
+
     [BindProperty(SupportsGet = true)]
     public string? Language { get; set; }
 
@@ -89,7 +101,7 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
-    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding);
+    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding, CollectionBooks);
 
     /// <summary>The author, narrator and series filters in use, with the names they stand for.</summary>
     public IReadOnlyList<NameFilter> NameFilters { get; private set; } = [];
@@ -328,6 +340,13 @@ public class IndexModel(
         if (settings.Follow is not null && NameFilters.Any(f => f.Parameter != nameof(Narrator)))
         {
             Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext);
+        }
+
+        HasCollectionBooks = await torrents.AnyAsync(t => t.CollectionTorrentId != null);
+        var lookingForABook = !string.IsNullOrWhiteSpace(Q) || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series);
+        if (CollectionBooks != ShowCollectionBooks && !lookingForABook)
+        {
+            torrents = torrents.Where(t => t.CollectionTorrentId == null);
         }
 
         if (!string.IsNullOrEmpty(Library))

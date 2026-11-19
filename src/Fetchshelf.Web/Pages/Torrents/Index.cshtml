@@ -53,6 +53,13 @@
                     }
                 </select>
             }
+            @if (Model.HasCollectionBooks || !string.IsNullOrEmpty(Model.CollectionBooks))
+            {
+                <select name="CollectionBooks" aria-label="Books of collections" onchange="this.form.requestSubmit()" title="A split collection's books show as their own rows only when chosen here, or when the search, or an author, narrator or series, looks for them.">
+                    <option value="">Collections as one row</option>
+                    <option value="@Pages.Torrents.IndexModel.ShowCollectionBooks" selected="@(Model.CollectionBooks == Pages.Torrents.IndexModel.ShowCollectionBooks)">Books of collections too</option>
+                </select>
+            }
             <select name="MediaType" aria-label="Media type" onchange="this.form.requestSubmit()">
                 <option value="">Any media type</option>
                 @foreach (var mediaType in Model.MediaTypeOptions)

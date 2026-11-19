@@ -233,6 +233,22 @@ public sealed class LinkRunnerCollectionTests : IDisposable
     }
 
     [Fact]
+    public async Task Unlink_ACollection_UnlinksEachOfItsBooks()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await Runner(context, EbookLibrary()).RunAsync(new QBittorrentConnection(), Client(WriteDiscworld()));
+        var cleaner = new Cleaner(context, new EventStore(context), Formats, [EbookLibrary()]);
+
+        var result = await cleaner.UnlinkAsync(Hash, []);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.StartsWith("Unlinked its 2 books", result.Message);
+        context.ChangeTracker.Clear();
+        Assert.All(await context.Torrents.Where(t => t.CollectionTorrentId == Hash).ToListAsync(), b => Assert.Null(b.LibraryPath));
+        Assert.False(Directory.Exists(Path.Combine(LibraryDir, "Terry Pratchett")));
+    }
+
+    [Fact]
     public async Task Unlink_ABook_AppliesOnUnlinkedOnlyWhenItIsTheCollectionsLastLinkedBook()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

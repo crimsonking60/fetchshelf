@@ -264,6 +264,9 @@ passing over a collection whose books are all owned already.
   overriding it. The torrent page offers **Split into its books** in the **Refresh and relink** form, ticked as the
   torrent's choice or its library's, for every ebook-side torrent that isn't a collection's book, whatever the
   configuration; the choice is stored only when it differs from the library.
+- **The Torrents list** (asked for during review): a split collection is one row; its books show with *Books of
+  collections too*, or when the search or an author, narrator or series filter looks for them. Unlink on a collection
+  unlinks its books, so the bulk action works on the collection's row.
 - **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
   later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
   Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

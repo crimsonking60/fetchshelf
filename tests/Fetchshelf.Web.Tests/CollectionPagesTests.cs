@@ -142,13 +142,29 @@ public class CollectionPagesTests
     }
 
     [Fact]
-    public async Task TorrentsList_SaysWhichRowsAreCollectionsAndTheirBooks()
+    public async Task TorrentsList_ShowsACollectionAsOneRow_ItsBooksOnlyWhenAskedOrSearchedFor()
     {
         using var fixture = await FixtureWithCollectionAsync();
+        var client = fixture.CreateClient();
 
-        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/Torrents"));
+        var plain = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents"));
+        var all = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?CollectionBooks=show"));
+        var searched = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?Q=Mort"));
 
-        Assert.Contains("(collection of 2 books)", html);
-        Assert.Contains($"(from <a href=\"/torrents/{Hash}\">a collection</a>)", html);
+        Assert.Contains("(collection of 2 books)", plain);
+        Assert.DoesNotContain(">Mort</a>", plain);
+        Assert.Contains("<select name=\"CollectionBooks\"", plain);
+        Assert.Contains($"(from <a href=\"/torrents/{Hash}\">a collection</a>)", all);
+        Assert.Contains(">Thud!</a>", all);
+        Assert.Contains(">Mort</a>", searched);
+        Assert.DoesNotContain(">Thud!</a>", searched);
+    }
+
+    [Fact]
+    public async Task TorrentsList_WithoutCollections_OffersNoCollectionFilter()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+
+        Assert.DoesNotContain("CollectionBooks", await fixture.CreateClient().GetStringAsync("/Torrents"));
     }
 }

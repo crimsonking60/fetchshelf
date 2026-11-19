@@ -168,8 +168,38 @@ public sealed class Cleaner(
             return new UnlinkResult(false, "Not unlinked: it already is.");
         }
 
+        if (torrent.CollectionBookCount is > 0)
+        {
+            return await UnlinkBooksAsync(torrent, connections, cancellationToken);
+        }
+
         var details = await RetireAsync(torrent, keeper: null, connections, deleteAbsItem: true, cancellationToken);
         return new UnlinkResult(true, $"Unlinked: {string.Join("; ", details)}.");
+    }
+
+    /// <summary>
+    /// Unlinks a collection linked as its books: each of its books still linked, the last of them applying `on_unlinked`
+    /// to the collection's torrent.
+    /// </summary>
+    private async Task<UnlinkResult> UnlinkBooksAsync(
+        TorrentEntity collection, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        CancellationToken cancellationToken)
+    {
+        var books = await dbContext.Torrents
+            .Where(t => t.CollectionTorrentId == collection.Id && t.LibraryPath != null && t.UnlinkedAt == null)
+            .ToListAsync(cancellationToken);
+        if (books.Count == 0)
+        {
+            return new UnlinkResult(false, "Not unlinked: none of its books is linked.");
+        }
+
+        var details = new List<string>();
+        foreach (var book in books)
+        {
+            details = await RetireAsync(book, keeper: null, connections, deleteAbsItem: true, cancellationToken);
+        }
+
+        return new UnlinkResult(true, $"Unlinked its {books.Count} {(books.Count == 1 ? "book" : "books")}; the last: {string.Join("; ", details)}.");
     }
 
     private TorrentEntity PickKeeper(IReadOnlyList<TorrentEntity> group) =>
