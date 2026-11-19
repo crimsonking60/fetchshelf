@@ -486,8 +486,8 @@ public static partial class ConfigLoader
         }
     }
 
-    /// <summary>Gives every library without its own <c>method</c>, <c>metadata_json</c> or <c>metadata_opf</c> the global
-    /// <c>link_method</c>, <c>metadata_json</c> or <c>metadata_opf</c>. Runs after environment overrides, so
+    /// <summary>Gives every library without its own <c>method</c>, <c>metadata_json</c>, <c>metadata_opf</c> or
+    /// <c>split_collections</c> the global one. Runs after environment overrides, so
     /// <c>FETCHSHELF_CONF_link_method</c> and the others reach those libraries too.</summary>
     private static void ApplyGlobalLibraryDefaults(FetchshelfSettings settings)
     {
@@ -507,6 +507,11 @@ public static partial class ConfigLoader
             if (!library.HasOwnMetadataOpf)
             {
                 library.MetadataOpf = settings.MetadataOpf && !library.IsSeriesLayout;
+            }
+
+            if (!library.HasOwnSplitCollections)
+            {
+                library.SplitCollections = settings.SplitCollections;
             }
         }
     }
@@ -531,13 +536,6 @@ public static partial class ConfigLoader
             }
 
             ValidateLayout(library);
-            if (library.SplitCollections && !settings.SplitCollections)
-            {
-                var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
-                throw new ConfigurationException(
-                    $"Invalid configuration: {which} sets 'split_collections', which does nothing until the top-level 'split_collections = true' turns splitting on.");
-            }
-
             if (library.LanguageInFolder == LanguageInFolder.Other && settings.Languages.Count == 0)
             {
                 var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";

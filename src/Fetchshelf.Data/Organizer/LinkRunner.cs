@@ -33,8 +33,7 @@ public enum RefreshOutcome
 /// <summary>The settings the Link job links by, besides the libraries and the format lists.</summary>
 /// <param name="ExcludeNarratorInLibraryDir">`exclude_narrator_in_library_dir`: folder names leave out the narrator.</param>
 /// <param name="FirstLanguage">The first of the top-level `languages`, which `language_in_folder = "other"` leaves unmarked.</param>
-/// <param name="SplitCollections">The top-level `split_collections`: a library's own `split_collections` splits only with it.</param>
-public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null, bool SplitCollections = false);
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -359,15 +358,15 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
-    /// The books of a collection, when splitting is on (the top-level `split_collections`), the torrent's own choice or
-    /// else <paramref name="library"/>'s `split_collections` says to split, and the torrent is one (<see cref="CollectionSplitter"/>); null otherwise. An epub is read in the
+    /// The books of a collection, when the torrent's own choice, or else <paramref name="library"/>'s `split_collections`
+    /// (the global one unless it sets its own), says to split, and the torrent is one (<see cref="CollectionSplitter"/>); null otherwise. An epub is read in the
     /// download folder for its own title, series number, ISBN and description.
     /// </summary>
     /// <param name="choice">The torrent's own choice from its page (<see cref="TorrentEntity.SplitCollection"/>); null follows the library.</param>
     private IReadOnlyList<CollectionBook>? SplitCollection(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, bool? choice)
     {
-        if (!options.SplitCollections || !(choice ?? library.SplitCollections))
+        if (!(choice ?? library.SplitCollections))
         {
             return null;
         }

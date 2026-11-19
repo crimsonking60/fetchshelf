@@ -6,10 +6,10 @@
 
 ## Decisions (2026-11-19)
 
-- **Settings.** Splitting is off unless turned on twice: a top-level `split_collections = true` turns the feature on,
-  and each `[[library]]` that should split sets its own `split_collections = true`. Both default to `false`. A
-  collection is split only when both are on for the library it is linked into; otherwise it is linked as one book, as
-  before. A library's `split_collections` without the top-level one is refused at load, as it would do nothing.
+- **Settings** (changed during review from a two-part switch): `split_collections` works as `metadata_json` does. The
+  top-level one is the default for every `[[library]]` that doesn't set its own, `false` unless set; a library's own
+  overrides it; and a torrent's own choice, on its page, overrides its library. That choice is always offered, whatever
+  the configuration says.
 - **Formats per book.** The splitter runs before the format is chosen, on every file of the ebook side, and each book
   picks its own best format by its library's or the global `ebook_types`. A collection's other formats are usually
   other books, not copies (gap 1).
@@ -211,8 +211,8 @@ feature branch and one pull request into `main`.
    the last book.
 5. **Pages:** Torrents list, torrent pages, Duplicates.
 6. **Docs:** the user guide (linking, Clean, Unlink, collections), the configuration reference (`split_collections`
-   at the top level and per `[[library]]`), and the release notes' **Upgrading**: nothing changes until both settings
-   are on; collections linked earlier stay as they are until relinked.
+   at the top level and per `[[library]]`), and the release notes' **Upgrading**: nothing changes unless
+   `split_collections` is set or a torrent's page asks for it; collections linked earlier stay as they are until relinked.
 
 Later, outside this plan: audiobook collections; a Hardcover ISBN lookup for numbers and descriptions; selection
 passing over a collection whose books are all owned already.
@@ -261,9 +261,9 @@ passing over a collection whose books are all owned already.
   removal), which are refused for a book if posted; a collection's page lists its books and has no Clean or Unlink. The
   Torrents list marks both. Remove record on a collection removes its books too. The Config page shows both settings.
 - **Per torrent** (asked for during review): `TorrentEntity.SplitCollection`, null to follow the library, else
-  overriding it; still only with the top-level switch on. The torrent page offers **Split into its books** in the
-  **Refresh and relink** form, ticked as the torrent's choice or its library's, for ebook-side torrents that aren't a
-  collection's book; the choice is stored only when it differs from the library.
+  overriding it. The torrent page offers **Split into its books** in the **Refresh and relink** form, ticked as the
+  torrent's choice or its library's, for every ebook-side torrent that isn't a collection's book, whatever the
+  configuration; the choice is stored only when it differs from the library.
 - **Left for later**, besides what the plan already left: per-book `SyncMismatch` (a book's folder isn't recomputed on
   later runs), the Duplicates page (it lists skipped selections; collection copies show through the Clean job), and an
   Audiobookshelf push on linking a book (the Audiobookshelf job matches books as for any linked torrent).

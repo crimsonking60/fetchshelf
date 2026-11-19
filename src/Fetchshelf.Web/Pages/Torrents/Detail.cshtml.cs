@@ -54,8 +54,8 @@ public class DetailModel(
     public IReadOnlyList<CollectionBookRow> Books { get; private set; } = [];
 
     /// <summary>
-    /// Whether the page offers <b>Split into its books</b>: splitting is on (the top-level `split_collections`), and this
-    /// is an ebook-side torrent rather than one of a collection's books, whose relink is its collection's.
+    /// Whether the page offers <b>Split into its books</b>: for an ebook-side torrent, whatever the configuration says,
+    /// but not for one of a collection's books, whose relink is its collection's.
     /// </summary>
     public bool OffersSplit { get; private set; }
 
@@ -81,7 +81,7 @@ public class DetailModel(
         }
 
         Torrent = loaded;
-        if (settings.SplitCollections && !CollectionBookId.IsBook(id) && CollectionSplitter.IsEbookSide(loaded.Metadata.MediaType)
+        if (!CollectionBookId.IsBook(id) && CollectionSplitter.IsEbookSide(loaded.Metadata.MediaType)
             && await dbContext.Torrents.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id) is { } record)
         {
             OffersSplit = true;
@@ -224,8 +224,9 @@ public class DetailModel(
     }
 
     /// <summary>
-    /// Whether the torrent's library splits collections (its `split_collections`): the library that linked it, by name or
-    /// by its folder or its books', else the library whose category it has. False when none is found.
+    /// Whether the torrent's library splits collections (its `split_collections`, the global one unless it sets its own):
+    /// the library that linked it, by name or by its folder or its books', else the library whose category it has. Else
+    /// the global `split_collections`.
     /// </summary>
     private async Task<bool> LibrarySplitsAsync(Data.Entities.TorrentEntity record)
     {
@@ -235,7 +236,7 @@ public class DetailModel(
         var library = settings.Library.FirstOrDefault(l => l.Name is not null && l.Name == record.LinkerName)
             ?? (path is not null && LibraryFolders.IndexContaining(settings.Library, path) is { } index ? settings.Library[index] : null)
             ?? settings.Library.FirstOrDefault(l => l.Category is not null && l.Category == record.QBittorrentCategory);
-        return library?.SplitCollections == true;
+        return library?.SplitCollections ?? settings.SplitCollections;
     }
 
     /// <summary>

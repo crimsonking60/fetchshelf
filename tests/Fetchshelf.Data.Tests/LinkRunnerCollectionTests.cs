@@ -38,9 +38,9 @@ public sealed class LinkRunnerCollectionTests : IDisposable
     private Library EbookLibrary(bool split = true, LibraryLayout layout = LibraryLayout.Book) =>
         new() { Name = "Ebooks", LibraryDir = LibraryDir, Category = "ebooks", Method = LibraryLinkMethod.Hardlink, SplitCollections = split, Layout = layout };
 
-    private LinkRunner Runner(FetchshelfDbContext context, Library library, bool splitOn = true, TorrentMetadata? lookedUp = null) =>
+    private LinkRunner Runner(FetchshelfDbContext context, Library library, TorrentMetadata? lookedUp = null) =>
         new(context, new EventStore(context), new FakeMetadataLookup(lookedUp ?? Discworld()), [library], Formats,
-            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false, SplitCollections: splitOn));
+            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
 
     private static TorrentMetadata Discworld() => OrganizerTestSupport.BuildMetadata("Discworld", ["Terry Pratchett"]) with
     {
@@ -103,26 +103,20 @@ public sealed class LinkRunnerCollectionTests : IDisposable
     }
 
     [Fact]
-    public async Task Link_WithoutTheLibrarysSetting_OrTheTopLevelOne_LinksTheCollectionAsOneBook()
+    public async Task Link_InALibraryThatDoesNotSplit_LinksTheCollectionAsOneBook()
     {
-        var files = WriteDiscworld();
-        foreach (var (library, splitOn) in new[] { (EbookLibrary(split: false), true), (EbookLibrary(split: true), false) })
-        {
-            using var context = OrganizerTestSupport.CreateContext(DbPath);
-            await context.Torrents.ExecuteDeleteAsync();
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
 
-            await Runner(context, library, splitOn).RunAsync(new QBittorrentConnection(), Client(files));
+        await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(WriteDiscworld()));
 
-            Assert.Equal(Hash, Assert.Single(await context.Torrents.ToListAsync()).Id);
-        }
+        Assert.Equal(Hash, Assert.Single(await context.Torrents.ToListAsync()).Id);
     }
 
     [Theory]
-    [InlineData(true, false, true, true)] // chosen on the torrent's page, in a library that doesn't split
-    [InlineData(false, true, true, false)] // chosen not to, in a library that splits
-    [InlineData(true, true, false, false)] // the top-level switch off: never
-    public async Task Relink_TheTorrentsOwnChoice_OverridesItsLibrary_ButNotTheTopLevelSwitch(
-        bool choice, bool librarySplits, bool splitOn, bool split)
+    [InlineData(true, false, true)] // chosen on the torrent's page, in a library that doesn't split
+    [InlineData(false, true, false)] // chosen not to, in a library that splits
+    [InlineData(null, true, true)] // no choice: as its library
+    public async Task Relink_TheTorrentsOwnChoice_OverridesItsLibrary(bool? choice, bool librarySplits, bool split)
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         var files = WriteDiscworld();
@@ -130,7 +124,7 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         (await context.Torrents.SingleAsync()).SplitCollection = choice;
         await context.SaveChangesAsync();
 
-        var result = await Runner(context, EbookLibrary(librarySplits), splitOn).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))]);
+        var result = await Runner(context, EbookLibrary(librarySplits)).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))]);
 
         Assert.True(result.Succeeded, result.Message);
         context.ChangeTracker.Clear();
@@ -206,7 +200,7 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         };
         var client = Client(paths.Select(p => new QBittorrentFile { Name = p, Size = 1 }).ToList());
 
-        await Runner(context, EbookLibrary(layout: LibraryLayout.Series), lookedUp: comics).RunAsync(new QBittorrentConnection(), client);
+        await Runner(context, EbookLibrary(layout: LibraryLayout.Series), comics).RunAsync(new QBittorrentConnection(), client);
 
         Assert.True(File.Exists(Path.Combine(LibraryDir, "Ultimate Spider-Man", "Ultimate Spider-Man #002 - Ultimate Spider-Man 002.cbr")));
         Assert.True(File.Exists(Path.Combine(LibraryDir, "Ultimate Spider-Man Annual", "Ultimate Spider-Man Annual #003 - Ultimate Spider-Man Annual 03.cbz")));

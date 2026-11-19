@@ -314,43 +314,51 @@ public sealed class LibraryConfigTests : IDisposable
     }
 
     [Fact]
-    public void Load_SplitCollections_OffByDefault_AndOnWithBothSettings()
+    public void Load_SplitCollections_OffByDefault()
     {
         File.WriteAllText(ConfigPath, """
             mam_id = ""
-            split_collections = true
 
             [[library]]
             category = "ebooks"
             library_dir = "/library/ebooks"
-            split_collections = true
-
-            [[library]]
-            category = "audiobooks"
-            library_dir = "/library/audiobooks"
             """);
 
-        var settings = ConfigLoader.Load(ConfigPath);
-
-        Assert.True(settings.SplitCollections);
-        Assert.Equal([true, false], settings.Library.Select(l => l.SplitCollections));
+        Assert.False(Assert.Single(ConfigLoader.Load(ConfigPath).Library).SplitCollections);
     }
 
     [Fact]
-    public void Load_ALibrarysSplitCollections_WithoutTheTopLevelOne_IsRefused()
+    public void Load_TopLevelSplitCollections_IsEveryLibrarysDefault_ALibraryMaySayOtherwise()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            split_collections = true
+
+            [[library]]
+            category = "ebooks"
+            library_dir = "/library/ebooks"
+
+            [[library]]
+            category = "comics"
+            library_dir = "/library/comics"
+            split_collections = false
+            """);
+
+        Assert.Equal([true, false], ConfigLoader.Load(ConfigPath).Library.Select(l => l.SplitCollections));
+    }
+
+    [Fact]
+    public void Load_ALibrarysSplitCollections_WithoutTheTopLevelOne_SplitsThatLibrary()
     {
         File.WriteAllText(ConfigPath, """
             mam_id = ""
 
             [[library]]
-            name = "Ebooks"
             category = "ebooks"
             library_dir = "/library/ebooks"
             split_collections = true
             """);
 
-        var error = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
-
-        Assert.Contains("the [[library]] 'Ebooks' sets 'split_collections', which does nothing until the top-level 'split_collections = true'", error.Message);
+        Assert.True(Assert.Single(ConfigLoader.Load(ConfigPath).Library).SplitCollections);
     }
 }

@@ -30,8 +30,7 @@ public static class RunnerServices
         services.AddSingleton<IReadOnlyList<Library>>(settings.Library);
         services.AddSingleton(new LinkRunnerOptions(
             settings.ExcludeNarratorInLibraryDir,
-            settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var firstLanguage) ? firstLanguage : null,
-            settings.SplitCollections));
+            settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var firstLanguage) ? firstLanguage : null));
         services.AddScoped<ClientStatusChecker>();
         services.AddScoped<LinkRunner>();
         services.AddSingleton(new CoverWriterOptions(settings.CoversFromMam));

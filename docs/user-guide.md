@@ -1603,10 +1603,16 @@ most 100 covers per run.
 ### Collections
 
 A collection is one torrent holding several books of one series, such as all of Discworld, or a run of comic issues.
-Linked as it is, it becomes one "book" in one folder. With `split_collections = true` at the top level and on a
-`[[library]]`, a collection linked into that library becomes one book each instead, placed as a single download of it
-would be: its own folder (or, in a series library, its own file in the series folder), its own metadata files as the
+Linked as it is, it becomes one "book" in one folder. A collection can instead be split into one book each, placed as a
+single download of it would be: its own folder (or, in a series library, its own file in the series folder), its own metadata files as the
 library writes them, its own cover, and its own record on the **Torrents** page.
+
+Whether a collection is split is decided, first that applies:
+
+1. **The torrent's own choice:** **Split into its books** on its page (see below).
+2. **Its library's `split_collections`.**
+3. **The top-level `split_collections`**, the default for every library that doesn't set its own. It is off unless
+   set, so nothing is split until you ask for it.
 
 - **What counts as a collection.** An ebook, comic, manga or periodical torrent whose files fall into at least two
   books, either from MAM's series giving a range such as `1-40`, or from at least three files named after one series and
@@ -1627,10 +1633,10 @@ library writes them, its own cover, and its own record on the **Torrents** page.
   collection's page, which lists its books; a book's page links back to it. Clean and Unlink act on one book, and apply
   `on_cleaned` or `on_unlinked` to the torrent only when the last of its books goes. **Refresh** and **Relink** on a book
   act on the whole collection.
-- **One torrent at a time:** with the top-level `split_collections` on, an ebook or comic torrent's page has **Split into
-  its books** by **Refresh and relink**, ticked as its library's `split_collections` is. Tick or untick it and click
-  **Refresh and relink**: the choice is kept for that torrent, overriding its library from then on, also for the Link
-  job and bulk **Relink**. Choosing what its library does again makes it follow the library.
+- **One torrent at a time:** every ebook or comic torrent's page has **Split into its books** by **Refresh and relink**,
+  whatever the configuration says, ticked as its library's `split_collections` is. Tick or untick it and click **Refresh
+  and relink**: the choice is kept for that torrent, overriding its library from then on, also for the Link job and bulk
+  **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
   it. Relinking a split collection that is no longer to be split links it as one book again.
 - Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.

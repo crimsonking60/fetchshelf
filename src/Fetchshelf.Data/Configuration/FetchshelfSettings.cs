@@ -65,10 +65,7 @@ public sealed class FetchshelfSettings
     /// </summary>
     public int CoversFromMam { get; set; }
 
-    /// <summary>
-    /// `split_collections`: turns splitting collections into one library book each on; each `[[library]]` that should
-    /// split sets its own `split_collections` too.
-    /// </summary>
+    /// <summary>The `split_collections` of every `[[library]]` that does not set its own: whether collections are split into one book each.</summary>
     public bool SplitCollections { get; set; }
 
     /// <summary>`metrics`: serve Prometheus's `/metrics`.</summary>

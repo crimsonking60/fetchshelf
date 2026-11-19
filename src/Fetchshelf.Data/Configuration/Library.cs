@@ -69,11 +69,20 @@ public sealed class Library
     [YamlIgnore]
     public bool IsSeriesLayout => Layout == LibraryLayout.Series;
 
+    private bool? _splitCollections;
+
     /// <summary>
-    /// `split_collections`: link a collection of books as one book each, when the top-level `split_collections` is on
-    /// too. Off by default.
+    /// `split_collections`: link a collection of books as one book each. Falls back to the global `split_collections`,
+    /// which is off unless set; a torrent's own choice on its page overrides either.
     /// </summary>
-    public bool SplitCollections { get; set; }
+    public bool SplitCollections
+    {
+        get => _splitCollections ?? false;
+        set => _splitCollections = value;
+    }
+
+    /// <summary>True when this library sets its own `split_collections`, so the global one must not replace it.</summary>
+    internal bool HasOwnSplitCollections => _splitCollections is not null;
 
     public List<string> AllowTags { get; set; } = [];
 

@@ -64,7 +64,6 @@ public class CollectionPagesTests
 
     private static FetchshelfWebAppFixture SplittingFixture(bool librarySplits) => new($"""
         mam_id = ""
-        split_collections = true
 
         [[library]]
         name = "Ebooks"
@@ -99,10 +98,23 @@ public class CollectionPagesTests
     }
 
     [Fact]
-    public async Task TorrentPage_WithoutTheTopLevelSwitch_OffersNoSplitting()
+    public async Task TorrentPage_OffersSplitting_WithoutAnySetting_Unticked()
     {
         using var fixture = new FetchshelfWebAppFixture();
         await SeedEbookAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync($"/torrents/{Hash}");
+
+        Assert.Contains("name=\"splitShown\"", html);
+        Assert.DoesNotContain("name=\"split\" value=\"true\" checked", html);
+    }
+
+    [Fact]
+    public async Task TorrentPage_OfAnAudiobook_OffersNoSplitting()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await fixture.CreateClient().GetAsync("/Jobs");
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata("An audiobook"));
 
         Assert.DoesNotContain("splitShown", await fixture.CreateClient().GetStringAsync($"/torrents/{Hash}"));
     }
