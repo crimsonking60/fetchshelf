@@ -60,6 +60,22 @@ public static class DuplicateCopies
     }
 
     /// <summary>
+    /// A group of copies without books of one collection that are in it together: two books of one collection are two
+    /// books, however alike their names (the issues of a magazine named after their month), so they aren't copies of
+    /// each other, and which of them a third copy would duplicate can't be told either. Left out, they stay linked.
+    /// </summary>
+    /// <param name="collectionOf">The collection a copy is a book of; null for a torrent of its own.</param>
+    public static List<T> WithoutSiblings<T>(IReadOnlyList<T> group, Func<T, string?> collectionOf)
+    {
+        var siblings = group.Select(collectionOf).OfType<string>()
+            .GroupBy(c => c, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        return group.Where(c => collectionOf(c) is not { } collection || !siblings.Contains(collection)).ToList();
+    }
+
+    /// <summary>
     /// The copy to keep: the best format rank (lowest, see <see cref="FormatRanker"/>), and between copies that rank
     /// the same, the one with the most linked bytes. On a full tie the earlier copy is kept.
     /// </summary>

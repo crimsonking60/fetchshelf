@@ -113,6 +113,7 @@ public class CollectionSplitterTests
     [InlineData("Berserk v07", "Berserk", "7")]
     [InlineData("Berserk Vol. 7", "Berserk", "7")]
     [InlineData("Berserk Volume 07", "Berserk", "7")]
+    [InlineData("Popular Mechanics Shop Notes.Vol.13.1917", "Popular Mechanics Shop Notes.", "13")]
     public void NumberedNames_GiveTheirSeriesAndNumber(string name, string series, string number)
     {
         var paths = new[] { $"C/{name}.cbr", "C/Saga 001.cbr", "C/Saga 002.cbr", "C/Saga 003.cbr" };
@@ -272,6 +273,24 @@ public class CollectionSplitterTests
         Assert.Equal(
             [("BullTales", null, null), ("Doonesbury-1970", "Doonesbury", "1970"), ("Doonesbury-1971", "Doonesbury", "1971"), ("Doonesbury-1972", "Doonesbury", "1972")],
             books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name, b.Metadata.Series.FirstOrDefault()?.Entries[0].Display)));
+    }
+
+    [Fact]
+    public void MagazineIssuesByMonthAndYear_AreNumberedByTheirDate()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.PeriodicalEbook) with { Title = "Popular Mechanics Magazine 1905-1995", Authors = ["Popular Mechanics"] },
+            Files(
+                "Popular Mechanics/1927/Popular_Mechanics_10_1927.pdf",
+                "Popular Mechanics/1928/Popular_Mechanics_10_1928.pdf",
+                "Popular Mechanics/1928/Popular_Mechanics_01_1928.pdf",
+                "Popular Mechanics/1961/Popular Mechanics-07-1961.pdf"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Popular Mechanics 10 1927", "1927.10"), ("Popular Mechanics 01 1928", "1928.01"), ("Popular Mechanics 10 1928", "1928.10"), ("Popular Mechanics-07-1961", "1961.07")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)).OrderBy(b => b.Item2, StringComparer.Ordinal));
+        Assert.All(books, b => Assert.Equal("Popular Mechanics", b.Metadata.Series[0].Name));
     }
 
     [Fact]

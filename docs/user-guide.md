@@ -1625,18 +1625,20 @@ Whether a collection is split is decided, first that applies:
   ISBN and description from its epub when it has them, else its title from its folder or file name (trailing groups in
   brackets, such as a Calibre id `(1019)`, a year `(2014)` or release tags `(Digital)`, and a trailing ` - author` left
   out), and its number from a leading number in the name (`04 - Mort`), a
-  number at its end (`Berserk v07`, `Vol. 7`, `Volume 7`, `#7`), or a numbered list in MAM's description, which also
+  number at its end (`Berserk v07`, `Vol. 7`, `Volume 7`, `#7`), a magazine's month and year (`Popular Mechanics
+  10 1927` is #1927.10, so its issues sort by date), or a numbered list in MAM's description, which also
   matches a title cut short there. Names with underscores for spaces are read as spaced ones. A folder that names a
   volume gives it to its issues' series: `Daredevil 001` in the folder `Daredevil v2 ½-119` is *Daredevil v2* #1. When MAM gives no series and the series comes from the file names, the torrent's
   title names it instead if it holds every word of it (apart from a volume such as `Vol 1`, and words like "and"), and
-  the words it adds name neither a collection ("Complete", "Collection", …) nor an author:
+  the words it adds name neither a collection ("Complete", "Collection", …), an author nor years:
   files named `Black  White Vol 1 #01.cbr` in *Batman: Black and White* are *Batman: Black and White Vol 1* #1. Files named after another series in
   the same torrent are books of that series: `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3.
 - **Each book picks its own format** from its own files by your `ebook_types`, as the other formats of a collection are
   usually other books, not copies.
 - **The books are books everywhere:** the Clean job, duplicates, selection, Hardcover lists, the Follow job, the Series
   page, OPDS and Audiobookshelf see each of them. A book held both from a collection and as a single torrent is two
-  copies, and the Clean job keeps the better one, as for any two copies. The Upgrade job leaves them alone: they came
+  copies, and the Clean job keeps the better one, as for any two copies. Two books of one collection are never copies of
+  each other, however alike their names, and when several of them match a single torrent's book none is retired. The Upgrade job leaves them alone: they came
   with their collection, and a large one would mean a search for each of its books, so they aren't marked *could be
   upgraded* either.
 - **qBittorrent has one torrent, the collection's.** Its category, tags, **Start**, **Stop** and removal are on the
