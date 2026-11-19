@@ -1,14 +1,16 @@
 @model Fetchshelf.Web.Pages.IndexModel
-@* Which results these are out of how many MAM found, and links to the pages either side, keeping the search. *@
+@* Which results these are out of how many MAM found, and the pages either side as arrows and numbers, keeping the search. *@
 @{
     var pageNumber = Model.Choices.PageNumber;
     var shown = Model.Results.Count + Model.SnatchedLeftOut;
+    // MAM gives the number of results found, so the page count follows from it; results left out as snatched don't change it.
+    var totalPages = Model.Found is { } found ? Math.Max(1, (int)Math.Ceiling(found / (double)SearchQueryBuilder.PageSize)) : 1;
 }
 <nav class="search-pager" aria-label="Search result pages">
     <span id="results-count">
-        @if (Model.Found is { } found && shown > 0)
+        @if (Model.Found is { } foundCount && shown > 0)
         {
-            @:Results @Model.FirstResultNumber.ToString("N0")–@((Model.FirstResultNumber + shown - 1).ToString("N0")) of @found.ToString("N0").
+            @:Results @Model.FirstResultNumber.ToString("N0")–@((Model.FirstResultNumber + shown - 1).ToString("N0")) of @foundCount.ToString("N0").
         }
         @if (Model.SnatchedLeftOut > 0 && Model.Results.Count > 0)
         {
@@ -16,12 +18,40 @@
         }
         <span id="results-hidden"></span>
     </span>
-    @if (pageNumber > 1)
+    @if (pageNumber > 1 || Model.HasNextPage)
     {
-        <a id="previous-page" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber - 1))">Previous</a>
-    }
-    @if (Model.HasNextPage)
-    {
-        <a id="next-page" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber + 1))">Next</a>
+        <span class="pager">
+            @if (pageNumber > 1)
+            {
+                <a id="previous-page" class="pager-arrow" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber - 1))" rel="prev"><span aria-hidden="true">&lsaquo;</span> Prev</a>
+            }
+            else
+            {
+                <span class="pager-arrow disabled" aria-disabled="true"><span aria-hidden="true">&lsaquo;</span> Prev</span>
+            }
+            @foreach (var item in PagerItems.For(pageNumber, totalPages))
+            {
+                if (item.Page is not { } number)
+                {
+                    <span class="pager-gap" aria-hidden="true">&hellip;</span>
+                }
+                else if (number == pageNumber)
+                {
+                    <span class="pager-page current" aria-current="page">@number</span>
+                }
+                else
+                {
+                    <a class="pager-page" href="@Url.Page("/Index", Model.SearchRouteValues(number))" aria-label="Page @number">@number</a>
+                }
+            }
+            @if (Model.HasNextPage)
+            {
+                <a id="next-page" class="pager-arrow" href="@Url.Page("/Index", Model.SearchRouteValues(pageNumber + 1))" rel="next">Next <span aria-hidden="true">&rsaquo;</span></a>
+            }
+            else
+            {
+                <span class="pager-arrow disabled" aria-disabled="true">Next <span aria-hidden="true">&rsaquo;</span></span>
+            }
+        </span>
     }
 </nav>

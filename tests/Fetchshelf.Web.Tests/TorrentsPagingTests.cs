@@ -11,6 +11,38 @@ public class TorrentsPagingTests
     }
 
     [Fact]
+    public async Task Get_Pager_ShowsArrowsAtBothEnds_AndNumberedPages_WithTheCurrentOneMarked()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, 12);
+        using var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?PageSize=1&PageNumber=6&Q=Book"));
+
+        var nav = html[html.IndexOf("<nav id=\"torrent-pager\"", StringComparison.Ordinal)..];
+        nav = nav[..nav.IndexOf("</nav>", StringComparison.Ordinal)];
+        Assert.Contains("class=\"pager-page current\" aria-current=\"page\">6</span>", nav);
+        Assert.Matches("aria-label=\"Page 4\"[^>]*>4</a>", nav);
+        Assert.Matches("aria-label=\"Page 8\"[^>]*>8</a>", nav);
+        Assert.DoesNotContain("aria-label=\"Page 9\"", nav);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(nav, "pager-gap").Count);
+        Assert.Contains("id=\"pager-prev\"", nav);
+        Assert.Contains("id=\"pager-next\"", nav);
+    }
+
+    [Fact]
+    public async Task Get_FirstPage_ShowsThePreviousArrowDimmedInPlace()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, 7);
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents?PageSize=3&Q=Book");
+
+        Assert.Contains("class=\"pager-arrow disabled\" aria-disabled=\"true\"", html);
+    }
+
+    [Fact]
     public async Task Get_FirstPage_OffersNextAndLastButNotFirstOrPrevious()
     {
         using var fixture = new FetchshelfWebAppFixture();

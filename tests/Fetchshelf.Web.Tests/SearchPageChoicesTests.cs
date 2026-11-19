@@ -285,7 +285,7 @@ public partial class SearchPageChoicesTests
     [GeneratedRegex(@"id=""search-results-panel"" hx-get=""([^""]*)""")]
     private static partial Regex ResultsUrlPattern();
 
-    [GeneratedRegex(@"<a id=""next-page"" href=""([^""]*)""")]
+    [GeneratedRegex(@"<a id=""next-page""[^>]*? href=""([^""]*)""")]
     private static partial Regex NextPagePattern();
 
     [GeneratedRegex(@"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]*)""")]
