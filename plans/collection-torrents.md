@@ -1,8 +1,26 @@
 # Split series collections into one library book each
 
 > **Status: taken up again on 2026-11-18,** after being parked while MAM retired many collection torrents. Comic
-> collections are still common: the Ultimate Spider-Man collection below is one. That example shows two gaps in the
-> design, listed under "Collections without a series range" and to be settled before this plan is built.
+> collections are still common: the Ultimate Spider-Man collection below is one. The gaps it showed and the open
+> questions were settled on 2026-11-19; see "Decisions".
+
+## Decisions (2026-11-19)
+
+- **Settings.** Splitting is off unless turned on twice: a top-level `split_collections = true` turns the feature on,
+  and each `[[library]]` that should split sets its own `split_collections = true`. Both default to `false`. A
+  collection is split only when both are on for the library it is linked into; otherwise it is linked as one book, as
+  before. A library's `split_collections` without the top-level one is refused at load, as it would do nothing.
+- **Formats per book.** The splitter runs before the format is chosen, on every file of the ebook side, and each book
+  picks its own best format by its library's or the global `ebook_types`. A collection's other formats are usually
+  other books, not copies (gap 1).
+- **Detection from file names.** Besides MAM's series range, a torrent is a collection when at least three
+  ebook-side files are named `<series> <number>` with the same series name; the series and each book's number come
+  from the names. Files named after another series in the same torrent become books of that series:
+  `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3 (gap 2).
+- **Open questions:** 1, the default (laid out as single downloads); 2, the default (Clean treats a collection's copy
+  and a single like any two copies); 3, the default (collections linked earlier stay until relinked, and Relink splits
+  one when the settings ask for it); 4, the default (the ebook side: ebooks, comics, manga, periodicals; audiobook
+  collections later).
 
 ## Context
 
@@ -192,9 +210,9 @@ feature branch and one pull request into `main`.
 4. **qBittorrent and MAM mapping:** every place listed under the data model; `on_cleaned`/`on_unlinked` only for
    the last book.
 5. **Pages:** Torrents list, torrent pages, Duplicates.
-6. **Docs:** the user guide (linking, Clean, Unlink, collections), the configuration reference if any setting comes
-   with it (none planned), and the release notes' **Upgrading**: collections linked earlier stay as they are until
-   relinked.
+6. **Docs:** the user guide (linking, Clean, Unlink, collections), the configuration reference (`split_collections`
+   at the top level and per `[[library]]`), and the release notes' **Upgrading**: nothing changes until both settings
+   are on; collections linked earlier stay as they are until relinked.
 
 Later, outside this plan: audiobook collections; a Hardcover ISBN lookup for numbers and descriptions; selection
 passing over a collection whose books are all owned already.
