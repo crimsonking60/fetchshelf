@@ -64,6 +64,23 @@ public sealed class LibraryCheckerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_RelativePathsOnRecordAndInTheConfiguration_AreTakenFromTheWorkingFolder()
+    {
+        using var context = CreateContext();
+        Write("Author/Book/book.m4b");
+        var torrent = await OrganizerTestSupport.SeedTorrentAsync(context, "hash1", 1);
+        torrent.LibraryPath = Path.GetRelativePath(Environment.CurrentDirectory, Path.Combine(LibraryDir, "Author/Book"));
+        torrent.LinkedFilesJson = JsonSerializer.Serialize(new List<LinkedFileRecord> { new("book.m4b", 1) });
+        await context.SaveChangesAsync();
+        Library[] relative = [new() { Name = "Audiobooks", LibraryDir = Path.GetRelativePath(Environment.CurrentDirectory, LibraryDir), Category = "audiobooks" }];
+        var results = new LibraryCheckResults();
+
+        var summary = await new LibraryChecker(context, relative, results).RunAsync();
+
+        Assert.Equal(0, summary.Total);
+    }
+
+    [Fact]
     public async Task RunAsync_ReadsAnUnknownFoldersMetadataJson_ToSayWhichBookItIsProbablyAnOlderFolderOf()
     {
         using var context = CreateContext();

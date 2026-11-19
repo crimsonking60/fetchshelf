@@ -1,3 +1,4 @@
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
@@ -18,7 +19,8 @@ namespace Fetchshelf.Web.Pages.LibraryCheck;
 /// </summary>
 public class IndexModel(
     LibraryCheckResults results, IJobRegistry jobRegistry, IReadOnlyList<Library> libraries, FetchshelfDbContext dbContext,
-    EventStore eventStore, LibraryWriteGate writeGate, BulkOperationQueue bulkOperations, ILogger<IndexModel> logger) : PageModel
+    EventStore eventStore, LibraryWriteGate writeGate, LinkRunner linkRunner, FetchshelfSettings settings,
+    QBittorrentClientFactory qbittorrentFactory, ILogger<IndexModel> logger) : PageModel
 {
     public DateTimeOffset? CheckedAt => results.CheckedAt;
 
@@ -131,8 +133,11 @@ public class IndexModel(
         return RedirectToPage();
     }
 
-    /// <summary><b>Relink selected</b>: queued as the Torrents page's bulk Relink, whose progress that page shows.</summary>
-    public IActionResult OnPostRelink(List<int> selectedIds)
+    /// <summary>
+    /// <b>Relink selected</b>, as on the torrent page, one book after the other. A book relinked leaves the list; one that
+    /// couldn't be stays, with why noted on it, so <b>Remove record</b> or a fix by hand can follow.
+    /// </summary>
+    public async Task<IActionResult> OnPostRelinkAsync(List<int> selectedIds)
     {
         if (Refusal(selectedIds) is { } refusal)
         {
@@ -140,13 +145,37 @@ public class IndexModel(
         }
 
         var books = BookFindings(selectedIds);
-        if (books.Count > 0)
+        var (relinked, notes) = (new List<int>(), new Dictionary<int, string>());
+        var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
+        using (await writeGate.AcquireAsync(HttpContext.RequestAborted))
         {
-            bulkOperations.Enqueue(BulkAction.Relink, books.Select(f => f.Finding.TorrentId!).Distinct(StringComparer.Ordinal).ToList(), null);
-            results.Remove(books.Select(f => f.Id));
+            foreach (var (id, finding, _) in books)
+            {
+                try
+                {
+                    var result = await linkRunner.RelinkAsync(finding.TorrentId!, connections, HttpContext.RequestAborted);
+                    if (result.Succeeded)
+                    {
+                        relinked.Add(id);
+                    }
+                    else
+                    {
+                        notes[id] = result.Message;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning("Library check: relinking {Title} failed: {Error}", finding.Title, ex.Message);
+                    notes[id] = $"Not relinked: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent")}";
+                }
+            }
         }
 
-        ActionMessage = $"Relink of {books.Count} {(books.Count == 1 ? "book" : "books")} queued; the Torrents page shows how it goes.";
+        results.Remove(relinked);
+        results.SetNotes(notes);
+        ActionMessage = $"Relinked {relinked.Count} of {books.Count}."
+            + (notes.Count > 0 ? $" {notes.Count} could not be, as noted on {(notes.Count == 1 ? "it" : "each")}; Remove record forgets such a book." : "");
+        ActionFailed = notes.Count > 0;
         return RedirectToPage();
     }
 

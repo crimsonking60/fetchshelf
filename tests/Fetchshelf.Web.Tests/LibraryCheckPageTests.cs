@@ -221,6 +221,25 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
+    public async Task Relink_ABookItCannotRelink_StaysWithTheReason()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        await client.GetAsync("/Jobs"); // starts the host, which creates the database
+        var folder = Path.Combine(LibraryDir, "Author/Gone");
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", libraryPath: folder);
+        Results(fixture).Set(
+            [new LibraryFinding(LibraryFindingKind.FolderMissing, folder, "Audiobooks") { TorrentId = "hash1", Title = "Gone" }],
+            DateTimeOffset.UtcNow);
+
+        var html = await PostAsync(client, "Relink", Results(fixture).Findings[0].Id);
+
+        Assert.Contains("Relinked 0 of 1. 1 could not be", html);
+        Assert.Contains("<div class=\"finding-note\">Not relinked: It is not in qBittorrent, so there is nothing to link from. Nothing was changed.</div>", html);
+        Assert.Single(Results(fixture).Findings);
+    }
+
+    [Fact]
     public async Task JobsPage_LinksTheJobToItsFindings()
     {
         using var fixture = new FetchshelfWebAppFixture();

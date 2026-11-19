@@ -136,9 +136,15 @@ other 10k tests (`/data/tmp`) should keep a check of the 10k library under a min
   `DeletedFromLibrary` event (a new `EventKind`, at the end).
 - **Job:** `Library check` (reserved as a name), registered with the organizer jobs and never scheduled. Its result
   counts the findings by kind.
-- **Page:** `Pages/LibraryCheck/`: **Run the check**, unknown folders and files with **Delete selected**, books with
-  **Relink selected** (queued as the Torrents page's bulk Relink) and **Remove record** (as the torrent page's, which
-  doesn't touch Audiobookshelf). A finding acted on leaves the list. The Jobs page links the job to the page; the menu
+- **Page:** `Pages/LibraryCheck/`: **Run the check** (which waits up to 2 seconds, so a small library's check comes back
+  with its findings), unknown folders and files with **Delete selected**, books with **Relink selected** and **Remove
+  record** (as the torrent page's, which doesn't touch Audiobookshelf). Relink runs from the page, under the write gate,
+  one book after the other: a book relinked leaves the list, one that couldn't be stays with the reason noted on it.
+  First queued as the Torrents page's bulk Relink, which dropped the findings at once and reported failures only in the
+  log; changed after trying it on the dev instance. While a check runs, the page shows the previous findings with the
+  actions off, and reloads itself when it ends; a post for findings a newer check replaced does nothing and says so.
+- **Relative paths** on record (left from an older configuration) and in the configuration are resolved against the
+  working folder with `Path.GetFullPath`, as Fetchshelf's file operations resolve them. The Jobs page links the job to the page; the menu
   shows it with a count while there are findings.
 - **Scale:** the 10k seeded library laid out on disk (`/data/tmp`, a hard disk) was checked in 0.6 s, with the files
   just written, so from the disk cache.

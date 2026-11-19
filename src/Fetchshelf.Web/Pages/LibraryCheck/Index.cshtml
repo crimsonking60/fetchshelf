@@ -67,7 +67,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var (id, finding) in unknownFolders.Concat(unknownFiles))
+                @foreach (var (id, finding, _) in unknownFolders.Concat(unknownFiles))
                 {
                     <tr>
                         <td><input class="unknown-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Path" /></td>
@@ -93,8 +93,9 @@
 {
     <h3>Books whose folder or files are gone</h3>
     <p>
-        <strong>Relink</strong> places the book's files again from qBittorrent, when it still has the torrent.
-        <strong>Remove record</strong> makes Fetchshelf forget the book.
+        <strong>Relink</strong> places the book's files again from qBittorrent, when it still has the torrent and a library
+        accepts it; a book it couldn't relink stays here with the reason. <strong>Remove record</strong> makes Fetchshelf
+        forget the book.
     </p>
     <form method="post">
         @Html.AntiForgeryToken()
@@ -108,7 +109,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var (id, finding) in foldersMissing.Concat(filesMissing))
+                @foreach (var (id, finding, note) in foldersMissing.Concat(filesMissing))
                 {
                     <tr>
                         <td><input class="missing-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Title" /></td>
@@ -122,6 +123,10 @@
                             else
                             {
                                 @(finding.MissingFiles.Count == 1 ? "1 file" : $"{finding.MissingFiles.Count} files")@: (@string.Join(", ", finding.MissingFiles.Take(5))@(finding.MissingFiles.Count > 5 ? ", …" : ""))
+                            }
+                            @if (note is not null)
+                            {
+                                <div class="finding-note">@note</div>
                             }
                         </td>
                     </tr>

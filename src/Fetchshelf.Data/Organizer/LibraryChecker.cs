@@ -9,7 +9,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.Organizer;
 
 /// <summary>A finding of the last Library check, with the id the page posts back.</summary>
-public sealed record NumberedFinding(int Id, LibraryFinding Finding);
+/// <param name="Note">What happened when it was acted on and it stayed, such as why Relink couldn't; null until then.</param>
+public sealed record NumberedFinding(int Id, LibraryFinding Finding, string? Note = null);
 
 /// <summary>
 /// The last Library check's findings, kept in memory: a snapshot to act on, stale as soon as anything links, and
@@ -46,6 +47,15 @@ public sealed class LibraryCheckResults
 
     public NumberedFinding? Get(int id) => Findings.FirstOrDefault(f => f.Id == id);
 
+    /// <summary>Notes on findings what happened when they were acted on, by id.</summary>
+    public void SetNotes(IReadOnlyDictionary<int, string> notes)
+    {
+        lock (_lock)
+        {
+            _findings = _findings.Select(f => notes.TryGetValue(f.Id, out var note) ? f with { Note = note } : f).ToList();
+        }
+    }
+
     public void Remove(IEnumerable<int> ids)
     {
         var gone = ids.ToHashSet();
@@ -67,7 +77,8 @@ public sealed record LibraryCheckSummary(int UnknownFolders, int UnknownFiles, i
 /// <see cref="LibraryCheckComparer"/>, keeping what doesn't match in <see cref="LibraryCheckResults"/>. It holds the
 /// library write gate while it walks, so a Link or Clean run can't make a folder look unknown halfway. Hidden folders
 /// and files (a name starting with <c>.</c> or <c>@</c>, such as a NAS's <c>@eaDir</c>) are left out, and folder
-/// links aren't followed.
+/// links aren't followed. Relative paths, in the configuration or on record, are taken from Fetchshelf's working folder,
+/// as its file operations take them, and shown as full paths.
 /// </summary>
 public sealed class LibraryChecker(
     FetchshelfDbContext dbContext,
@@ -89,14 +100,14 @@ public sealed class LibraryChecker(
                 .Select(t => new { t.Id, t.Title, t.MetadataJson, t.LibraryPath, t.LinkedFilesJson })
                 .ToListAsync(cancellationToken))
             .Select(t => new KnownBook(
-                t.Id, t.Title, TorrentMetadataSerializer.Deserialize(t.MetadataJson).Authors, t.LibraryPath!,
+                t.Id, t.Title, TorrentMetadataSerializer.Deserialize(t.MetadataJson).Authors, Path.GetFullPath(t.LibraryPath!),
                 (t.LinkedFilesJson is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(t.LinkedFilesJson) ?? [])
                     .Select(f => f.RelativePath).ToList()))
             .ToList();
 
         var folders = new List<CheckedFolder>();
         var walked = new List<string>();
-        foreach (var root in libraries.Select(l => l.LibraryDir).Distinct(StringComparer.Ordinal))
+        foreach (var root in libraries.Select(l => Path.GetFullPath(l.LibraryDir)).Distinct(StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (Directory.Exists(root) && !walked.Any(w => PathPrefix.IsSameOrUnder(root, w)))
@@ -114,7 +125,7 @@ public sealed class LibraryChecker(
         }
 
         var checkedLibraries = libraries
-            .Select(l => new CheckedLibrary(l.Name ?? l.LibraryDir, l.LibraryDir, l.IsSeriesLayout, l.Method != LibraryLinkMethod.NoLink))
+            .Select(l => new CheckedLibrary(l.Name ?? l.LibraryDir, Path.GetFullPath(l.LibraryDir), l.IsSeriesLayout, l.Method != LibraryLinkMethod.NoLink))
             .ToList();
         var findings = LibraryCheckComparer.Compare(checkedLibraries, folders, books, ReadIdentity);
         results.Set(findings, _time.GetUtcNow());
