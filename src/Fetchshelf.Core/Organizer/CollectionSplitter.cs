@@ -167,10 +167,13 @@ public static partial class CollectionSplitter
         }).ToList();
     }
 
-    /// <summary>A folder or file name without what isn't the title: a trailing Calibre id <c>(1019)</c> and a trailing <c> - author</c>.</summary>
+    /// <summary>
+    /// A folder or file name without what isn't the title: trailing groups in brackets, such as a Calibre id <c>(1019)</c>,
+    /// a year <c>(2014)</c> or release tags <c>(Digital) (Zone-Empire)</c>, and a trailing <c> - author</c>.
+    /// </summary>
     private static string Clean(string name, IReadOnlyList<string> authors)
     {
-        var cleaned = CalibreId().Replace(name, "").Trim();
+        var cleaned = TrailingBracketGroups().Replace(name, "").Trim();
         foreach (var author in authors)
         {
             var suffix = " - " + author;
@@ -233,8 +236,8 @@ public static partial class CollectionSplitter
 
     private static string Extension(string path) => System.IO.Path.GetExtension(path).TrimStart('.');
 
-    [GeneratedRegex(@"\s*\(\d+\)\s*$")]
-    private static partial Regex CalibreId();
+    [GeneratedRegex(@"(\s*(\([^()]*\)|\[[^\[\]]*\]))+\s*$")]
+    private static partial Regex TrailingBracketGroups();
 
     [GeneratedRegex(@"^(?<number>\d{1,4}(\.\d+)?)\s*[-.:)_]\s*(?<title>\S.*)$")]
     private static partial Regex LeadingNumberPattern();

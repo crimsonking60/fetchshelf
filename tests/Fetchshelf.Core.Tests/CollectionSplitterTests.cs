@@ -145,6 +145,25 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void TrailingYearsAndReleaseTagsInBrackets_AreLeftOutOfTheTitleAndNumber()
+    {
+        const string Folder = "American Vampire (v01-v07)(2010-2015) (digital-Empire)";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Authors = ["Scott Snyder"] },
+            Files(
+                $"{Folder}/American Vampire v06 (2014) (Digital) (Zone-Empire).cbr",
+                $"{Folder}/American Vampire v05 (2013) (digital) (X-MAS 2013-Empire).cbr",
+                $"{Folder}/American Vampire v01 (2010) (digital) (X-MAS_2013-Empire).cbr",
+                $"{Folder}/American Vampire v02 [2011] [scan].cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("American Vampire v01", "1"), ("American Vampire v02", "2"), ("American Vampire v05", "5"), ("American Vampire v06", "6")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)).OrderBy(b => b.Item2));
+        Assert.All(books, b => Assert.Equal("American Vampire", b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
     public void FewerThanThreeNumberedNames_WithoutARange_IsNotACollection()
     {
         Assert.Null(CollectionSplitter.Split(
