@@ -36,3 +36,21 @@
         });
     });
 })();
+
+// Things that stick under the header (table headings, notices) need its real height, which grows when the menu wraps.
+(function () {
+    const header = document.querySelector('.site-header');
+    if (!header) {
+        return;
+    }
+
+    function measure() {
+        document.documentElement.style.setProperty('--header-height', header.getBoundingClientRect().height + 'px');
+    }
+
+    measure();
+    window.addEventListener('resize', measure);
+    if (window.ResizeObserver) {
+        new ResizeObserver(measure).observe(header);
+    }
+})();
