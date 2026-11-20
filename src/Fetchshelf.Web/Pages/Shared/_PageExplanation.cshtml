@@ -1,5 +1,27 @@
 @model string
 @if (Settings.PageExplanations)
 {
-    <p class="page-explanation">@Model</p>
+    // The full text is shown on a page's first visit, which is remembered in a cookie; later visits fold it to one line.
+    // A page is told apart by its path, so a page's explanations (several partials can sit on one page) fold together.
+    var seen = PageExplanationCookie.Seen(Context.Request);
+    var key = PageExplanationCookie.Key(Context.Request);
+    // Another explanation on the same page, rendered before this one, has already recorded the visit.
+    var first = !seen.Contains(key) || Context.Items.ContainsKey(PageExplanationCookie.Name);
+    if (first && !Context.Items.ContainsKey(PageExplanationCookie.Name) && !Context.Response.HasStarted)
+    {
+        Context.Items[PageExplanationCookie.Name] = true;
+        PageExplanationCookie.Remember(Context.Response, seen, key);
+    }
+
+    if (first)
+    {
+        <p class="page-explanation">@Model</p>
+    }
+    else
+    {
+        <details class="page-explanation folded">
+            <summary>About this page</summary>
+            <p>@Model</p>
+        </details>
+    }
 }

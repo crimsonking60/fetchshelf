@@ -288,7 +288,8 @@ Ordered by value for cost.
 
 1. **Page explanations fold away.** The long blue-left-border blocks are shown in full on the first visit and collapse
    to one line with an "About this page" toggle afterwards (state in a cookie per page, as the theme and page size
-   cookies already do). Gives back 100–130 px at the top of every page. (Small)
+   cookies already do). Gives back 100–130 px at the top of every page. (Small) **Built:** `fs-seen-pages` cookie
+   (a list of page paths), `_PageExplanation` renders the full text on the first visit and a `<details>` afterwards.
 2. **Relative times with exact on hover.** `local-time.js` already runs; give it a short mode ("3 h ago",
    "yesterday 21:14") for tables, the full time in `title`. (Small)
 3. **Sticky table headers** inside the scrolling page (`thead th { position: sticky; top: var(--header-height) }`), so the
