@@ -692,6 +692,22 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowPage_AFindOfABookAlreadyHad_SaysAlreadyOwned_WhileItsCountIsInTheLibrary()
+    {
+        // Owned means the book is had, by another copy too: not necessarily this torrent, so not "In the library".
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        AddFind(fixture, 2, "Oathbringer", FollowFindStatus.Owned);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync(FollowPage(fixture) + "?Show=InLibrary"));
+
+        var row = html[html.IndexOf(">Oathbringer</a>", StringComparison.Ordinal)..];
+        Assert.Contains("Already owned", row[..row.IndexOf("</tr>", StringComparison.Ordinal)]);
+        Assert.Contains(">In the library: 1</a>", html);
+    }
+
+    [Fact]
     public async Task FollowPage_ShowsAllByDefault_AndEachCountOpensItsFinds()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
