@@ -139,6 +139,26 @@ public class TorrentsPagingTests
     }
 
     [Fact]
+    public async Task Get_MoreThanOnePage_OffersPageSizesAboveTheList_RightOfTheExportLinks()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedAsync(fixture, 30);
+        using var client = fixture.CreateClient();
+
+        var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Book&PageSize=50"));
+
+        var exportLinks = html[html.IndexOf("id=\"export-links\"", StringComparison.Ordinal)..];
+        exportLinks = exportLinks[..exportLinks.IndexOf("</div>", StringComparison.Ordinal)];
+        Assert.True(exportLinks.IndexOf(">JSON</a>", StringComparison.Ordinal) < exportLinks.IndexOf("id=\"torrent-pager-top-size\"", StringComparison.Ordinal));
+        var top = exportLinks[exportLinks.IndexOf("id=\"torrent-pager-top-size\"", StringComparison.Ordinal)..];
+        var options = System.Text.RegularExpressions.Regex.Matches(top, @"<option value=""([^""]*)""( selected=""selected"")?>([^<]*)</option>");
+        Assert.Equal(["25", "50", "100", "500", "All"], options.Select(o => o.Groups[3].Value));
+        Assert.Equal("50", options.Single(o => o.Groups[2].Success).Groups[3].Value);
+        Assert.Contains("Q=Book", options.Single(o => o.Groups[3].Value == "100").Groups[1].Value);
+        Assert.Contains("id=\"torrent-pager-size\"", html);
+    }
+
+    [Fact]
     public async Task Get_PageSizeAll_ShowsEveryTorrent()
     {
         using var fixture = new FetchshelfWebAppFixture();
@@ -163,6 +183,7 @@ public class TorrentsPagingTests
         var html = await client.GetStringAsync("/torrents");
 
         Assert.DoesNotContain("id=\"torrent-pager-size\"", html);
+        Assert.DoesNotContain("id=\"torrent-pager-top-size\"", html);
     }
 
     [Fact]

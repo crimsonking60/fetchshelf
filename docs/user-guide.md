@@ -1917,9 +1917,9 @@ reported, so they cannot be chosen by hand.
     "J.R.R. Tolkien" and "J. R. R. Tolkien" are one author, and "The Expanse" and "Expanse" one series.
 
   Searching, sorting and filters combine, and **Clear filters** removes all filters but keeps the search.
-  Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page* below the list. Your browser
-  remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move between
-  pages.
+  Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page*, next to the export links or below
+  the list. Your browser remembers the choice for this list. Use the page numbers, **Prev** and **Next** below
+  the list to move between pages.
 - **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
   check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
