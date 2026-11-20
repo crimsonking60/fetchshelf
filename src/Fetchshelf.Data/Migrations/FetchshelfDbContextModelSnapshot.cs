@@ -682,6 +682,8 @@ namespace Fetchshelf.Data.Migrations
 
                     b.HasIndex("Language");
 
+                    b.HasIndex("LibraryPath");
+
                     b.HasIndex("MamId");
 
                     b.HasIndex("MediaType");
