@@ -52,8 +52,9 @@ public class DetailModel(FetchshelfSettings settings, FetchshelfDbContext dbCont
         Actions = new FollowActionsViewModel(Follow, ReturnUrl, Url.Page("/Following/Index")!);
         List = await FindListViewModel.LoadAsync(
             dbContext, "/Following/Detail", new Dictionary<string, string> { ["id"] = id.ToString(CultureInfo.InvariantCulture) }, id,
-            // All of what was found for it, unless the address asks for some: the To look at page is for what waits.
-            ReadQuery(FindShow.All), PageNumber, wantedSides, showsFollow: false, showsBook: Follow.Kind == FollowKind.Series, showsShowFilter: true,
+            // All of what was found for it, unless the address asks for some: the To look at page is for what waits. A
+            // series' books in their order, an author's newest found first.
+            ReadQuery(FindShow.All, Follow.Kind == FollowKind.Series ? FindListQuery.BookSort : FindListQuery.DefaultSort), PageNumber, wantedSides, showsFollow: false, showsBook: Follow.Kind == FollowKind.Series, showsShowFilter: true,
             FollowQueries.CanBeNotFree(followSettings.Grab), ReturnUrl, HttpContext.RequestAborted);
         return Page();
     }

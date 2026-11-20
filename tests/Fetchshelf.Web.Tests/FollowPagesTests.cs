@@ -324,7 +324,7 @@ public partial class FollowPagesTests
 
         var withSize = await client.GetStringAsync(FollowPage(fixture));
 
-        Assert.Contains(">Size</a></th>", withoutSize);
+        Assert.Contains(">Size<span class=\"sort-arrow\" aria-hidden=\"true\"></span></a></th>", withoutSize);
         Assert.Contains("<td class=\"nowrap\"></td>", withoutSize);
         Assert.Contains("<td class=\"nowrap\">1.2 GiB</td>", withSize);
     }
@@ -757,6 +757,42 @@ public partial class FollowPagesTests
         Assert.Contains("Book Two", ebooks);
         Assert.DoesNotContain("Book Ten", ebooks);
         Assert.Contains("id=\"clear-filters\"", ebooks);
+    }
+
+    [Fact]
+    public async Task SeriesPage_ListsTheBooksInTheirOrder_ByDefault_WithTheBookColumnFirst()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture, kind: FollowKind.Series);
+        AddFind(fixture, 2, "Book Ten", seriesDisplay: "10");
+        AddFind(fixture, 3, "Book Two", seriesDisplay: "2");
+        using var client = fixture.CreateClient();
+        var page = $"/following/{FollowOf(fixture, FollowKind.Series, "jamessacorey")!.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+
+        Assert.True(html.IndexOf("Book Two", StringComparison.Ordinal) < html.IndexOf("Book Ten", StringComparison.Ordinal), "2 before 10");
+        var head = html[html.IndexOf("<thead>", StringComparison.Ordinal)..html.IndexOf("</thead>", StringComparison.Ordinal)];
+        Assert.True(head.IndexOf(">Book<", StringComparison.Ordinal) < head.IndexOf(">Title<", StringComparison.Ordinal), "Book before Title");
+        // The standard headings: the column sorted by says which way, and a second click on it reverses it.
+        Assert.Matches(@"<th class=""col-fit"" aria-sort=""ascending""><a class=""sort"" href=""[^""]*Sort=Book&Dir=desc[^""]*"">Book<span class=""sort-arrow""", head);
+        Assert.Matches(@"<th aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=Title&Dir=asc", head);
+        Assert.Matches(@"aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=Found&Dir=desc", head);
+        var row = html[html.IndexOf("<tbody>", StringComparison.Ordinal)..];
+        Assert.True(row.IndexOf("<td>2</td>", StringComparison.Ordinal) < row.IndexOf(">Book Two</a>", StringComparison.Ordinal), "the number before the title");
+    }
+
+    [Fact]
+    public async Task AuthorPage_ListsTheNewestFoundFirst_ByDefault()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture, kind: FollowKind.Author);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync(FollowPage(fixture)));
+
+        Assert.Matches(@"aria-sort=""descending""><a class=""sort"" href=""[^""]*Sort=Found&Dir=asc[^""]*"">Found<", html);
+        Assert.DoesNotContain(">Book<", html);
     }
 
     [Fact]

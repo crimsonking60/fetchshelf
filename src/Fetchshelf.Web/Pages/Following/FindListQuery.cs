@@ -17,7 +17,11 @@ namespace Fetchshelf.Web.Pages.Following;
 public sealed record FindListQuery(
     FindShow Show, string? Format, string Sort, string Dir, int PageSize, string? Language = null, FindShow DefaultShow = FindShow.ToLookAt)
 {
+    /// <summary>The sort when the address names none: the newest found first.</summary>
     public const string DefaultSort = "Found";
+
+    /// <summary>A series' own page lists its books in their order unless the address asks for another.</summary>
+    public const string BookSort = "Book";
 
     /// <summary>The choices in the Show dropdown.</summary>
     public static readonly IReadOnlyList<(FindShow Value, string Label)> ShowOptions =
@@ -51,12 +55,14 @@ public sealed record FindListQuery(
 
     public FindListQuery WithoutFilters() => this with { Show = DefaultShow, Format = null, Language = null };
 
-    /// <summary>Sorted by the column: in its natural order first, reversed when already sorted that way.</summary>
-    public FindListQuery SortedBy(string column) =>
-        this with { Sort = column, Dir = Sort == column ? (Dir == "asc" ? "desc" : "asc") : DefaultDir(column) };
+    /// <summary>The sort as the column headings show it and lead on from.</summary>
+    public SortState SortState => SortState.From(Sort, Dir);
 
     /// <summary>The newest found and the largest first; titles, books and names from the start.</summary>
-    public static string DefaultDir(string column) => column is DefaultSort or "Size" ? "desc" : "asc";
+    public static string DefaultDir(string column) => FirstDescending(column) ? "desc" : "asc";
+
+    /// <summary>Whether a column's first click sorts it largest or newest first: the dates and sizes.</summary>
+    public static bool FirstDescending(string column) => column is DefaultSort or "Size";
 
     /// <summary>The rows in the query's order; the newest found first among equals.</summary>
     public IEnumerable<FindRow> Order(IEnumerable<FindRow> rows)

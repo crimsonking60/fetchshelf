@@ -60,14 +60,13 @@ public class FollowListQueryTests
     }
 
     [Fact]
-    public void SortedBy_StartsInTheColumnsNaturalOrder_AndReversesASecondTime()
+    public void DefaultDir_IsNewestAndLargestFirst_AndBooksAndTitlesFromTheStart()
     {
-        var query = new FindListQuery(FindShow.ToLookAt, null, FindListQuery.DefaultSort, "desc", 25);
-
-        Assert.Equal(("Title", "asc"), (query.SortedBy("Title").Sort, query.SortedBy("Title").Dir));
-        Assert.Equal("desc", query.SortedBy("Title").SortedBy("Title").Dir);
-        Assert.Equal("desc", query.SortedBy("Size").Dir);
-        Assert.Equal("asc", query.SortedBy("Found").Dir);
+        Assert.Equal("desc", FindListQuery.DefaultDir("Found"));
+        Assert.Equal("desc", FindListQuery.DefaultDir("Size"));
+        Assert.Equal("asc", FindListQuery.DefaultDir("Book"));
+        Assert.Equal("asc", FindListQuery.DefaultDir("Title"));
+        Assert.Equal(Fetchshelf.Web.Pages.SortState.From("Book", "asc"), new FindListQuery(FindShow.All, null, "Book", "asc", 25).SortState);
     }
 
     [Fact]

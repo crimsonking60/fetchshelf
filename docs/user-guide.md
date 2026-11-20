@@ -1278,8 +1278,9 @@ A series' or author's name opens its own page, with the same buttons and what wa
 format and size, and, for a series, its book number. It lists all of it to begin with; the counts at the top, or the
 *Show* filter, list instead what is to look at (with what was downloaded from it until it is in the library), what is
 not free, selected, in the library, or dismissed.
-The list can be limited to ebooks or audiobooks, sorted by title, book number, size or when it was found, and
-paged. **To look at** on the **Following** page lists what waits to be downloaded or dismissed for every series
+The list can be limited to ebooks or audiobooks, sorted by title, book number, size or when it was found (click a
+column heading; an arrow shows the column sorted by and which way), and paged. A series lists its books by number to
+begin with, with the number first, and an author the newest found first. **To look at** on the **Following** page lists what waits to be downloaded or dismissed for every series
 and author together, which is what the count on the menu link counts. On both, a torrent's title opens its
 details from MAM over the page, as on the **Search** page; **Close** goes back to the list. Tick several finds
 to **Download**, **Wedge download** or **Dismiss** them at once.
