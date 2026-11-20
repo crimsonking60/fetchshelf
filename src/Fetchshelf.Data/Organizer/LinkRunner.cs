@@ -55,19 +55,17 @@ public sealed class LinkRunner(
     private int _linked;
     private int _failed;
 
-    /// <summary>The open transaction of the run's current batch of torrents, if any. See <see cref="RunCoreAsync"/>.</summary>
-    private IDbContextTransaction? _batch;
-    private int _batchCount;
+    /// <summary>The run's batches of torrents. See <see cref="RunCoreAsync"/>.</summary>
+    private readonly SqliteWriteBatch _batch = new(dbContext, BatchSize, BatchMaxAge);
     private const int BatchSize = 100;
 
     /// <summary>
     /// The longest a batch stays open. Torrents whose files are checked or placed on a slow disk can make 100 of them take
     /// a minute, and the batch's transaction holds the write lock all that time: another job's save then waited out its
-    /// 30 second busy timeout and failed with "database is locked".
+    /// 30 second busy timeout and failed with "database is locked". Between two batches the lock is left free a moment
+    /// (<see cref="SqliteWriteBatch.YieldTime"/>), or a waiting save could miss every gap and fail the same way.
     /// </summary>
     private static readonly TimeSpan BatchMaxAge = TimeSpan.FromSeconds(2);
-
-    private long _batchStartedAt;
 
     /// <summary>The error a torrent gets when MAM has no torrent with its info-hash. Such a torrent is looked up again only after <see cref="NotOnMamRetryAfter"/>.</summary>
     public const string NotOnMamError = "MAM has no torrent with this info-hash.";
@@ -124,11 +122,7 @@ public sealed class LinkRunner(
                 }
 
                 using var heldGate = gate;
-                if (_batch is null)
-                {
-                    _batch = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-                    _batchStartedAt = Stopwatch.GetTimestamp();
-                }
+                await _batch.BeginAsync(cancellationToken);
 
                 try
                 {
@@ -150,10 +144,7 @@ public sealed class LinkRunner(
                     dbContext.ChangeTracker.Clear();
                 }
 
-                if (++_batchCount >= BatchSize || Stopwatch.GetElapsedTime(_batchStartedAt) >= BatchMaxAge)
-                {
-                    await CommitBatchAsync();
-                }
+                await _batch.ItemDoneAsync();
             }
         }
         finally
@@ -189,18 +180,7 @@ public sealed class LinkRunner(
         && DateTimeOffset.UtcNow - error.OccurredAt < NotOnMamRetryAfter;
 
     /// <summary>Commits the current batch, if one is open; later saves commit on their own until the next batch starts.</summary>
-    private async Task CommitBatchAsync()
-    {
-        if (_batch is null)
-        {
-            return;
-        }
-
-        await _batch.CommitAsync(CancellationToken.None);
-        await _batch.DisposeAsync();
-        _batch = null;
-        _batchCount = 0;
-    }
+    private Task CommitBatchAsync() => _batch.CommitAsync();
 
     /// <summary>
     /// A selection that was started has done its job once its torrent finishes: the Torrents list takes over, so the
