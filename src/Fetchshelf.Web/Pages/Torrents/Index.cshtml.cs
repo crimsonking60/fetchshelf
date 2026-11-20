@@ -229,6 +229,8 @@ public class IndexModel(
     /// <summary>
     /// A bulk action on the torrents ticked. Remove record is one database delete and is done here; the others are queued
     /// for <see cref="BulkOperationWorker"/>, whose progress the page shows above the list, and the page comes back at once.
+    /// From htmx (the page's script), only what changed comes back, so the list keeps its ticks and where it was scrolled
+    /// to: the progress panel for a queued action, the list for Remove record. Without a script the page reloads.
     /// </summary>
     public async Task<IActionResult> OnPostBulkAsync(string action, List<string> selectedIds, string? category)
     {
@@ -241,10 +243,17 @@ public class IndexModel(
             "setCategory" => BulkAction.SetCategory,
             _ => null,
         };
+        var fromHtmx = Request.Headers.ContainsKey("HX-Request");
         if (queued == BulkAction.SetCategory && !LibraryCategories.IsOffered(settings, category))
         {
             TempData["CheckMessage"] = "Choose a category first.";
             TempData["CheckFailed"] = true;
+            if (fromHtmx)
+            {
+                // The message is shown at the top of the page, so the page reloads to show it.
+                Response.Headers["HX-Refresh"] = "true";
+                return Content(string.Empty);
+            }
         }
         else if (queued is { } bulkAction && selectedIds.Count > 0)
         {
@@ -258,9 +267,17 @@ public class IndexModel(
                 .ToListAsync();
             dbContext.Torrents.RemoveRange(toRemove);
             await dbContext.SaveChangesAsync();
+            if (fromHtmx)
+            {
+                // The rows are gone, so the list comes back in place of the old one, without them.
+                Torrents = await LoadAsync();
+                Response.Headers["HX-Retarget"] = "#torrent-list-body";
+                Response.Headers["HX-Reswap"] = "innerHTML";
+                return Partial("_TorrentListPartial", this);
+            }
         }
 
-        return RedirectToPage(CurrentPageRouteValues());
+        return fromHtmx ? OnGetBulkOperations() : RedirectToPage(CurrentPageRouteValues());
     }
 
     /// <summary>The bulk actions running, waiting or ended, for the panel above the list.</summary>
