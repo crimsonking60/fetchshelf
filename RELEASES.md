@@ -5,6 +5,63 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.16 - 2026-11-20
+
+The web interface is easier to find your way around and fits narrower screens. Related pages share a menu, tables
+have fewer and wider columns with sortable headings and headings that stay in view, and the Jobs page groups its
+jobs. Running jobs and bulk actions stay in sight from anywhere on a page, and destructive actions ask in a dialog
+first. The Link job no longer holds the database long enough to make a list job fail.
+
+### Upgrading
+
+- Nothing is needed. The database is unchanged, so going back to 2026.11.15 is possible, and no setting is added or
+  changed.
+- **The theme menu has moved** from the bottom of every page to the ◐ button at the right of the menu bar. A browser
+  that never chose a theme now gets **Match system**: Dark Warm while the device is set to dark, Light Warm while it
+  is set to light. A theme chosen before is kept. See
+  [Using the web interface](https://fetchshelf.readthedocs.io/en/v2026.11.16/user-guide/#using-the-web-interface).
+
+### Added
+
+- Menus: **Search**, **Torrents**, **Selected**, **Jobs** and **Errors** stay on the bar, the other pages sit under
+  **Library** (Series, Following, Lists, Duplicates, Library check) and **Insight** (Events, Statistics), with the
+  counts of their pages on the menu's button (#115).
+- A theme menu in the header, with **Match system** as the default (#124).
+- The **Jobs** page groups its jobs: the standard jobs, those that come with a section of the configuration, and one
+  per `[[autograb]]` in the order of the configuration (#116).
+- Sortable headings on **Torrents**, **Series**, **Events**, **Errors** and **Selected** (#114, #119), and a pager
+  with numbered pages on every paged list (#118).
+- On **Torrents**, **Selected**, **Errors** and **Duplicates**, the bulk-action bar shows while rows are ticked, says
+  how many, and stays at the bottom of the window (#121).
+- A pill in the menu bar names the jobs running, on every page, and **Run now** answers at once (#129). While a bulk
+  action runs, a strip at the bottom of the **Torrents** page shows its progress and links to it (#133).
+- Keyboard shortcuts: `/` for the search box of Search, Torrents and Series, `g` then a letter for a page, `?` for the
+  list (#130).
+- Destructive actions ask in a dialog that says what and how many, such as "Remove the records of 3 selected torrents
+  from Fetchshelf?". The bulk **Remove selected** on Selected, Errors and Duplicates now asks too (#131).
+
+### Changed
+
+- Fewer, richer table columns: on **Torrents** the authors and series sit under the title and an **Added** column is
+  new, and Search, Selected, Series, Events and Errors are narrower too; titles wrap between words, not inside them
+  (#114, #117). The **Torrents** filters fold away, with the ones in use shown as chips (#117).
+- Table headings stay under the menu bar while a table scrolls (#127), and times in tables are short ("3 h ago",
+  "yesterday 21:14"), with the exact local time on hover (#126).
+- Each page's explanation is shown in full on the first visit and folds to one line after that (#125).
+- An empty list says why it is empty and what to do next (#128).
+- One main button per part of a page, such as **Search**, **Save** or **Refresh and relink**, and on the
+  **Torrents** bulk-action bar, **Unlink selected** and **Remove selected** sit apart at its right (#131, #132).
+- Stronger row stripes and clearer panels in the themes, warning colors set apart from links, and every theme's
+  contrast checked by a test (#113). The **Config** page's tables fit the window (#123).
+
+### Fixed
+
+- The Link job kept one database transaction open for up to a minute on a large library, so a list job saving at the
+  same time could fail with "database is locked". A batch now closes after 2 seconds (#122).
+- The **Added** date on **Torrents** was the UTC date, and its hover the UTC time; both are local now (#126).
+- The red count on the menu was hard to read in the dark themes, and Light Warm's accent lines, such as the current
+  page's underline, were too pale (#113).
+
 ## 2026.11.15 - 2026-11-19
 
 A collection torrent, such as all of Discworld or a run of comic issues, can be linked as one library book each. A

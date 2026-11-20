@@ -315,9 +315,8 @@ folder containing only an empty `mam_id`. The web interface starts, but **no bac
 you set `mam_id`. That is intentional: you can look around before anything happens on your account.
 
 1. Open `http://<your-host>:3157`.
-2. The top bar has the pages **Search**, **Jobs**, **Selected**, **Torrents**, **Events**, **Errors**,
-   **Duplicates** and **Config**. At the bottom of every page are the Fetchshelf version and a theme
-   selector. See
+2. The top bar has the pages **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, the menus
+   **Library** and **Insight**, **Config**, and the theme menu (◐). See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
 4. Edit `config.toml` in the config folder you mounted, check it with `--check-config` (see
@@ -1782,10 +1781,20 @@ edited by hand with MAM's.
 
 There is no login. See [Security and privacy](#security-and-privacy).
 
+The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
+**Library** (**Series**, **Duplicates**, and **Following**, **Lists** and **Library check** when they apply) and
+**Insight** (**Events** and **Statistics**), and at the right **Account**, **Config** and the theme menu. The theme
+menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
+in the bar names the jobs running, on every page.
+
+Each page starts with a short explanation, shown in full on the first visit and folded to one line after that. At
+the bottom of every page are the Fetchshelf version and the keyboard shortcuts: <kbd>/</kbd> goes to the search box
+of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?</kbd> shows the list).
+
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MAM and download books by hand. |
-| **Jobs** | Every background job, its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job that are not configured. |
+| **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
