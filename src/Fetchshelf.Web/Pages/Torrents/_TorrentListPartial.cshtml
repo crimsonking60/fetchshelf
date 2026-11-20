@@ -8,7 +8,18 @@
 
 @if (Model.Torrents.Count == 0)
 {
-    <p id="no-torrents-message" class="empty">No torrents found.</p>
+    <p id="no-torrents-message" class="empty">
+        No torrents found.
+        @if (Model.Query.HasFilters || !string.IsNullOrWhiteSpace(Model.Query.Q))
+        {
+            <text>Nothing matches these filters. </text>
+            <a id="empty-clear-filters" asp-page="/Torrents/Index" asp-route-PageSize="@Model.Query.PageSize">Clear filters</a>
+        }
+        else
+        {
+            <text>A torrent appears here once the Link job has linked a finished download. The <a asp-page="/Index">Search</a> page finds new ones.</text>
+        }
+    </p>
 }
 else
 {

@@ -301,6 +301,7 @@ Ordered by value for cost.
    visible from every page. (Medium)
 5. **Empty states say what to do.** "No torrents found." becomes "No torrents match these filters. Clear filters" or, when
    there are none at all, a pointer to the Link job and the Search page. Same for Selected, Events, Errors. (Small)
+   **Built** for Torrents, Selected, Events, Errors and Series.
 6. **Keyboard**: `/` focuses the search box on Search, Torrents and Series; `g` then `t`/`j`/`s` jumps to
    Torrents/Jobs/Selected. Shown in a "?" popover in the footer. Desktop-only benefit but cheap. (Small)
 7. **Consistent button hierarchy.** One primary button per page region; destructive actions (Remove selected, Unlink)
