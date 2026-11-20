@@ -1916,7 +1916,7 @@ reported, so they cannot be chosen by hand.
   *(unlinked)* after its title, and one MAM no longer has *(removed from MAM)* after its client status.
   **Edit** on each row opens the metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
-  selected** or **Remove selected**.
+  selected** or **Remove selected**. The last two sit apart at the right of the bar and ask for confirmation first.
   - *Clean* looks for another linked copy of the same book and retires the worse of the two, which can be
     the other copy (see [Better formats replace worse ones](#better-formats-replace-worse-ones)).
     Retiring removes that copy from your library: the hardlinks, copies or symlinks Fetchshelf made, its
@@ -2022,7 +2022,7 @@ no entry here; the log says why.
 A torrent that couldn't be linked because MAM gives it no author, and that Fetchshelf has no record of yet,
 has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
 creates the record. The next Link run then links it.
-Tick the entries you have dealt with and use **Remove selected**.
+Tick the entries you have dealt with and use **Remove selected**, which asks for confirmation first.
 
 The **Errors** link in the menu carries a count when something needs attention: the failing jobs, and the
 entries recorded or updated in the last day, such as "Errors 3", with what it counts on hover. Older entries
@@ -2074,7 +2074,7 @@ Torrents that an autograb or manual download skipped because you already have, o
 selected, the same book in an equal or better format. A selection that was dropped for a better copy is
 listed here too. Each entry links to the skipped torrent on MAM and shows what it duplicates: the torrent's
 page when Fetchshelf has it, otherwise the queued selection or the torrent on MAM. Tick the entries you no
-longer need and use **Remove selected**.
+longer need and use **Remove selected**, which asks for confirmation first.
 
 ### Lists
 

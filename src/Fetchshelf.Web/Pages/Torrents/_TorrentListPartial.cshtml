@@ -96,9 +96,6 @@ else
         <button type="submit" name="action" value="clean">Clean selected</button>
         <button type="submit" name="action" value="refresh">Refresh selected</button>
         <button type="submit" name="action" value="relink">Relink selected</button>
-        <button type="submit" name="action" value="unlink"
-                onclick="return confirm('Remove the selected books from your library? qBittorrent keeps the torrents and their data, and Fetchshelf stops linking them until you relink them.')">Unlink selected</button>
-        <button type="submit" name="action" value="removeRecord" class="danger">Remove selected</button>
         @if (Model.CategoryOptions.Count > 0)
         {
             <span class="bulk-category">
@@ -108,6 +105,12 @@ else
                 <button type="submit" name="action" value="setCategory">Set category</button>
             </span>
         }
+        <span class="bulk-danger">
+            <button type="submit" name="action" value="unlink" class="danger"
+                    data-confirm="Unlink {n} from your library? qBittorrent keeps the torrents and their data, and Fetchshelf stops linking them until you relink them." data-confirm-label="Unlink">Unlink selected</button>
+            <button type="submit" name="action" value="removeRecord" class="danger"
+                    data-confirm="Remove the records of {n} from Fetchshelf? A collection's books go with it. Use Unlink instead to keep the record." data-confirm-label="Remove">Remove selected</button>
+        </span>
     </div>
 
     @await Html.PartialAsync("_Pager", Model.Pager)

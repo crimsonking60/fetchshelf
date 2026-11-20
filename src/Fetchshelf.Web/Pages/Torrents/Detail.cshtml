@@ -159,7 +159,7 @@
         }
         @if (Model.EditedByHand)
         {
-            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" onsubmit="return confirm('Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead.')">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" data-confirm="Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead." data-confirm-label="Replace">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
         }
         else
         {
@@ -176,13 +176,13 @@
         </form>
         @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)
         {
-            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it."))">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
+            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it.")" data-confirm-label="Remove">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
         }
         @if (!Model.IsBook)
         {
             <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
             <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-            <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" onsubmit="return confirm(@System.Text.Json.JsonSerializer.Serialize(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone."))">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+            <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.")" data-confirm-label="Remove">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
         }
         @if (torrent.ReplacedWithTorrentId is not null)
         {

@@ -83,9 +83,9 @@ public sealed class SeedingPagesTests
 
         // Not in qBittorrent here, so the stored estimate: not seeding now.
         Assert.Contains("Not seeding, and seeded 41 of 72 hours: seed it 31 more by", shortPage);
-        Assert.Contains("return confirm(\"It has seeded 41 of the 72 hours MAM requires; removing it from qBittorrent before then can make it a hit-and-run. Remove this book", shortPage);
+        Assert.Contains("data-confirm=\"It has seeded 41 of the 72 hours MAM requires; removing it from qBittorrent before then can make it a hit-and-run. Remove this book", shortPage);
         Assert.Contains("Seeded 100 hours: satisfied.", donePage);
-        Assert.Contains("return confirm(\"Remove this book", donePage);
+        Assert.Contains("data-confirm=\"Remove this book", donePage);
     }
 
     [Fact]
