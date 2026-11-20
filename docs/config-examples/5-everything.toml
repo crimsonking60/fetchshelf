@@ -1,6 +1,7 @@
 # Fetchshelf example 5 of 5: every option
 #
-# This file uses every setting Fetchshelf understands, with a comment on each. It is meant to be read,
+# This file uses every setting Fetchshelf understands, with a comment on each. The few that exclude
+# another one (such as mam_id_file and mam_id) are shown in comments. It is meant to be read,
 # not copied as is: several blocks overlap on purpose so each option can be shown. Start from one of the
 # smaller examples and take what you need from here.
 #
@@ -31,20 +32,24 @@ download_after_selection = true # start downloading as soon as something is sele
 
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page
-dry_job_buttons = true   # a Dry run button next to Run now for autograbs, Hardcover lists, Follow and Upgrade
+dry_job_buttons = true   # a Dry run button next to Run now for autograbs, every list, Follow and Upgrade
 
-languages = ["English"] # the default 'languages' of every [[autograb]], [[hardcover_list.grab]], [[file_list.grab]] and [[follow.grab]] block
+languages = ["English"] # the default 'languages' of every [[autograb]] block and every list's and [follow]'s grab blocks
                         # that doesn't set its own, and the Search page's starting language. Empty = any.
                         # Not used by [[tag]] rules.
 
 metadata_json = true  # write metadata.json (Audiobookshelf's format) in every library without its own setting
 metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
+link_method = "hardlink_or_copy" # how files are placed in every library without its own 'method' (default)
+split_collections = false        # split a collection into one library book each, in every library without its own setting
+covers_from_mam = 20  # covers fetched from MAM per Link run for book folders without an image, 0 to 100; default 0
+metrics = false       # serve Prometheus metrics at /metrics
 
 database_wal = true # SQLite write-ahead log, for a responsive UI during long jobs. Default false;
                     # only turn it on if the database is on a local disk, not a network share (NFS/SMB)
 
 # Intervals are in minutes. 0 means "only when started from the UI".
-search_interval = 30     # default for every autograb and Hardcover list
+search_interval = 30     # default for every autograb, list, [follow] and [upgrade]
 link_interval = 10       # how often finished torrents are scanned and linked
 
 # MAM torrent ids that must never be selected, as strings.
@@ -69,7 +74,7 @@ exclude_narrator_in_library_dir = false
 # [search]: the manual Search page in the web UI
 # =====================================================================================================
 [search]
-# Results bigger than this get the "download with wedge" button highlighted.
+# Results bigger than this get the "Wedge download" button highlighted.
 wedge_over = "100 MiB"
 
 # =====================================================================================================
@@ -80,10 +85,10 @@ url = "http://192.168.1.10:13378" # the address you open Audiobookshelf at in a 
 token = "replace-with-your-audiobookshelf-api-token"
 interval = 10 # minutes between matching linked books to Audiobookshelf items
 
-# Only when Audiobookshelf sees the library at another path than Fetchshelf does. Like [qbittorrent.path_mapping]:
-# Audiobookshelf's path = Fetchshelf's path.
-# [audiobookshelf.path_mapping]
-# "/audiobooks" = "/data/library/audiobooks"
+# Only needed when Audiobookshelf sees the library at another path than Fetchshelf does. Like
+# [qbittorrent.path_mapping]: Audiobookshelf's path = Fetchshelf's path.
+[audiobookshelf.path_mapping]
+"/audiobooks" = "/data/library/audiobooks"
 
 # =====================================================================================================
 # [hardcover]: optional. The API token the [[hardcover_list]] blocks below need. Create it in Hardcover
@@ -94,9 +99,11 @@ token = "replace-with-your-hardcover-api-token"
 # token_file = "/run/secrets/hardcover_token"   # alternative to token: read it from this file.
 
 # =====================================================================================================
-# [[qbittorrent]]: repeatable. New downloads go to the FIRST entry; linking runs against all of them.
+# [[qbittorrent]]: repeatable. New downloads go to the FIRST entry unless a block's or a [[tag]] rule's
+# 'client' names another, or one is chosen on the Search page; linking runs against all of them.
 # =====================================================================================================
 [[qbittorrent]]
+name = "Home"   # what 'client' settings and the Search page's "in qBittorrent" choice refer to it by
 url = "http://qbittorrent:8080"
 username = "admin"
 password = "replace-with-your-qbittorrent-admin-password"
@@ -116,6 +123,7 @@ tags = ["superseded"]
 # The same for a torrent you Unlink from the library yourself; qBittorrent keeps seeding it.
 [qbittorrent.on_unlinked]
 category = "unlinked"
+tags = ["unlinked"]
 
 # Same shape, for a torrent MAM has but whose details Fetchshelf can't read (such as a new media type).
 # A category no library uses keeps the Link job from looking it up again on every run.
@@ -123,8 +131,10 @@ category = "unlinked"
 category = "invalid"
 tags = ["invalid"]
 
-# A second client, here only used for linking torrents that finished on another machine.
+# A second client, on another machine: it gets what a 'client = "Seedbox"' setting sends it, and its finished
+# torrents are linked like the first one's.
 [[qbittorrent]]
+name = "Seedbox"
 url = "http://seedbox.example.net:8080"
 username = "admin"
 password = "replace-with-your-qbittorrent-admin-password"
@@ -142,15 +152,20 @@ cost = "ratio"         # "free" (default), "wedge", "try_wedge", "ratio" (alias 
                        # "metadata_only_add"
 query = '"Terry Pratchett"'
 search_in = ["author"] # any of: author, description, filenames, file_types, narrator, series, tags, title
-sort_by = "newest_first" # "newest_first" (default), "oldest_first", "random", "low_seeders", "low_snatches"
+sort_by = "newest_first" # "newest_first" (default), "oldest_first", "random", "low_seeders", "high_seeders",
+                         # "low_snatches", "high_snatches", "largest_first", "title"
 max_pages = 2          # pages of 100 results per run; default 50 for bookmarks/freeleech/mine, else 1
 search_interval = 20   # overrides the global search_interval; 0 = only from the UI
 unsat_buffer = 15      # overrides the global buffer for this block; needs 'name'
 wedge_buffer = 5       # overrides the global buffer for this block; needs 'name'
-max_active_downloads = 5 # cap on this block's unfinished downloads; needs 'name'
+max_active_downloads = 5 # cap on this block's selections waiting to be downloaded; needs 'name'
 dry_run = false        # true: do everything except write or download, and only log
 mark_removed = false   # true: mark stored torrents MAM no longer has; not for bookmarks
 category = "ebooks"    # force this qBittorrent category, overriding [[tag]] rules
+client = "Home"        # the [[qbittorrent]] 'name' that gets this block's downloads, overriding [[tag]] rules
+save_path = "/downloads/pratchett" # where qBittorrent saves them, as qBittorrent sees it; a library must
+                                   # accept the folder or the category
+description = "New Pratchett ebooks" # shown under the job on the Jobs page and on the Config page
 
 # --- shared torrent filter (all fields) ---
 name = "Everything-filter example" # label in logs and the UI; required by max_active_downloads
@@ -230,14 +245,19 @@ password = "change-me"   # or password_file = "/run/secrets/opds_password", read
 # =====================================================================================================
 # [[hardcover_list]]: repeatable. Searches MAM for the books with a reading status on Hardcover, or on
 # one of your Hardcover lists. Needs [hardcover]. A book still missing a format is searched for again
-# once a day; the Lists page shows what was found.
+# once a day, and once a week after MAM has had nothing for it for a week; the Lists page shows what was found.
 # =====================================================================================================
 [[hardcover_list]]
 name = "Want to Read"
 status = "want_to_read"  # want_to_read, currently_reading, read, paused, did_not_finish
 prefer_format = "audio"  # when both formats are found, download only this one; unset = both
 category = "audiobooks"  # qBittorrent category for everything this list downloads; overrides [[tag]] rules
+client = "Home"          # as for [[autograb]]
+save_path = "/downloads/hardcover"
 search_interval = 360    # overrides the global search_interval
+unsat_buffer = 15        # overrides the global buffers for this list; needs 'name'
+wedge_buffer = 5
+max_active_downloads = 10
 dry_run = false
 
 # One or more grab blocks, tried in order: a cost plus the shared torrent filter. Metadata-only costs
@@ -269,7 +289,12 @@ path = "wanted-books.txt"  # relative to this file's folder; see wanted-books.tx
 # shelf = "to-read"        # for an export holding every shelf: keep only this one (Goodreads' Exclusive
                            # Shelf, StoryGraph's Read Status)
 prefer_format = "ebook"
+category = "ebooks"
+client = "Home"
+save_path = "/downloads/lists"
 search_interval = 360
+unsat_buffer = 15
+wedge_buffer = 5
 max_active_downloads = 5
 dry_run = false
 
@@ -280,7 +305,8 @@ languages = ["English"]
 # =====================================================================================================
 # [[bookmarks_list]]: at most one. Shows the MAM bookmarks on the Lists page with what happened to each,
 # and selects them through its grab blocks. Commented out here because it can't be configured together
-# with the type = "bookmarks" autograb above: both would select the same torrents. Choose one.
+# with the type = "bookmarks" autograb above: both would select the same torrents. Choose one. It takes
+# the same settings as [[file_list]], except 'path', 'shelf' and 'prefer_format'.
 # =====================================================================================================
 # [[bookmarks_list]]
 # name = "MAM bookmarks"
@@ -306,7 +332,15 @@ searches_per_run = 10    # MAM searches per run at most, one per series or autho
 search_again_after = 24  # hours before the same series or author is searched again
 prefer_format = "audio"  # when both formats are found, take only this one; unset = both
 category = "audiobooks"  # qBittorrent category for everything it downloads; overrides [[tag]] rules
+client = "Home"          # also for downloads started from the Following page
+save_path = "/downloads/follow"
+unsat_buffer = 15        # overrides the global buffers for the Follow job
+wedge_buffer = 5
+max_active_downloads = 10
 dry_run = false
+audiobookshelf_series = "follow"       # "off" (default), "follow" or "auto": follow every series in
+                                       # Audiobookshelf in that mode; needs [audiobookshelf]
+audiobookshelf_libraries = ["Audiobooks"] # Audiobookshelf libraries whose series are followed; empty = every book library
 
 # One or more grab blocks, tried in order, as for [[hardcover_list]].
 [[follow.grab]]
@@ -322,8 +356,20 @@ search_interval = 360       # overrides the global search_interval
 searches_per_run = 20       # MAM searches per run at most, one per book
 search_again_after = 30     # days before the same book is searched again
 libraries = ["Audiobooks"]  # only books in these [[library]] names; unset = every library
+client = "Home"
+save_path = "/downloads/upgrades"
+unsat_buffer = 15           # overrides the global buffers for the Upgrade job
+wedge_buffer = 5
+max_active_downloads = 10
 dry_run = false
+
 # Without [[upgrade.grab]] blocks, only free copies are taken.
+[[upgrade.grab]]
+cost = "free"
+
+[[upgrade.grab]]
+cost = "try_wedge"
+max_size = "2 GiB"
 
 # =====================================================================================================
 # [bonus]: optional. Spends bonus points without asking: a wedge when one is due, a VIP top-up, then
@@ -370,6 +416,8 @@ tags = ["fetchshelf"]
 name = "Large files"
 min_size = "1 GiB"
 tags = ["large"]         # no category: only adds a tag, on top of whichever rule set the category
+client = "Seedbox"       # the first matching rule that sets a client decides it
+save_path = "/downloads/large" # the same for the save path, as qBittorrent sees it
 
 # =====================================================================================================
 # [[library]]: repeatable. First matching library in file order wins.
@@ -393,6 +441,9 @@ allow_tags = ["fetchshelf"]              # if not empty, torrents need at least 
 ebook_types = ["epub", "pdf"]
 metadata_opf = true                      # also write a metadata.opf (Calibre's format); default false
 metadata_json = false                    # leave out metadata.json (Audiobookshelf's format); default true
+split_collections = true                 # link a collection of ebooks as one book each; default the global setting
+language_in_folder = "other"             # end the folder name with the language for every book not in the first
+                                         # top-level 'languages'; default "on_clash": only to keep two editions apart
 
 [[library]]
 name = "Comics"
@@ -409,12 +460,13 @@ name = "Everything else"
 download_dir = "/data/torrents/manual"   # match torrents saved under this folder instead
 library_dir = "/data/library/other"
 method = "symlink"
+folder_template = "{author}/[{series} #{series_number} - ]{title}" # the folder layout; unset = the default
 
 # =====================================================================================================
 # [[notify]]: repeatable. Messages to a phone or a chat when something needs attention.
 # 'url' is a secret (topics and webhook URLs often are one); 'url_file' reads it from a file instead.
 # 'events': any of mam_refused, rate_limited, job_failing, job_recovered, job_errors, grabbed, linked,
-# removed_from_mam, hit_and_run, budget_spent, or ["all"].
+# removed_from_mam, hit_and_run, unsatisfied_not_seeding, budget_spent, bonus_spent, or ["all"].
 # 'format': json (default), ntfy, gotify, discord or apprise.
 # =====================================================================================================
 [[notify]]

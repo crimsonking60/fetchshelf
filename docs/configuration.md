@@ -41,8 +41,8 @@ to `5-everything.toml`, which uses every option.
 ## How the file is loaded
 
 - **Location.** The path comes from the `FETCHSHELF_CONFIG_FILE` environment variable. If it is not set,
-  Fetchshelf uses a platform-appropriate config path, falling back to `config.toml` in the working
-  directory. The file must have a `.toml` extension. The database is set up separately; see
+  Fetchshelf uses `config.toml` in the working directory. The Docker image sets it to `/config/config.toml`.
+  The file must have a `.toml` extension. The database is set up separately; see
   [Database setup](database-setup.md).
 - **Missing file.** If the file does not exist, Fetchshelf creates one containing only an empty `mam_id`
   so the web UI still starts.
@@ -59,8 +59,8 @@ to `5-everything.toml`, which uses every option.
   section` for one without a `name`).
 - **Filter values are checked at startup too.** The names and values in every
   [shared torrent filter](#the-shared-torrent-filter) (media types, categories, languages, flags, sizes and
-  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]`, `[[file_list.grab]]` and `[[bookmarks_list.grab]]` block and `[[tag]]`
-  rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
+  dates) are checked for every `[[autograb]]`, `[[hardcover_list.grab]]`, `[[file_list.grab]]`, `[[bookmarks_list.grab]]`, `[[follow.grab]]` and `[[upgrade.grab]]`
+  block and `[[tag]]` rule, including the top-level `languages` each block inherits. So is `[search] wedge_over`.
 - **Checking a file before restarting.** See [Checking a configuration](#checking-a-configuration).
 - **TOML layout.** Top-level settings must appear before the first `[section]` or `[[section]]` header,
   because anything after a header belongs to that section. Repeatable sections (`[[autograb]]`,
@@ -69,8 +69,10 @@ to `5-everything.toml`, which uses every option.
   named `FETCHSHELF_CONF_<setting>` with the setting name exactly as written in the file, in lower case,
   for example `FETCHSHELF_CONF_mam_id`. Overrides apply on top of the file. List values are given
   comma-separated: `FETCHSHELF_CONF_ebook_types="epub,pdf"`. Sections (`[[autograb]]`,
-  `[[qbittorrent]]`, ...) cannot be overridden this way, with one exception: the Hardcover token, as
-  `FETCHSHELF_CONF_hardcover_token` or `FETCHSHELF_CONF_hardcover_token_file` (see [`[hardcover]`](#hardcover)).
+  `[[qbittorrent]]`, ...) cannot be overridden this way, with two exceptions: the Hardcover token, as
+  `FETCHSHELF_CONF_hardcover_token` or `FETCHSHELF_CONF_hardcover_token_file` (see [`[hardcover]`](#hardcover)), and
+  the `[opds]` settings, as `FETCHSHELF_CONF_opds_libraries`, `FETCHSHELF_CONF_opds_username`,
+  `FETCHSHELF_CONF_opds_password` and `FETCHSHELF_CONF_opds_password_file` (see [`[opds]`](#opds)).
 - **Read-only view.** The Config page in the web UI shows the active configuration with secrets hidden.
   Changes to the file take effect after a restart.
 - **Logging** is not part of the file: `FETCHSHELF_LOG` sets the level and `FETCHSHELF_LOG_DIR` enables a
@@ -120,20 +122,22 @@ Fetchshelf has two halves that can be used independently.
 [[autograb]]        search MAM on a schedule        ───▶ selection ─▶ download ─▶ qBittorrent
                                                             ▲
 [[hardcover_list]]  books you want, from Hardcover ─────────┤
-                                                            │
-[follow]            followed series and authors ────────────┘
+[[file_list]]       books you want, from a file ────────────┤
+[[bookmarks_list]]  your MAM bookmarks ─────────────────────┤
+[follow]            followed series and authors ────────────┤
+[upgrade]           better copies of books you have ────────┘
 ```
 
 - Every source decides **which** torrents qualify using the [shared torrent filter](#the-shared-torrent-filter)
   and **how** to pay for them using [`cost`](#cost).
 - `ebook_types` / `audio_types` / ... decide which torrents have a usable file format at all, and which
   of two copies of the same book is better.
-- `[[tag]]` rules (or an autograb's or Hardcover list's own `category`) decide which qBittorrent category
+- `[[tag]]` rules (or a block's own `category`) decide which qBittorrent category
   and tags a new download gets. In the same way, `client` and `save_path` decide which `[[qbittorrent]]` gets it
   and which folder it is saved in; without them it goes to the first `[[qbittorrent]]`, into the folder its
   category or qBittorrent's default gives.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. A block's own
-  `unsat_buffer` / `wedge_buffer` (on a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`)
+  `unsat_buffer` / `wedge_buffer` (on a named `[[autograb]]`, any list, `[follow]` or `[upgrade]`)
   override the global ones. The downloader reads them when it starts each
   torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
 
@@ -146,8 +150,8 @@ qBittorrent (finished torrent) ─▶ [[library]] match ─▶ Author/Series/Tit
           └─ category/tags set by [[tag]] rules ─────────────┘ client's paths to Fetchshelf's
 ```
 
-- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule, or an
-  autograb's or Hardcover list's `category`, sets) or by their **save path** (`download_dir`).
+- A `[[library]]` picks up torrents by their **qBittorrent category** (which a `[[tag]]` rule, or a
+  block's own `category`, sets) or by their **save path** (`download_dir`).
 - `[[qbittorrent]]` `path_mapping` tells Fetchshelf where the client's files are from its own point of
   view, which matters in Docker.
 - Every library, whatever its media types, gets the same folder tree and a `metadata.json` next to each
@@ -206,13 +210,13 @@ These go at the top of the file, before any section.
 | `mam_id_file` | unset | Full path of a file that holds the MAM session id, instead of writing it in `mam_id`. See [below](#reading-mam_id-from-a-file). |
 | `web_host` | `"0.0.0.0"` | Address the web UI listens on. |
 | `web_port` | `3157` | Port the web UI listens on, 1 to 65535. |
-| `web_url` | unset | The address Fetchshelf's web UI answers at, such as `"https://fetchshelf.example.net"`: the address [`[[notify]]`](#notify) messages link to. Without it, messages carry no links. |
+| `web_url` | unset | The address Fetchshelf's web UI answers at, such as `"https://fetchshelf.example.net"`: the address [`[[notify]]`](#notify) messages link to. It must be a full `http://` or `https://` address. Without it, messages carry no links. |
 | `allowed_hosts` | `[]` | The host names Fetchshelf answers to, without a scheme, port or path, such as `["fetchshelf.lan", "books.example.org"]`. `*.example.org` allows its subdomains. Empty answers to any name. When set, `localhost`, `127.0.0.1`, `[::1]` and the address the container's health check uses are allowed too, and a request for any other name gets HTTP 400. See [Security and privacy](user-guide.md#security-and-privacy). |
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
-| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per block: a named `[[autograb]]`, a `[[hardcover_list]]`, `[follow]` or `[upgrade]`. |
+| `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per block: a named `[[autograb]]`, any list (`[[hardcover_list]]`, `[[file_list]]`, `[[bookmarks_list]]`), `[follow]` or `[upgrade]`. |
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per block, as `unsat_buffer`. |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
-| `download_after_selection` | `true` | Start the Download job as soon as an autograb, a Hardcover list or the Search page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
+| `download_after_selection` | `true` | Start the Download job as soon as an autograb, a list, Follow, Upgrade, the Search page or the Following page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `database_wal` | `false` | Use SQLite's write-ahead log, so pages stay responsive while a job writes. Only for a database on a local disk: on a network share it corrupts the database. Read at startup; turning it off again switches the database back. See [Database setup](database-setup.md). |
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
@@ -225,14 +229,14 @@ These go at the top of the file, before any section.
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
 | `extra_categories` | `[]` | qBittorrent categories the web UI offers alongside the ones your `[[library]]` blocks use, such as `["seed-only"]`, for torrents that belong in no library. They appear, marked *no library*, in **Set category** and **Set category and tags** on the **Torrents** pages and in **Download into** on the Search page. A torrent in one is never linked, unless a library picks it up by its save path. |
-| `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]`, `[[hardcover_list.grab]]` and `[[follow.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
+| `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]`, `[[hardcover_list.grab]]`, `[[file_list.grab]]`, `[[bookmarks_list.grab]]` and `[[follow.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
 | `ebook_types` | `["epub", "cbz", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
 | `radio_types` | `["mp3"]` | Same for Radio. |
 | `page_explanations` | `true` | Show a short explanation under each page title in the web UI. |
 | `job_explanations` | `true` | Show a short description of each job on the Jobs page. |
-| `dry_job_buttons` | `true` | Show **Dry run** next to **Run now** on the Jobs page for autograbs, Hardcover lists, Follow and Upgrade. `false` hides the buttons; `dry_run` in a block still works. |
+| `dry_job_buttons` | `true` | Show **Dry run** next to **Run now** on the Jobs page for autograbs, lists, Follow and Upgrade. `false` hides the buttons; `dry_run` in a block still works. |
 
 Notes:
 
@@ -249,7 +253,7 @@ Notes:
 - **Ratio budget.** Free torrents cost no ratio. Others may only be downloaded while the remaining
   budget, `uploaded / min_ratio − downloaded − bytes already downloading`, covers their size. That is the
   most that can be downloaded while the ratio stays at `min_ratio`. The Download job logs the budget at the
-  start of every run.
+  start of every run that has something to download.
 
 ### Reading `mam_id` from a file
 
@@ -448,8 +452,8 @@ category = "unlinked"
   the torrent then no longer matches a library, so it isn't looked up again on every run. With only tags it
   is looked up, and fails, on every run as before. A torrent MAM doesn't have at all is not covered; it is
   usually from another tracker.
-- **Categories** named in `on_cleaned`, `on_unlinked`, `on_invalid_torrent`, `[[tag]]`, `[[autograb]]` and
-  `[[hardcover_list]]` are created in qBittorrent automatically if they do not exist.
+- **Categories** named in `on_cleaned`, `on_unlinked`, `on_invalid_torrent`, `[[tag]]` and a block's own
+  `category` are created in qBittorrent automatically if they do not exist.
 - **A download queued for a `client` that is no longer configured** (the config changed after it was selected) goes
   to the first entry, with a warning in the log.
 - Hardlinks only work when the download folder and the library folder are on the same filesystem and, in
@@ -464,10 +468,10 @@ that is not set imposes no restriction (except `categories`, which always has de
 
 | Field | Description |
 |---|---|
-| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]` or `[[hardcover_list]]` runs as a job of this name, so the name must be unique among them (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup`, `Seeding`, `Library check` or `Manual search`, must not look like `autograb[1]`, and must not start or end with a space. A block without a name is called `autograb[0]`, `hardcover_list[0]`, ... on the Jobs page. |
+| `name` | A label for the block, shown in logs, events and the UI. Needed for `max_active_downloads`, `unsat_buffer` and `wedge_buffer` on an autograb. An `[[autograb]]` or a list (`[[hardcover_list]]`, `[[file_list]]`, `[[bookmarks_list]]`) runs as a job of this name, so the name must be unique among them (ignoring case), must not be `Link`, `Clean`, `Download`, `Audiobookshelf`, `Follow`, `Upgrade`, `Bonus`, `Backup`, `Seeding`, `Library check` or `Manual search`, must not look like `autograb[1]`, `hardcover_list[1]`, `file_list[1]` or `bookmarks_list`, and must not start or end with a space. A block without a name is called `autograb[0]`, `hardcover_list[0]`, `file_list[0]` or `bookmarks_list` on the Jobs page. |
 | `media_type` | List of media types. The torrent must be one of them. See [media types](#media-types). |
 | `categories` | Per main type: `true` (all categories), `false` (none, so that type is excluded) or a list of category names. Keys: `audio`, `ebook`, `musicology`, `radio`. Defaults: `audio` and `ebook` are `true`, `musicology` and `radio` are `false`. See [categories](#categories). |
-| `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` or `[[hardcover_list.grab]]` block that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
+| `languages` | List of language names. The torrent's language must be in the list; a torrent whose language is unknown fails. An `[[autograb]]` block, or a `grab` block of a list or of `[follow]`, that leaves it out uses the top-level `languages`; `languages = []` means any language, whatever the top-level setting. **A `[[tag]]` rule never uses the top-level `languages`**: without its own, it matches every language. See [languages](#languages). |
 | `flags` | Table of flag name to `true` (flag required) or `false` (flag forbidden). Flags you do not mention are ignored. See [flags](#flags). |
 | `min_size`, `max_size` | [Sizes](#value-types-used-below), inclusive. |
 | `exclude_uploader` | List of uploader names to reject. |
@@ -588,7 +592,8 @@ in its range would look like a gap. Setting `mark_removed` on one stops startup 
 
 ## Cost
 
-`cost` appears on `[[autograb]]` and the `grab` blocks of `[[hardcover_list]]`, `[follow]` and `[upgrade]`. The
+`cost` appears on `[[autograb]]` and the `grab` blocks of every list (`[[hardcover_list]]`, `[[file_list]]`,
+`[[bookmarks_list]]`), `[follow]` and `[upgrade]`. The
 `grab` blocks take every value except the two `metadata_only` ones.
 
 | Value | Meaning |
@@ -746,7 +751,7 @@ such lines and the log names them. A book taken out of the file is no longer sea
 
 Everything after reading the file is as for a [`[[hardcover_list]]`](#hardcover_list): the library is checked,
 MAM is searched with each `grab` block in turn, and a book still missing a format is searched for again a day
-later. The list is known by its `name`: renaming the file keeps the list's books and what was found for them,
+later, then once a week when MAM has had nothing for it for a week. The list is known by its `name`: renaming the file keeps the list's books and what was found for them,
 while renaming the list starts a new one.
 
 ## `[[bookmarks_list]]`
@@ -758,7 +763,7 @@ selection rules.
 
 | Setting | Default | Description |
 |---|---|---|
-| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed, the list and its job are called `bookmarks_list`. |
+| `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed, the list and its job are called `bookmarks_list`. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
 | `category` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
 | `client` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
 | `save_path` | unset | As for [`[[hardcover_list]]`](#hardcover_list). |
@@ -814,7 +819,7 @@ missing.
 | Setting | Default | Description |
 |---|---|---|
 | `search_interval` | global `search_interval` | Minutes between runs of the Follow job, `0` to 43200. `0` means it runs only from the Jobs page. |
-| `searches_per_run` | `10` | Series and authors one run searches at most. Each search reads as many pages of results as it needs, 100 torrents to a page (see below). |
+| `searches_per_run` | `10` | Series and authors one run searches at most, at least 1. Each search reads as many pages of results as it needs, 100 torrents to a page (see below). |
 | `search_again_after` | `24` | Hours before the same series or author is searched again, `1` to `720`. |
 | `prefer_format` | unset | `audio` or `ebook`. When a book is found in both formats, only this one is taken, unless only the other one has a copy a `grab` block's `cost` accepts. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything the Follow job downloads, and on downloads from the **Following** page. Overrides `[[tag]]` rules. |
@@ -846,7 +851,7 @@ What each run does:
    longest-waiting first, up to `searches_per_run`. Ignored series are never searched.
 2. **Searches MAM** for each, in the series (or author) field, newest first, in the languages and main
    categories the `grab` blocks allow, reading the results 100 to a page. The first search of a series or
-   author reads every page, however many there are, and so does one every 30 days after that. The searches in
+   author reads every page, up to 100 pages (10,000 torrents), and so does one every 30 days after that. The searches in
    between stop at the page that reaches torrents uploaded before the previous search (less a day, for uploads
    MAM shows late), since that search saw the rest: a long-running author then costs one or two pages a day,
    not all of them. MAM matches words, so a result only counts when its series (or author) is the followed one,
@@ -928,9 +933,9 @@ Upgrade job; better copies other searches happen to find are still taken.
 | Setting | Default | Description |
 |---|---|---|
 | `search_interval` | global `search_interval` | Minutes between runs of the Upgrade job, `0` to 43200. `0` means it runs only from the Jobs page. |
-| `searches_per_run` | `20` | MAM searches one run makes at most: one per book. |
+| `searches_per_run` | `20` | MAM searches one run makes at most: one per book. At least 1. |
 | `search_again_after` | `30` | Days before the same book is searched again, `1` to `365`, whether a better copy was found or not. |
-| `libraries` | `[]` | Only books in these [`[[library]]`](#library) names. Empty means every library. |
+| `libraries` | `[]` | Only books in these [`[[library]]`](#library) names. Empty means every library. Each must be the `name` of a `[[library]]`, written as there; an unknown name stops startup. |
 | `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives the better copies. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
 | `save_path` | unset | The folder qBittorrent saves the better copies in, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `unsat_buffer` | global | Overrides the global buffer for what the Upgrade job selects. |
@@ -1074,7 +1079,7 @@ For each new download:
 
 - The **category** comes from the **first** matching rule that sets one.
 - The **tags** are the **union** of the tags from **all** matching rules.
-- An autograb's or Hardcover list's own `category` overrides the rules' category.
+- A block's own `category` (an autograb's, a list's, `[follow]`'s) overrides the rules' category.
 - **`client`** and **`save_path`** work as the category does: the block's own, else the first matching rule that
   sets one, else the first `[[qbittorrent]]` and qBittorrent's own choice of folder. Each is decided on its own, so
   one rule can give the client and a later one the save path.
@@ -1083,7 +1088,8 @@ For each new download:
   already been selected, so an inherited language would leave a book that an autograb with `languages = []`
   selected in another language without its category, and without a library.
 
-The result is applied when the torrent is added to qBittorrent. Each rule can also be applied to torrents
+The rules are worked out when a torrent is selected, and the result is applied when it is added to qBittorrent. A
+changed rule therefore doesn't reach torrents already waiting on the **Selected** page. Each rule can also be applied to torrents
 you already have, from the Config page; that sets the category and tags only, and doesn't move a torrent to
 another qBittorrent or folder.
 
@@ -1106,7 +1112,7 @@ library, in file order, that accepts it is used.
 |---|---|---|
 | `library_dir` | (required) | Root folder the books are linked into. |
 | `category` | | Accept torrents with this qBittorrent category. |
-| `download_dir` | | Accept torrents whose save path is under this folder, matched by whole folder names: `/data/audio` does not take torrents saved in `/data/audiobooks`. |
+| `download_dir` | | Accept torrents whose save path is under this folder, matched by whole folder names: `/data/audio` does not take torrents saved in `/data/audiobooks`. The save path is compared as Fetchshelf sees it, after [`path_mapping`](#qbittorrent). |
 | `name` | unset | Label for the library, used by [`[opds] libraries`](#opds) and the page filters. Two libraries can't have the same name (ignoring case). |
 | `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
@@ -1119,8 +1125,10 @@ library, in file order, that accepts it is used.
 | `folder_names` | `"posix"` | Which characters folder names may hold. `"posix"` keeps names as they are, removing only `/`. `"portable"` makes them safe on Windows, SMB shares, exFAT and NTFS. See [folder naming](#folder-naming). |
 | `folder_template` | unset | The folder layout under `library_dir`. Unset keeps the default layout. See [folder template](#folder-template). |
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |
-| `oneshots_dir` | `"_oneshots"` | Series layout only: the folder under `library_dir` that books without a series go into. Komga's One-Shots directory setting must name the same folder. |
+| `oneshots_dir` | `"_oneshots"` | Series layout only: the folder under `library_dir` that books without a series go into. A single folder name, without `/` or `\`. Komga's One-Shots directory setting must name the same folder. |
 | `series_json` | `true` | Series layout only: write a Mylar `series.json` into each series folder. |
+
+`oneshots_dir` or `series_json` on a library with the book layout stops startup.
 | `language_in_folder` | `"on_clash"` | When a book's folder name ends with its language, such as `Gamma (Greek)`. `"on_clash"`: only when its plain folder already holds the same title in another language, so two editions don't share a folder. `"other"`: every book not in the first of the top-level `languages`, which needs `languages` set. See [languages in folder names](#languages-in-folder-names). |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
@@ -1147,7 +1155,8 @@ library, in file order, that accepts it is used.
   else; the ebook side uses `ebook_types`. A library's own `audio_types` replaces the audio-side list for
   every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
-  structure is flattened.
+  structure is flattened. Files that would then share a name keep their subfolders in front of the name:
+  `Part 1/01.mp3` becomes `Part 1 - 01.mp3`. Anything still clashing gets ` (2)`, ` (3)` before the extension.
 - A `metadata.json` is written next to the files, for every media type, unless the library sets
   `metadata_json = false`. It is plain JSON in the format Audiobookshelf reads; see
   [`metadata.json`](user-guide.md#metadatajson) in the user guide for its fields.
@@ -1296,7 +1305,7 @@ folder_names = "portable"
   Fetchshelf doesn't know the rest (publisher, status, issue count), so it writes those empty, and `Continuing` as the
   status; set `series_json = false`, or turn off Komga's *Import Mylar series.json* option, to keep what Komga reads
   from the books instead. The last book leaving a folder takes `series.json` with it.
-- **No per-book files.** `metadata_json` and `metadata_opf` can't be set: a series folder holds many books. The
+- **No per-book files.** `metadata_json` and `metadata_opf` can't be turned on: a series folder holds many books. The
   top-level ones don't apply to a series library.
 - **No `folder_template`.** The series layout names its folders and files itself.
 - **Not for Audiobookshelf.** Audiobookshelf takes a folder for one item, so the Audiobookshelf job leaves a series
@@ -1391,12 +1400,13 @@ a browser uses to reach Fetchshelf isn't known to the server. `FETCHSHELF_CONF_w
 | Format | What is sent |
 |---|---|
 | `json` | `{"event": "grabbed", "title": "…", "message": "…", "url": "…", "time": "…", "fields": {…}}`, with `fields` holding the event's data (MAM id, job name, counts) and `url` left out without `web_url`. For Home Assistant, n8n, Node-RED and custom scripts. |
-| `ntfy` | The message as the body, with `Title`, `Tags` (`warning` for problems, `books` for grabs and links) and `Click` (the link) headers, and `Priority: high` for `mam_refused` and `job_failing`. A title that isn't plain ASCII is sent as an RFC 2047 encoded word, which ntfy decodes. |
+| `ntfy` | The message as the body, with `Title`, `Tags` (`warning` for problems, `books` for grabs and links, `white_check_mark` for `job_recovered`,
+`information_source` for the rest) and `Click` (the link) headers, and `Priority: high` for `mam_refused` and `job_failing`. A title that isn't plain ASCII is sent as an RFC 2047 encoded word, which ntfy decodes. |
 | `gotify` | `{"title", "message", "priority"}`, with priority 8 for problems and 4 otherwise, and the link as `extras["client::notification"].click.url`. |
 | `discord` | `{"content": null, "embeds": [{"title", "description", "url", "color"}]}`, red for problems, green for `job_recovered`, blue otherwise. |
 | `apprise` | `{"title", "body", "type"}` for an [Apprise API](https://github.com/caronc/apprise-api) server, which forwards to any of Apprise's services. The link ends the body, and `type` is `failure`, `warning`, `success` or `info`. |
 
-Problems are `mam_refused`, `rate_limited`, `job_failing`, `job_errors` and `hit_and_run`.
+Problems are `mam_refused`, `rate_limited`, `job_failing`, `job_errors`, `hit_and_run` and `unsatisfied_not_seeding`.
 
 One block for each of the five targets:
 

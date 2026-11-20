@@ -9,6 +9,10 @@ The `FETCHSHELF_DATA_FILE` environment variable sets the database's path. Withou
 `data.db` in its working directory. The Docker image sets it to `/database/data.db`, so the database is in
 the `/database` volume, separate from the configuration in `/config`.
 
+The same folder also holds a few things Fetchshelf keeps beside the database: a `keys` folder with the keys
+that protect the web interface's forms, an `instance-id` file, and a `covers` folder of cover images cached for
+the OPDS catalog. Keep them with the database when moving it; the covers are rebuilt when missing.
+
 ## Local disk or network share
 
 Keep the database on a disk that is local to the machine Fetchshelf runs on. A NAS that runs Fetchshelf in

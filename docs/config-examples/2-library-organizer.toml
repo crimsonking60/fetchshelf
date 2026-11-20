@@ -20,8 +20,8 @@ link_interval = 10
 audio_types = ["m4b", "m4a", "mp3"]
 ebook_types = ["epub", "azw3", "mobi", "pdf"]
 
-# Leave the "{Narrator}" suffix off audiobook folder names. Folders then look like
-# "Andy Weir/Project Hail Mary" instead of "Andy Weir/Project Hail Mary {Ray Porter}".
+# Keep the "{Narrator}" suffix on audiobook folder names, as in "Andy Weir/Project Hail Mary {Ray Porter}".
+# true leaves it off, so folders look like "Andy Weir/Project Hail Mary".
 exclude_narrator_in_library_dir = false
 
 [[qbittorrent]]
@@ -31,7 +31,7 @@ password = "replace-with-your-qbittorrent-admin-password"
 
 # Fetchshelf and qBittorrent often see the same folder under different paths, for example when both run
 # in Docker. Left side: the path as qBittorrent reports it. Right side: the same place as Fetchshelf
-# sees it. Without this, linking fails with "source missing" errors.
+# sees it. Without this, linking fails with "Cannot link: source file not found" errors.
 [qbittorrent.path_mapping]
 "/downloads" = "/data/torrents"
 
@@ -48,9 +48,9 @@ name = "Audiobooks"
 category = "audiobooks"
 library_dir = "/data/library/audiobooks"
 
-# Ebooks: any torrent in the "ebooks" category. 'method' is how files are placed; "hardlink" (the
-# default) uses no extra disk space but needs the downloads and the library on the same filesystem.
-# "hardlink_or_copy" falls back to copying when they are not.
+# Ebooks: any torrent in the "ebooks" category. 'method' is how files are placed. A hardlink uses no extra
+# disk space but needs the downloads and the library on the same filesystem; "hardlink_or_copy" (the
+# default, written out here) falls back to copying when they are not, and "hardlink" fails instead.
 [[library]]
 name = "Ebooks"
 category = "ebooks"
