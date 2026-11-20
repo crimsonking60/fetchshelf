@@ -8,7 +8,7 @@ Before upgrading, read the **Upgrading** notes of every release between your ver
 ## 2026.11.17 - 2026-11-20
 
 The Link job no longer makes other jobs fail with "database is locked" while it runs. A bulk action on the
-**Torrents** page keeps the ticked rows and the place in the list, and shows its progress at the bottom. The account's
+**Torrents** page keeps the ticked rows and the place in the list, so its progress stays in view further down. The account's
 numbers are read from MAM when Fetchshelf starts, each Upgrade run is kept as an event, and `[[autograb]]` blocks can
 carry a description of their own.
 
@@ -43,8 +43,9 @@ carry a description of their own.
 - **Series**: **Not ignored** is the first choice and the default; **Every series** is **All series** (#136).
 - **Following**: a series' or author's page opens on **All**; and a find of a book that is already had, by this
   torrent or another copy of it, says *Already owned* instead of *In the library* (#138, #140).
-- **Torrents**: a bulk action keeps the ticked rows and where the list was scrolled to, and its progress shows in the
-  strip at the bottom, which is as wide as the table (#137).
+- **Torrents**: a bulk action keeps the ticked rows and where the list was scrolled to. While the progress notice at the
+  top is scrolled out of view, the strip at the bottom of the window shows the progress instead; it is as wide as the
+  table (#137).
 - The theme menu's button is a clearer icon (#136).
 
 ### Fixed
