@@ -273,8 +273,19 @@ The tests need no network, no MAM account and no qBittorrent: HTTP clients are t
 handlers, and database tests use temporary SQLite files. If you find yourself needing a live service in a
 test, that is a sign the logic should move somewhere it can be tested on its own.
 
+A few timing tests run over a large seeded library. They are skipped unless `FETCHSHELF_SCALE` holds the number
+of torrents to seed:
+
+```sh
+FETCHSHELF_SCALE=10000 dotnet test --filter "Category=Scale" --logger "console;verbosity=detailed"
+```
+
+Test code shared by several test projects, such as that seeding and a MAM account fixture, is under
+`tests/Shared/` and compiled into each project that needs it through `<Compile Include="..\Shared\…">`.
+
 Tests use xUnit (`[Fact]`, and `[Theory]` with `[InlineData]`). Name them
-`Method_Situation_ExpectedResult`, for example `RunAsync_SameTorrentFailsOnEveryRun_KeepsOneErrorRow`.
+`Method_Situation_ExpectedResult`, for example
+`RunAsync_SameTorrentFailsOnEveryRun_KeepsOneErrorRowNamedAfterTheTorrent`.
 Every bug fix should come with a test that fails without the fix.
 
 ## Formatting and code analysis
@@ -346,10 +357,20 @@ automatically on first start.
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `FETCHSHELF_CONFIG_FILE` | Path to `config.toml`. | A platform-specific config path, else `config.toml` in the working directory. |
+| `FETCHSHELF_CONFIG_FILE` | Path to `config.toml`. | `config.toml` in the working directory. |
 | `FETCHSHELF_DATA_FILE` | Path to the SQLite database. | `data.db` in the working directory. |
-| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`. | `Information` |
+| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal`. An unknown value is ignored. | `Information` |
 | `FETCHSHELF_LOG_DIR` | If set, also write daily log files to this folder. | Console only. |
+| `FETCHSHELF_CONF_<setting>` | Overrides a top-level setting, such as `FETCHSHELF_CONF_web_port=23157`; see [How the file is loaded](configuration.md#how-the-file-is-loaded). | Unset. |
+
+A development instance next to a live one is easier to tell apart with `development_banner = true` in its
+`config.toml` (or `FETCHSHELF_CONF_development_banner=true`): every page then starts with a thin red bar. The
+setting is meant for maintainers and is left out of the configuration reference.
+
+Besides serving the web interface, the program has two command-line modes: `--check-config` loads and checks
+the configuration, prints a summary and exits (see [Checking a configuration](configuration.md#checking-a-configuration)),
+and `--healthcheck` asks the running instance's `/health` and exits 0 when it is healthy, which the container's
+health check uses.
 
 Logs go to the terminal (stderr). Database queries and per-request framework messages are only logged at
 `Warning` and above, so the output stays readable.
@@ -379,8 +400,9 @@ the optional auto-downloader. Dependencies point one way, from the web host down
 | `Fetchshelf.Clients.Mam` | HTTP client for MAM. |
 | `Fetchshelf.Clients.QBittorrent` | HTTP client for the qBittorrent Web API. |
 | `Fetchshelf.Clients.Abs` | HTTP client for Audiobookshelf. |
+| `Fetchshelf.Clients.Hardcover` | Read-only GraphQL client for Hardcover: the user's reading statuses and lists. |
 | `Fetchshelf.Data` | EF Core database context, entities and migrations; configuration loading; the event log; the library organizer jobs (link, clean, Audiobookshelf matching). |
-| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, Hardcover lists, Follow and Upgrade. |
+| `Fetchshelf.Data.AutoDownloader` | Auto-downloader jobs that need the database and clients: autograbbers, selection, downloading, Hardcover lists, list files and the MAM bookmarks list, Follow, Upgrade and Bonus. |
 | `Fetchshelf.Web` | The ASP.NET Core host, built and run in `Hosting/`: dependency injection setup, the jobs and their scheduling. The Razor Pages UI is under `Pages/`. `Program.cs` only calls `FetchshelfApp.RunAsync`. |
 
 Each `src` project has a matching test project under `tests/` once it has tests.
@@ -447,6 +469,9 @@ and `MediaType` columns are derived from `MetadataJson`. `FetchshelfDbContext` r
 adds a torrent or changes its `MetadataJson`, so code that writes metadata needs to do nothing more, and nothing
 else should write them. Query them through `LibraryQueries`.
 
+`utils/fs` (see [`fs`](fs.md)) reads the database directly and has no tests. A change to a table it reads, or a
+new value of an enum stored in one (event kinds, error stages, list statuses), needs a look at it too.
+
 ## Working with MAM responsibly
 
 MAM is a private tracker with rules about automated access, and Fetchshelf runs against real
@@ -455,7 +480,8 @@ people's accounts. When you work on anything that talks to MAM:
 - Keep the existing politeness: rate-limit back-off, pauses between search pages, and one MAM job at a time.
 - Everything that calls the MAM client takes `MamAccessGate`, naming itself. A job waits for it; a page action
   takes it through `MamPageGate`, with a short wait, and says which job is busy rather than queueing behind a long
-  run.
+  run. Two page actions take `MamAccessGate` directly with a short wait of their own: **Refresh from MAM** on the
+  Account page, and a download from the Following page, which goes through `FollowService` in the data layer.
 - Test with the fake HTTP handlers in `tests/Fetchshelf.Clients.Mam.Tests`, not with repeated live
   requests.
 - When you do try a change live, use your own account, make as few requests as you can, and stop at the
@@ -785,7 +811,9 @@ requests, discussions, screenshots or logs:
 
 - `mam_id` (your MAM session);
 - qBittorrent usernames and passwords;
-- Audiobookshelf tokens.
+- Audiobookshelf and Hardcover tokens;
+- the OPDS password;
+- `[[notify]]` URLs and tokens, which often carry a webhook's key.
 
 Replace them with placeholders such as `replace-with-your-mam-session-id` before you share a config. Also
 check logs and screenshots for private paths, usernames and library contents you'd rather not publish.

@@ -30,7 +30,8 @@ Search the [existing issues](https://github.com/crimsonking60/fetchshelf/issues)
 commit, what you did, what you expected and what happened, the relevant log lines, and the relevant part of
 your configuration. See [Issues](docs/contributors-guide.md#issues) for details.
 
-**Remove secrets first.** Never post your `mam_id`, qBittorrent password or Audiobookshelf token.
+**Remove secrets first.** Never post your `mam_id`, qBittorrent password, Audiobookshelf or Hardcover token,
+OPDS password, or `[[notify]]` URLs and tokens.
 
 ## Security problems
 
