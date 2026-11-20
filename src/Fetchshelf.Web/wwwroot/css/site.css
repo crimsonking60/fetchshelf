@@ -594,9 +594,14 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     .list_item > img { width: 3.5rem; }
 }
 
-/* A phone: a table scrolls sideways inside the page. A tablet in portrait (up to 834 px wide) keeps its tables as they are. */
+/* A phone: a table scrolls sideways inside the page. A tablet in portrait (up to 834 px wide) keeps its tables as they are.
+   That box scrolls up and down too, so a sticky heading would stick inside it: offset by the header's height, it sat
+   that far down in the table and went out of sight with it. There table-heads.js keeps the column names under the
+   header instead, painted over the rows they pass. */
 @media (max-width: 40rem) {
     main table { display: block; overflow-x: auto; }
+    thead th { position: static; }
+    thead { position: relative; z-index: 4; }
 }
 
 @media (prefers-reduced-motion: reduce) {
