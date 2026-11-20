@@ -93,16 +93,16 @@ code, kbd, samp, .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia M
 
 /* The content's widest: 90rem plus half the window beyond 90rem, so a wide screen's blank side margins are half what a
    fixed 90rem would leave. A window narrower than 90rem is filled as before. */
-:root { --content-max-width: calc(50% + 45rem); --header-height: 2.9rem; }
+:root { --content-max-width: calc(50% + 45rem); --page-gutter: 1.25rem; --header-height: 2.9rem; }
 
 main {
     max-width: var(--content-max-width);
     margin: 0 auto;
-    padding: 1.25rem 1.25rem 2rem;
+    padding: 1.25rem var(--page-gutter) 2rem;
 }
 
 /* The footer lines up with the page's content: the line spans the content's width, not the window's. */
-.site-footer { max-width: var(--content-max-width); margin: 0 auto; padding: 0 1.25rem 1.5rem; }
+.site-footer { max-width: var(--content-max-width); margin: 0 auto; padding: 0 var(--page-gutter) 1.5rem; }
 .shortcuts { flex-basis: 100%; color: var(--text-muted); font-size: 0.8125rem; }
 .shortcuts > summary { cursor: pointer; width: fit-content; }
 .shortcuts ul { list-style: none; margin: 0.4rem 0 0; padding: 0; columns: 2 18rem; }
@@ -577,8 +577,7 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 
 /* A tablet in portrait: the page's side padding gives its width to the tables. */
 @media (max-width: 64rem) {
-    main { padding-left: 0.75rem; padding-right: 0.75rem; }
-    .site-footer { padding-left: 0.75rem; padding-right: 0.75rem; }
+    :root { --page-gutter: 0.75rem; }
 }
 
 @media (max-width: 52rem) {
@@ -623,8 +622,11 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 /* A running bulk action, fixed to the bottom of the window while the list scrolls (see _BulkOperationsPartial). The
    bulk-action bar sits above it, and the page gets room at the bottom so the strip covers nothing. */
 #bulk-operations { scroll-margin-top: calc(var(--header-height, 3rem) + 0.5rem); }
+/* As wide as the page's content, so it lines up with the table and the bulk-action bar above it. For a fixed element
+   100% and the 50% in --content-max-width are of the window, as they are for the page. */
 .bulk-progress {
-    position: fixed; left: 1rem; right: 1rem; bottom: 0.5rem; z-index: 9;
+    position: fixed; left: 0; right: 0; bottom: 0.5rem; z-index: 9;
+    width: calc(min(100%, var(--content-max-width)) - 2 * var(--page-gutter)); margin: 0 auto;
     display: flex; align-items: center; gap: 0.75rem;
     padding: 0.45rem 0.75rem; color: var(--text); text-decoration: none;
     background: var(--surface-2); border: 1px solid var(--accent); border-radius: 4px;
