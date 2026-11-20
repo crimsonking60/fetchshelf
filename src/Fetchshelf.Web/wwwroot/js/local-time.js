@@ -1,4 +1,5 @@
-// Shows every <time class="local-time"> in the browser's local time as YYYY-MM-DD HH:MM:SS.
+// Shows every <time class="local-time"> in the browser's local time as YYYY-MM-DD HH:MM:SS, or only the date for
+// data-date, or the short form for data-short; those two keep the exact local time in the title.
 // The server renders the instant in UTC (see LocalTimeTagHelper); this rewrites the text, on load and
 // whenever htmx brings in new content (job list polling, row swaps, refreshed lists).
 //
@@ -11,9 +12,12 @@
         return String(number).padStart(2, '0');
     }
 
+    function formatDate(date) {
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
+
     function format(date) {
-        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
-            + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+        return formatDate(date) + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
     }
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -48,7 +52,7 @@
         if (date.getFullYear() === now.getFullYear()) {
             return date.getDate() + ' ' + months[date.getMonth()] + ' ' + clock;
         }
-        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+        return formatDate(date);
     }
 
     function localize() {
@@ -60,6 +64,9 @@
             }
             if (element.hasAttribute('data-short')) {
                 element.textContent = short(date, now);
+                element.title = format(date);
+            } else if (element.hasAttribute('data-date')) {
+                element.textContent = formatDate(date);
                 element.title = format(date);
             } else {
                 element.textContent = format(date);

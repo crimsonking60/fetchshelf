@@ -8,7 +8,8 @@ namespace Fetchshelf.Web.TagHelpers;
 /// it the same way. The server cannot know the visitor's time zone, so it writes the instant in UTC (the no-JS
 /// fallback, labelled as such) and wwwroot/js/local-time.js rewrites the text to the browser's local time as
 /// <c>YYYY-MM-DD HH:MM:SS</c>. The title keeps the UTC time for reference. With <c>short</c> the browser shows
-/// "3 h ago" or "yesterday 21:14" instead, for the tables, and the title holds the exact local time.
+/// "3 h ago" or "yesterday 21:14" instead, for the tables, and the title holds the exact local time. With <c>date</c>
+/// it shows only the local date (<c>YYYY-MM-DD</c>), with the exact local time in the title.
 /// </summary>
 [HtmlTargetElement("local-time", TagStructure = TagStructure.NormalOrSelfClosing)]
 public sealed class LocalTimeTagHelper : TagHelper
@@ -22,6 +23,9 @@ public sealed class LocalTimeTagHelper : TagHelper
 
     /// <summary>Shows the time in the short form for tables ("3 h ago", "yesterday 21:14"); the exact local time goes in the title.</summary>
     public bool Short { get; set; }
+
+    /// <summary>Shows only the date, in the browser's time zone; the exact local time goes in the title.</summary>
+    public bool Date { get; set; }
 
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
@@ -43,6 +47,14 @@ public sealed class LocalTimeTagHelper : TagHelper
         }
 
         output.Attributes.SetAttribute("title", $"{utc} UTC");
+        if (Date)
+        {
+            // The fallback keeps the date's width, so the column doesn't shift when the script rewrites it.
+            output.Attributes.SetAttribute("data-date", "");
+            output.Content.SetContent(value.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            return;
+        }
+
         output.Content.SetContent($"{utc} UTC");
     }
 }
