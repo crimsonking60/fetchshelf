@@ -129,6 +129,13 @@ li { margin: 0.15rem 0; }
     border-radius: 0 4px 4px 0;
 }
 
+.page-explanation.folded { padding: 0.15rem 0.85rem; margin-bottom: 0.6rem; }
+.page-explanation.folded > summary { cursor: pointer; font-size: 0.8125rem; list-style: none; }
+.page-explanation.folded > summary::-webkit-details-marker { display: none; }
+.page-explanation.folded > summary::before { content: "\25B8"; display: inline-block; width: 1em; }
+.page-explanation.folded[open] > summary::before { content: "\25BE"; }
+.page-explanation.folded[open] > p { margin: 0.3rem 0 0.4rem; }
+
 .empty {
     padding: 1.25rem 1rem;
     color: var(--text-muted);
