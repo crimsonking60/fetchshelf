@@ -1294,12 +1294,14 @@ ebooks, is no longer listed or counted; it shows again if a block takes its form
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
 found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done.
 
-What the library already has is never listed: the same torrent, another copy of the same book, or, for a
-series, an entry owned in that format and language. A book in two languages is two books: with `[[follow.grab]]`
+What the library already has is never offered: the same torrent, another copy of the same book, or, for a
+series, an entry owned in that format and language. Such a book is listed once, as *Already owned* (or *Selected*
+when it is queued), so a follow's page shows the whole series or author, and its *In the library* count says what is
+had. A book in two languages is two books: with `[[follow.grab]]`
 blocks that take English and Hungarian, both editions of a series' books are found, each on its own, and the lists get a
 **Language** column and filter when their finds are in more than one language. A collection counts for every book it holds, so with a *Discworld 1-40*
-ebook collection in the library none of the novels 1 to 40 is listed as an ebook, however many single uploads
-MAM has; one torrent is listed for each book and format, however many uploads it has. For each series or author
+ebook collection in the library none of the novels 1 to 40 is offered as an ebook, however many single uploads
+MAM has: each is listed once, as already owned. One torrent is listed for each book and format, however many uploads it has. For each series or author
 searched, the log says how many torrents MAM returned, how many of them were already in the library or selected,
 how many books the rest came to, and how many of those were new.
 
