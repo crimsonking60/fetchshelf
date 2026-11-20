@@ -26,7 +26,14 @@
 
 @if (Model.Rows.Count == 0)
 {
-    <p id="no-series-message" class="empty">No series found.</p>
+    <p id="no-series-message" class="empty">
+        No series found.
+        @if (!string.IsNullOrWhiteSpace(Model.Q) || !string.IsNullOrEmpty(Model.Show))
+        {
+            <text>Nothing matches. </text>
+            <a id="empty-clear-filters" asp-page="/Series/Index" asp-route-PageSize="@Model.PageSize">Clear the search</a>
+        }
+    </p>
 }
 else
 {

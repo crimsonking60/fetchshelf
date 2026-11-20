@@ -51,7 +51,16 @@
 
 @if (Model.Events.Count == 0)
 {
-    <p id="no-events-message" class="empty">No events.</p>
+    <p id="no-events-message" class="empty">
+        @if (Model.HasFilters)
+        {
+            <text>No events match these filters.</text>
+        }
+        else
+        {
+            <text>No events yet. One is recorded when a torrent is grabbed, linked or removed from MAM.</text>
+        }
+    </p>
 }
 else
 {
