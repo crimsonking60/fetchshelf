@@ -23,7 +23,7 @@
         <option value="ebook" selected="@(Model.Show == "ebook")">Missing the ebook</option>
     </select>
     <label><input type="checkbox" name="Removed" value="true" checked="@Model.Removed" onchange="this.form.requestSubmit()" /> Include books no longer on the list</label>
-    <button type="submit">Filter</button>
+    <button type="submit" class="primary">Filter</button>
 </form>
 
 @if (Model.Items.Count == 0)

@@ -142,7 +142,7 @@
                     </fieldset>
                 }
                 <label>Add tags <input type="text" name="newTags" placeholder="Separate tags with commas" /></label>
-                <button type="submit">Set category and tags</button>
+                <button type="submit" class="primary">Set category and tags</button>
             </form>
         }
     }
@@ -172,7 +172,7 @@
                 <input type="hidden" name="splitShown" value="true" />
                 <label title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books</label>
             }
-            <button type="submit">Refresh and relink</button>
+            <button type="submit" class="primary">Refresh and relink</button>
         </form>
         @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)
         {

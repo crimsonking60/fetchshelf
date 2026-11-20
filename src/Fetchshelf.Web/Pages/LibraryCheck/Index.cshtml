@@ -20,7 +20,7 @@
 
 <form method="post" asp-page-handler="Run" class="actions">
     @Html.AntiForgeryToken()
-    <button type="submit" disabled="@Model.Running">@(Model.Running ? "Checking…" : "Run the check")</button>
+    <button type="submit" class="primary" disabled="@Model.Running">@(Model.Running ? "Checking…" : "Run the check")</button>
     @if (Model.CheckedAt is { } checkedAt)
     {
         <span class="muted">Last checked <local-time value="checkedAt" />.</span>

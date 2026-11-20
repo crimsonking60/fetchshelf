@@ -69,7 +69,7 @@ else
     @* A changed dropdown applies straight away, as on the Torrents page; the button is for the search text. *@
     <form method="get" class="toolbar" id="follow-filters">
         <input type="text" name="Q" value="@Model.Q" placeholder="Search names" aria-label="Search" />
-        <button type="submit">Search</button>
+        <button type="submit" class="primary">Search</button>
         <select name="Kind" aria-label="Kind" onchange="this.form.requestSubmit()">
             <option value="">Series and authors</option>
             <option value="@FollowKind.Series" selected="@(Model.Kind == FollowKind.Series)">Series</option>
