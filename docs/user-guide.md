@@ -2052,10 +2052,16 @@ back with its findings straight away. With more than one library, a dropdown abo
 | Finding | Means | Actions |
 |---|---|---|
 | **Unknown folder** | A folder holding files that no book's folder is, or is inside of: an old folder left behind, or a book Fetchshelf no longer knows. | **Delete selected** |
-| **Unknown file** | In a series library, a file in a series folder that none of its books lists; anywhere, a file in a library's own folder or in a folder above book folders, such as an author folder. | **Delete selected** |
+| **Unknown file** | In a series library, a file in a series folder that none of its books lists; anywhere, a file in a library's own folder or in a folder above book folders, such as an author or series folder. Not a file inside a book's own folder (see below). | **Delete selected** |
 | **Folder missing** | A linked book whose folder is gone. | **Relink selected**, **Remove record** |
 | **Files missing** | A linked book whose folder is there, but some of its files aren't. | **Relink selected**, **Remove record** |
 
+- **A book's own folder is not checked for extra files**, except in a series library, where the series folder is the
+  book's folder. A file put into a book's folder, by hand or by another program (such as an ebook reader's own cover
+  and metadata files), is never reported, and neither is a subfolder inside it. Only the files a book links count, and
+  only when they are missing (**Files missing**). For example, in
+  `Terry Pratchett/Discworld/Discworld #27 - The Last Hero/`, a stray file in `Terry Pratchett/` or in `Discworld/` is
+  an **Unknown file**, but one in the book's own folder is not.
 - An unknown folder is shown at its outermost folder with files, with its size, number of files and newest file. One
   that looks like a linked book, by its `metadata.json` or by its name beside the book's folder, says *an older folder
   of* that book: the common case after going back to a backup, and the one safe to delete.
