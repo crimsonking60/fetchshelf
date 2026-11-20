@@ -1,6 +1,8 @@
 // Confirmation before a destructive action: a form or button with data-confirm="text" asks in a dialog first.
-// "{n}" in the text becomes "1 selected" / "3 selected", counted from the form's ticked boxes named selectedIds, or
-// the name in data-confirm-count. form.elements also holds boxes outside the form that join it by a form attribute.
+// "{n}" in the text becomes "1 selected torrent" / "3 selected torrents", counted from the form's ticked boxes named
+// selectedIds, or the name in data-confirm-count. form.elements also holds boxes outside the form that join it by a
+// form attribute. data-confirm-noun names what is counted: "torrent" (an "s" is added for the plural) or
+// "entry|entries" when the plural is spelled differently.
 // data-confirm-label names the button that goes ahead (the same verb as the button that was pressed).
 (function () {
     let dialog = null;
@@ -22,7 +24,15 @@
                 return element.type === 'checkbox' && element.name === name && element.checked;
             }).length
             : 0;
-        return source.dataset.confirm.replace('{n}', count + ' selected');
+        return source.dataset.confirm.replace('{n}', count + ' selected' + noun(source.dataset.confirmNoun, count));
+    }
+
+    function noun(spec, count) {
+        if (!spec) {
+            return '';
+        }
+        const forms = spec.split('|');
+        return ' ' + (count === 1 ? forms[0] : forms[1] || forms[0] + 's');
     }
 
     function ask(source, form, proceed) {
