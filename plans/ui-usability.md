@@ -294,7 +294,8 @@ Ordered by value for cost.
    "yesterday 21:14") for tables, the full time in `title`. (Small) **Built:** `<local-time short>`, used on Events,
    Errors, Following and the Jobs page's last-run time; refreshed every minute.
 3. **Sticky table headers** inside the scrolling page (`thead th { position: sticky; top: var(--header-height) }`), so the
-   column names stay while reading 100 rows. (Small)
+   column names stay while reading 100 rows. (Small) **Built:** `thead th` sticky; `nav.js` sets
+   `--header-height` from the header's real height.
 4. **A status line instead of the Jobs-page strip**: in the footer or header, show "Download running…" when any job
    runs (from the same registry the Jobs page polls, polled every 5 s, only while a job runs). Makes "Run now" feedback
    visible from every page. (Medium)
