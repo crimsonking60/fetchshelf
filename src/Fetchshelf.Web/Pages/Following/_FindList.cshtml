@@ -57,7 +57,7 @@ else
             <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
             <span class="muted">Ticked:</span>
             <button type="submit" name="bulkAction" value="download">Download</button>
-            <button type="submit" name="bulkAction" value="wedge" onclick="return confirm('Spend a freeleech wedge on each ticked book?')">Wedge&nbsp;download</button>
+            <button type="submit" name="bulkAction" value="wedge" data-confirm="Spend one freeleech wedge per book on the {n}?" data-confirm-count="findIds" data-confirm-noun="book" data-confirm-label="Spend wedges">Wedge&nbsp;download</button>
             <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
         </form>
     }

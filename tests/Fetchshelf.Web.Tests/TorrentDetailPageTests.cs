@@ -29,7 +29,7 @@ public class TorrentDetailPageTests
 
         var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/torrents/hash1"));
 
-        Assert.Contains("onsubmit=\"return confirm('Replace the details edited by hand with the details from MAM?", html);
+        Assert.Contains("data-confirm=\"Replace the details edited by hand with the details from MAM?", html);
         Assert.Contains("replaces the details with MAM's, including any edited by hand.", html);
         Assert.Contains("keeps details edited by hand", html);
     }

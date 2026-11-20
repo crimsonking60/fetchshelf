@@ -537,6 +537,14 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 .bulk-bar[hidden] { display: none; }
 .bulk-bar form { margin: 0; }
 .bulk-count { margin-right: 0.5rem; font-weight: 600; }
+.bulk-danger { display: inline-flex; gap: 0.5rem; margin-left: auto; padding-left: 0.75rem; border-left: 1px solid var(--border-strong); }
+.bulk-bar > button.danger { margin-left: auto; }
+.bulk-category + .bulk-danger { margin-left: 0; }
+.confirm-dialog { max-width: 28rem; padding: 1rem 1.25rem; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 6px; }
+.confirm-dialog::backdrop { background: color-mix(in srgb, #000 55%, transparent); }
+.confirm-dialog form { margin: 0; }
+.confirm-text { margin: 0 0 1rem; }
+.confirm-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .bulk-category { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-left: auto; }
 .bulk-category label { display: inline-flex; align-items: center; gap: 0.4rem; }
 .actions form { margin: 0; }

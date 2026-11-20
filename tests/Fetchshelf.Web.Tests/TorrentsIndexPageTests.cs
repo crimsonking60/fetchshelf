@@ -539,7 +539,7 @@ public class TorrentsIndexPageTests
         await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash2", OrganizerTestSupport.BuildMetadata("Second Book"));
         var client = fixture.CreateClient();
         var page = await client.GetStringAsync("/torrents");
-        Assert.Matches(@"<button[^>]*value=""unlink""[^>]*onclick=""return confirm\(", page);
+        Assert.Matches(@"<button[^>]*value=""unlink""[^>]*data-confirm=""", page);
 
         using var form = new FormUrlEncodedContent(
         [

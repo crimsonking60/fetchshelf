@@ -128,7 +128,7 @@ public partial class TorrentDetailActionsTests
         var html = await client.GetStringAsync($"/torrents/{Hash}");
 
         var form = Assert.Single(RemoveWithDataFormPattern().Matches(html)).Value;
-        Assert.Contains("onsubmit=\"return confirm(", form);
+        Assert.Contains("data-confirm=\"", form);
         Assert.Contains("delete its downloaded files", form);
     }
 
@@ -299,7 +299,7 @@ public partial class TorrentDetailActionsTests
             await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, libraryPath: bookFolder);
             var client = fixture.CreateClient();
             var before = await client.GetStringAsync($"/torrents/{Hash}");
-            Assert.Contains("onsubmit=\"return confirm(", System.Text.RegularExpressions.Regex.Match(before, @"<form[^>]*handler=Unlink[^>]*>").Value);
+            Assert.Contains("data-confirm=\"", System.Text.RegularExpressions.Regex.Match(before, @"<form[^>]*handler=Unlink[^>]*>").Value);
 
             var html = System.Net.WebUtility.HtmlDecode(await PostAsync(client, "Unlink"));
 
