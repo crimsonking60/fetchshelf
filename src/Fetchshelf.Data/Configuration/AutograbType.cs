@@ -26,4 +26,7 @@ public sealed class AutograbType
         Kind = kind;
         UploaderId = uploaderId;
     }
+
+    /// <summary>As the configuration names it: <c>freeleech</c>, or <c>uploader 12345</c>.</summary>
+    public override string ToString() => UploaderId is { } uploader ? $"uploader {uploader}" : Kind;
 }

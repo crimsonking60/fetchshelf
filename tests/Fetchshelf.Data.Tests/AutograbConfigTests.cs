@@ -27,6 +27,16 @@ public sealed class AutograbConfigTests : IDisposable
     }
 
     [Fact]
+    public void ToString_IsTheTypeAsTheConfigurationNamesIt()
+    {
+        Assert.Equal("bookmarks", AutograbType.Bookmarks.ToString());
+        Assert.Equal("freeleech", AutograbType.Freeleech.ToString());
+        Assert.Equal("new", AutograbType.New.ToString());
+        Assert.Equal("mine", AutograbType.Mine.ToString());
+        Assert.Equal("uploader 12345", AutograbType.Uploader(12345).ToString());
+    }
+
+    [Fact]
     public void Load_Description_IsRead_AndUnsetByDefault()
     {
         File.WriteAllText(ConfigPath, """
