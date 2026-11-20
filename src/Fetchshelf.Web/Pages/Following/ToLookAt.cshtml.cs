@@ -19,7 +19,7 @@ public class ToLookAtModel(FetchshelfSettings settings, FetchshelfDbContext dbCo
         }
 
         // Only what is to look at: the other states belong to each follow's own page.
-        var query = ReadQuery() with { Show = FindShow.ToLookAt };
+        var query = ReadQuery(FindShow.ToLookAt) with { Show = FindShow.ToLookAt };
         List = await FindListViewModel.LoadAsync(
             dbContext, "/Following/ToLookAt", new Dictionary<string, string>(), followId: null, query, PageNumber,
             FollowQueries.WantedSides(followSettings.Grab), showsFollow: true, showsBook: true, showsShowFilter: false,

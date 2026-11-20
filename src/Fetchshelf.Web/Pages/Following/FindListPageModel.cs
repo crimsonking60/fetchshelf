@@ -19,8 +19,9 @@ public abstract class FindListPageModel : PageModel
     [TempData]
     public bool MessageIsError { get; set; }
 
+    /// <summary>The finds the address asks for; unset (or unknown) for the page's default.</summary>
     [BindProperty(SupportsGet = true)]
-    public FindShow Show { get; set; } = FindShow.ToLookAt;
+    public FindShow? Show { get; set; }
 
     [BindProperty(SupportsGet = true)]
     public string? Format { get; set; }
@@ -43,12 +44,13 @@ public abstract class FindListPageModel : PageModel
     public FindListViewModel? List { get; protected set; }
 
     /// <summary>The query from the address, with the remembered page size; a format other than the two is none.</summary>
-    protected FindListQuery ReadQuery()
+    /// <param name="defaultShow">What the page shows when the address names nothing.</param>
+    protected FindListQuery ReadQuery(FindShow defaultShow)
     {
         PageSize = PageSizeCookie.Apply(HttpContext, PageSizeList, PageSize);
         var format = FindListQuery.FormatOptions.Any(o => o.Value == Format) ? Format : null;
         var language = Enum.TryParse<Core.Metadata.Language>(Language, out var parsed) && Enum.IsDefined(parsed) ? parsed.ToString() : null;
-        return new FindListQuery(Enum.IsDefined(Show) ? Show : FindShow.ToLookAt, format, Sort, Dir, PageSize, language);
+        return new FindListQuery(Show is { } show && Enum.IsDefined(show) ? show : defaultShow, format, Sort, Dir, PageSize, language, defaultShow);
     }
 
     /// <summary>Where a button on the page comes back to: this page, with its filters, sort and page.</summary>

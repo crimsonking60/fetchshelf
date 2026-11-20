@@ -13,7 +13,9 @@ namespace Fetchshelf.Web.Pages.Following;
 /// <param name="Dir">"asc" or "desc".</param>
 /// <param name="PageSize">Rows per page.</param>
 /// <param name="Language">A <c>Language</c> enum name; null for any language.</param>
-public sealed record FindListQuery(FindShow Show, string? Format, string Sort, string Dir, int PageSize, string? Language = null)
+/// <param name="DefaultShow">What the page shows when the address names nothing: All on a follow's page, To look at on the To look at page.</param>
+public sealed record FindListQuery(
+    FindShow Show, string? Format, string Sort, string Dir, int PageSize, string? Language = null, FindShow DefaultShow = FindShow.ToLookAt)
 {
     public const string DefaultSort = "Found";
 
@@ -34,7 +36,7 @@ public sealed record FindListQuery(FindShow Show, string? Format, string Sort, s
     {
         var values = new Dictionary<string, string>
         {
-            [nameof(Show)] = Show == FindShow.ToLookAt ? string.Empty : Show.ToString(),
+            [nameof(Show)] = Show == DefaultShow ? string.Empty : Show.ToString(),
             [nameof(Format)] = Format ?? string.Empty,
             [nameof(Language)] = Language ?? string.Empty,
             [nameof(Sort)] = Sort,
@@ -44,10 +46,10 @@ public sealed record FindListQuery(FindShow Show, string? Format, string Sort, s
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
-    /// <summary>Whether a filter is set: a format, a language, or something other than what is to look at.</summary>
-    public bool HasFilters => Show != FindShow.ToLookAt || Format is not null || Language is not null;
+    /// <summary>Whether a filter is set: a format, a language, or other finds than the page's default.</summary>
+    public bool HasFilters => Show != DefaultShow || Format is not null || Language is not null;
 
-    public FindListQuery WithoutFilters() => this with { Show = FindShow.ToLookAt, Format = null, Language = null };
+    public FindListQuery WithoutFilters() => this with { Show = DefaultShow, Format = null, Language = null };
 
     /// <summary>Sorted by the column: in its natural order first, reversed when already sorted that way.</summary>
     public FindListQuery SortedBy(string column) =>

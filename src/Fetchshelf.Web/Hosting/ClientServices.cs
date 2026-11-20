@@ -36,6 +36,8 @@ public static class ClientServices
         services.AddSingleton<MamPageGate>();
         if (settings.BackgroundJobsEnabled)
         {
+            // The account's numbers from the start, not only once a job has read them.
+            services.AddHostedService<AccountStartupRead>();
             services.AddSingleton(sp => new AccountSnapshotRecorder(
                 sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(),
                 sp.GetRequiredService<TimeProvider>(),
