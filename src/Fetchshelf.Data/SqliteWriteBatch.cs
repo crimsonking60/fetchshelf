@@ -15,10 +15,16 @@ namespace Fetchshelf.Data;
 /// the last commit waits out the rest of it first.
 /// </para>
 /// </summary>
-public sealed class SqliteWriteBatch(DbContext dbContext, int maxSize, TimeSpan maxAge)
+/// <param name="yieldTime">
+/// How long the lock is left free between two batches; <see cref="YieldTime"/> unless given. Tests whose items take no
+/// time pass zero, as no other writer waits there.
+/// </param>
+public sealed class SqliteWriteBatch(DbContext dbContext, int maxSize, TimeSpan maxAge, TimeSpan? yieldTime = null)
 {
     /// <summary>How long the write lock is left free between two batches: SQLite's longest wait between tries.</summary>
     public static readonly TimeSpan YieldTime = TimeSpan.FromMilliseconds(100);
+
+    private readonly TimeSpan _yieldTime = yieldTime ?? YieldTime;
 
     private IDbContextTransaction? _transaction;
     private int _count;
@@ -28,7 +34,7 @@ public sealed class SqliteWriteBatch(DbContext dbContext, int maxSize, TimeSpan 
     /// <summary>Whether a batch is open.</summary>
     public bool IsOpen => _transaction is not null;
 
-    /// <summary>Begins a batch unless one is open, after leaving the lock free for <see cref="YieldTime"/> since the last commit.</summary>
+    /// <summary>Begins a batch unless one is open, after leaving the lock free for the yield time since the last commit.</summary>
     public async Task BeginAsync(CancellationToken cancellationToken)
     {
         if (_transaction is not null)
@@ -36,9 +42,9 @@ public sealed class SqliteWriteBatch(DbContext dbContext, int maxSize, TimeSpan 
             return;
         }
 
-        if (_committedAt is { } committedAt && Stopwatch.GetElapsedTime(committedAt) is var free && free < YieldTime)
+        if (_committedAt is { } committedAt && Stopwatch.GetElapsedTime(committedAt) is var free && free < _yieldTime)
         {
-            await Task.Delay(YieldTime - free, cancellationToken);
+            await Task.Delay(_yieldTime - free, cancellationToken);
         }
 
         _transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);

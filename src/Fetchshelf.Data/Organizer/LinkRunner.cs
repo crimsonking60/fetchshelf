@@ -34,7 +34,11 @@ public enum RefreshOutcome
 /// <summary>The settings the Link job links by, besides the libraries and the format lists.</summary>
 /// <param name="ExcludeNarratorInLibraryDir">`exclude_narrator_in_library_dir`: folder names leave out the narrator.</param>
 /// <param name="FirstLanguage">The first of the top-level `languages`, which `language_in_folder = "other"` leaves unmarked.</param>
-public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null);
+/// <param name="BatchYield">
+/// How long the write lock is left free between two batches of a run; <see cref="SqliteWriteBatch.YieldTime"/> unless
+/// given. Tests whose lookups answer at once pass zero: there a batch ends at nearly every torrent.
+/// </param>
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null, TimeSpan? BatchYield = null);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -56,7 +60,7 @@ public sealed class LinkRunner(
     private int _failed;
 
     /// <summary>The run's batches of torrents. See <see cref="RunCoreAsync"/>.</summary>
-    private readonly SqliteWriteBatch _batch = new(dbContext, BatchSize, BatchMaxAge);
+    private readonly SqliteWriteBatch _batch = new(dbContext, BatchSize, BatchMaxAge, options.BatchYield);
     private const int BatchSize = 100;
 
     /// <summary>

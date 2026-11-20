@@ -14,7 +14,12 @@ public static class DatabaseMigrator
     /// <param name="log">Receives one line per data upgrade that ran, for the startup log.</param>
     public static void Migrate(FetchshelfDbContext dbContext, bool writeAheadLog = false, Action<string>? log = null)
     {
-        dbContext.Database.Migrate();
+        // Migrate takes EF's migration lock, a write to the file, even when there is nothing to do: most starts.
+        if (dbContext.Database.GetPendingMigrations().Any())
+        {
+            dbContext.Database.Migrate();
+        }
+
         dbContext.Database.ExecuteSqlRaw(writeAheadLog ? "PRAGMA journal_mode=WAL;" : "PRAGMA journal_mode=DELETE;");
         ApplyDataUpgrades(dbContext, log ?? (_ => { }));
     }

@@ -124,6 +124,22 @@ public sealed class SqliteWriteBatchTests : IDisposable
     }
 
     [Fact]
+    public async Task ABatchGivenNoYieldTime_BeginsRightAfterTheLastCommit()
+    {
+        await using var context = await MigratedAsync();
+        var batch = new SqliteWriteBatch(context, maxSize: 1, maxAge: TimeSpan.FromMinutes(1), yieldTime: TimeSpan.Zero);
+        await batch.BeginAsync(CancellationToken.None);
+        await batch.CommitAsync();
+
+        var right = Stopwatch.StartNew();
+        await batch.BeginAsync(CancellationToken.None);
+        right.Stop();
+        await batch.CommitAsync();
+
+        Assert.True(right.Elapsed < SqliteWriteBatch.YieldTime / 2, $"right after a commit: {right.ElapsedMilliseconds} ms");
+    }
+
+    [Fact]
     public async Task CommitWithoutABatch_DoesNothing()
     {
         await using var context = await MigratedAsync();
