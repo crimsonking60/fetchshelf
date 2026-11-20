@@ -2,19 +2,7 @@
 
 <p class="muted pager-info">
     <span>Showing @Model.ShownCount of @Model.TotalCount. Page @Model.PageNumber of @Model.TotalPages.</span>
-    @if (Model.ShowsPageSizes)
-    {
-        @* Not a form field (the list can sit inside a bulk-action form): choosing a size opens the first page at that size. *@
-        <label>
-            Per page
-            <select id="@(Model.Id)-size" onchange="location.href = this.value">
-                @foreach (var (size, label) in Fetchshelf.Web.Pages.Paging.PageSizeOptions)
-                {
-                    <option value="@Url.Page(Model.Page, Model.RouteValuesForPageSize(size).ToDictionary(p => p.Key, p => (object?)p.Value))" selected="@(Model.PageSize == size)">@label</option>
-                }
-            </select>
-        </label>
-    }
+    <partial name="_PageSize" model="Model" />
 </p>
 
 @if (Model.TotalPages > 1)

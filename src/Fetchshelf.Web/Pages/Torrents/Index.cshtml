@@ -133,6 +133,11 @@
         Export:
         <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("csv")'>CSV</a>
         <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("json")'>JSON</a>
+        @* The same choice as under the list, so a long list's size can be changed without scrolling to its end. *@
+        @if (Model.Pager.ShowsPageSizes)
+        {
+            <span class="page-size-top"><partial name="_PageSize" model='Model.Pager with { Id = "torrent-pager-top" }' /></span>
+        }
     </div>
 </div>
 
