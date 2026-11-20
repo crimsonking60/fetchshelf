@@ -19,6 +19,7 @@
     <script src="~/js/nav.js" defer></script>
     <script src="~/js/bulk-bar.js" defer></script>
     <script src="~/js/run-status.js" defer></script>
+    <script src="~/js/keys.js" defer></script>
     <script src="~/js/errors.js" defer></script>
     <script src="~/js/local-time.js" defer></script>
 </head>
@@ -47,6 +48,19 @@
     <footer class="site-footer">
         <div class="site-footer-row">
             <span id="site-version">Fetchshelf version @AppVersion.Current</span>
+            @* The keys work through keys.js; without a script the list is still a fair map of the pages. *@
+            <details id="shortcuts" class="shortcuts">
+                <summary>Keyboard shortcuts <kbd>?</kbd></summary>
+                <ul>
+                    <li><kbd>/</kbd> the search box of the page (Search, Torrents, Series)</li>
+                    <li><kbd>g</kbd> then <kbd>t</kbd> <a asp-page="/Torrents/Index" data-go="t">Torrents</a></li>
+                    <li><kbd>g</kbd> then <kbd>j</kbd> <a asp-page="/Jobs/Index" data-go="j">Jobs</a></li>
+                    <li><kbd>g</kbd> then <kbd>s</kbd> <a asp-page="/Selected/Index" data-go="s">Selected</a></li>
+                    <li><kbd>g</kbd> then <kbd>e</kbd> <a asp-page="/Errors/Index" data-go="e">Errors</a></li>
+                    <li><kbd>g</kbd> then <kbd>h</kbd> <a asp-page="/Index" data-go="h">Search (home)</a></li>
+                    <li><kbd>?</kbd> this list</li>
+                </ul>
+            </details>
         </div>
     </footer>
     @await RenderSectionAsync("Scripts", required: false)

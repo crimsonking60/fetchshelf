@@ -304,7 +304,8 @@ Ordered by value for cost.
    there are none at all, a pointer to the Link job and the Search page. Same for Selected, Events, Errors. (Small)
    **Built** for Torrents, Selected, Events, Errors and Series.
 6. **Keyboard**: `/` focuses the search box on Search, Torrents and Series; `g` then `t`/`j`/`s` jumps to
-   Torrents/Jobs/Selected. Shown in a "?" popover in the footer. Desktop-only benefit but cheap. (Small)
+   Torrents/Jobs/Selected. Shown in a "?" popover in the footer. Desktop-only benefit but cheap. (Small) **Built:** `keys.js`; the list is a `<details>` in the footer (`g` then
+   `t`, `j`, `s`, `e` or `h`).
 7. **Consistent button hierarchy.** One primary button per page region; destructive actions (Remove selected, Unlink)
    separated from the rest of the bulk bar by a gap and confirmation dialogs instead of `confirm()`. Today
    `button.primary` is applied by selector for GET forms only, so primary actions differ between pages. (Medium)
