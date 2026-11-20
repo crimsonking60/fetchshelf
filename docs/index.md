@@ -13,8 +13,9 @@ It has two independent, optional halves:
    `Author/Series/Title` folder tree, with a `metadata.json` file next to every title, and optionally a
    Calibre-style `metadata.opf`. With `[opds]`, it also serves the ebook libraries as an OPDS catalog.
 
-Start with the [user guide](user-guide.md), which walks through installing Fetchshelf with Docker and setting it
-up. Every setting is in the [configuration reference](configuration.md).
+New to Fetchshelf? Start with [Getting started](getting-started.md): installing it with Docker Compose,
+connecting it to MAM and qBittorrent, and a first library, step by step. The [user guide](user-guide.md) covers
+everything Fetchshelf can do, and every setting is in the [configuration reference](configuration.md).
 
 These pages exist for every release: choose the version you run in the version menu. *latest* follows
 development and may describe changes that are not released yet; *stable* is the newest release.
@@ -25,6 +26,7 @@ The source code, issues and release notes are on [GitHub](https://github.com/cri
 :caption: Using Fetchshelf
 :maxdepth: 1
 
+getting-started
 user-guide
 configuration
 config-examples/README
