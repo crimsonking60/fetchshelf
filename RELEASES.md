@@ -5,6 +5,36 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.19 - 2026-11-20
+
+A Link run over a large library takes seconds instead of a minute. The **Torrents** page keeps **Check qBittorrent**,
+the export links and **Per page** together above the list when the filters are open. The documentation has a new
+[Getting started](https://fetchshelf.readthedocs.io/en/v2026.11.19/getting-started/) guide that takes a new user from
+installing Fetchshelf to a first download.
+
+### Upgrading
+
+- The database is upgraded when the new version starts (one index is added), and going back to an older version is
+  not possible. With a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.19/configuration/#backup) section, a
+  backup is taken first, named `data-<time>-2026.11.18-before-2026.11.19.db`; without one, back up your data folder
+  yourself.
+- Nothing else is needed: no setting is added or changed.
+
+### Added
+
+- [Getting started](https://fetchshelf.readthedocs.io/en/v2026.11.19/getting-started/): a step-by-step guide for new
+  users, from planning the folders and installing with Docker Compose to a first `config.toml`, a dry run and a first
+  download, ending with a tour of what else Fetchshelf can do (#150).
+
+### Fixed
+
+- **Link**: a run with nothing to do took about a minute on a library of a few thousand torrents, and longer the larger
+  the library. Each torrent's check for another language's edition in the same folder read the whole torrent list;
+  it now finds it through an index (#149).
+- **Torrents**: with the filters open on a wide screen and a `[seeding]` section, **Check qBittorrent** stayed on the
+  filters' line while the export links and **Per page** dropped to the next line at the left. The three now move as
+  one group, at the right just above the list (#148).
+
 ## 2026.11.18 - 2026-11-20
 
 A followed series' or author's page shows the whole of it: the books already in the library are listed as *Already
