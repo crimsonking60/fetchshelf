@@ -1,6 +1,8 @@
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
@@ -12,6 +14,10 @@ namespace Fetchshelf.Web.Tests;
 /// </summary>
 public sealed class FetchshelfWebAppFixture : IDisposable
 {
+    // Each host would otherwise migrate an empty database at startup, most of a test's time. A copy of a database
+    // migrated once per test run starts the same way: startup finds nothing to migrate and records its version as usual.
+    private static readonly Lazy<string> MigratedTemplate = new(CreateMigratedTemplate);
+
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-web-tests-").FullName;
     private readonly WebApplicationFactory<Program> _factory;
 
@@ -34,11 +40,17 @@ public sealed class FetchshelfWebAppFixture : IDisposable
     {
         var configPath = Path.Combine(_tempDir, "config.toml");
         File.WriteAllText(configPath, configToml);
-        Environment.SetEnvironmentVariable("FETCHSHELF_CONFIG_FILE", configPath);
-        Environment.SetEnvironmentVariable("FETCHSHELF_DATA_FILE", Path.Combine(_tempDir, dataFileRelativePath));
+        if (dataFileRelativePath == "data.db")
+        {
+            File.Copy(MigratedTemplate.Value, Path.Combine(_tempDir, dataFileRelativePath));
+        }
 
-        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services =>
+        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder
+            // Handed to the program as --FETCHSHELF_CONFIG_FILE=… arguments, so each host has its own paths and test
+            // classes can run in parallel; environment variables would be shared by every host in the process.
+            .UseSetting("FETCHSHELF_CONFIG_FILE", configPath)
+            .UseSetting("FETCHSHELF_DATA_FILE", Path.Combine(_tempDir, dataFileRelativePath))
+            .ConfigureServices(services =>
             {
                 if (!realJobRegistry)
                 {
@@ -81,6 +93,20 @@ public sealed class FetchshelfWebAppFixture : IDisposable
             }));
     }
 
+    private static string CreateMigratedTemplate()
+    {
+        var folder = Directory.CreateTempSubdirectory("fetchshelf-web-tests-template-").FullName;
+        var file = Path.Combine(folder, "data.db");
+        using (var context = new FetchshelfDbContext(
+            new DbContextOptionsBuilder<FetchshelfDbContext>().UseSqlite($"Data Source={file};Pooling=False").Options))
+        {
+            DatabaseMigrator.Migrate(context);
+        }
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Directory.Delete(folder, recursive: true);
+        return file;
+    }
+
     public HttpClient CreateClient() => _factory.CreateClient();
 
     public HttpClient CreateNoRedirectClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -90,8 +116,6 @@ public sealed class FetchshelfWebAppFixture : IDisposable
     public void Dispose()
     {
         _factory.Dispose();
-        Environment.SetEnvironmentVariable("FETCHSHELF_CONFIG_FILE", null);
-        Environment.SetEnvironmentVariable("FETCHSHELF_DATA_FILE", null);
         Directory.Delete(_tempDir, recursive: true);
     }
 }

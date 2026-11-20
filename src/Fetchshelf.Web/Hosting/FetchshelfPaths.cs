@@ -27,6 +27,18 @@ public sealed record FetchshelfPaths(string ConfigFile, string DataFile, string?
         getEnv("FETCHSHELF_DATA_FILE") ?? (defaultDirectory is null ? "data.db" : Path.Combine(defaultDirectory, "data.db")),
         getEnv("FETCHSHELF_LOG_DIR"));
 
-    /// <summary>The paths from this process's environment, with today's defaults.</summary>
-    public static FetchshelfPaths FromEnvironment() => Resolve(Environment.GetEnvironmentVariable);
+    /// <summary>
+    /// The paths from a <c>--FETCHSHELF_CONFIG_FILE=…</c>, <c>--FETCHSHELF_DATA_FILE=…</c> or <c>--FETCHSHELF_LOG_DIR=…</c>
+    /// argument where one is given, else from the environment. The web tests' hosts get theirs as arguments
+    /// (<c>WebApplicationFactory</c> hands its settings to the program that way), so hosts built side by side never
+    /// share them.
+    /// </summary>
+    public static FetchshelfPaths FromArgumentsOrEnvironment(IReadOnlyList<string> args) =>
+        Resolve(name => Argument(args, name) ?? Environment.GetEnvironmentVariable(name));
+
+    private static string? Argument(IReadOnlyList<string> args, string name)
+    {
+        var prefix = "--" + name + "=";
+        return args.LastOrDefault(arg => arg.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+    }
 }

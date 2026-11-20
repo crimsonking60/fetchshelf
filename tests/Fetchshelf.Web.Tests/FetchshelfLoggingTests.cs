@@ -3,6 +3,7 @@ using Serilog.Events;
 
 namespace Fetchshelf.Web.Tests;
 
+[Collection(ProcessWideCollection.Name)]
 public sealed class FetchshelfLoggingTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("fetchshelf-logging-tests-").FullName;
