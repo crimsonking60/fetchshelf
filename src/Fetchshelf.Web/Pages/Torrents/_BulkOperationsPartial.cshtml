@@ -3,7 +3,9 @@
 @* The bulk actions running, waiting or ended. It polls itself every 2 seconds while one runs or waits, and stops once
    they have all ended; an ended one stays until dismissed. *@
 @{
-    var active = Model.Any(o => !o.HasEnded);
+    // Taken once: an operation can end while the page renders, and the polling and the strip must agree.
+    var unended = Model.Where(o => !o.HasEnded).ToList();
+    var active = unended.Count > 0;
 }
 <div id="bulk-operations" hx-get="@(active ? Url.Page("/Torrents/Index", "BulkOperations") : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
     @foreach (var operation in Model)
@@ -46,5 +48,21 @@
                 </form>
             }
         </div>
+    }
+    @* While one runs or waits, a strip fixed to the bottom of the window shows it, so it stays in sight while the list
+       scrolls; bulk-bar.js hides it while the notices above are on screen. It is redrawn with each poll. *@
+    @if (active)
+    {
+        var shown = unended.FirstOrDefault(o => o.State == BulkOperationState.Running) ?? unended[0];
+        var (shownHandled, _) = shown.Progress;
+        var more = unended.Count - 1;
+        <a class="bulk-progress" href="#bulk-operations" data-bulk-progress title="Show the bulk actions at the top of the page, with Cancel">
+            @if (shown.State == BulkOperationState.Running)
+            {
+                <progress max="@shown.TorrentIds.Count" value="@shownHandled"></progress>
+            }
+            <span class="bulk-progress-text">@shown.Status()@(more > 0 ? $" ({more} more waiting)" : "")</span>
+            <span class="bulk-progress-link">Details</span>
+        </a>
     }
 </div>

@@ -579,7 +579,8 @@ public class TorrentsIndexPageTests
         (await client.PostAsync("/torrents?handler=Bulk", form)).EnsureSuccessStatusCode();
         var operation = Assert.Single(queue.Active());
         var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (operation.State != BulkOperationState.Running && DateTime.UtcNow < deadline)
+        // Running is set before the titles are read, and the current title only after: wait for that, not just Running.
+        while (operation.Progress.Current is null && DateTime.UtcNow < deadline)
         {
             await Task.Delay(20);
         }
