@@ -298,7 +298,8 @@ Ordered by value for cost.
    `--header-height` from the header's real height.
 4. **A status line instead of the Jobs-page strip**: in the footer or header, show "Download running…" when any job
    runs (from the same registry the Jobs page polls, polled every 5 s, only while a job runs). Makes "Run now" feedback
-   visible from every page. (Medium)
+   visible from every page. (Medium) **Built:** a pill in the menu bar (`run-status.js`, polling
+   `/jobs?handler=Running` every 5 s while the page is visible), hidden when nothing runs.
 5. **Empty states say what to do.** "No torrents found." becomes "No torrents match these filters. Clear filters" or, when
    there are none at all, a pointer to the Link job and the Search page. Same for Selected, Events, Errors. (Small)
    **Built** for Torrents, Selected, Events, Errors and Series.
@@ -309,7 +310,8 @@ Ordered by value for cost.
    `button.primary` is applied by selector for GET forms only, so primary actions differ between pages. (Medium)
 8. **Pagination and sorting** are covered under section 2.
 9. **Feedback in place.** After "Run now", the row's button turns into "Running…" with the spinner already in the CSS;
-   after bulk actions the sticky bar shows progress, linking to the bulk operation. (Small)
+   after bulk actions the sticky bar shows progress, linking to the bulk operation. (Small) **Built:** the button reads
+   "Starting..." at once (the list already shows Running and Cancel when the answer comes); bulk progress is left.
 10. **Contrast and focus checks on all themes** for the new elements (badges on the menu button, sticky bar), using the
     existing token rules (`--text-muted` meets AA on `--surface-2`). (Part of each step)
 

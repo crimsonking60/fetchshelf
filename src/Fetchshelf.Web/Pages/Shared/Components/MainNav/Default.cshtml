@@ -37,6 +37,8 @@
             </div>
         </details>
     }
+    @* Shown by run-status.js while a background job runs, from any page. Without a script it stays hidden. *@
+    <a id="run-status" class="run-status" asp-page="/Jobs/Index" hidden role="status"></a>
     @for (var i = 0; i < Model.Trailing.Count; i++)
     {
         var entry = Model.Trailing[i];

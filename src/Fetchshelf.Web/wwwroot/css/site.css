@@ -62,6 +62,13 @@ code, kbd, samp, .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia M
 .site-nav a:hover, .nav-menu > summary:hover { color: var(--text); background: var(--row-hover); }
 .site-nav a[aria-current="page"], .nav-menu.current > summary { color: var(--text); border-bottom-color: var(--accent-line); }
 .nav-trailing { margin-left: auto; }
+/* A pill while any job runs; it takes the push to the right, and the first trailing entry follows it. */
+.site-nav .run-status { margin-left: auto; align-self: center; padding: 0.15rem 0.7rem; font-size: 0.8125rem; font-weight: 600; border-radius: 999px; text-decoration: none; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); }
+.site-nav .run-status[hidden] { display: none; }
+.site-nav .run-status:not([hidden]) + .nav-trailing { margin-left: 0.5rem; }
+.run-status::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.45rem; border-radius: 50%; background: var(--accent-line); animation: run-pulse 1.4s ease-in-out infinite; }
+@keyframes run-pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .run-status::before { animation: none; } }
 .nav-menu.theme-menu > summary::after { content: none; }
 .theme-menu .nav-panel { left: auto; right: 0; }
 .nav-panel a[aria-current="true"] { border-left-color: var(--accent-line); color: var(--text); }
