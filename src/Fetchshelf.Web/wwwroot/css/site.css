@@ -257,6 +257,9 @@ form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 /* On a narrow screen the form may get narrower than that width, so the box shrinks rather than pushing Search off. */
 .toolbar-stack:has(> .search-line) { min-width: 0; max-width: 100%; }
 .toolbar-bar > .push { margin: 0 0 0 auto; }
+/* The actions beside a search form, kept together: Check qBittorrent, the export links and Per page. */
+.list-actions { column-gap: 1.5rem; justify-content: flex-end; }
+.list-actions > .toolbar { margin: 0; }
 
 fieldset { border: 1px solid var(--border-strong); border-radius: 4px; padding: 0.5rem 0.9rem 0.7rem; margin: 0.9rem 0; }
 legend { padding: 0 0.4rem; font-weight: 600; }

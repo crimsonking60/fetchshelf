@@ -74,6 +74,22 @@ public partial class TorrentFilterPanelTests
     }
 
     [Fact]
+    public async Task Get_Torrents_KeepsCheckExportAndPerPageInOneGroup_SoTheyWrapTogether()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents");
+
+        // With the filters open on a wide screen, only Check qBittorrent fitted beside them and the rest wrapped below.
+        var group = html[html.IndexOf("<div class=\"toolbar list-actions push\">", StringComparison.Ordinal)..];
+        Assert.True(group.IndexOf(">Check qBittorrent</button>", StringComparison.Ordinal) < group.IndexOf("id=\"export-links\"", StringComparison.Ordinal));
+        Assert.DoesNotContain("class=\"push\"", html);
+        var css = await client.GetStringAsync(Regex.Match(html, "href=\"(/css/site[^\"]*)\"").Groups[1].Value);
+        Assert.Contains(".list-actions > .toolbar { margin: 0; }", css);
+    }
+
+    [Fact]
     public async Task Script_RecordsOnlyAClickOnTheSummary_AsTheStateItTurnsTo()
     {
         using var fixture = new FetchshelfWebAppFixture();
