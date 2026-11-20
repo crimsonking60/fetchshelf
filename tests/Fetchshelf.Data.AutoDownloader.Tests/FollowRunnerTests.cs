@@ -168,7 +168,9 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal((1, 1, 0), (summary.Searched, summary.Selected, summary.NewFinds));
         var selected = Assert.Single(harness.Context.SelectedTorrents.AsNoTracking());
         Assert.Equal((2L, "audiobooks", "Follow: The Expanse"), (selected.MamId, selected.Category, selected.GrabberName));
-        var find = Assert.Single(Finds(harness));
+        // The owned entry is listed as already owned, so the follow's page shows the whole series.
+        Assert.Equal([(1L, FollowFindStatus.Owned), (2L, FollowFindStatus.Selected)], Finds(harness).Select(f => (f.MamId, f.Status)));
+        var find = Finds(harness).Single(f => f.MamId == 2);
         Assert.Equal((2L, FollowFindStatus.Selected, "2", "Audio"), (find.MamId, find.Status, find.SeriesDisplay, find.MediaSide));
         Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single().LastSearchedAt);
         var search = Assert.Single(harness.Searches);
@@ -242,7 +244,45 @@ public sealed class FollowRunnerTests : IDisposable
             "Follow The Expanse: 8 torrents on MAM in 1 page, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
             + "the other 3 are 2 books (one torrent per book, language and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
             logger.Messages(LogLevel.Information));
-        Assert.Equal([5, 6], Finds(harness).Select(f => f.MamId));
+        Assert.Equal([5, 6], Finds(harness).Where(f => f.Status == FollowFindStatus.New).Select(f => f.MamId));
+        // The owned books 1-3 are listed too, one find per book: book 2 has two uploads.
+        Assert.Equal(["1", "2", "3"], Finds(harness).Where(f => f.Status == FollowFindStatus.Owned).Select(f => f.SeriesDisplay).Order());
+    }
+
+    [Fact]
+    public async Task SeriesFollow_AlreadyHadBooks_AreListedOnce_AndASecondRunAddsNone()
+    {
+        var harness = CreateHarness(Results(
+            Record(1, "Leviathan Wakes", series: "The Expanse", number: "1"),
+            Record(2, "Leviathan Wakes", series: "The Expanse", number: "1"),
+            Record(3, "Caliban's War", series: "The Expanse", number: "2")));
+        AddToLibrary(harness, "hash1", 2, "Leviathan Wakes", "The Expanse", "1");
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+
+        await harness.RunAsync();
+        await harness.RunAsync();
+
+        // Of the two uploads of book 1, the one in the library stands for it.
+        Assert.Equal([(2L, FollowFindStatus.Owned), (3L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
+    [Fact]
+    public async Task SeriesFollow_ABookWithAFindAlready_IsLeftAsItIs()
+    {
+        var harness = CreateHarness(Results(
+            Record(1, "Leviathan Wakes", series: "The Expanse", number: "1"),
+            Record(2, "Leviathan Wakes", series: "The Expanse", number: "1")));
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+        await harness.RunAsync();
+        var first = Finds(harness).Single();
+        harness.Context.FollowFinds.Single(f => f.Id == first.Id).Status = FollowFindStatus.Dismissed;
+        await harness.Context.SaveChangesAsync();
+        AddToLibrary(harness, "hash1", first.MamId == 1 ? 2 : 1, "Leviathan Wakes", "The Expanse", "1");
+
+        await harness.RunAsync();
+
+        // Book 1 is in the library by now, through the other upload: the dismissed find stays, and no second one is added.
+        Assert.Equal([(first.MamId, FollowFindStatus.Dismissed)], Finds(harness).Select(f => (f.MamId, f.Status)));
     }
 
     [Fact]

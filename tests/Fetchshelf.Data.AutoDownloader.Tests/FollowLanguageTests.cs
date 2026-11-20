@@ -145,7 +145,8 @@ public sealed class FollowLanguageTests : IDisposable
 
         await harness.RunAsync(Settings());
 
-        Assert.Equal([202L], harness.Finds().Select(f => f.MamId));
+        // The English edition is listed as already owned; only the Hungarian one is to look at.
+        Assert.Equal([(102L, FollowFindStatus.Owned), (202L, FollowFindStatus.New)], harness.Finds().OrderBy(f => f.MamId).Select(f => (f.MamId, f.Status)));
     }
 
     [Fact]

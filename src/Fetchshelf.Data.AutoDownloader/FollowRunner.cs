@@ -240,6 +240,9 @@ public sealed class FollowRunner(
         MamTorrentRecord Record, TorrentMetadata Metadata, FilterMainType Side, string BookKey, string? SeriesDisplay, double? SeriesNumber,
         double? SeriesLastNumber = null);
 
+    /// <summary>A result whose book is already in the library (<paramref name="Owned"/>) or selected; <paramref name="InLibrary"/> when this very torrent is.</summary>
+    private sealed record HadCandidate(Candidate Candidate, bool Owned, bool InLibrary, bool Queued);
+
     /// <summary>What to do about one book in one format: take the winner with its block's cost, or note the match no block pays for.</summary>
     private sealed record Decision(Candidate? Winner, GrabEntry? Grab, Candidate? TooExpensive)
     {
@@ -272,7 +275,7 @@ public sealed class FollowRunner(
         {
             finds[candidate.Record.MamId].Language = candidate.Metadata.Language.ToString();
         }
-        candidates = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
+        (candidates, var had) = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
 
         var decisions = Decide(follow, candidates, grabFilters, out var books);
         var now = _time.GetUtcNow();
@@ -341,6 +344,7 @@ public sealed class FollowRunner(
             }
         }
 
+        RecordHad(follow, had, candidates, finds, now);
         _logger.LogInformation("Follow {Name}: {Outcome}", follow.DisplayName, outcome.Describe(follow.Kind));
 
         if (!stoppedByBudget)
@@ -524,7 +528,7 @@ public sealed class FollowRunner(
     /// it), or, for a series, an entry already owned in that format and language. A find for such a torrent is marked owned or
     /// selected, so the Following page stops offering it.
     /// </summary>
-    private async Task<List<Candidate>> WithoutOwnedAsync(
+    private async Task<(List<Candidate> Kept, List<HadCandidate> Had)> WithoutOwnedAsync(
         FollowEntity follow, List<Candidate> candidates, Dictionary<long, FollowFindEntity> finds, CancellationToken cancellationToken)
     {
         var mamIds = candidates.Select(c => c.Record.MamId).ToList();
@@ -554,6 +558,7 @@ public sealed class FollowRunner(
         }
 
         var kept = new List<Candidate>();
+        var had = new List<HadCandidate>();
         foreach (var candidate in candidates)
         {
             var mamId = candidate.Record.MamId;
@@ -568,13 +573,45 @@ public sealed class FollowRunner(
                     (find.Status, find.StatusAt) = (owned ? FollowFindStatus.Owned : FollowFindStatus.Selected, _time.GetUtcNow());
                 }
 
+                had.Add(new HadCandidate(candidate, owned, inLibrary.Contains(mamId), queued.Contains(mamId)));
                 continue;
             }
 
             kept.Add(candidate);
         }
 
-        return kept;
+        return (kept, had);
+    }
+
+    /// <summary>
+    /// The books already in the library or selected get a find too, one per book, language and format as the others, so a
+    /// follow's page lists the whole series or author and its In the library count says what is had: a series followed
+    /// when most of it is in the library had only its missing books listed, and counted none in the library. A book
+    /// with a find already (by this torrent or another of it), or among the ones still to decide, is left as it is. The
+    /// torrent shown for a book is the one in the library, else the one selected, else the most seeded.
+    /// </summary>
+    private void RecordHad(
+        FollowEntity follow, List<HadCandidate> had, List<Candidate> undecided, Dictionary<long, FollowFindEntity> finds, DateTimeOffset now)
+    {
+        var undecidedBooks = undecided.Select(c => (c.BookKey, c.Side)).ToHashSet();
+        var listedBooks = finds.Values.Select(f => (TitleNormalizer.Normalize(f.Title), f.MediaSide, f.Language)).ToHashSet();
+        foreach (var book in had.GroupBy(h => (h.Candidate.BookKey, h.Candidate.Side)))
+        {
+            if (undecidedBooks.Contains(book.Key) || book.Any(h => finds.ContainsKey(h.Candidate.Record.MamId)))
+            {
+                continue;
+            }
+
+            var shown = book.OrderByDescending(h => h.InLibrary).ThenByDescending(h => h.Queued).ThenByDescending(h => h.Candidate.Record.Seeders).First();
+            var metadata = shown.Candidate.Metadata;
+            if (listedBooks.Contains((TitleNormalizer.Normalize(metadata.Title), shown.Candidate.Side.ToString(), metadata.Language.ToString())))
+            {
+                continue;
+            }
+
+            Record(follow, shown.Candidate, book.Any(h => h.Owned) ? FollowFindStatus.Owned : FollowFindStatus.Selected, finds, now);
+            listedBooks.Add((TitleNormalizer.Normalize(metadata.Title), shown.Candidate.Side.ToString(), metadata.Language.ToString()));
+        }
     }
 
     private static bool IsOwnedEntry(Candidate candidate, HashSet<int> covered, HashSet<string> displays)
