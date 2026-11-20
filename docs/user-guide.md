@@ -377,7 +377,7 @@ Fetchshelf logs in to MAM with a session id, the value of a session cookie that 
    curl -b "mam_id=your-session-id" https://www.myanonamouse.net/json/checkCookie.php
    ```
 
-   This is the same check Fetchshelf makes. If the answer contains `"Success":true`, the session id works;
+   If the answer contains `"Success":true`, the session id works;
    anything else means MAM did not accept it. Because a session is locked to an address, run the command
    where Fetchshelf's traffic comes from: if Fetchshelf goes through a VPN, so must the command.
 
