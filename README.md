@@ -53,16 +53,6 @@ setup. If you use one, please report how it went, good or bad (see
 - `on_invalid_torrent` in `[[qbittorrent]]`.
 - `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
   for a selection that was removed.
-- `unsat_buffer`, `wedge_buffer` and `max_active_downloads` in `[[hardcover_list]]`, `[follow]` and `[upgrade]`, and
-  `cost = "wedge"` downloads starting while the ratio budget is spent.
-- `hardlink_or_copy` and `hardlink_or_symlink` falling back only when a hardlink isn't possible there, and the tag-rule
-  preview on the Config page.
-- Folder names shortened to 255 bytes. `folder_names` and `folder_template` are confirmed.
-- `allowed_hosts`, and the `[opds]` login.
-- `[seeding]`: the Seeding job's estimate, `tag_unsatisfied`, the held-back `on_cleaned` and the
-  `unsatisfied_not_seeding` notification.
-- **Dry run** on the Jobs page, and the lines under each run in a job's history.
-- `layout = "series"` read by Komga: the linking is confirmed, Komga's view of it is not.
 - `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
   series and stopping one are confirmed.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
@@ -71,7 +61,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.15** (2026-11-19). See [RELEASES.md](RELEASES.md#20261115---2026-11-19) for what changed, and for
+**2026.11.16** (2026-11-20). See [RELEASES.md](RELEASES.md#20261116---2026-11-20) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing
