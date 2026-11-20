@@ -330,6 +330,9 @@ Found, considered, and better left as they are.
 
 ## Part D: decisions needed first
 
+Decided 2026-11-21: D1 keeps the `curl` and drops the "same check" sentence (in #152); D2 and D3 follow the
+recommendation (in #153). D4 and D5 are still open.
+
 1. **`checkCookie.php` in the guides** (`user-guide.md:377-380`, `:420`, `getting-started.md:234-242`,
    `:554`). The guides have the user run a `curl` against it, and the user guide adds "This is the same check
    Fetchshelf makes". Fetchshelf never calls it, and it is not among the endpoints MAM's API rules allow to be
