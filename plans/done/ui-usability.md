@@ -406,7 +406,7 @@ One branch and PR per step, as usual; each step is shippable alone.
 
 | Step | Content | Notes |
 |---|---|---|
-| 1 | Table base rules (section 2 rules 1–6) and Torrents column merge, with the `SortState` type and the sort tag helper on Torrents | biggest visible win; screenshot at 820 and 2560 px before/after |
+| 1 | Table base rules (section 2 rules 1–6) and Torrents column merge, with the `SortState` type and the sort tag helper on Torrents | built (PR #114) |
 | 2 | Grouped menu: `NavModel`, markup, `nav.js`, badges, sticky header | built (PR: grouped menu). The ratio on the Account entry is left out for now: it needs the account snapshot on every page |
 | 2b | Theme menu in the header and "Match system" (section 5, changes 6 and 7) | built (stacked PR); the footer selector is gone, and `AppVersionTests` now pins the menu in the header |
 | 3 | Jobs page groups, job cell layout, next-run text | built (PR: Jobs page groups). Left out: the collapse of a long autograb group (the 2-second refresh would reopen it) and the short local time |
@@ -414,8 +414,8 @@ One branch and PR per step, as usual; each step is shippable alone.
 | 5 | Sticky bulk-action bar on Torrents/Selected/Errors | built (stacked PR), also on Duplicates; the Library check page keeps its buttons where they are (it has two lists, each with its own) |
 | 5b | New pager on every paged list (Torrents, Series, Events, Following, Lists, Jobs history, Search) | built (stacked PR): centered arrows and numbered pages on every list, including Search. The compact pager above long tables is left for later; First and Last are the numbers 1 and the last page |
 | 5c | Sortable headers on the pages in the sort table | built (stacked PR) for Series (name, books, following), Events (time, type), Errors (job, last failed) and Selected (title, cost); the sort is kept by paging links and filter forms. Left out: authors and series on Torrents (they need the metadata the list reads only when searching), Search (MAM sorts) and the Lists, Duplicates and Library check pages |
-| 6 | Items 1–3, 5, 8, 9 of section 4 | small, can be split further |
-| 7 | Items 4, 6, 7 of section 4 | optional |
+| 6 | Items 1–3, 5, 8, 9 of section 4 | built (PRs #125–#128, #129 and #133) |
+| 7 | Items 4, 6, 7 of section 4 | built (PRs #129, #130, #131 and #132) |
 | 0 | Themes (section 5): the contrast test, `--accent-line`, `--on-danger`, zebra, warn colors | first, since later steps use the new tokens; the theme menu and "Match system" (changes 6 and 7) come with step 2, as they sit in the header |
 
 Each step is checked in the browser at 820 × 1180 (iPad portrait), 1280 and 2560 px, in one warm and one cool theme,
