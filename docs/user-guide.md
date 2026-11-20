@@ -805,7 +805,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   **Author**), in the language you have chosen. Open it in a new tab to keep your results.
 - Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
-  finished yet), **Downloaded** (finished, or recorded as owned, but not in your library) or
+  finished yet), **Downloaded** (finished, or recorded in Fetchshelf, but not in your library) or
   **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
   **Linked**, its status checks again by itself, every 10 seconds for the first minute and then every
   30 seconds, so it moves on without a reload; it stops checking after about two hours. The download itself

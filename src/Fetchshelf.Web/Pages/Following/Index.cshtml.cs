@@ -331,14 +331,15 @@ public class IndexModel(
 
     /// <summary>
     /// A find's own label, for one not on its way into the library. A new find has none, as a Search result with nothing
-    /// done to it has none: its Download and Dismiss buttons say what can be done.
+    /// done to it has none: its Download and Dismiss buttons say what can be done. An owned find says "Already owned":
+    /// the book is had, by this torrent or another copy of it, or in Audiobookshelf, not necessarily this torrent.
     /// </summary>
     public static string StatusLabel(FollowFindStatus status) => status switch
     {
         FollowFindStatus.New => string.Empty,
         FollowFindStatus.Selected => "Selected",
         FollowFindStatus.Wanted => "Not free",
-        FollowFindStatus.Owned => "In the library",
+        FollowFindStatus.Owned => "Already owned",
         _ => "Dismissed",
     };
 
