@@ -34,5 +34,7 @@ jobs:
       - name: Test
         run: dotnet test --no-build
 
+      # Whitespace, line endings and encoding. The build has already run the analyzers and the .editorconfig style
+      # rules (EnforceCodeStyleInBuild), which a full `dotnet format` would check again at a minute's cost.
       - name: Check formatting
-        run: dotnet format --verify-no-changes --no-restore
+        run: dotnet format whitespace --verify-no-changes

@@ -35,8 +35,9 @@ public sealed class LinkRunnerTests : IDisposable
         File.WriteAllText(fullPath, content);
     }
 
+    // The lookups here answer at once, so the pause between batches would only make tests that link hundreds slow.
     private LinkRunner CreateRunner(FetchshelfDbContext context, IMetadataLookup lookup, IReadOnlyList<Library> libraries) =>
-        new(context, new EventStore(context), lookup, libraries, Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
+        new(context, new EventStore(context), lookup, libraries, Formats, new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false, BatchYield: TimeSpan.Zero));
 
     private static Library CreateLibrary(string libraryDir, string category = "audiobooks") => new()
     {

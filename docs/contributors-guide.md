@@ -279,12 +279,16 @@ Every bug fix should come with a test that fails without the fix.
 
 ## Formatting and code analysis
 
-Formatting is checked separately from the build:
+Code analysis and the style rules in `.editorconfig` (braces, file-scoped namespaces) are part of the build:
+any warning fails it. Formatting is checked separately:
 
 ```sh
-dotnet format --verify-no-changes   # check, as a pull request is checked
+dotnet format --verify-no-changes   # check everything, which includes what a pull request checks
 dotnet format                       # fix everything it can
 ```
+
+A pull request's checks run `dotnet format whitespace --verify-no-changes`: whitespace, line endings and
+encoding. The build has already checked the rest.
 
 Before every push, run all three checks:
 
@@ -403,7 +407,7 @@ A few things are useful to know before you change them:
 
 ## Coding conventions
 
-- Follow `.editorconfig`; `dotnet format` enforces it. Namespaces are file-scoped, and `if`/`else` bodies
+- Follow `.editorconfig`; the build and `dotnet format` enforce it. Namespaces are file-scoped, and `if`/`else` bodies
   always have braces.
 - Keep domain logic in the `Core` projects as plain, testable code, and keep I/O (database, HTTP, files) at
   the edges. Prefer testing a pure function directly over mocking EF Core or HTTP.
