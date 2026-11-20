@@ -317,7 +317,9 @@ Ordered by value for cost.
 8. **Pagination and sorting** are covered under section 2.
 9. **Feedback in place.** After "Run now", the row's button turns into "Running…" with the spinner already in the CSS;
    after bulk actions the sticky bar shows progress, linking to the bulk operation. (Small) **Built:** the button reads
-   "Starting..." at once (the list already shows Running and Cancel when the answer comes); bulk progress is left.
+   "Starting..." at once (the list already shows Running and Cancel when the answer comes). While a bulk action runs
+   or waits, a strip fixed to the bottom of the Torrents page shows its progress and links to the notice with Cancel;
+   it hides while that notice is on screen, and the bulk-action bar sits above it.
 10. **Contrast and focus checks on all themes** for the new elements (badges on the menu button, sticky bar), using the
     existing token rules (`--text-muted` meets AA on `--surface-2`). (Part of each step)
 
