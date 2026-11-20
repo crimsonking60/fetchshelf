@@ -5,6 +5,58 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.17 - 2026-11-20
+
+The Link job no longer makes other jobs fail with "database is locked" while it runs. A bulk action on the
+**Torrents** page keeps the ticked rows and the place in the list, and shows its progress at the bottom. The account's
+numbers are read from MAM when Fetchshelf starts, each Upgrade run is kept as an event, and `[[autograb]]` blocks can
+carry a description of their own.
+
+### Upgrading
+
+- The database is upgraded when the new version starts, and going back to an older version is not possible. With
+  a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.17/configuration/#backup) section, a backup is taken first, named
+  `data-<time>-2026.11.16-before-2026.11.17.db`; without one, back up your data folder yourself.
+- **Two pages open on another list.** The **Series** page opens on the new **Not ignored** choice, and a series' or
+  author's page on the **Following** pages opens on **All** instead of **To look at**. Links and bookmarks without a
+  filter in them get the new default; **All series** and **To look at** are still in the dropdowns.
+- **One more MAM call per start.** With a `mam_id`, Fetchshelf reads the account from MAM once when it starts, unless a
+  job has read it first.
+- Nothing else is needed: no setting is added or changed except the new, optional `description`.
+
+### Added
+
+- `description` on `[[autograb]]`: a line shown under the block's job on the **Jobs** page and under its name on the
+  **Config** page (#136). See [`[[autograb]]`](https://fetchshelf.readthedocs.io/en/v2026.11.17/configuration/#autograb).
+- Each run of the Upgrade job is an *Upgrade run* event on the **Events** page, with its result as the **Jobs** page
+  shows it (#138).
+- The account is read from MAM when Fetchshelf starts, so the **Jobs** and **Account** pages have its numbers from the
+  start instead of saying none have been read (#138).
+- **Library check**: with more than one library, a dropdown shows one library's findings, and the buttons come back to
+  it (#136).
+- On a torrent's page, the actions are a column of buttons, each with what it does beside it; **Split into its books**
+  sits next to **Refresh and relink**, with a short explanation (#136).
+- The **Torrents** page's **Filters** panel opens as it was left on the last visit (#136).
+
+### Changed
+
+- **Series**: **Not ignored** is the first choice and the default; **Every series** is **All series** (#136).
+- **Following**: a series' or author's page opens on **All**; and a find of a book that is already had, by this
+  torrent or another copy of it, says *Already owned* instead of *In the library* (#138, #140).
+- **Torrents**: a bulk action keeps the ticked rows and where the list was scrolled to, and its progress shows in the
+  strip at the bottom, which is as wide as the table (#137).
+- The theme menu's button is a clearer icon (#136).
+
+### Fixed
+
+- The Link job took the database's write lock back the moment it committed each batch, so another job saving during a
+  Link run could wait out its 30 second timeout and fail with "database is locked". It now leaves the lock free between
+  batches (#139).
+- **Torrents**: the Search button no longer drops below the search box when the filters are folded, and the box keeps
+  its width (#136).
+- **Search**: the **Download** and **Wedge download** buttons stay on one line (#136).
+- **Config**: an autograb block's type was shown as `Fetchshelf.Data.Configuration.AutograbType` (#136).
+
 ## 2026.11.16 - 2026-11-20
 
 The web interface is easier to find your way around and fits narrower screens. Related pages share a menu, tables
