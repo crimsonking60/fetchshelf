@@ -39,9 +39,8 @@ public sealed record FollowListQuery(string? Q, FollowKind? Kind, FollowMode? Mo
 
     public FollowListQuery WithoutFilters() => this with { Kind = null, Mode = null, Waiting = false };
 
-    /// <summary>Sorted by the column: in its natural order first, reversed when already sorted that way.</summary>
-    public FollowListQuery SortedBy(string column) =>
-        this with { Sort = column, Dir = Sort == column ? (Dir == "asc" ? "desc" : "asc") : DefaultDir(column) };
+    /// <summary>The sort as the column headings show it and lead on from.</summary>
+    public SortState SortState => SortState.From(Sort, Dir);
 
     /// <summary>Names A to Z; the most to look at, and the latest searched, first.</summary>
     public static string DefaultDir(string column) => column == DefaultSort ? "asc" : "desc";

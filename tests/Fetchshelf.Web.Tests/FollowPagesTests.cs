@@ -155,6 +155,24 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_HasTheStandardSortableHeadings_ByNameAToZByDefault()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Following?Q=corey"));
+
+        var head = html[html.IndexOf("<thead>", StringComparison.Ordinal)..html.IndexOf("</thead>", StringComparison.Ordinal)];
+        Assert.Matches(@"<th aria-sort=""ascending""><a class=""sort"" href=""[^""]*Q=corey[^""]*Sort=Name&Dir=desc[^""]*"">Name<span class=""sort-arrow""", head);
+        Assert.Matches(@"<th class=""col-fit"" aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=ToLookAt&Dir=desc[^""]*"">To look at<", head);
+        Assert.Matches(@"<th class=""col-fit"" aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=Searched&Dir=desc[^""]*"">Last searched<", head);
+
+        var bySearched = WebUtility.HtmlDecode(await client.GetStringAsync("/Following?Sort=Searched&Dir=desc"));
+        Assert.Matches(@"aria-sort=""descending""><a class=""sort"" href=""[^""]*Sort=Searched&Dir=asc[^""]*"">Last searched<", bySearched);
+    }
+
+    [Fact]
     public async Task FollowingPages_WithoutAFreeGrabBlock_LeaveNotFreeOut()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow.Replace("cost = \"free\"", "cost = \"ratio\"", StringComparison.Ordinal));

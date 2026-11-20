@@ -1271,7 +1271,7 @@ The **Following** page lists every series and author on *Auto* or followed, one 
 *Auto*, how many of its finds are to look at, not free, selected and in the library, and when it was last
 searched and will be searched again at the earliest. It can be searched by name, limited to series or authors,
 to those on *Auto* or followed, or to those with books to look at, sorted by name, by what is to look at or by
-when they were searched, and paged like the **Torrents** page. Each row has the **Change to Auto** or **Change to
+when they were searched (click a column heading, as on the **Torrents** page), and paged like it. Each row has the **Change to Auto** or **Change to
 Followed**, **Search now** and **Stop following** buttons.
 
 A series' or author's name opens its own page, with the same buttons and what was found for it: each torrent's

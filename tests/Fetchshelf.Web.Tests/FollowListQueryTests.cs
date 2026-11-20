@@ -94,6 +94,6 @@ public class FollowListQueryTests
         Assert.Equal(["The Expanse"], (query with { Kind = FollowKind.Series }).Apply(summaries).Select(s => s.Follow.DisplayName));
         Assert.Equal(["The Expanse"], (query with { Mode = FollowMode.Download }).Apply(summaries).Select(s => s.Follow.DisplayName));
         Assert.Equal(["James S. A. Corey"], (query with { Waiting = true }).Apply(summaries).Select(s => s.Follow.DisplayName));
-        Assert.Equal("James S. A. Corey", query.SortedBy("ToLookAt").Apply(summaries).First().Follow.DisplayName);
+        Assert.Equal("James S. A. Corey", (query with { Sort = "ToLookAt", Dir = "desc" }).Apply(summaries).First().Follow.DisplayName);
     }
 }
