@@ -35,6 +35,13 @@ public sealed record FollowRunSummary(int Searched, int Selected, int NewFinds, 
 /// series (or author) has the followed name's key, the same key the library's series and people rows have. What the
 /// library already has, or the selection queue holds, is never a find.
 /// </remarks>
+/// <summary>What the Follow job takes from outside its section.</summary>
+/// <param name="FirstLanguage">
+/// The first of the top-level `languages`: the language of a find recorded before languages were kept. Null when none
+/// is configured; such a find is then checked against the library in every language.
+/// </param>
+public sealed record FollowRunnerOptions(Language? FirstLanguage);
+
 public sealed class FollowRunner(
     FetchshelfDbContext dbContext,
     MamClient mamClient,
@@ -46,8 +53,11 @@ public sealed class FollowRunner(
     TimeProvider? timeProvider = null,
     Func<TimeSpan, CancellationToken, Task>? delay = null,
     ILogger<FollowRunner>? logger = null,
-    AudiobookshelfSeriesSync? audiobookshelfSeries = null)
+    AudiobookshelfSeriesSync? audiobookshelfSeries = null,
+    FollowRunnerOptions? options = null)
 {
+    private readonly Language? _firstLanguage = options?.FirstLanguage;
+
     /// <summary>Whether this run is a dry run: the configured `dry_run`, or the Jobs page's <b>Dry run</b>. Set at the start of a run.</summary>
     private bool _dryRun;
 
@@ -276,6 +286,9 @@ public sealed class FollowRunner(
             finds[candidate.Record.MamId].Language = candidate.Metadata.Language.ToString();
         }
         (candidates, var had) = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
+        await RetireCoveredFindsAsync(follow, finds, cancellationToken);
+        TidyDuplicateFinds(follow, finds);
+        var findsByBook = finds.Values.GroupBy(f => (BookKeyOf(follow, f), f.MediaSide)).ToDictionary(g => g.Key, g => g.First());
 
         var decisions = Decide(follow, candidates, grabFilters, out var books);
         var now = _time.GetUtcNow();
@@ -285,13 +298,24 @@ public sealed class FollowRunner(
         foreach (var decision in decisions)
         {
             var shown = decision.Shown;
-            if (finds.TryGetValue(shown.Record.MamId, out var known)
+            // Another upload of a book and format already listed is that book's find, not a second one.
+            var known = finds.GetValueOrDefault(shown.Record.MamId) ?? findsByBook.GetValueOrDefault((shown.BookKey, shown.Side.ToString()));
+            if (known is not null
                 && (known.Status is FollowFindStatus.Dismissed or FollowFindStatus.Selected
                     || (known.Status is FollowFindStatus.New && follow.Mode == FollowMode.Watch)
                     || (known.Status is FollowFindStatus.Wanted && decision.Winner is null)))
             {
                 outcome.Known++;
                 continue;
+            }
+
+            if (known is not null && known.MamId != shown.Record.MamId)
+            {
+                // The book's find moves on to this upload, the one the search now takes for the book and format.
+                finds.Remove(known.MamId);
+                (known.MamId, known.Title, known.SizeBytes) = (shown.Record.MamId, shown.Metadata.Title, SizeOf(shown.Record));
+                known.Language = shown.Metadata.Language.ToString();
+                finds[known.MamId] = known;
             }
 
             if (decision.Winner is null)
@@ -565,7 +589,8 @@ public sealed class FollowRunner(
             var titleKey = TitleNormalizer.Normalize(candidate.Metadata.Title);
             var owned = inLibrary.Contains(mamId)
                 || sameTitle.Any(t => t.Key == titleKey && SameBookComparer.AreSameBook(candidate.Metadata, t.Metadata))
-                || (ownedNumbers.TryGetValue((candidate.Side, candidate.Metadata.Language), out var numbers) && IsOwnedEntry(candidate, numbers.Covered, numbers.Displays));
+                || (ownedNumbers.TryGetValue((candidate.Side, candidate.Metadata.Language), out var numbers)
+                    && IsOwnedEntry(candidate.SeriesDisplay, candidate.SeriesNumber, candidate.SeriesLastNumber, numbers.Covered, numbers.Displays));
             if (owned || queued.Contains(mamId))
             {
                 if (finds.TryGetValue(mamId, out var find) && find.Status is FollowFindStatus.New or FollowFindStatus.Wanted)
@@ -614,27 +639,134 @@ public sealed class FollowRunner(
         }
     }
 
-    private static bool IsOwnedEntry(Candidate candidate, HashSet<int> covered, HashSet<string> displays)
+    private static bool IsOwnedEntry(string? display, double? firstNumber, double? lastNumber, HashSet<int> covered, HashSet<string> displays)
     {
-        if (candidate.SeriesDisplay is null)
+        if (display is null)
         {
             return false;
         }
 
-        if (displays.Contains(candidate.SeriesDisplay))
+        if (displays.Contains(display))
         {
             return true;
         }
 
         // Owned when owned entries cover every book it holds: 2 within an owned 1-3, but not an omnibus 3-5 when only 3
         // is owned. An entry holding no whole book (1.5) is only owned under its own display.
-        if (candidate.SeriesNumber is not { } first)
+        if (firstNumber is not { } first)
         {
             return false;
         }
 
-        var books = SeriesGaps.Covered([(first, candidate.SeriesLastNumber ?? first)]);
+        var books = SeriesGaps.Covered([(first, lastNumber ?? first)]);
         return books.Count > 0 && books.IsSubsetOf(covered);
+    }
+
+    /// <summary>A find's language: as recorded, else the first configured one; null for any (see <see cref="FollowRunnerOptions"/>).</summary>
+    private Language? LanguageOf(FollowFindEntity find) =>
+        Enum.TryParse<Language>(find.Language, out var language) && Enum.IsDefined(language) ? language : _firstLanguage;
+
+    /// <summary>The key a search result of the find's book would have (see <c>ToCandidate</c>), from what the find stores.</summary>
+    private string BookKeyOf(FollowEntity follow, FollowFindEntity find) =>
+        (LanguageOf(find)?.ToString() ?? Language.English.ToString()) + "|"
+        + (follow.Kind == FollowKind.Series && find.SeriesDisplay is not null ? "entry:" + find.SeriesDisplay : "title:" + TitleNormalizer.Normalize(find.Title));
+
+    /// <summary>
+    /// Finds still to look at, or not free, that the library or the selection queue has come to hold since: checked on
+    /// every run from what the find stores, as a search returns a torrent again only while it is among the newest uploads,
+    /// or at a full read every <see cref="ReadAllAgainAfter"/>. An old upload found before its book came into the library,
+    /// such as by a collection, was otherwise offered for weeks. Owned as a search result is: the same torrent, a library
+    /// torrent of the follow with the same title, format and language, or, for a series, an entry owned in that format
+    /// and language.
+    /// </summary>
+    private async Task RetireCoveredFindsAsync(FollowEntity follow, Dictionary<long, FollowFindEntity> finds, CancellationToken cancellationToken)
+    {
+        var waiting = finds.Values.Where(f => f.Status is FollowFindStatus.New or FollowFindStatus.Wanted).ToList();
+        if (waiting.Count == 0)
+        {
+            return;
+        }
+
+        var mamIds = waiting.Select(f => f.MamId).ToList();
+        var inLibrary = (await dbContext.Torrents.Where(t => mamIds.Contains(t.MamId)).Select(t => t.MamId).ToListAsync(cancellationToken)).ToHashSet();
+        var queued = (await dbContext.SelectedTorrents.Where(s => s.RemovedAt == null && mamIds.Contains(s.MamId)).Select(s => s.MamId)
+            .ToListAsync(cancellationToken)).ToHashSet();
+
+        var ofFollow = follow.Kind == FollowKind.Series
+            ? libraryQueries.TorrentIdsInSeries(follow.NameKey)
+            : libraryQueries.TorrentIdsWithPerson(PersonRole.Author, follow.NameKey);
+        var titleKeys = waiting.Select(f => TitleNormalizer.Normalize(f.Title)).Where(k => k.Length > 0).Distinct().ToList();
+        var sameTitle = (await dbContext.Torrents.AsNoTracking()
+                .Where(t => ofFollow.Contains(t.Id) && t.ReplacedWithTorrentId == null && titleKeys.Contains(t.NormalizedTitleKey))
+                .Select(t => new { t.NormalizedTitleKey, t.MediaType, t.Language })
+                .ToListAsync(cancellationToken))
+            .Select(t => (Key: t.NormalizedTitleKey,
+                Side: Enum.TryParse<MediaType>(t.MediaType, out var mediaType) ? FilterMainTypeMapper.FromMediaType(mediaType).ToString() : null,
+                t.Language))
+            .ToList();
+
+        var ownedNumbers = new Dictionary<(FilterMainType, Language?), (HashSet<int> Covered, HashSet<string> Displays)>();
+        var now = _time.GetUtcNow();
+        var retired = 0;
+        foreach (var find in waiting)
+        {
+            var language = LanguageOf(find);
+            var titleKey = TitleNormalizer.Normalize(find.Title);
+            var owned = inLibrary.Contains(find.MamId)
+                || sameTitle.Any(t => t.Key == titleKey && t.Side == find.MediaSide && (language is null || t.Language == language.ToString()));
+            if (!owned && follow.Kind == FollowKind.Series && find.SeriesDisplay is { } display
+                && Enum.TryParse<FilterMainType>(find.MediaSide, out var side))
+            {
+                if (!ownedNumbers.TryGetValue((side, language), out var numbers))
+                {
+                    var entries = await libraryQueries.OwnedEntriesAsync(follow.NameKey, side, language, cancellationToken);
+                    numbers = (
+                        SeriesGaps.Covered(entries.Where(e => e.FirstNumber is not null).Select(e => (e.FirstNumber!.Value, e.LastNumber ?? e.FirstNumber!.Value))),
+                        entries.Select(e => e.Display).OfType<string>().ToHashSet(StringComparer.Ordinal));
+                    ownedNumbers[(side, language)] = numbers;
+                }
+
+                var entry = SeriesParser.Parse(follow.DisplayName, display).Entries.FirstOrDefault();
+                owned = IsOwnedEntry(display, entry is null ? null : (double)entry.FirstNumber, entry?.LastNumber is { } last ? (double)last : null,
+                    numbers.Covered, numbers.Displays);
+            }
+
+            if (owned || queued.Contains(find.MamId))
+            {
+                (find.Status, find.StatusAt) = (owned ? FollowFindStatus.Owned : FollowFindStatus.Selected, now);
+                retired++;
+            }
+        }
+
+        if (retired > 0)
+        {
+            _logger.LogInformation("Follow {Name}: {Count} found earlier are in the library or selected by now", follow.DisplayName, retired);
+        }
+    }
+
+    /// <summary>
+    /// One find per book and format: where a book and format has more than one, as earlier searches could list a newer
+    /// upload beside an older one, the most settled stays (selected, then owned, then waiting; the first found among
+    /// those) and the others go. A dismissed find is never removed: it is the reader's choice.
+    /// </summary>
+    private void TidyDuplicateFinds(FollowEntity follow, Dictionary<long, FollowFindEntity> finds)
+    {
+        static int Settled(FollowFindStatus status) => status switch
+        {
+            FollowFindStatus.Selected => 0,
+            FollowFindStatus.Owned => 1,
+            _ => 2,
+        };
+
+        foreach (var book in finds.Values.Where(f => f.Status != FollowFindStatus.Dismissed)
+                     .GroupBy(f => (BookKeyOf(follow, f), f.MediaSide)).Where(g => g.Count() > 1).ToList())
+        {
+            foreach (var extra in book.OrderBy(f => Settled(f.Status)).ThenBy(f => f.FoundAt).ThenBy(f => f.Id).Skip(1))
+            {
+                finds.Remove(extra.MamId);
+                dbContext.FollowFinds.Remove(extra);
+            }
+        }
     }
 
     /// <summary>

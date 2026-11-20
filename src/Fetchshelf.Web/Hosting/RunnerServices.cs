@@ -83,6 +83,8 @@ public static class RunnerServices
         if (settings.Follow is { } followSettings)
         {
             services.AddSingleton(followSettings);
+            services.AddSingleton(new FollowRunnerOptions(
+                settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var followLanguage) ? followLanguage : null));
             services.AddScoped<FollowRunner>();
             if (followSettings.AudiobookshelfSeries != AudiobookshelfSeriesMode.Off)
             {

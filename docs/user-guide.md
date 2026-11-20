@@ -1297,7 +1297,10 @@ found; a run that takes longer than 15 seconds carries on, and the Jobs page sho
 What the library already has is never offered: the same torrent, another copy of the same book, or, for a
 series, an entry owned in that format and language. Such a book is listed once, as *Already owned* (or *Selected*
 when it is queued), so a follow's page shows the whole series or author, and its *In the library* count says what is
-had. A book in two languages is two books: with `[[follow.grab]]`
+had. A book found before the library had it, for example before a collection holding it was linked, moves
+on to *Already owned* at the follow's next search, also when that search no longer reaches its torrent: each search
+reads only the newest uploads, and all of them only every 30 days. Each book and format is listed once, however many
+uploads of it MAM has, and an extra listing left by an earlier version goes at the next search; a dismissed one stays. A book in two languages is two books: with `[[follow.grab]]`
 blocks that take English and Hungarian, both editions of a series' books are found, each on its own, and the lists get a
 **Language** column and filter when their finds are in more than one language. A collection counts for every book it holds, so with a *Discworld 1-40*
 ebook collection in the library none of the novels 1 to 40 is offered as an ebook, however many single uploads
