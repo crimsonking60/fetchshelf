@@ -26,6 +26,26 @@ public sealed class AutograbConfigTests : IDisposable
         Assert.Contains("type", exception.Message);
     }
 
+    [Fact]
+    public void Load_Description_IsRead_AndUnsetByDefault()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "new"
+            description = "Pratchett ebooks, the moment they appear"
+
+            [[autograb]]
+            type = "freeleech"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Equal("Pratchett ebooks, the moment they appear", settings.Autograb[0].Description);
+        Assert.Null(settings.Autograb[1].Description);
+    }
+
     [Theory]
     [InlineData("new")]
     [InlineData("torrents")]

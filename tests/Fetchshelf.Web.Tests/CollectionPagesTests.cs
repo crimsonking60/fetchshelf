@@ -98,6 +98,20 @@ public class CollectionPagesTests
     }
 
     [Fact]
+    public async Task TorrentPage_PutsTheSplitCheckboxRightOfRefreshAndRelink()
+    {
+        using var fixture = SplittingFixture(librarySplits: false);
+        await SeedEbookAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync($"/torrents/{Hash}");
+
+        // The button, then its note, which starts with the checkbox, then says what the button does.
+        Assert.Matches(
+            @"<button type=""submit"" class=""primary"">Refresh and relink</button>\s*<div class=""action-note"">\s*<input type=""hidden"" name=""splitShown"" value=""true"" />\s*<label class=""action-option""[^>]*><input type=""checkbox"" name=""split""[^>]*/> Split into its books <span class=""action-option-hint"">links each book of a collection on its own</span></label>\s*Updates the details from MAM",
+            html);
+    }
+
+    [Fact]
     public async Task TorrentPage_OffersSplitting_WithoutAnySetting_Unticked()
     {
         using var fixture = new FetchshelfWebAppFixture();

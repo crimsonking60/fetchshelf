@@ -10,6 +10,22 @@ public class JobGroupingTests
     private static FetchshelfSettings Settings(params string[] autograbNames) =>
         new() { Autograb = autograbNames.Select(n => new AutograbEntry { Name = n }).ToList() };
 
+    [Fact]
+    public void AutograbJobs_TakeTheirBlocksDescription_AndNoneWithoutOne()
+    {
+        var settings = new FetchshelfSettings
+        {
+            Autograb = [new AutograbEntry { Name = "BM 1", Description = "  My bookmarks  " }, new AutograbEntry { Name = "BM 2" }],
+        };
+        // Registered with the sentence every autograb job has; the block's own description replaces it, or nothing does.
+        JobStatusViewModel Registered(string name) => new(name, "Searches MAM for new matches.", null, "Never run", false, null);
+
+        var autograb = JobGrouping.Build([Registered("BM 1"), Registered("BM 2")], settings).Groups.Single(g => g.Group == JobGroup.Autograb);
+
+        Assert.Equal("My bookmarks", autograb.Jobs[0].Description);
+        Assert.Null(autograb.Jobs[1].Description);
+    }
+
     private static string[] Names(JobListViewModel list, JobGroup group) =>
         list.Groups.Single(g => g.Group == group).Jobs.Select(j => j.Name).ToArray();
 

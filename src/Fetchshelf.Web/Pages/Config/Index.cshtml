@@ -163,7 +163,13 @@
                 {
                     var entry = settings.Autograb[i];
                     <tr>
-                        <td>@entry.Name</td>
+                        <td>
+                            @entry.Name
+                            @if (!string.IsNullOrWhiteSpace(entry.Description))
+                            {
+                                <div class="sub">@entry.Description</div>
+                            }
+                        </td>
                         <td>@entry.Type</td>
                         <td>@entry.Cost</td>
                         <td>@entry.Category</td>

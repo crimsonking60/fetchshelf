@@ -365,6 +365,22 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task SeriesPage_ShowsNotIgnoredFirst_AndByDefault()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        using var client = fixture.CreateClient();
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Series"));
+
+        var options = System.Text.RegularExpressions.Regex.Matches(html[html.IndexOf("<select name=\"Show\"", StringComparison.Ordinal)..], @"<option value=""([^""]*)""( selected=""selected"")?>([^<]+)</option>")
+            .Take(5).Select(m => (m.Groups[1].Value, m.Groups[2].Success, m.Groups[3].Value)).ToList();
+        Assert.Equal(
+            [("", true, "Not ignored"), ("all", false, "All series"), ("missing", false, "With missing books"), ("followed", false, "Auto or followed"), ("ignored", false, "Ignored")],
+            options);
+        Assert.DoesNotContain("Every series", html);
+    }
+
+    [Fact]
     public async Task SeriesPage_Ignore_LeavesTheSeriesOutOfThoseWithMissingBooks_AndStopUndoesIt()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
@@ -376,8 +392,12 @@ public partial class FollowPagesTests
 
         Assert.DoesNotContain("The Expanse", await client.GetStringAsync("/Series?Show=missing"));
         Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=ignored"));
+        // Not ignored, the default, leaves it out too; All series has it.
+        Assert.DoesNotContain("The Expanse", await client.GetStringAsync("/Series"));
+        Assert.Contains("The Expanse", await client.GetStringAsync("/Series?Show=all"));
 
-        await PostAsync(client, "/Series", "/Series?handler=Mode", new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Stop" }, htmx: true);
+        // An ignored series is reached through Ignored (or All series), where its buttons are.
+        await PostAsync(client, "/Series?Show=ignored", "/Series?handler=Mode", new() { ["key"] = "expanse", ["name"] = "The Expanse", ["mode"] = "Stop" }, htmx: true);
 
         Assert.Null(FollowOf(fixture, FollowKind.Series, "expanse"));
     }

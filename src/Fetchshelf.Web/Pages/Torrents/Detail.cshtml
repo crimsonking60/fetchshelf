@@ -148,47 +148,84 @@
     }
 
     <h3>Actions</h3>
-    <p id="refresh-explanation" class="muted">
-        <strong>Refresh</strong> replaces the details with MAM's, including any edited by hand.
-        <strong>Refresh and relink</strong> keeps details edited by hand, and moves the book's folder to match them.
-    </p>
-    <div class="actions">
+    @* One row per action: the button, and what it does beside it (under it on a narrow screen). Each form is display:
+       contents, so its button and note are cells of the grid and the notes line up. *@
+    <div class="action-list">
         @if (Model.Books.Count == 0)
         {
-            <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clean</button></form>
+            <form method="post" asp-page-handler="Clean" asp-route-id="@torrent.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit">Clean</button>
+                <div class="action-note">Looks for another linked copy of this book and retires the worse of the two, which can be this one. Does nothing when no other copy is linked.</div>
+            </form>
         }
         @if (Model.EditedByHand)
         {
-            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" data-confirm="Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead." data-confirm-label="Replace">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id" data-confirm="Replace the details edited by hand with the details from MAM? Refresh and relink keeps the edits instead." data-confirm-label="Replace">
+                @Html.AntiForgeryToken()
+                <button type="submit">Refresh</button>
+                <div class="action-note">Replaces the details with MAM's, including the ones edited by hand, without moving any files. Asks first.</div>
+            </form>
         }
         else
         {
-            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Refresh</button></form>
+            <form method="post" asp-page-handler="Refresh" asp-route-id="@torrent.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit">Refresh</button>
+                <div class="action-note">Replaces the details with MAM's, without moving any files.</div>
+            </form>
         }
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">
             @Html.AntiForgeryToken()
-            @if (Model.OffersSplit)
-            {
-                <input type="hidden" name="splitShown" value="true" />
-                <label title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books</label>
-            }
             <button type="submit" class="primary">Refresh and relink</button>
+            <div class="action-note">
+                @if (Model.OffersSplit)
+                {
+                    <input type="hidden" name="splitShown" value="true" />
+                    <label class="action-option" title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books <span class="action-option-hint">links each book of a collection on its own</span></label>
+                }
+                Updates the details from MAM, keeping the ones edited by hand, and moves the book's folder to match them. Also brings back a book that was unlinked or replaced.
+            </div>
         </form>
         @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)
         {
-            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it.")" data-confirm-label="Remove">@Html.AntiForgeryToken()<button type="submit">Unlink</button></form>
+            <form method="post" asp-page-handler="Unlink" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this book from your library? qBittorrent keeps the torrent and its data, and Fetchshelf stops linking it until you relink it.")" data-confirm-label="Remove">
+                @Html.AntiForgeryToken()
+                <button type="submit">Unlink</button>
+                <div class="action-note">Takes the book out of the library. qBittorrent keeps seeding it, and the record stays, so it isn't downloaded again. Asks first.</div>
+            </form>
         }
         @if (!Model.IsBook)
         {
-            <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Start</button></form>
-            <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Stop</button></form>
-            <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.")" data-confirm-label="Remove">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove from qBittorrent with data</button></form>
+            <form method="post" asp-page-handler="Start" asp-route-id="@torrent.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit">Start</button>
+                <div class="action-note">Starts the torrent in qBittorrent.</div>
+            </form>
+            <form method="post" asp-page-handler="Stop" asp-route-id="@torrent.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit">Stop</button>
+                <div class="action-note">Stops the torrent in qBittorrent.</div>
+            </form>
+            <form method="post" asp-page-handler="RemoveWithData" asp-route-id="@torrent.Id" data-confirm="@(Model.RemovalWarning + "Remove this torrent from qBittorrent and delete its downloaded files? This cannot be undone.")" data-confirm-label="Remove">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="danger">Remove from qBittorrent with data</button>
+                <div class="action-note">Removes the torrent from qBittorrent and deletes its downloaded files. This cannot be undone. Asks first.</div>
+            </form>
         }
         @if (torrent.ReplacedWithTorrentId is not null)
         {
-            <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit">Clear replaced marker</button></form>
+            <form method="post" asp-page-handler="ClearReplaced" asp-route-id="@torrent.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit">Clear replaced marker</button>
+                <div class="action-note">Forgets that a better copy replaced this one, so the next Link run links it again. While the better copy is linked, the next Clean retires it again.</div>
+            </form>
         }
-        <form method="post" asp-page-handler="RemoveRecord" asp-route-id="@torrent.Id">@Html.AntiForgeryToken()<button type="submit" class="danger">Remove record</button></form>
+        <form method="post" asp-page-handler="RemoveRecord" asp-route-id="@torrent.Id">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="danger">Remove record</button>
+            <div class="action-note">Makes Fetchshelf forget this torrent, and a collection's books with it. Files are left as they are; the next Link run takes the torrent up again while qBittorrent has it and a library accepts it.</div>
+        </form>
     </div>
     <p><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit metadata</a></p>
 

@@ -508,6 +508,7 @@ Takes all [shared filter](#the-shared-torrent-filter) fields, plus:
 | Setting | Default | Description |
 |---|---|---|
 | `type` | (required) | What to search. See below. |
+| `description` | unset | A line of text shown under the block's job on the **Jobs** page and under its name on the **Config** page, such as what the block is for. |
 | `cost` | `"free"` | How to pay for matching torrents. See [cost](#cost). |
 | `query` | unset | Free-text search. Supports MAM's search syntax. |
 | `search_in` | `[]` | Which fields the query matches against: `author`, `description`, `filenames`, `file_types`, `narrator`, `series`, `tags`, `title`. Empty means MAM's default fields. |

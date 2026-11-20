@@ -46,7 +46,8 @@
     }
     @* Without a script each choice is a link that sets the cookie and comes back; theme.js applies it at once instead. *@
     <details class="nav-menu theme-menu">
-        <summary title="Theme: @themeLabel"><span aria-hidden="true">&#9680;</span><span class="visually-hidden">Theme: @themeLabel</span></summary>
+        @* A drawn half-filled circle, in the menu's text color: the ◐ character was a smudge in the menu's font size. *@
+        <summary title="Theme: @themeLabel"><svg class="theme-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2" /><path d="M10 2a8 8 0 0 0 0 16z" fill="currentColor" /></svg><span class="visually-hidden">Theme: @themeLabel</span></summary>
         <div class="nav-panel">
             @foreach (var (id, label) in Themes.All)
             {

@@ -165,6 +165,12 @@ public class IndexModel(
 
     public bool CheckFailed { get; private set; }
 
+    /// <summary>The cookie that remembers the Filters panel left open ("open") or closed ("closed"); remember-open.js sets it.</summary>
+    public const string FiltersOpenCookie = "fs-torrent-filters";
+
+    /// <summary>The Filters panel starts open while a filter is in use, or when it was left open on an earlier visit.</summary>
+    public bool FiltersOpen => Query.HasFilters || Request.Cookies[FiltersOpenCookie] == "open";
+
     public async Task OnGetAsync()
     {
         CheckMessage = TempData["CheckMessage"] as string;

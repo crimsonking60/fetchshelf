@@ -70,6 +70,7 @@ code, kbd, samp, .mono { font-family: "IBM Plex Mono", ui-monospace, "Cascadia M
 @keyframes run-pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .run-status::before { animation: none; } }
 .nav-menu.theme-menu > summary::after { content: none; }
+.theme-icon { display: block; width: 1.25rem; height: 1.25rem; }
 .theme-menu .nav-panel { left: auto; right: 0; }
 .nav-panel a[aria-current="true"] { border-left-color: var(--accent-line); color: var(--text); }
 
@@ -247,6 +248,13 @@ form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 /* A search toolbar with its filters on a row of their own below it */
 .toolbar-stack { display: flex; flex-direction: column; gap: 0.5rem; }
 .toolbar-bar > .toolbar-stack, .toolbar-stack > .toolbar { margin: 0; }
+/* A search box and its button, kept on one line: the box shrinks on a narrow screen instead of the button wrapping below. */
+.toolbar.search-line { flex-wrap: nowrap; }
+/* The full width of a toolbar's search box (its max-width), so the box is as wide with the filters folded as with
+   them open; without it the folded form would take the input's narrow default. */
+.toolbar.search-line input[type="text"] { width: 26rem; min-width: 8rem; }
+/* On a narrow screen the form may get narrower than that width, so the box shrinks rather than pushing Search off. */
+.toolbar-stack:has(> .search-line) { min-width: 0; max-width: 100%; }
 .toolbar-bar > .push { margin: 0 0 0 auto; }
 
 fieldset { border: 1px solid var(--border-strong); border-radius: 4px; padding: 0.5rem 0.9rem 0.7rem; margin: 0.9rem 0; }
@@ -526,6 +534,20 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 .details-full { white-space: pre-line; overflow-wrap: anywhere; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.9rem; }
+/* A torrent's actions: the buttons in a column of one width, each with what it does beside it. */
+.action-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.5rem 1rem; align-items: center; margin: 0.5rem 0 0.9rem; max-width: 60rem; }
+.action-list > form { display: contents; }
+.action-list > form > button { justify-self: stretch; }
+.action-note { color: var(--text-muted); }
+/* An option of the action, such as Split into its books: on its own line, beside the button, above the note's text. */
+.action-option { display: block; margin-bottom: 0.15rem; color: var(--text); font-weight: 500; }
+.action-option input { margin: 0 0.35rem 0 0; }
+.action-option-hint { margin-left: 0.4rem; color: var(--text-muted); font-weight: 400; }
+@media (max-width: 40rem) {
+    .action-list { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+    .action-list > form > button { justify-self: start; }
+    .action-note { margin-bottom: 0.6rem; }
+}
 
 /* The bulk-action bar: the buttons under a list, fixed to the bottom of the window while the list is on screen and
    rows are ticked (bulk-bar.js hides it otherwise), so they are in reach however long the list is. */

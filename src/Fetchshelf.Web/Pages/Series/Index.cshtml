@@ -12,10 +12,10 @@
 <form method="get" class="toolbar">
     <input type="text" name="Q" value="@Model.Q" placeholder="Search series and authors" aria-label="Search" />
     <select name="Show" aria-label="Show" onchange="this.form.requestSubmit()">
-        <option value="">Every series</option>
+        @* Not ignored, the first, is the default: an empty Show. *@
         @foreach (var (value, label) in Fetchshelf.Web.Pages.Series.IndexModel.ShowOptions)
         {
-            <option value="@value" selected="@(Model.Show == value)">@label</option>
+            <option value="@value" selected="@((Model.Show ?? string.Empty) == value)">@label</option>
         }
     </select>
     <input type="hidden" name="PageSize" value="@Model.PageSize" />

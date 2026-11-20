@@ -25,6 +25,29 @@ public sealed class LibraryCheckPageTests : IDisposable
         library_dir = "{LibraryDir}"
         """);
 
+    /// <summary>Two libraries: Audiobooks by name, and an ebook library without one, which goes by its folder.</summary>
+    private FetchshelfWebAppFixture TwoLibraries() => new($"""
+        mam_id = ""
+
+        [[library]]
+        name = "Audiobooks"
+        category = "audiobooks"
+        library_dir = "{LibraryDir}"
+
+        [[library]]
+        category = "ebooks"
+        library_dir = "{EbookDir}"
+        """);
+
+    private string EbookDir => Path.Combine(_root, "ebooks");
+
+    private void SetFindingsInBoth(FetchshelfWebAppFixture fixture) => Results(fixture).Set(
+        [
+            new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old audio", "Audiobooks"),
+            new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old ebook", EbookDir),
+        ],
+        DateTimeOffset.UtcNow);
+
     private static LibraryCheckResults Results(FetchshelfWebAppFixture fixture) =>
         fixture.CreateScope().ServiceProvider.GetRequiredService<LibraryCheckResults>();
 
@@ -62,6 +85,73 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         Assert.Contains("Not checked since Fetchshelf started.", html);
         Assert.DoesNotContain("library-check-badge", html);
+    }
+
+    [Fact]
+    public async Task TwoLibraries_OfferAllLibrariesFirst_ThenEachByNameOrFolder()
+    {
+        using var fixture = TwoLibraries();
+        SetFindingsInBoth(fixture);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck"));
+
+        var options = Regex.Matches(html[html.IndexOf("id=\"library-filter\"", StringComparison.Ordinal)..], @"<option value=""([^""]*)""[^>]*>([^<]+)</option>")
+            .Take(3).Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToList();
+        Assert.Equal([("", "All libraries"), ("Audiobooks", "Audiobooks"), (EbookDir, EbookDir)], options);
+        Assert.Contains("/lib/Author/Old audio", html);
+        Assert.Contains("/lib/Author/Old ebook", html);
+    }
+
+    [Fact]
+    public async Task ALibraryChosen_ShowsOnlyItsFindings()
+    {
+        using var fixture = TwoLibraries();
+        SetFindingsInBoth(fixture);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck?Library=Audiobooks"));
+
+        Assert.Contains("/lib/Author/Old audio", html);
+        Assert.DoesNotContain("/lib/Author/Old ebook", html);
+        Assert.Contains("<option value=\"Audiobooks\" selected=\"selected\">", html);
+    }
+
+    [Fact]
+    public async Task ALibraryWithNothing_SaysTheOthersHaveFindings()
+    {
+        using var fixture = TwoLibraries();
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old ebook", EbookDir)], DateTimeOffset.UtcNow);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck?Library=Audiobooks"));
+
+        Assert.Contains("Audiobooks matches the records. The other libraries have findings", html);
+    }
+
+    [Fact]
+    public async Task AnAction_ComesBackToTheChosenLibrary()
+    {
+        using var fixture = TwoLibraries();
+        SetFindingsInBoth(fixture);
+        var client = fixture.CreateNoRedirectClient();
+        var page = await client.GetStringAsync("/LibraryCheck?Library=Audiobooks");
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Library"] = "Audiobooks",
+            ["__RequestVerificationToken"] = Token(page),
+        });
+
+        // No findings ticked: the page only comes back, saying so, which is enough to see where it comes back to.
+        var response = await client.PostAsync("/LibraryCheck?handler=Delete", form);
+
+        Assert.Equal("/LibraryCheck?Library=Audiobooks", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task OneLibrary_HasNoLibraryChoice()
+    {
+        using var fixture = Fixture();
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, "/lib/Author/Old", "Audiobooks")], DateTimeOffset.UtcNow);
+
+        Assert.DoesNotContain("library-filter", await fixture.CreateClient().GetStringAsync("/LibraryCheck"));
     }
 
     [Fact]

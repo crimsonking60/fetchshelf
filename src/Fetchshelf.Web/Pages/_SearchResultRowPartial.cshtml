@@ -65,7 +65,8 @@
         @if (result.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
         @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
     </td>
-    <td>
+    @* Its buttons stay on one line, as its heading's column does. *@
+    <td class="col-fit">
         @if (result.InQBittorrent == true && result.Status is MamResultStatus.None or MamResultStatus.Selected)
         {
             @* qBittorrent has it already: downloading again makes no sense, recording it does. *@

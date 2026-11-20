@@ -45,6 +45,9 @@ public class AppVersionTests
         var footer = html[html.IndexOf("<footer class=\"site-footer\">", StringComparison.Ordinal)..];
         Assert.True(html.IndexOf("</main>", StringComparison.Ordinal) < html.IndexOf("<footer", StringComparison.Ordinal), "The footer comes after the page");
         Assert.Contains("class=\"nav-menu theme-menu\"", header);
+        // A drawn icon in the menu's text color; the ◐ character was too small to see on a desktop screen.
+        Assert.Matches("<summary title=\"Theme: [^\"]+\"><svg class=\"theme-icon\" width=\"20\" height=\"20\"[^>]*>.*stroke=\"currentColor\"", header);
+        Assert.DoesNotContain("&#9680;", header);
         foreach (var id in new[] { "system", "dark-warm", "dark-cool", "light-warm", "light-cool" })
         {
             Assert.Contains($"data-theme-choice=\"{id}\"", header);
