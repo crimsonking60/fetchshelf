@@ -589,7 +589,8 @@ you already have in the library, in an equal or better format, is skipped.
 
 ### Getting help
 
-- **Questions:** ask in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions), under **Q&A**.
+- **Questions:** ask in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions), under **Q&A**. Or ask in the
+  Fetchshelf thread in the MAM forums.
 - **Bugs:** [open an issue](https://github.com/crimsonking60/fetchshelf/issues/new/choose) with the **Bug
   report** form.
 - **Include** the Fetchshelf version (at the bottom of every page), what you expected and what happened, the
