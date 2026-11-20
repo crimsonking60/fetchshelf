@@ -12,7 +12,7 @@
     <form method="get" class="toolbar-stack">
         <div class="toolbar">
             <input type="text" name="Q" value="@Model.Q" placeholder="Search title, author, series" aria-label="Search" />
-            <button type="submit">Search</button>
+            <button type="submit" class="primary">Search</button>
         </div>
         @* The filters fold away behind one line, which stays open while any is in use; the chips say which are, and each drops its own. *@
         <details class="filter-panel" open="@Model.Query.HasFilters">

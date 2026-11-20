@@ -211,10 +211,12 @@ button:hover:not(:disabled) { border-color: var(--accent); background: var(--row
 button:active:not(:disabled) { transform: translateY(1px); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-button.primary, form[method="get"] > button[type="submit"], .edit-form > button[type="submit"] {
+/* The main action of a page region: a search or filter form's submit, an edit form's Save, the action a page is
+   for. One per region at most, set in the markup; bulk bars, row buttons and one-off actions stay plain. */
+button.primary {
     color: var(--on-accent); background: var(--accent); border-color: var(--accent); font-weight: 600;
 }
-button.primary:hover:not(:disabled), form[method="get"] > button[type="submit"]:hover:not(:disabled), .edit-form > button[type="submit"]:hover:not(:disabled) {
+button.primary:hover:not(:disabled) {
     background: var(--accent); filter: brightness(1.1); border-color: var(--text);
 }
 

@@ -72,7 +72,7 @@
 
             <form method="post" asp-page-handler="ApplyTagRule" asp-page="/Config/Index" asp-route-ruleIndex="@Model.RuleIndex">
                 @Html.AntiForgeryToken()
-                <button type="submit">Apply to @(preview.Changes.Count == 1 ? "this torrent" : $"these {preview.Changes.Count} torrents")</button>
+                <button type="submit" class="primary">Apply to @(preview.Changes.Count == 1 ? "this torrent" : $"these {preview.Changes.Count} torrents")</button>
             </form>
         }
     }

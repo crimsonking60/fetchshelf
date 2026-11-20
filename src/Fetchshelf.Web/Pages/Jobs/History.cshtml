@@ -13,7 +13,7 @@
     <input type="hidden" name="Job" value="@Model.Job" />
     <label><input type="checkbox" name="Unsuccessful" value="true" checked="@Model.Unsuccessful" /> Only runs that didn't succeed</label>
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
-    <button type="submit">Filter</button>
+    <button type="submit" class="primary">Filter</button>
 </form>
 
 @if (Model.Runs.Count == 0)

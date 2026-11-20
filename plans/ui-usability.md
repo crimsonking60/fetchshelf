@@ -310,7 +310,10 @@ Ordered by value for cost.
    separated from the rest of the bulk bar by a gap and confirmation dialogs instead of `confirm()`. Today
    `button.primary` is applied by selector for GET forms only, so primary actions differ between pages. (Medium)
    **Built:** `confirm.js` (a `<dialog>` for every `data-confirm`, replacing `confirm()`), confirmation added to the bulk Remove
-   buttons, destructive bulk buttons in their own group at the right of the bar. Left: one primary button per page region.
+   buttons, destructive bulk buttons in their own group at the right of the bar. `button.primary` is now set in the
+   markup only, once per region: a search or filter form's submit, an edit form's Save, Run the check, Apply in the
+   tag rule preview, and Refresh and relink among a torrent's actions. Bulk bars, row buttons and one-off actions stay
+   plain.
 8. **Pagination and sorting** are covered under section 2.
 9. **Feedback in place.** After "Run now", the row's button turns into "Running…" with the spinner already in the CSS;
    after bulk actions the sticky bar shows progress, linking to the bulk operation. (Small) **Built:** the button reads
