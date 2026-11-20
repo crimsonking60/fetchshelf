@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Entities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Web.Tests;
 
@@ -391,13 +393,25 @@ public partial class IndexPageTests
         Assert.Contains($"<span class=\"tip\" role=\"tooltip\">{string.Join(", ", names)}</span>", html);
     }
 
+    /// <summary>
+    /// A host whose MAM client tries a timed-out request again at once, not after its real 2-second wait, so the
+    /// timeout tests don't spend that time waiting.
+    /// </summary>
+    private static FetchshelfWebAppFixture TimeoutFixture(Func<HttpRequestMessage, HttpResponseMessage> mamHandler) => new(
+        mamHandler: mamHandler,
+        configureServices: services => services.AddSingleton(sp => new MamClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("mam"),
+            sp.GetRequiredService<MamClientOptions>(),
+            delay: (_, _) => Task.CompletedTask,
+            logger: sp.GetRequiredService<ILogger<MamClient>>())));
+
     private static Func<HttpRequestMessage, HttpResponseMessage> TimingOutMamHandler() =>
         _ => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 30 seconds elapsing.", new TimeoutException());
 
     [Fact]
     public async Task GetResults_MamTimesOut_ShowsATimeoutMessageInTheUi()
     {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: TimingOutMamHandler());
+        using var fixture = TimeoutFixture(TimingOutMamHandler());
         var client = fixture.CreateClient();
 
         var response = await client.GetAsync("/?handler=Results&Q=kings");
@@ -437,7 +451,7 @@ public partial class IndexPageTests
     [Fact]
     public async Task Post_Download_FromHtmx_MamTimesOut_ReturnsAnErrorMessageAndNoRow()
     {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamThatTimesOutAfterTheFirstSearch());
+        using var fixture = TimeoutFixture(MamThatTimesOutAfterTheFirstSearch());
         using var client = fixture.CreateNoRedirectClient();
         var token = ExtractAntiforgeryToken(await client.GetStringAsync("/?handler=Results&Q=kings"));
 
@@ -453,7 +467,7 @@ public partial class IndexPageTests
     [Fact]
     public async Task Post_Download_WithoutHtmx_MamTimesOut_ShowsTheErrorAfterTheRedirect()
     {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamThatTimesOutAfterTheFirstSearch());
+        using var fixture = TimeoutFixture(MamThatTimesOutAfterTheFirstSearch());
         using var client = fixture.CreateClient();
         var token = ExtractAntiforgeryToken(await client.GetStringAsync("/?handler=Results&Q=kings"));
 

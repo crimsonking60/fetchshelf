@@ -93,7 +93,7 @@ public static class FetchshelfApp
     /// </summary>
     public static async Task<int> RunAsync(string[] args)
     {
-        var paths = FetchshelfPaths.FromEnvironment();
+        var paths = FetchshelfPaths.FromArgumentsOrEnvironment(args);
         if (args.Contains(HealthProbe.Argument))
         {
             return await HealthProbe.RunAsync(paths.ConfigFile, TimeSpan.FromSeconds(5));

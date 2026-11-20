@@ -62,4 +62,23 @@ public sealed class FetchshelfPathsTests
         Assert.Equal("/database", new FetchshelfPaths("c", "/database/data.db", null).DataFolder);
         Assert.Equal(Directory.GetCurrentDirectory(), new FetchshelfPaths("c", "data.db", null).DataFolder);
     }
+
+    [Fact]
+    public void FromArgumentsOrEnvironment_AnArgument_GivesThePath()
+    {
+        // How the web tests' hosts get their own paths: WebApplicationFactory hands its settings over as arguments.
+        var paths = FetchshelfPaths.FromArgumentsOrEnvironment(
+            ["--environment=Development", "--FETCHSHELF_CONFIG_FILE=/tmp/a/config.toml", "--FETCHSHELF_DATA_FILE=/tmp/a/data.db"]);
+
+        Assert.Equal("/tmp/a/config.toml", paths.ConfigFile);
+        Assert.Equal("/tmp/a/data.db", paths.DataFile);
+    }
+
+    [Fact]
+    public void FromArgumentsOrEnvironment_OtherArguments_LeaveThePathsToTheEnvironment()
+    {
+        var paths = FetchshelfPaths.FromArgumentsOrEnvironment(["--check-config", "--FETCHSHELF_CONFIG_FILE"]);
+
+        Assert.Equal(Environment.GetEnvironmentVariable("FETCHSHELF_CONFIG_FILE") ?? FetchshelfPaths.Resolve(_ => null).ConfigFile, paths.ConfigFile);
+    }
 }
