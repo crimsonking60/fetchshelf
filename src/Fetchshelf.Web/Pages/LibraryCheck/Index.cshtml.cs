@@ -32,8 +32,23 @@ public class IndexModel(
     [TempData]
     public bool ActionFailed { get; set; }
 
-    /// <summary>The findings of one kind, in the order the check found them.</summary>
-    public IReadOnlyList<NumberedFinding> Of(LibraryFindingKind kind) => results.Findings.Where(f => f.Finding.Kind == kind).ToList();
+    /// <summary>The library whose findings are shown, by the name a finding carries; empty for every library.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Library { get; set; }
+
+    /// <summary>The libraries to choose from, named as their findings are: by name, else by folder.</summary>
+    public IReadOnlyList<string> LibraryNames => libraries.Select(l => l.Name ?? l.LibraryDir).Distinct().ToList();
+
+    /// <summary>Whether the check found anything at all, in any library.</summary>
+    public bool AnyFindings => results.Findings.Count > 0;
+
+    /// <summary>The findings of one kind in the chosen library, in the order the check found them.</summary>
+    public IReadOnlyList<NumberedFinding> Of(LibraryFindingKind kind) => results.Findings
+        .Where(f => f.Finding.Kind == kind && (string.IsNullOrEmpty(Library) || f.Finding.LibraryName == Library))
+        .ToList();
+
+    /// <summary>Back to the page, with the library that was chosen.</summary>
+    private RedirectToPageResult BackToPage() => RedirectToPage(new { Library = string.IsNullOrEmpty(Library) ? null : Library });
 
     public void OnGet()
     {
@@ -72,7 +87,7 @@ public class IndexModel(
     {
         ActionMessage = refusal;
         ActionFailed = true;
-        return RedirectToPage();
+        return BackToPage();
     }
 
     /// <summary>How long <b>Run the check</b> waits for the check to end before the page comes back with it still running.</summary>
@@ -86,7 +101,7 @@ public class IndexModel(
     {
         var run = jobRegistry.TriggerAsync(JobNames.LibraryCheck, JobTrigger.Manual, CancellationToken.None);
         await Task.WhenAny(run, Task.Delay(RunWait, HttpContext.RequestAborted));
-        return RedirectToPage();
+        return BackToPage();
     }
 
     /// <summary><b>Delete selected</b>: each folder or file is checked again first, so one a book uses now is left alone.</summary>
@@ -130,7 +145,7 @@ public class IndexModel(
         results.Remove(deleted);
         ActionMessage = string.Join(" ", new[] { $"Deleted {deleted.Count}." }.Concat(refusals));
         ActionFailed = refusals.Count > 0;
-        return RedirectToPage();
+        return BackToPage();
     }
 
     /// <summary>
@@ -178,7 +193,7 @@ public class IndexModel(
         ActionMessage = $"Relinked {relinked.Count} of {books.Count}."
             + (notRelinked.Count > 0 ? $" {notRelinked.Count} could not be; the What to do column says why, and what to do about it." : "");
         ActionFailed = notRelinked.Count > 0;
-        return RedirectToPage();
+        return BackToPage();
     }
 
     /// <summary><b>Remove record</b>: forgets the selected books, as the torrent page's Remove record does.</summary>
@@ -195,7 +210,7 @@ public class IndexModel(
         await dbContext.SaveChangesAsync();
         results.Remove(books.Select(f => f.Id));
         ActionMessage = $"Removed the {(books.Count == 1 ? "record" : "records")} of {books.Count} {(books.Count == 1 ? "book" : "books")}.";
-        return RedirectToPage();
+        return BackToPage();
     }
 
     private List<NumberedFinding> BookFindings(List<int> selectedIds) =>

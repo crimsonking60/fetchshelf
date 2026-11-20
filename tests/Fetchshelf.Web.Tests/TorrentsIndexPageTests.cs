@@ -243,7 +243,7 @@ public class TorrentsIndexPageTests
 
         var html = await client.GetStringAsync("/torrents");
 
-        Assert.Matches("<details class=\"filter-panel\">", html);
+        Assert.Matches("<details class=\"filter-panel\" data-remember-open=\"fs-torrent-filters\">", html);
         Assert.DoesNotContain("Stop filtering by", html);
     }
 
@@ -256,7 +256,7 @@ public class TorrentsIndexPageTests
 
         var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/torrents?Q=Kings&Language=English&MediaType=Audiobook"));
 
-        Assert.Contains("<details class=\"filter-panel\" open=\"open\">", html);
+        Assert.Contains("<details class=\"filter-panel\" open=\"open\" data-remember-open=\"fs-torrent-filters\">", html);
         Assert.Contains("title=\"Filters in use\">2</span>", html);
         var anchor = Regex.Match(html, "<a [^>]*aria-label=\"Stop filtering by language\"[^>]*>").Value;
         var dropLanguage = Regex.Match(anchor, "href=\"([^\"]*)\"").Groups[1].Value;

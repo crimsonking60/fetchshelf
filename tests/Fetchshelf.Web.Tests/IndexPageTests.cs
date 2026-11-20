@@ -577,6 +577,20 @@ public partial class IndexPageTests
     }
 
     [Fact]
+    public async Task Get_Results_KeepTheTwoDownloadButtonsOnOneLine()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));
+        var client = fixture.CreateClient();
+
+        var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
+
+        // The cell is col-fit (no wrapping), like its heading, and holds Download and Wedge download.
+        var cell = Regex.Match(html, @"<td class=""col-fit"">\s*<form[^>]*handler=Download.*?</td>", RegexOptions.Singleline).Value;
+        Assert.Contains(">Download</button>", cell);
+        Assert.Matches("Wedge(\u00a0|&#xA0;|&nbsp;)download</button>", cell);
+    }
+
+    [Fact]
     public async Task Get_Results_ShowTheMediaTypeInTheFormatColumn()
     {
         using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(SearchResponseJson(large: false)));

@@ -13,6 +13,9 @@ public sealed class AutograbEntry : SharedFilterConfig
 
     public ConfiguredCost Cost { get; set; } = ConfiguredCost.Free;
 
+    /// <summary>`description`: a line of the user's own, shown under the job's name on the Jobs page.</summary>
+    public string? Description { get; set; }
+
     public string? Query { get; set; }
 
     public List<string> SearchIn { get; set; } = [];

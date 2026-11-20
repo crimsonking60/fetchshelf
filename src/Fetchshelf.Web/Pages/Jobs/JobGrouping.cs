@@ -42,9 +42,13 @@ public static class JobGrouping
         var byName = jobs.ToDictionary(j => j.Name, StringComparer.Ordinal);
 
         var standard = StandardNames.Where(byName.ContainsKey).Select(n => byName[n]).ToList();
+        // An autograb job's description is its block's own `description`, or none: the sentence every autograb job is
+        // registered with would say the same on each.
         var autograb = settings.Autograb
-            .Select((entry, i) => AutoDownloaderJobNames.Autograb(entry, i))
-            .Where(byName.ContainsKey).Distinct(StringComparer.Ordinal).Select(n => byName[n]).ToList();
+            .Select((entry, i) => (Name: AutoDownloaderJobNames.Autograb(entry, i), entry.Description))
+            .Where(a => byName.ContainsKey(a.Name)).DistinctBy(a => a.Name, StringComparer.Ordinal)
+            .Select(a => byName[a.Name] with { Description = string.IsNullOrWhiteSpace(a.Description) ? null : a.Description.Trim() })
+            .ToList();
 
         // The list jobs come last, in the order of the configuration; every other job is by name.
         var listNames = settings.HardcoverList.Select((entry, i) => AutoDownloaderJobNames.HardcoverList(entry, i))

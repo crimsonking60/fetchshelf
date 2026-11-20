@@ -149,6 +149,27 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task JobsPage_AutograbWithADescription_ShowsItUnderTheName_AlsoWithoutJobExplanations()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+            job_explanations = false
+
+            [[autograb]]
+            type = "bookmarks"
+            name = "first"
+            description = "Everything I bookmark"
+            """);
+        fixture.JobRegistry.Register("first", _ => Task.CompletedTask, "Searches MAM for new matches.");
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs");
+
+        Assert.Matches(@">first</a>\s*<div class=""sub job-description"">Everything I bookmark</div>", html);
+        Assert.DoesNotContain("Searches MAM for new matches.", html);
+    }
+
+    [Fact]
     public async Task JobsPage_WithNoConfiguredJobs_StillEndsWithTheUnconfiguredKinds()
     {
         using var fixture = new FetchshelfWebAppFixture();

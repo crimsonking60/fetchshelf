@@ -30,8 +30,22 @@ public class TorrentDetailPageTests
         var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/torrents/hash1"));
 
         Assert.Contains("data-confirm=\"Replace the details edited by hand with the details from MAM?", html);
-        Assert.Contains("replaces the details with MAM's, including any edited by hand.", html);
-        Assert.Contains("keeps details edited by hand", html);
+        Assert.Contains("Replaces the details with MAM's, including the ones edited by hand", html);
+        Assert.Contains("keeping the ones edited by hand", html);
+    }
+
+    [Fact]
+    public async Task Get_Actions_AreAColumnOfButtons_EachWithWhatItDoesBesideIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        var actions = html[html.IndexOf("<div class=\"action-list\">", StringComparison.Ordinal)..html.IndexOf("Edit metadata", StringComparison.Ordinal)];
+        var buttons = System.Text.RegularExpressions.Regex.Matches(actions, @"<button[^>]*>([^<]+)</button>\s*<div class=""action-note"">").Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(["Clean", "Refresh", "Refresh and relink", "Unlink", "Start", "Stop", "Remove from qBittorrent with data", "Remove record"], buttons);
+        Assert.DoesNotContain("refresh-explanation", html);
     }
 
     [Fact]
@@ -42,7 +56,7 @@ public class TorrentDetailPageTests
 
         var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
 
-        Assert.Contains("id=\"refresh-explanation\"", html);
+        Assert.Contains("Replaces the details with MAM's, without moving any files.", html);
         Assert.DoesNotContain("Replace the details edited by hand", html);
     }
 

@@ -153,7 +153,7 @@ public static class ConfigSummary
         for (var i = 0; i < settings.Autograb.Count; i++)
         {
             var entry = settings.Autograb[i];
-            var type = entry.Type?.UploaderId is { } uploader ? $"uploader {uploader}" : entry.Type?.Kind;
+            var type = entry.Type?.ToString();
             rows.Add((AutoDownloaderJobNames.Autograb(entry, i),
                 $"autograb {type}, cost {Underscored(entry.Cost.ToString())}, {Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }

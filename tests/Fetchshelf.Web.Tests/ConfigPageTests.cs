@@ -23,6 +23,29 @@ public class ConfigPageTests
         """;
 
     [Fact]
+    public async Task Get_ConfigPage_ShowsEachAutograbsTypeAsTheConfigurationNamesIt()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+
+            [[autograb]]
+            name = "fl"
+            type = "freeleech"
+
+            [[autograb]]
+            name = "one uploader"
+            type = { uploader = 12345 }
+            """);
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        // It printed the class name, Fetchshelf.Data.Configuration.AutograbType, for every block.
+        Assert.Contains("<td>freeleech</td>", html);
+        Assert.Contains("<td>uploader 12345</td>", html);
+        Assert.DoesNotContain("AutograbType", html);
+    }
+
+    [Fact]
     public async Task Get_ConfigPage_NeverRendersMamIdOrQBittorrentPassword()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);

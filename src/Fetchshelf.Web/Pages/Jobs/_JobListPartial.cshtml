@@ -44,8 +44,9 @@
                     <tr class="@(job.Failing is null ? null : "failing")">
                         <td class="job-name">
                             <a asp-page="/Jobs/History" asp-route-job="@job.Name">@job.Name</a>
-                            @* The same sentence on every autograb job says nothing, so only the other groups explain their jobs. *@
-                            @if (Settings.JobExplanations && group.Group != JobGroup.Autograb && !string.IsNullOrEmpty(job.Description))
+                            @* An autograb job shows its block's own `description`, whatever job_explanations says, as it is the
+                               user's text; the other jobs show Fetchshelf's explanation of them, unless job_explanations is off. *@
+                            @if ((group.Group == JobGroup.Autograb || Settings.JobExplanations) && !string.IsNullOrEmpty(job.Description))
                             {
                                 <div class="sub job-description">@job.Description</div>
                             }

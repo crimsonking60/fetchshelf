@@ -1799,7 +1799,7 @@ of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Selected** | The queue of torrents that are chosen but not yet started. |
 | **Torrents** | Every torrent Fetchshelf knows. |
-| **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. |
+| **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
@@ -2046,7 +2046,8 @@ as walking a large library on a NAS can take a while. It waits for, and holds of
 walks. Its findings are kept until the next check or a restart, and are on the **Library check** page. While a
 check runs, the page shows the previous check's findings with their buttons turned off, as the new findings replace
 them when it ends; the page reloads itself then. A check that ends within two seconds, as on a small library, comes
-back with its findings straight away.
+back with its findings straight away. With more than one library, a dropdown above the findings shows
+**All libraries** or one library's findings only, by its `name`, or by its `library_dir` when it has none.
 
 | Finding | Means | Actions |
 |---|---|---|

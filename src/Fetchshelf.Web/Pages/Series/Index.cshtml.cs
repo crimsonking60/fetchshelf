@@ -18,7 +18,7 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
-    /// <summary>"missing", "followed", "ignored", or empty for every series.</summary>
+    /// <summary>"all", "missing", "followed", "ignored", or empty (the default) for every series not ignored.</summary>
     [BindProperty(SupportsGet = true)]
     public string? Show { get; set; }
 
@@ -39,6 +39,8 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
 
     public static IReadOnlyList<(string Value, string Label)> ShowOptions { get; } =
     [
+        ("", "Not ignored"),
+        ("all", "All series"),
         ("missing", "With missing books"),
         ("followed", "Auto or followed"),
         ("ignored", "Ignored"),
@@ -74,7 +76,8 @@ public class IndexModel(FetchshelfDbContext dbContext, LibraryQueries libraryQue
                 "missing" => follows.GetValueOrDefault(s.NameKey)?.Mode != FollowMode.Ignore && SeriesRowViewModel.From(s, [], null).HasMissing,
                 "followed" => follows.GetValueOrDefault(s.NameKey)?.Mode is FollowMode.Download or FollowMode.Watch,
                 "ignored" => follows.GetValueOrDefault(s.NameKey)?.Mode == FollowMode.Ignore,
-                _ => true,
+                "all" => true,
+                _ => follows.GetValueOrDefault(s.NameKey)?.Mode != FollowMode.Ignore,
             })
             .Where(s => text.Length == 0 || s.Name.Contains(text, StringComparison.CurrentCultureIgnoreCase) || byAuthor.Contains(s.NameKey))
             .ToList();
