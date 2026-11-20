@@ -57,7 +57,7 @@
                             }
                             else if (job.LastStartedAt is { } lastStartedAt)
                             {
-                                <local-time value="lastStartedAt" />
+                                <local-time value="lastStartedAt" short />
                                 @if (job.LastDuration is { } duration)
                                 {
                                     <div class="sub">(took @Fetchshelf.Web.Pages.Jobs.JobRunLabels.Duration(duration))</div>

@@ -7,7 +7,8 @@ namespace Fetchshelf.Web.TagHelpers;
 /// <c>&lt;local-time value="x" /&gt;</c>: renders a timestamp as <c>&lt;time class="local-time"&gt;</c> so every page shows
 /// it the same way. The server cannot know the visitor's time zone, so it writes the instant in UTC (the no-JS
 /// fallback, labelled as such) and wwwroot/js/local-time.js rewrites the text to the browser's local time as
-/// <c>YYYY-MM-DD HH:MM:SS</c>. The title keeps the UTC time for reference.
+/// <c>YYYY-MM-DD HH:MM:SS</c>. The title keeps the UTC time for reference. With <c>short</c> the browser shows
+/// "3 h ago" or "yesterday 21:14" instead, for the tables, and the title holds the exact local time.
 /// </summary>
 [HtmlTargetElement("local-time", TagStructure = TagStructure.NormalOrSelfClosing)]
 public sealed class LocalTimeTagHelper : TagHelper
@@ -18,6 +19,9 @@ public sealed class LocalTimeTagHelper : TagHelper
 
     /// <summary>What to show when <see cref="Value"/> is null, e.g. "never".</summary>
     public string Empty { get; set; } = "-";
+
+    /// <summary>Shows the time in the short form for tables ("3 h ago", "yesterday 21:14"); the exact local time goes in the title.</summary>
+    public bool Short { get; set; }
 
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
@@ -33,6 +37,11 @@ public sealed class LocalTimeTagHelper : TagHelper
         output.TagMode = TagMode.StartTagAndEndTag;
         output.Attributes.SetAttribute("class", "local-time");
         output.Attributes.SetAttribute("datetime", value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+        if (Short)
+        {
+            output.Attributes.SetAttribute("data-short", "");
+        }
+
         output.Attributes.SetAttribute("title", $"{utc} UTC");
         output.Content.SetContent($"{utc} UTC");
     }

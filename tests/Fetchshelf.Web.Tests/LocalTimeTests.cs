@@ -30,6 +30,23 @@ public class LocalTimeTests
     }
 
     [Fact]
+    public void Process_Short_MarksTheElementForTheShortForm()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 12, 30, 5, TimeSpan.Zero), Short = true });
+
+        Assert.True(output.Attributes.ContainsName("data-short"));
+        Assert.Equal("2026-10-27 12:30:05 UTC", output.Content.GetContent());
+    }
+
+    [Fact]
+    public void Process_NotShort_HasNoShortMarker()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 12, 30, 5, TimeSpan.Zero) });
+
+        Assert.False(output.Attributes.ContainsName("data-short"));
+    }
+
+    [Fact]
     public void Process_NoValue_ShowsDashByDefault()
     {
         var output = Render(new LocalTimeTagHelper());

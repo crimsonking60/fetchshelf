@@ -291,7 +291,8 @@ Ordered by value for cost.
    cookies already do). Gives back 100–130 px at the top of every page. (Small) **Built:** `fs-seen-pages` cookie
    (a list of page paths), `_PageExplanation` renders the full text on the first visit and a `<details>` afterwards.
 2. **Relative times with exact on hover.** `local-time.js` already runs; give it a short mode ("3 h ago",
-   "yesterday 21:14") for tables, the full time in `title`. (Small)
+   "yesterday 21:14") for tables, the full time in `title`. (Small) **Built:** `<local-time short>`, used on Events,
+   Errors, Following and the Jobs page's last-run time; refreshed every minute.
 3. **Sticky table headers** inside the scrolling page (`thead th { position: sticky; top: var(--header-height) }`), so the
    column names stay while reading 100 rows. (Small)
 4. **A status line instead of the Jobs-page strip**: in the footer or header, show "Download running…" when any job
