@@ -31,9 +31,10 @@ Fetchshelf has two independent, optional halves:
 
 ## Getting started
 
-Fetchshelf runs in Docker. The [user guide](https://fetchshelf.readthedocs.io/en/stable/user-guide/) walks you through installing it with
-Docker or Docker Compose, connecting it to MAM and qBittorrent (and, if you use it, Audiobookshelf),
-and setting up your library and automatic downloads. For every setting, see the
+Fetchshelf runs in Docker. New to it? [Getting started](https://fetchshelf.readthedocs.io/en/stable/getting-started/)
+takes you through installing it with Docker Compose, connecting it to MAM and qBittorrent, and a first library and
+automatic downloads, step by step. The [user guide](https://fetchshelf.readthedocs.io/en/stable/user-guide/) covers
+everything else, including Audiobookshelf, and every setting is in the
 [configuration reference](https://fetchshelf.readthedocs.io/en/stable/configuration/).
 
 ## Status

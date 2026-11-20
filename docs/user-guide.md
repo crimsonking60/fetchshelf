@@ -4,6 +4,9 @@ This guide is for people who run Fetchshelf. It assumes you use Docker, optional
 are comfortable editing a text file, and know how MAM works: ratio, unsatisfied snatches, freeleech, wedges
 and VIP are not explained here. It does not cover building Fetchshelf from source.
 
+Setting Fetchshelf up for the first time? [Getting started](getting-started.md) takes you through a first setup step
+by step, with only what you need for it. This guide is the full reference.
+
 <!-- github-only:start -->
 > [!NOTE]
 > Development happens on `main`, so this page may describe changes that are not released yet. For the version you
