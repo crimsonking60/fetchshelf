@@ -26,6 +26,10 @@ public class IndexModel(
         Account = settings.BackgroundJobsEnabled ? await accountSummaryBuilder.BuildStripAsync(cancellationToken) : null;
     }
 
+    /// <summary>The names of the jobs running now, for the status pill in the menu bar (run-status.js polls this).</summary>
+    public JsonResult OnGetRunning() =>
+        new(jobRegistry.GetAll().Where(job => job.IsRunning).Select(job => job.Name).Order(StringComparer.OrdinalIgnoreCase).ToList());
+
     /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>
     public PartialViewResult OnGetJobsPartial()
     {
