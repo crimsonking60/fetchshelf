@@ -36,11 +36,17 @@ other environment variables.
 
 ## Writing rules
 
+- **Self-contained.** Apart from the closing tour, the page never needs the user guide or the configuration reference
+  to be understood or followed: every step, setting, command and fix it teaches is complete on the page. A link to
+  the user guide may follow a section as further reading ("more about this in ..."), but nothing on the page
+  depends on it, and no step says "see ..." in place of explaining. The same goes for the example configurations:
+  the page shows its own complete files.
 - Plain words and short steps; one idea per paragraph. A technical term is explained the first time it is needed,
   in a sentence, and only as far as this guide needs it (for example a hardlink: "the same file in two places,
   taking the space once").
 - Every step says what to expect when it works ("the **Jobs** page lists ..."), so the reader knows they can go on.
-- Each section ends where the user guide takes over, with a link to the matching section for more.
+- A section may end with a link to the matching section of the user guide, as further reading only (see
+  *Self-contained*).
 - Every example is complete and works when copied with the reader's own values: one `docker-compose.yaml`, and one
   `config.toml` that grows through the guide and is shown whole at the end.
 - The docs decisions hold: no screenshots, no glossary of MAM terms, no links into MAM's own pages (refer to "MAM's
@@ -77,9 +83,13 @@ other environment variables.
      through one mount.
    - The rule: qBittorrent and Fetchshelf both mount the shared folder **at the same path** (`/srv/media:/media` in
      both). Then the paths qBittorrent reports are paths Fetchshelf can open.
-   - If qBittorrent already saves somewhere else: either move its download folder under the shared folder, or keep
-     it and read [Paths: `path_mapping`](user-guide.md#paths-path_mapping). One sentence on what happens otherwise:
-     files are copied (as much space again), or not found.
+   - Where qBittorrent saves is its **Default Save Path** (**Options → Downloads**): how to see it, and that it
+     must be inside the shared folder.
+   - If qBittorrent already saves somewhere else and that is to stay, or it sees the shared folder under another
+     path: `path_mapping`, explained here in full: a short `[qbittorrent.path_mapping]` example and what it means
+     ("where qBittorrent says `/downloads`, Fetchshelf uses `/media/downloads`"), and that the folder must still be
+     on the same disk for linking. What happens when the paths don't line up: files are copied (as much space again),
+     or not found.
 
 4. **Install.** Two cases, each a complete `docker-compose.yaml`:
    - **qBittorrent already runs in Docker Compose:** add the `fetchshelf` service to the same file, next to it
@@ -88,8 +98,8 @@ other environment variables.
    - **qBittorrent runs elsewhere** (on the host, on another machine, in another compose file): Fetchshelf's own file,
      reaching qBittorrent by the machine's address.
 
-   Then each line explained in a short table: the port, the `config` and `database` folders, the shared media
-   folder, and `PUID`/`PGID` (run `id`, use the numbers of the user that owns the media folder, usually the same
+   Then each line explained in a short table: the port (and how to change it if 3157 is taken), the `config` and
+   `database` folders (created first with `mkdir -p`), the shared media folder, and `PUID`/`PGID` (run `id`, use the numbers of the user that owns the media folder, usually the same
    ones qBittorrent runs as). Start it with `docker compose up -d`, open `http://<your machine>:3157`. Expected: the
    web interface opens, and nothing happens on MAM yet, by design.
 
@@ -98,7 +108,7 @@ other environment variables.
 
    1. **Your MAM session.** Create a session in your security preferences on MAM, locked the way that suits where
       Fetchshelf runs (an IP address that changes needs the more tolerant option). Paste it as `mam_id`. Treat it like
-      a password. The optional `curl` check from the user guide, with what a good answer looks like.
+      a password. The optional `curl` check, given in full, with what a good answer looks like.
    2. **qBittorrent.** `[[qbittorrent]]` with `url`, `username`, `password`. Which `url` to use for each install
       case from step 4, and the most common mistake: `localhost` inside a container means the container itself, not
       the machine.
@@ -136,8 +146,9 @@ other environment variables.
      qBittorrent's folder, linked. Pointer to scheduled backups in the user guide.
    - Changing a setting: edit, check, restart; restarting is safe at any time.
 
-8. **If something doesn't work.** Each a symptom, the usual cause and the fix, with a link to the user guide's
-   Troubleshooting entry:
+8. **If something doesn't work.** Each a symptom, the usual cause and the complete fix on the page, so the reader
+   doesn't need the user guide's Troubleshooting to get unstuck (a link to it as further reading). Where to look first:
+   `docker compose logs fetchshelf`, and the **Errors** page.
    - Nothing runs: `mam_id` is empty, or MAM refused it (session locked to another address, VPN).
    - qBittorrent can't be reached: the `url` (container name, `localhost`), the Web UI isn't on, or the password.
    - Downloads finish but nothing appears in the library, or the files are copied: the folder layout from step 3,
@@ -145,7 +156,8 @@ other environment variables.
    - Permission errors in the log: `PUID`/`PGID` don't own the folders.
    - Nothing is downloaded: no free bookmarks, or the safety limits hold it (the **Selected** page says which).
 
-   And where to ask: [Getting help](user-guide.md#getting-help).
+   And where to ask, written out: GitHub Discussions for questions, an issue for a bug, what to include (the version
+   from the **Config** page, the log lines, the config with `mam_id` and passwords replaced). Never post `mam_id`.
 
 9. **What else Fetchshelf can do.** The teaser. A short paragraph per group, each naming the features in plain words
    and linking to the user guide's section, so a reader can tell whether a feature is for them without reading it:
@@ -183,6 +195,8 @@ other environment variables.
 
 ## Checking it
 
+- **Self-contained:** a read of the page with every link to the user guide and the configuration reference
+  removed (apart from the tour) still leaves every step doable and every setting explained.
 - **Every step tried on a clean machine, as written:** a new folder, the compose file copied, the config built up
   step by step, no knowledge beyond the page. A throwaway instance (its own port, a test `mam_id` placeholder) for
   everything up to MAM, without contacting MAM. The MAM steps are checked against the user guide's description, not
