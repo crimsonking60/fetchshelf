@@ -545,7 +545,7 @@ public partial class FollowPagesTests
 
         using var client = fixture.CreateClient();
         var html = await client.GetStringAsync("/Following");
-        var followPage = await client.GetStringAsync(FollowPage(fixture));
+        var followPage = await client.GetStringAsync(FollowPage(fixture) + "?Show=ToLookAt");
         var toLookAt = await client.GetStringAsync("/following/to-look-at");
 
         Assert.Contains("James S. A. Corey", html);
@@ -647,7 +647,7 @@ public partial class FollowPagesTests
         Assert.Contains("<span class=\"status-badge status-linked\">Linked</span>", html);
         Assert.DoesNotContain("handler=Status", html);
         // Linked, it has nothing left to look at, and counts as in the library before a search marks it so.
-        var page = await client.GetStringAsync(FollowPage(fixture));
+        var page = await client.GetStringAsync(FollowPage(fixture) + "?Show=ToLookAt");
         Assert.DoesNotContain("The Way of Kings", page);
         Assert.Contains(">Selected: 0</a>", page);
         Assert.Contains(">In the library: 1</a>", page);
@@ -692,7 +692,7 @@ public partial class FollowPagesTests
     }
 
     [Fact]
-    public async Task FollowPage_ShowsWhatIsToLookAt_AndEachCountOpensItsFinds()
+    public async Task FollowPage_ShowsAllByDefault_AndEachCountOpensItsFinds()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
         await SeedFindAsync(fixture);
@@ -700,13 +700,18 @@ public partial class FollowPagesTests
         using var client = fixture.CreateClient();
         var page = FollowPage(fixture);
 
-        var html = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+        var byDefault = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync(page + "?Show=ToLookAt"));
         var owned = WebUtility.HtmlDecode(await client.GetStringAsync(page + "?Show=InLibrary"));
         var all = WebUtility.HtmlDecode(await client.GetStringAsync(page + "?Show=All"));
 
+        // Opened without a filter, a follow's page shows all it found; the To look at page is for what waits.
+        Assert.Contains("The Way of Kings", byDefault);
+        Assert.Contains("Oathbringer", byDefault);
+        Assert.Contains("<option value=\"All\" selected=\"selected\">All</option>", byDefault);
         Assert.Contains("The Way of Kings", html);
         Assert.DoesNotContain("Oathbringer", html);
-        Assert.Contains($"<a aria-current=\"true\" href=\"{page}?Sort=Found&Dir=desc&PageSize=25\">To look at: 1</a>", html);
+        Assert.Contains($"<a aria-current=\"true\" href=\"{page}?Show=ToLookAt&Sort=Found&Dir=desc&PageSize=25\">To look at: 1</a>", html);
         Assert.Contains($"<a href=\"{page}?Show=InLibrary&Sort=Found&Dir=desc&PageSize=25\">In the library: 1</a>", html);
         Assert.Contains("Oathbringer", owned);
         Assert.DoesNotContain("The Way of Kings", owned);
@@ -756,7 +761,7 @@ public partial class FollowPagesTests
         var second = AddFind(fixture, 2, "Words of Radiance");
         AddFind(fixture, 3, "Oathbringer");
         using var client = fixture.CreateClient();
-        var page = FollowPage(fixture);
+        var page = FollowPage(fixture) + "?Show=ToLookAt";
         var html = await client.GetStringAsync(page);
         Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"findIds\" value=\"{first}\"", html);
 
@@ -772,7 +777,7 @@ public partial class FollowPagesTests
         var response = await client.PostAsync("/Following?handler=Bulk", content);
         var after = await response.Content.ReadAsStringAsync();
 
-        Assert.Equal(page, response.RequestMessage!.RequestUri!.AbsolutePath);
+        Assert.Equal(page, response.RequestMessage!.RequestUri!.PathAndQuery);
         Assert.Contains("Dismissed 2 books.", after);
         Assert.Contains("Oathbringer", after);
         Assert.DoesNotContain("The Way of Kings", after);

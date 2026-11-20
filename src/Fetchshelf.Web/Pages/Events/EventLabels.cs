@@ -26,6 +26,7 @@ public static class EventLabels
             + (string.IsNullOrEmpty(e.ClientName) ? "" : $", added to qBittorrent {e.ClientName}"),
         EventKind.RemovedFromMam => "Removed from MAM",
         EventKind.DeletedFromLibrary => $"Deleted from the library{(string.IsNullOrEmpty(e.LinkerName) ? "" : $" {e.LinkerName}")} by the Library check: {e.LibraryPath}",
+        EventKind.UpgradeRun => e.RunSummary ?? string.Empty,
         EventKind.BonusPurchase => $"Bought {EventNotifications.BonusPurchaseDescription(e.BonusSpend, e.BonusUploadGb)}"
             + (e.PointsBefore is { } before && e.PointsAfter is { } after
                 ? $" with bonus points, {BonusPlanner.Points(before)} → {BonusPlanner.Points(after)}"
@@ -54,6 +55,7 @@ public static class EventLabels
         EventKind.RemovedFromMam => "Removed from MAM",
         EventKind.BonusPurchase => "Bonus purchase",
         EventKind.DeletedFromLibrary => "Deleted from library",
+        EventKind.UpgradeRun => "Upgrade run",
         _ => kind.ToString(),
     };
 

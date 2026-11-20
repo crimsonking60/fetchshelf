@@ -13,6 +13,9 @@ public enum EventKind
 
     /// <summary>A folder or file the Library check found unknown was deleted from a library; its path is in <see cref="EventEntity.LibraryPath"/>.</summary>
     DeletedFromLibrary,
+
+    /// <summary>A run of the Upgrade job ended; what it did, as the Jobs page says it, is in <see cref="EventEntity.RunSummary"/>.</summary>
+    UpgradeRun,
 }
 
 /// <summary>
@@ -73,4 +76,7 @@ public sealed class EventEntity
 
     /// <summary>For BonusPurchase: the points MAM said were left after it.</summary>
     public double? PointsAfter { get; set; }
+
+    /// <summary>For UpgradeRun: the run's result as the Jobs page shows it, such as "Success: 3 books searched (…), 1 better copy selected".</summary>
+    public string? RunSummary { get; set; }
 }

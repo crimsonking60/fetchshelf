@@ -36,7 +36,8 @@ public sealed class FetchshelfWebAppFixture : IDisposable
         string dataFileRelativePath = "data.db",
         Func<HttpRequestMessage, HttpResponseMessage>? notifyHandler = null,
         bool realJobRegistry = false,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        bool readAccountAtStartup = false)
     {
         var configPath = Path.Combine(_tempDir, "config.toml");
         File.WriteAllText(configPath, configToml);
@@ -63,6 +64,15 @@ public sealed class FetchshelfWebAppFixture : IDisposable
                     .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(notifyHandler ?? (request =>
                         throw new InvalidOperationException(
                             $"Test sent a real notification ({request.Method} {request.RequestUri?.Host}). Pass notifyHandler to FetchshelfWebAppFixture."))));
+
+                // The account read at startup would be a MAM call every test with a mam_id didn't ask for.
+                if (!readAccountAtStartup)
+                {
+                    foreach (var startupRead in services.Where(d => d.ImplementationType == typeof(Fetchshelf.Web.Jobs.AccountStartupRead)).ToList())
+                    {
+                        services.Remove(startupRead);
+                    }
+                }
 
                 configureServices?.Invoke(services);
 

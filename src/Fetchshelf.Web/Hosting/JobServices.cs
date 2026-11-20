@@ -19,6 +19,10 @@ public static class JobServices
         services.AddSingleton<DownloadWatchSignal>();
         services.AddSingleton<IJobRunListener>(sp => new DownloadWatchWaker(sp.GetRequiredService<DownloadWatchSignal>()));
 
+        // Each Upgrade run leaves an event saying what it did.
+        services.AddSingleton<IJobRunListener>(sp => new UpgradeRunEvents(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<UpgradeRunEvents>>(), sp.GetRequiredService<TimeProvider>()));
+
         // The registry is told which failures are MAM refusing the session or account, so the Errors page can group them, and
         // who to tell when a run ends, so a job that starts failing can be sent to a phone.
         services.AddSingleton<IJobRegistry>(sp => new JobRegistry(

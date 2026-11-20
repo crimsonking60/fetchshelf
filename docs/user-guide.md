@@ -1275,8 +1275,9 @@ when they were searched, and paged like the **Torrents** page. Each row has the 
 Followed**, **Search now** and **Stop following** buttons.
 
 A series' or author's name opens its own page, with the same buttons and what was found for it: each torrent's
-format and size, and, for a series, its book number. It lists what is to look at to begin with, and what was downloaded from it until it is in the library; the counts at
-the top, or the *Show* filter, list instead what is not free, selected, in the library, dismissed, or all of it.
+format and size, and, for a series, its book number. It lists all of it to begin with; the counts at the top, or the
+*Show* filter, list instead what is to look at (with what was downloaded from it until it is in the library), what is
+not free, selected, in the library, or dismissed.
 The list can be limited to ebooks or audiobooks, sorted by title, book number, size or when it was found, and
 paged. **To look at** on the **Following** page lists what waits to be downloaded or dismissed for every series
 and author together, which is what the count on the menu link counts. On both, a torrent's title opens its
@@ -1722,19 +1723,14 @@ download is logged as *selected as a better copy than the library's*. To look fo
   blocks it only takes free copies (VIP, freeleech or personal freeleech): a book already in the library is
   worth a better copy, but rarely worth ratio or a wedge. Add blocks with another `cost` to change that.
 
-  The Jobs page names the books a run searched. The log has one line per book: the search sent to MAM, the
+  The Jobs page names the books a run searched, and each run leaves an *Upgrade run* event on the **Events** page with
+  the same result, so the runs before the last one can be looked up there. The log has one line per book: the search sent to MAM, the
   book's language and linked format, how many results came back, how many of them were not known to Fetchshelf
   yet, the same book, and in a better format, and what became of the best one. With `FETCHSHELF_LOG=debug`, every
   result also gets a line saying why it was passed over: already known, not the same book, or not in a better
   format. When a run searches nothing, the Jobs page says why, for example that no book is due a search yet. A
   dry run (`dry_run = true`) doesn't record the search, so each dry run searches the same books again, which
   makes it the way to try out `[[upgrade.grab]]` blocks.
-
-  The Jobs page names the books a run searched. The log has one line per book: the search sent to MAM, the
-  book's language and linked format, how many results came back, how many of them were not known to Fetchshelf
-  yet, the same book, and in a better format, and what became of the best one. With `FETCHSHELF_LOG=debug`, every
-  result also gets a line saying why it was passed over: already known, not the same book, or not in a better
-  format. When a run searches nothing, the Jobs page says why, for example that no book is due a search yet.
 
 ### Unlinking a book you don't want
 
@@ -1801,7 +1797,7 @@ of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
-| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check. |
+| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, and each Upgrade run with what it did. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. In the menu only while it found something; always reachable from the job on the **Jobs** page. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
@@ -1813,8 +1809,8 @@ of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?
 The numbers every safety rule works from, and what Fetchshelf works out from them. When nothing is being
 downloaded, the answer is usually here.
 
-The page shows what MAM said at its last read, with the time of that read. The autograb, list
-and Download jobs read the account on every run, so the page itself doesn't call MAM. **Refresh
+The page shows what MAM said at its last read, with the time of that read. Fetchshelf reads the account once when it
+starts, and the autograb, list and Download jobs read it on every run, so the page itself doesn't call MAM. **Refresh
 from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
 and then says which job it is, leaving the numbers as they were. Until something has read the account after
 a restart, the page only offers **Refresh from MAM**.
