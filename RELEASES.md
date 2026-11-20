@@ -5,6 +5,48 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.18 - 2026-11-20
+
+A followed series' or author's page shows the whole of it: the books already in the library are listed as *Already
+owned*, a find waiting since before the library had its book catches up, and each book and format is listed once. A
+series' page lists its books by number. The **Torrents** page has **Per page** above the list too, and on a phone a
+table's column names stay in view.
+
+### Upgrading
+
+- Nothing is needed. The database is unchanged, so going back to 2026.11.17 is possible, and no setting is added or
+  changed.
+- **Follows fill in at their next search.** Each follow's page is brought up to date the next time the Follow job
+  searches it: the books already had are added, waiting finds the library now covers become *Already owned*, and
+  extra listings of one book and format left by earlier versions are removed, keeping the most settled one. Dismissed
+  finds are kept. No extra MAM calls are made.
+- **A series' page opens sorted by book number.** Links and bookmarks without a sort in them get the new order; the
+  **Found** heading still sorts newest first.
+
+### Added
+
+- **Following**: a follow's page lists the books the library already has as *Already owned*, and the ones selected as
+  *Selected*, so its counts cover the whole series or author, not only what was missing when it was first searched
+  (#142).
+- **Torrents**: **Per page** is also above the list, to the right of the export links (#145).
+
+### Changed
+
+- **Following**: a series' page lists its finds by book number, with the **Book** column first. The lists of finds
+  and the list of follows have the sortable headings of the other pages, with an arrow for the column sorted by and
+  its direction (#146).
+- **Torrents**: **Check qBittorrent**, the export links and **Per page** sit on the line just above the list, also
+  when the filters are open on a wide screen (#145).
+
+### Fixed
+
+- **Following**: a find waiting since before the library had its book stayed on offer until a search returned that
+  torrent again. Waiting finds are now checked against the library at every search, and a newer upload of a book
+  already listed is the same find, not a second one. A find without a language counts as the first of `languages`
+  (#143).
+- On a phone, a table's column names were drawn a header's height down inside the table and scrolled away with it.
+  They now stay under the page's header while the table scrolls past (#145).
+
 ## 2026.11.17 - 2026-11-20
 
 The Link job no longer makes other jobs fail with "database is locked" while it runs. A bulk action on the
