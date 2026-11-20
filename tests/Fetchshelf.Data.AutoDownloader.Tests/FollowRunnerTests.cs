@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
@@ -64,7 +65,8 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     /// <summary>A harness whose MAM answers each search with <paramref name="searchResponse"/>, given the search's body.</summary>
-    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20, ListLogger<FollowRunner>? logger = null)
+    private Harness CreateHarness(
+        Func<string, HttpResponseMessage> searchResponse, int unsatLimit = 20, ListLogger<FollowRunner>? logger = null, FollowRunnerOptions? options = null)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -90,8 +92,23 @@ public sealed class FollowRunnerTests : IDisposable
             context, mamClient, new MamAccessGate(),
             new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists),
             new LibraryQueries(context), settings, SelectionTestSupport.PreferenceLists, new Clock(Now),
-            delay: (_, _) => Task.CompletedTask, logger: logger));
+            delay: (_, _) => Task.CompletedTask, logger: logger, options: options));
     }
+
+    /// <summary>Makes every follow due for a search again, as it is a day later.</summary>
+    private static async Task MakeDueAsync(Harness harness)
+    {
+        foreach (var follow in harness.Context.Follows)
+        {
+            follow.LastSearchedAt = Now.AddDays(-2);
+        }
+
+        await harness.Context.SaveChangesAsync();
+    }
+
+    /// <summary>A harness whose search answers with what <c>answer</c> holds at the time, so runs can see different results.</summary>
+    private Harness SwitchingHarness(StrongBox<string> answer, FollowRunnerOptions? options = null) =>
+        CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(answer.Value!) }, options: options);
 
     private Harness CreateHarness(string results, int unsatLimit = 20, ListLogger<FollowRunner>? logger = null) =>
         CreateHarness(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(results) }, unsatLimit, logger);
@@ -247,6 +264,88 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal([5, 6], Finds(harness).Where(f => f.Status == FollowFindStatus.New).Select(f => f.MamId));
         // The owned books 1-3 are listed too, one find per book: book 2 has two uploads.
         Assert.Equal(["1", "2", "3"], Finds(harness).Where(f => f.Status == FollowFindStatus.Owned).Select(f => f.SeriesDisplay).Order());
+    }
+
+    [Fact]
+    public async Task AWaitingFind_IsOwnedOnceTheLibraryCoversIt_ThoughNoSearchReturnsItAgain()
+    {
+        // An old upload found before a collection brought its book in, and no longer among the newest uploads a search reads.
+        var answer = new StrongBox<string>(Results(Record(10, "Caliban's War", series: "The Expanse", number: "2")));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+        await harness.RunAsync();
+        Assert.Equal(FollowFindStatus.New, Finds(harness).Single().Status);
+
+        AddToLibrary(harness, "hash1", 100, "The Expanse Books 1-3", "The Expanse", "1-3");
+        answer.Value = Results();
+        await MakeDueAsync(harness);
+        await harness.RunAsync();
+
+        Assert.Equal((10L, FollowFindStatus.Owned), Finds(harness).Select(f => (f.MamId, f.Status)).Single());
+    }
+
+    [Theory]
+    [InlineData(Language.English, FollowFindStatus.Owned)]
+    [InlineData(Language.Hungarian, FollowFindStatus.New)]
+    public async Task AFindRecordedWithoutALanguage_IsCheckedAsTheFirstConfiguredOne(Language first, FollowFindStatus expected)
+    {
+        var answer = new StrongBox<string>(Results(Record(10, "Caliban's War", series: "The Expanse", number: "2")));
+        var harness = SwitchingHarness(answer, new FollowRunnerOptions(first));
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+        await harness.RunAsync();
+        // As one recorded before languages were kept.
+        harness.Context.FollowFinds.Single().Language = null;
+        await harness.Context.SaveChangesAsync();
+
+        AddToLibrary(harness, "hash1", 100, "The Expanse Books 1-3", "The Expanse", "1-3"); // in English
+        answer.Value = Results();
+        await MakeDueAsync(harness);
+        await harness.RunAsync();
+
+        Assert.Equal(expected, Finds(harness).Single().Status);
+    }
+
+    [Fact]
+    public async Task ANewerUploadOfABookAlreadyListed_IsNoSecondFind()
+    {
+        var answer = new StrongBox<string>(Results(Record(10, "Caliban's War", series: "The Expanse", number: "2")));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+        await harness.RunAsync();
+
+        answer.Value = Results(Record(11, "Caliban's War", series: "The Expanse", number: "2", added: "2026-02-01 00:00:00"));
+        await MakeDueAsync(harness);
+        await harness.RunAsync();
+
+        Assert.Equal([(10L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
+    [Fact]
+    public async Task FindsOfOneBookAndFormat_AreTidiedToTheMostSettled_LeavingTheDismissedOne()
+    {
+        var harness = CreateHarness(Results());
+        AddFollows(harness, Follow(FollowKind.Series, "The Expanse", FollowMode.Watch));
+        var followId = harness.Context.Follows.Single().Id;
+        FollowFindEntity Find(long mamId, FollowFindStatus status, int day) => new()
+        {
+            FollowId = followId,
+            MamId = mamId,
+            Title = "Caliban's War",
+            SeriesDisplay = "2",
+            MediaSide = "Audio",
+            Language = "English",
+            Status = status,
+            FoundAt = Now.AddDays(-day),
+            StatusAt = Now.AddDays(-day),
+        };
+        harness.Context.FollowFinds.AddRange(
+            Find(10, FollowFindStatus.New, 9), Find(11, FollowFindStatus.Owned, 5), Find(12, FollowFindStatus.Owned, 2), Find(13, FollowFindStatus.Dismissed, 1));
+        await harness.Context.SaveChangesAsync();
+
+        await harness.RunAsync();
+
+        // The first found of the owned ones stays, and the dismissed one, the reader's choice.
+        Assert.Equal([(11L, FollowFindStatus.Owned), (13L, FollowFindStatus.Dismissed)], Finds(harness).Select(f => (f.MamId, f.Status)));
     }
 
     [Fact]
