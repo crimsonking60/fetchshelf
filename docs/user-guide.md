@@ -1014,7 +1014,8 @@ its category and reaches its library.
 | `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
 
 VIP, freeleech and personal-freeleech torrents are always downloaded for free, whatever `cost` says:
-`ratio` spends no ratio on them and `wedge` no wedge. So a `free` block is only needed when you want nothing
+`ratio` spends no ratio on them and `wedge` no wedge, also when a torrent turns free while it waits to be
+downloaded. So a `free` block is only needed when you want nothing
 *but* free torrents.
 
 ### Using several blocks together

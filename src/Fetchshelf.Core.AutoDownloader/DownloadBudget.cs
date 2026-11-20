@@ -84,8 +84,8 @@ public static class DownloadBudget
         unsatLimit - unsatCount > unsatBuffer;
 
     /// <summary>
-    /// UseWedge fails outright at/below the buffer. TryWedge degrades to "no wedge" at/below the
-    /// buffer or when the torrent is already free.
+    /// A torrent that is already free needs no wedge whatever the cost. Otherwise UseWedge fails outright at/below the
+    /// buffer, and TryWedge degrades to "no wedge" there.
     /// </summary>
     public static WedgeDecision DecideWedge(SelectedTorrentCost cost, long wedgesAvailable, long wedgeBuffer, bool isAlreadyFree)
     {
@@ -93,7 +93,8 @@ public static class DownloadBudget
 
         return cost switch
         {
-            SelectedTorrentCost.UseWedge => atOrBelowBuffer ? WedgeDecision.Fail : WedgeDecision.UseWedge,
+            SelectedTorrentCost.UseWedge => isAlreadyFree ? WedgeDecision.SkipWedge
+                : atOrBelowBuffer ? WedgeDecision.Fail : WedgeDecision.UseWedge,
             SelectedTorrentCost.TryWedge => (atOrBelowBuffer || isAlreadyFree) ? WedgeDecision.SkipWedge : WedgeDecision.UseWedge,
             _ => WedgeDecision.SkipWedge,
         };

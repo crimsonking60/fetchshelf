@@ -56,6 +56,15 @@ internal static class DownloadTestSupport
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(accountStateJson) };
             }
 
+            // A wedge download first asks whether the torrent is free now; unless a test says otherwise, it isn't.
+            if (path.Contains("loadSearchJSONbasic.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"perpage":100,"start":0,"total":0,"found":0,"data":[]}"""),
+                };
+            }
+
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
         });
 

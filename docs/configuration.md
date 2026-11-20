@@ -608,7 +608,9 @@ in its range would look like a gap. Setting `mark_removed` on one stops startup 
 - A torrent that is VIP, personal freeleech or globally freeleech is **always** treated as free, whatever
   `cost` says, so wedges are never wasted.
 - For `wedge` and `try_wedge` the wedge is applied at download time, not when the torrent is selected.
-  `try_wedge` also skips the wedge when the torrent is already free. A torrent started with a wedge costs no
+  Just before spending a wedge, Fetchshelf asks MAM whether the torrent has become free since it was
+  selected, and if so downloads it without one. A `wedge` torrent waiting at or below `wedge_buffer` is not
+  looked up, so it keeps waiting. A torrent started with a wedge costs no
   ratio, so it isn't counted against the ratio budget while it downloads.
 - `metadata_only` and `metadata_only_add` never download anything, so ratio and unsat budgets do not apply
   to them.
@@ -632,7 +634,7 @@ Read*, or the books on one of your Hardcover lists, and searches MAM for each of
 | `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
 | `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
-| `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Unset means both. |
+| `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Once this format is selected or in the library, the other one is no longer searched for, even when it turns up later; if this format's selection is removed or its copy leaves the library, the other one is wanted again. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives everything this list downloads. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |
 | `save_path` | unset | The folder qBittorrent saves everything this list downloads in, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |

@@ -245,14 +245,15 @@ public sealed class DownloadRunner(
         var useWedge = false;
         if (cost is SelectedTorrentCost.UseWedge or SelectedTorrentCost.TryWedge)
         {
-            var isAlreadyFree = false;
-            if (cost == SelectedTorrentCost.TryWedge)
-            {
-                var current = await FetchCurrentRecordAsync(selected.MamId, cancellationToken);
-                isAlreadyFree = IsFreeNow(current);
-            }
+            var wedgeBuffer = safetyBuffers.WedgeBufferFor(selected.GrabberName);
+            var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, wedgeBuffer, isAlreadyFree: false);
 
-            var decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, safetyBuffers.WedgeBufferFor(selected.GrabberName), isAlreadyFree);
+            // A torrent that turned free while it waited needs no wedge. MAM is asked only when one would be spent, so a
+            // selection waiting at the wedge buffer costs no request on each run.
+            if (decision == WedgeDecision.UseWedge && IsFreeNow(await FetchCurrentRecordAsync(selected.MamId, cancellationToken)))
+            {
+                decision = DownloadBudget.DecideWedge(cost, wedgesAvailable, wedgeBuffer, isAlreadyFree: true);
+            }
             if (decision == WedgeDecision.Fail)
             {
                 return (DownloadOutcome.WedgeUnavailable, false);

@@ -84,6 +84,16 @@ public class DownloadBudgetTests
     }
 
     [Theory]
+    [InlineData(10, 0)]
+    [InlineData(5, 5)]
+    public void DecideWedge_UseWedgeAlreadyFree_SkipsTheWedgeInsteadOfFailing(long wedgesAvailable, long wedgeBuffer)
+    {
+        var decision = DownloadBudget.DecideWedge(SelectedTorrentCost.UseWedge, wedgesAvailable, wedgeBuffer, isAlreadyFree: true);
+
+        Assert.Equal(WedgeDecision.SkipWedge, decision);
+    }
+
+    [Theory]
     [InlineData(5, 5, false, WedgeDecision.SkipWedge)]
     [InlineData(6, 5, false, WedgeDecision.UseWedge)]
     [InlineData(10, 0, true, WedgeDecision.SkipWedge)]

@@ -667,6 +667,53 @@ public sealed class ListImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_PreferredFormatAlreadySelected_OtherFormatFoundLaterIsNotWanted()
+    {
+        var ebookOnMam = false;
+        var harness = CreateHarness(_ => ebookOnMam
+            ? Results(Record(11, "Dune", "Frank Herbert"), Record(12, "Dune", "Frank Herbert", ebook: true))
+            : Results(Record(11, "Dune", "Frank Herbert")));
+        harness.Books.Books = [Book(1, "Dune")];
+        await harness.RunAsync(Entry(preferFormat: FilterMainType.Audio));
+        Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).EbookStatus);
+
+        ebookOnMam = true;
+        harness.Clock.Now += TimeSpan.FromDays(1);
+        var summary = await harness.RunAsync(Entry(preferFormat: FilterMainType.Audio));
+
+        var item = Item(harness, 1);
+        Assert.Equal(0, summary.Selected);
+        Assert.Equal(ListItemSideStatus.Selected, item.AudioStatus);
+        Assert.Equal(ListItemSideStatus.NotWanted, item.EbookStatus);
+        Assert.Single(harness.Searches);
+        Assert.Equal(11, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+    }
+
+    [Fact]
+    public async Task RunAsync_PreferredFormatSelectionRemoved_OtherFormatIsWantedAgain()
+    {
+        var audioOnMam = true;
+        var harness = CreateHarness(_ => audioOnMam
+            ? Results(Record(11, "Dune", "Frank Herbert"), Record(12, "Dune", "Frank Herbert", ebook: true))
+            : Results(Record(12, "Dune", "Frank Herbert", ebook: true)));
+        harness.Books.Books = [Book(1, "Dune")];
+        await harness.RunAsync(Entry(preferFormat: FilterMainType.Audio));
+        var selection = await harness.Context.SelectedTorrents.SingleAsync();
+        selection.RemovedAt = harness.Clock.Now;
+        await harness.Context.SaveChangesAsync();
+
+        audioOnMam = false;
+        harness.Clock.Now += TimeSpan.FromHours(1);
+        var summary = await harness.RunAsync(Entry(preferFormat: FilterMainType.Audio));
+
+        var item = Item(harness, 1);
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(ListItemSideStatus.NotFound, item.AudioStatus);
+        Assert.Equal(ListItemSideStatus.Selected, item.EbookStatus);
+        Assert.Equal(12, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking(), s => s.RemovedAt == null).MamId);
+    }
+
+    [Fact]
     public async Task RunAsync_DryRun_WritesNothing()
     {
         var harness = CreateHarness(_ => Results(Record(11, "Dune", "Frank Herbert")));
