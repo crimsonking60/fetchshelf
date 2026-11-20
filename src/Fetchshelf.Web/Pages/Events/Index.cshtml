@@ -68,7 +68,7 @@ else
             @foreach (var e in Model.Events)
             {
                 <tr>
-                    <td class="col-fit"><local-time value="e.OccurredAt" /></td>
+                    <td class="col-fit"><local-time value="e.OccurredAt" short /></td>
                     <td class="col-fit">@EventLabels.For(e.Kind)</td>
                     <td class="col-min">
                         @if (e.TorrentId is not null)

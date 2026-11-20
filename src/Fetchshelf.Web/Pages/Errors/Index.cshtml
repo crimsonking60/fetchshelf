@@ -116,7 +116,7 @@ else
                             <div class="muted mono">@error.KeyLabel @error.Key</div>
                         </td>
                         <td class="break">@error.ErrorText</td>
-                        <td class="col-fit"><local-time value="error.OccurredAt" /></td>
+                        <td class="col-fit"><local-time value="error.OccurredAt" short /></td>
                         <td class="col-fit">
                             @if (error.CanRestore)
                             {

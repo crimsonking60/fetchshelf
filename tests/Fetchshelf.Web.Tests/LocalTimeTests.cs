@@ -30,6 +30,59 @@ public class LocalTimeTests
     }
 
     [Fact]
+    public void Process_Short_MarksTheElementForTheShortForm()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 12, 30, 5, TimeSpan.Zero), Short = true });
+
+        Assert.True(output.Attributes.ContainsName("data-short"));
+        Assert.Equal("2026-10-27 12:30:05 UTC", output.Content.GetContent());
+    }
+
+    [Fact]
+    public void Process_NotShort_HasNoShortMarker()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 12, 30, 5, TimeSpan.Zero) });
+
+        Assert.False(output.Attributes.ContainsName("data-short"));
+    }
+
+    [Fact]
+    public void Process_Date_MarksTheElementAndFallsBackToTheUtcDate()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 23, 30, 5, TimeSpan.Zero), Date = true });
+
+        Assert.True(output.Attributes.ContainsName("data-date"));
+        Assert.Equal("2026-10-27T23:30:05Z", output.Attributes["datetime"].Value);
+        Assert.Equal("2026-10-27", output.Content.GetContent());
+    }
+
+    [Fact]
+    public async Task Get_TorrentsPage_ShowsTheAddedDateWithTheSharedElement()
+    {
+        // The Added column once wrote the UTC date and a "...Z" title on the server, so neither was in local time.
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+        using var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/torrents");
+
+        Assert.Matches("<td class=\"col-fit\"><time class=\"local-time\" datetime=\"[^\"]+Z\"[^>]* data-date=\"\"[^>]*>\\d{4}-\\d{2}-\\d{2}</time></td>", html);
+    }
+
+    [Fact]
+    public async Task Script_ShowsOnlyTheLocalDateForDateElements_WithTheExactTimeInTheTitle()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        using var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/events");
+        var scriptUrl = System.Text.RegularExpressions.Regex.Match(page, "src=\"(/js/local-time[^\"]*)\"").Groups[1].Value;
+
+        var script = await client.GetStringAsync(scriptUrl);
+
+        Assert.Contains("element.hasAttribute('data-date')", script);
+    }
+
+    [Fact]
     public void Process_NoValue_ShowsDashByDefault()
     {
         var output = Render(new LocalTimeTagHelper());
