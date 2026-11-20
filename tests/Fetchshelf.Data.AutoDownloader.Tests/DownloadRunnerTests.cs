@@ -1025,7 +1025,7 @@ public sealed class DownloadRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_UseWedgeAtBuffer_Fails()
+    public async Task RunAsync_UseWedgeAtBuffer_WaitsWithoutAskingMamWhetherItIsFree()
     {
         using var context = SelectionTestSupport.CreateContext(DbPath);
         context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
@@ -1034,13 +1034,23 @@ public sealed class DownloadRunnerTests : IDisposable
         const string accountJson = """
             {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":5,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
             """;
-        var mam = DownloadTestSupport.CreateMamClient(accountJson, _ => null);
+        var searches = 0;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("loadSearchJSONbasic.php"))
+            {
+                searches++;
+            }
+
+            return null;
+        });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: new SafetyBuffers(0, 5, []));
 
         var started = (await runner.RunAsync()).Started;
 
         Assert.Equal(0, started);
+        Assert.Equal(0, searches);
     }
 
     [Fact]
@@ -1073,6 +1083,44 @@ public sealed class DownloadRunnerTests : IDisposable
         });
         var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
         var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: new SafetyBuffers(0, 5, []));
+
+        var started = (await runner.RunAsync()).Started;
+
+        Assert.Equal(1, started);
+        var @event = Assert.Single(context.Events);
+        Assert.False(@event.WedgeUsed);
+    }
+
+    [Fact]
+    public async Task RunAsync_UseWedgeAlreadyFree_SkipsWedgeAndStarts()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        context.SelectedTorrents.Add(BuildSelected(1, SelectedTorrentCost.UseWedge));
+        await context.SaveChangesAsync();
+
+        const string accountJson = """
+            {"ratio":5.0,"uploaded_bytes":1000000,"downloaded_bytes":0,"wedges":5,"uid":1,"snatch_summary":{"unsat":{"count":0,"limit":20}}}
+            """;
+        var mam = DownloadTestSupport.CreateMamClient(accountJson, request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("download.php"))
+            {
+                return DownloadResponse(TorrentBytes1);
+            }
+
+            if (path.Contains("loadSearchJSONbasic.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(DownloadTestSupport.TorrentRecordJson(1, "dl1", isFree: true)),
+                };
+            }
+
+            return null;
+        });
+        var qb = DownloadTestSupport.CreateQBittorrentClient([], []);
+        var runner = new DownloadRunner(context, new EventStore(context), mam, new MamAccessGate(), [qb], new DownloadRunnerOptions(MinRatio: 2, AddTorrentsStopped: false), safetyBuffers: new SafetyBuffers(0, 0, []));
 
         var started = (await runner.RunAsync()).Started;
 

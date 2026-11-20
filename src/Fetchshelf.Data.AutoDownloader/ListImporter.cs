@@ -302,6 +302,19 @@ public sealed class ListImporter(
                     item.EbookStatus = null;
                 }
 
+                // The other format was left out for this one; with this one gone, the book is wanted in either again.
+                if (list.PreferFormat == side)
+                {
+                    if (side == FilterMainType.Audio && item.EbookStatus == ListItemSideStatus.NotWanted)
+                    {
+                        item.EbookStatus = null;
+                    }
+                    else if (side == FilterMainType.Ebook && item.AudioStatus == ListItemSideStatus.NotWanted)
+                    {
+                        item.AudioStatus = null;
+                    }
+                }
+
                 (item.LastSearchedAt, item.MissingSince) = (null, null);
                 _logger.LogInformation(
                     "List {Name}: \"{Title}\": the {Format} {What} MAM torrent {MamId} is gone; searching for it again",
@@ -340,6 +353,26 @@ public sealed class ListImporter(
         if (needEbook && await TryMatchLibraryAsync(item, authors, FilterMainType.Ebook, cancellationToken))
         {
             needEbook = false;
+        }
+
+        // With the preferred format selected or in the library, the other one is never wanted: it isn't searched for, so a
+        // copy of it that turns up later isn't selected either.
+        if (list.PreferFormat is { } preferredFormat)
+        {
+            var preferredStatus = preferredFormat == FilterMainType.Audio ? item.AudioStatus : item.EbookStatus;
+            if (preferredStatus is ListItemSideStatus.Selected or ListItemSideStatus.Existing)
+            {
+                if (preferredFormat == FilterMainType.Audio && needEbook)
+                {
+                    SetSide(item, FilterMainType.Ebook, ListItemSideStatus.NotWanted, item.EbookMamId);
+                    needEbook = false;
+                }
+                else if (preferredFormat == FilterMainType.Ebook && needAudio)
+                {
+                    SetSide(item, FilterMainType.Audio, ListItemSideStatus.NotWanted, item.AudioMamId);
+                    needAudio = false;
+                }
+            }
         }
 
         var now = _time.GetUtcNow();
