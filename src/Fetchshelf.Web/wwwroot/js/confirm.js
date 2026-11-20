@@ -57,6 +57,9 @@
         event.preventDefault();
         ask(button, button.form, function () {
             button.dataset.confirmed = 'yes';
+            // htmx sends the button it last saw clicked or focused, and forgets it when it loses focus, as it did to the
+            // dialog: focusing it again makes sure the form goes with this button's name and value.
+            button.focus();
             button.form.requestSubmit(button);
             delete button.dataset.confirmed;
         });

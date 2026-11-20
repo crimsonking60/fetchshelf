@@ -151,7 +151,9 @@
 
 @await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
 
-<form method="post" asp-page-handler="Bulk">
+@* With htmx the post swaps in only the progress panel (or the list, for Remove), so the ticks and the scroll stay. *@
+<form method="post" asp-page-handler="Bulk"
+      hx-post="@Url.Page("/Torrents/Index", "Bulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
     @Html.AntiForgeryToken()
     @* So the list comes back with the same search, filters, sort and page after a bulk action. *@
     @foreach (var (name, value) in Model.Query.ToRouteValues())

@@ -70,6 +70,20 @@ public class BulkProgressStripTests
     }
 
     [Fact]
+    public async Task Stylesheet_MakesTheStripAsWideAsThePagesContent_LikeTheBulkActionBar()
+    {
+        // It spanned the window, while the bulk-action bar above it is as wide as the table.
+        using var fixture = new FetchshelfWebAppFixture();
+        using var client = fixture.CreateClient();
+        var page = await client.GetStringAsync("/torrents");
+
+        var css = await client.GetStringAsync(System.Text.RegularExpressions.Regex.Match(page, "href=\"(/css/site[^\"]*)\"").Groups[1].Value);
+
+        Assert.Contains("width: calc(min(100%, var(--content-max-width)) - 2 * var(--page-gutter)); margin: 0 auto;", css);
+        Assert.Contains("padding: 1.25rem var(--page-gutter) 2rem;", css); // the page's own gutter, the same variable
+    }
+
+    [Fact]
     public async Task Script_HidesTheStripWhileTheNoticesAreOnScreen_ByAClassThatOutlivesThePolls()
     {
         using var fixture = new FetchshelfWebAppFixture();
