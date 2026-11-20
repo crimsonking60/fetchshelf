@@ -29,11 +29,13 @@ public abstract class FindListPageModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? Language { get; set; }
 
+    /// <summary>The column sorted by; unset for the page's default.</summary>
     [BindProperty(SupportsGet = true)]
-    public string Sort { get; set; } = FindListQuery.DefaultSort;
+    public string? Sort { get; set; }
 
+    /// <summary>"asc" or "desc"; unset for the column's natural direction.</summary>
     [BindProperty(SupportsGet = true)]
-    public string Dir { get; set; } = FindListQuery.DefaultDir(FindListQuery.DefaultSort);
+    public string? Dir { get; set; }
 
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
@@ -45,12 +47,15 @@ public abstract class FindListPageModel : PageModel
 
     /// <summary>The query from the address, with the remembered page size; a format other than the two is none.</summary>
     /// <param name="defaultShow">What the page shows when the address names nothing.</param>
-    protected FindListQuery ReadQuery(FindShow defaultShow)
+    /// <param name="defaultSort">The column the page sorts by when the address names none.</param>
+    protected FindListQuery ReadQuery(FindShow defaultShow, string defaultSort = FindListQuery.DefaultSort)
     {
         PageSize = PageSizeCookie.Apply(HttpContext, PageSizeList, PageSize);
         var format = FindListQuery.FormatOptions.Any(o => o.Value == Format) ? Format : null;
         var language = Enum.TryParse<Core.Metadata.Language>(Language, out var parsed) && Enum.IsDefined(parsed) ? parsed.ToString() : null;
-        return new FindListQuery(Show is { } show && Enum.IsDefined(show) ? show : defaultShow, format, Sort, Dir, PageSize, language, defaultShow);
+        var sort = string.IsNullOrEmpty(Sort) ? defaultSort : Sort;
+        var dir = string.IsNullOrEmpty(Dir) ? FindListQuery.DefaultDir(sort) : Dir;
+        return new FindListQuery(Show is { } show && Enum.IsDefined(show) ? show : defaultShow, format, sort, dir, PageSize, language, defaultShow);
     }
 
     /// <summary>Where a button on the page comes back to: this page, with its filters, sort and page.</summary>

@@ -99,17 +99,17 @@ else
         <table class="follows">
             <thead>
                 <tr>
-                    <th><a asp-page="/Following/Index" asp-all-route-data='query.SortedBy("Name").ToRouteValues()'>Name</a></th>
+                    <th sort-by="Name" sort-state="query.SortState" sort-page="/Following/Index" sort-route="query.ToRouteValues()">Name</th>
                     <th>Kind</th>
                     <th>Mode</th>
-                    <th><a asp-page="/Following/Index" asp-all-route-data='query.SortedBy("ToLookAt").ToRouteValues()'>To look at</a></th>
+                    <th class="col-fit" sort-by="ToLookAt" sort-first-descending="true" sort-state="query.SortState" sort-page="/Following/Index" sort-route="query.ToRouteValues()">To look at</th>
                     @if (Model.ShowsNotFree)
                     {
                         <th>Not free</th>
                     }
                     <th>Selected</th>
                     <th>In the library</th>
-                    <th><a asp-page="/Following/Index" asp-all-route-data='query.SortedBy("Searched").ToRouteValues()'>Last searched</a></th>
+                    <th class="col-fit" sort-by="Searched" sort-first-descending="true" sort-state="query.SortState" sort-page="/Following/Index" sort-route="query.ToRouteValues()">Last searched</th>
                     <th>Searched again after</th>
                     <th></th>
                 </tr>

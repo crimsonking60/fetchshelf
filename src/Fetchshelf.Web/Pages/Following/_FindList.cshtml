@@ -3,6 +3,7 @@
 @using Fetchshelf.Web.Pages.Following
 @{
     var query = Model.Query;
+    var sortRoute = Model.RouteValuesFor(query);
     var anyWaiting = Model.Rows.Any(r => FindListViewModel.IsWaiting(r.Find));
 }
 
@@ -68,23 +69,24 @@ else
                 {
                     <th><input type="checkbox" aria-label="Tick all" onclick="document.querySelectorAll('.find-select').forEach(c => c.checked = this.checked)" /></th>
                 }
-                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Title"))'>Title</a></th>
-                @if (Model.ShowsFollow)
-                {
-                    <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Follow"))'>Series or author</a></th>
-                }
+                @* A series' book number first, so the books read in their order down the left. *@
                 @if (Model.ShowsBook)
                 {
-                    <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Book"))'>Book</a></th>
+                    <th class="col-fit" sort-by="Book" sort-state="query.SortState" sort-page="@Model.Page" sort-route="sortRoute">Book</th>
+                }
+                <th sort-by="Title" sort-state="query.SortState" sort-page="@Model.Page" sort-route="sortRoute">Title</th>
+                @if (Model.ShowsFollow)
+                {
+                    <th sort-by="Follow" sort-state="query.SortState" sort-page="@Model.Page" sort-route="sortRoute">Series or author</th>
                 }
                 <th>Format</th>
                 @if (Model.ShowsLanguage)
                 {
                     <th>Language</th>
                 }
-                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Size"))'>Size</a></th>
+                <th class="col-fit" sort-by="Size" sort-first-descending="true" sort-state="query.SortState" sort-page="@Model.Page" sort-route="sortRoute">Size</th>
                 <th>Status</th>
-                <th><a asp-page="@Model.Page" asp-all-route-data='Model.RouteValuesFor(query.SortedBy("Found"))'>Found</a></th>
+                <th class="col-fit" sort-by="Found" sort-first-descending="true" sort-state="query.SortState" sort-page="@Model.Page" sort-route="sortRoute">Found</th>
                 <th></th>
             </tr>
         </thead>
@@ -102,16 +104,16 @@ else
                             }
                         </td>
                     }
+                    @if (Model.ShowsBook)
+                    {
+                        <td>@find.SeriesDisplay</td>
+                    }
                     @* Opens the details in a dialog over the page, as on the Search page; the link itself is the full page, for a new tab. *@
                     <td><a asp-page="/Search/Detail" asp-route-mamId="@find.MamId"
                            hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = find.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@find.Title</a></td>
                     @if (Model.ShowsFollow)
                     {
                         <td><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
-                    }
-                    @if (Model.ShowsBook)
-                    {
-                        <td>@find.SeriesDisplay</td>
                     }
                     <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
                     @if (Model.ShowsLanguage)

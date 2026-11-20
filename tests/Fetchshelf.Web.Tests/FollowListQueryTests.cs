@@ -60,14 +60,13 @@ public class FollowListQueryTests
     }
 
     [Fact]
-    public void SortedBy_StartsInTheColumnsNaturalOrder_AndReversesASecondTime()
+    public void DefaultDir_IsNewestAndLargestFirst_AndBooksAndTitlesFromTheStart()
     {
-        var query = new FindListQuery(FindShow.ToLookAt, null, FindListQuery.DefaultSort, "desc", 25);
-
-        Assert.Equal(("Title", "asc"), (query.SortedBy("Title").Sort, query.SortedBy("Title").Dir));
-        Assert.Equal("desc", query.SortedBy("Title").SortedBy("Title").Dir);
-        Assert.Equal("desc", query.SortedBy("Size").Dir);
-        Assert.Equal("asc", query.SortedBy("Found").Dir);
+        Assert.Equal("desc", FindListQuery.DefaultDir("Found"));
+        Assert.Equal("desc", FindListQuery.DefaultDir("Size"));
+        Assert.Equal("asc", FindListQuery.DefaultDir("Book"));
+        Assert.Equal("asc", FindListQuery.DefaultDir("Title"));
+        Assert.Equal(Fetchshelf.Web.Pages.SortState.From("Book", "asc"), new FindListQuery(FindShow.All, null, "Book", "asc", 25).SortState);
     }
 
     [Fact]
@@ -95,6 +94,6 @@ public class FollowListQueryTests
         Assert.Equal(["The Expanse"], (query with { Kind = FollowKind.Series }).Apply(summaries).Select(s => s.Follow.DisplayName));
         Assert.Equal(["The Expanse"], (query with { Mode = FollowMode.Download }).Apply(summaries).Select(s => s.Follow.DisplayName));
         Assert.Equal(["James S. A. Corey"], (query with { Waiting = true }).Apply(summaries).Select(s => s.Follow.DisplayName));
-        Assert.Equal("James S. A. Corey", query.SortedBy("ToLookAt").Apply(summaries).First().Follow.DisplayName);
+        Assert.Equal("James S. A. Corey", (query with { Sort = "ToLookAt", Dir = "desc" }).Apply(summaries).First().Follow.DisplayName);
     }
 }
