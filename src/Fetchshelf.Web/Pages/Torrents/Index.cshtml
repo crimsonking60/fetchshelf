@@ -115,29 +115,32 @@
         <input type="hidden" name="PageSize" value="@Model.PageSize" />
     </form>
 
-    @* Asks qBittorrent about every tracked torrent (not just this page) and swaps in the refreshed list, keeping the current filters, sort and page. *@
-    <form method="post" asp-page-handler="CheckClient" class="push"
-          hx-post="@Url.Page("/Torrents/Index", "CheckClient")" hx-target="#torrent-list-body" hx-swap="innerHTML"
-          hx-indicator="#torrent-loading" hx-disabled-elt="find button">
-        @Html.AntiForgeryToken()
-        @foreach (var (name, value) in Model.Query.ToRouteValues())
-        {
-            <input type="hidden" name="@name" value="@value" />
-        }
-        <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
-        <button type="submit">Check qBittorrent</button>
-    </form>
+    @* One group, so it moves below the search form as a whole when the open filters leave no room beside them. *@
+    <div class="toolbar list-actions push">
+        @* Asks qBittorrent about every tracked torrent (not just this page) and swaps in the refreshed list, keeping the current filters, sort and page. *@
+        <form method="post" asp-page-handler="CheckClient"
+              hx-post="@Url.Page("/Torrents/Index", "CheckClient")" hx-target="#torrent-list-body" hx-swap="innerHTML"
+              hx-indicator="#torrent-loading" hx-disabled-elt="find button">
+            @Html.AntiForgeryToken()
+            @foreach (var (name, value) in Model.Query.ToRouteValues())
+            {
+                <input type="hidden" name="@name" value="@value" />
+            }
+            <input type="hidden" name="PageNumber" value="@Model.PageNumber" />
+            <button type="submit">Check qBittorrent</button>
+        </form>
 
-    @* Every page of the list as it is searched, filtered and sorted now. *@
-    <div class="toolbar" id="export-links">
-        Export:
-        <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("csv")'>CSV</a>
-        <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("json")'>JSON</a>
-        @* The same choice as under the list, so a long list's size can be changed without scrolling to its end. *@
-        @if (Model.Pager.ShowsPageSizes)
-        {
-            <span class="page-size-top"><partial name="_PageSize" model='Model.Pager with { Id = "torrent-pager-top" }' /></span>
-        }
+        @* Every page of the list as it is searched, filtered and sorted now. *@
+        <div class="toolbar" id="export-links">
+            Export:
+            <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("csv")'>CSV</a>
+            <a asp-page="/Torrents/Index" asp-page-handler="Export" asp-all-route-data='Model.ExportRouteValues("json")'>JSON</a>
+            @* The same choice as under the list, so a long list's size can be changed without scrolling to its end. *@
+            @if (Model.Pager.ShowsPageSizes)
+            {
+                <span class="page-size-top"><partial name="_PageSize" model='Model.Pager with { Id = "torrent-pager-top" }' /></span>
+            }
+        </div>
     </div>
 </div>
 
