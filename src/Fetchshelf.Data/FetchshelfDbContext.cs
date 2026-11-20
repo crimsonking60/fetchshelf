@@ -115,6 +115,9 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasIndex(t => t.MediaType);
             entity.HasIndex(t => t.SeedingState);
             entity.HasIndex(t => t.CollectionTorrentId);
+            // The Link job asks, for every linked torrent, whether another one is in the same folder: without an index
+            // each question read the whole table, and a run over a large library took a minute.
+            entity.HasIndex(t => t.LibraryPath);
         });
 
         modelBuilder.Entity<TorrentPersonEntity>(entity =>
