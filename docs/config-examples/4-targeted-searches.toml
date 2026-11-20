@@ -1,7 +1,7 @@
 # Fetchshelf example 4 of 5: targeted searches
 #
 # Autograbs are not limited to bookmarks. This example watches MAM for new content by author, mines the
-# freeleech list, keeps an eye on one uploader, and keeps the details of your own uploads up to date.
+# freeleech list, keeps an eye on one uploader, and records your own uploads as books you have.
 #
 # Reference for every setting: docs/configuration.md (see "[[autograb]]" and "The shared torrent filter").
 #
@@ -82,13 +82,14 @@ type = { uploader = 12345 }
 cost = "free"
 uploaded_after = "2026-01-01"
 
-# Your own uploads, kept as metadata only so they count as owned. mark_removed asks MAM about stored
+# Your own uploads, recorded without downloading them so they count as owned: duplicate checks treat
+# them as books you have. mark_removed asks MAM about stored
 # torrents that are missing from the results (up to 20 a run) and marks those MAM no longer has as
 # removed from MAM.
 [[autograb]]
 name = "My uploads"
 type = "mine"
-cost = "metadata_only"
+cost = "metadata_only_add"
 mark_removed = true
 
 [[tag]]

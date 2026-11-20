@@ -302,9 +302,9 @@ After the first `docker compose up -d`, set up qBittorrent before you connect Fe
    qBittorrent makes a new temporary password on every start until you set your own.
 2. Open qBittorrent at `http://<your-host>:8080` and sign in.
 3. In **Options → Web UI**, set your own password. Fetchshelf needs a password that does not change.
-4. In **Options → Downloads**, set **Default Save Path** to `/media/torrents`. Fetchshelf does not choose
-   where downloads are saved, so without this they end up in `/downloads`, outside `/media`, where Fetchshelf
-   cannot see them. If you turn on **Keep incomplete torrents in**, or give categories their own save
+4. In **Options → Downloads**, set **Default Save Path** to `/media/torrents`. Unless a block or `[[tag]]`
+   rule sets a `save_path`, Fetchshelf leaves the folder to qBittorrent, so without this downloads end up in
+   `/downloads`, outside `/media`, where Fetchshelf cannot see them. If you turn on **Keep incomplete torrents in**, or give categories their own save
    paths, keep those under `/media/torrents` too: it is the only media folder qBittorrent can write to.
 
 If port 8080 is already taken on your host, change `WEBUI_PORT` and both numbers in the port mapping
@@ -450,7 +450,9 @@ Things to know:
 3. Restart Fetchshelf and look at the log or the **Torrents** page. The **Check qBittorrent** button on
    the Torrents page asks qBittorrent about every torrent Fetchshelf knows and shows how many were found.
 
-New downloads go to the **first** `[[qbittorrent]]` entry, but linking checks every entry. If you also
+New downloads go to the **first** `[[qbittorrent]]` entry, unless a `client` setting or the Search page
+chooses another (see [How the pieces fit together](configuration.md#how-the-pieces-fit-together)), and linking checks
+every entry. If you also
 run another qBittorrent, for example on a second machine, add it as another entry: the torrents you add
 there yourself are then linked into your library too. Fetchshelf must be able to reach that client's
 download folder, directly or through that entry's own `path_mapping`.
@@ -469,9 +471,10 @@ you need nothing. If they differ, map one to the other:
 This reads: where qBittorrent says `/downloads`, Fetchshelf should use `/media/torrents`. The longest
 matching prefix wins.
 
-Fetchshelf does not tell qBittorrent where to save a download, so the **Default Save Path** in
-qBittorrent's **Options → Downloads** decides it. Make sure that folder is one Fetchshelf can reach, directly
-or through `path_mapping`. A wrong or missing mapping is the most common cause of linking errors (see
+A block or [`[[tag]]` rule](configuration.md#tag) can set a `save_path`, and qBittorrent then saves the
+download there. Without one, Fetchshelf does not tell qBittorrent where to save a download, so the **Default
+Save Path** in qBittorrent's **Options → Downloads** decides it. Make sure each of these folders is one
+Fetchshelf can reach, directly or through `path_mapping`. A wrong or missing mapping is the most common cause of linking errors (see
 [Troubleshooting](#troubleshooting)).
 
 ### Categories and tags
@@ -526,7 +529,8 @@ category = "ebooks"
 library_dir = "/media/library/ebooks"
 ```
 
-Categories come from `[[tag]]` rules, which also work for torrents you add by hand:
+Categories come from `[[tag]]` rules, which also apply to downloads you start from the Search page. A
+torrent you add in qBittorrent yourself gets them only when you apply a rule on the **Config** page:
 
 ```toml
 [[tag]]
@@ -775,7 +779,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   *Largest* or *Title*. *Best match* is MAM's own order: by how well a result matches the search text; with
   the box empty, newest first, and for *Bookmarked on MAM* the newest bookmarks first.
 - **Pages.** A page holds 100 results. The line below them says which results these are out of how many MAM
-  found, with **Previous** and **Next** to move between pages. Changing the search, the type, the sort or
+  found, with the page numbers, **Prev** and **Next** to move between pages. Changing the search, the type, the sort or
   where to search in starts again at the first page. The address holds all of it, so a search can be
   bookmarked or shared.
 - **The language list** next to the box limits the search to a language. It starts at *Your languages*, the
@@ -806,7 +810,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 - **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
   to a new search for more of the same: the name as a phrase, in that field only (`"Brandon Sanderson"` in
   **Author**), in the language you have chosen. Open it in a new tab to keep your results.
-- Each result shows its title, authors, media type, metadata, size and status. The status says where the torrent is
+- The columns are **Title** (with the authors), **Format** (the media type, with a quality pill under it),
+  **Status**, **Size** and **Cost**. The status says where the torrent is
   in Fetchshelf: **Selected** (waiting to be downloaded), **Downloading** (added to qBittorrent and not
   finished yet), **Downloaded** (finished, or recorded in Fetchshelf, but not in your library) or
   **Linked** (in your library). It is empty for torrents Fetchshelf has not handled. Until a torrent is
@@ -815,7 +820,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   is followed by Fetchshelf, not by the page (see [How finished downloads are organized](#how-finished-downloads-are-organized)),
   so it is linked whether the page stays open or not. A finished torrent shows **Downloaded** when no
   library accepts it.
-- **Quality** rates the torrent's formats and how complete its information on MAM is, which together decide
+- **The quality pill**, under the media type, rates the torrent's formats and how complete its information on MAM is, which together decide
   how well Fetchshelf can download, name, file and describe the book. Point at the pill to see why: a line
   about the formats when something is wrong with them, then what the information is missing.
 
@@ -837,7 +842,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   A description with fewer than 80 characters of text counts as missing. When several uploads of the same
   book are on offer, the pill helps pick the one in the format you want, whose library folder and
   `metadata.json` will come out best.
-- Next to it, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
+- Next to the status, **qBittorrent: *category*** marks a torrent qBittorrent has, with its category there, also when
   you added it outside Fetchshelf. Fetchshelf recognises those by the MAM id MAM writes into every
   `.torrent` file; this needs qBittorrent 5. **Not in qBittorrent** marks a torrent Fetchshelf downloaded
   or linked that qBittorrent no longer has. Fetchshelf reads qBittorrent's torrent list at most every two
@@ -850,8 +855,8 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   downloads. Tags always come from the `[[tag]]` rules. The browser remembers the choice, and the message
   after a download names the category used. A remembered category that is no longer offered, for example
   while qBittorrent doesn't answer, falls back to the tag rules.
-- **in qBittorrent**, next to it, shows with two or more `[[qbittorrent]]` blocks and chooses which one a download
-  goes to, by its `name`. Left at *the one the tag rules give, else the first*, a `[[tag]]` rule's `client` decides,
+- **in qBittorrent**, next to it, shows when `[[qbittorrent]]` blocks have a `name`, and chooses which of them a
+  download goes to; a block without a `name` is not offered. Left at *the one the tag rules give, else the first*, a `[[tag]]` rule's `client` decides,
   and without one the first `[[qbittorrent]]` gets it. The browser remembers this choice too, and the message after a
   download names the qBittorrent chosen.
 - **Download** adds the torrent as it is. **Wedge download** spends a freeleech wedge so the torrent
@@ -864,7 +869,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   book (`ebook_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
   second case, adding one of its file types to that list makes it downloadable.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
-  know, such as one you added by hand. It records the torrent with MAM's details without downloading
+  know, such as one you added by hand, or has only selected; importing takes it off the **Selected** queue. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
   uses that category, the next Link run links it; otherwise give it one with **Set category** on the
   **Torrents** page. A torrent that Fetchshelf already has and qBittorrent too gets no buttons.
@@ -886,7 +891,8 @@ makes selections wait for the next scheduled Download run. You can follow it on 
 Only one thing talks to MAM at a time (see [Background jobs](#background-jobs)). While a job is talking to
 MAM, a search, a **Download**, an **Import** or a result's details wait up to 10 seconds for it, then say which job
 is busy, such as *MAM is busy with Autograb Freeleech; try again in a moment.*, without asking MAM anything or
-downloading anything. **Try again** repeats it. An autograb holds MAM for its whole run, which can
+downloading anything. For a search or a result's details, **Try again** repeats it; for a **Download** or an
+**Import**, press its button again. An autograb holds MAM for its whole run, which can
 take a few minutes. A download from this page never runs at the same time as an automatic selection, so the
 same book can't be selected twice by the two at once.
 
@@ -1049,8 +1055,9 @@ blocks above.
   2. On the **Jobs** page, press **Dry run** for it.
   3. Open the job's history (its name on the **Jobs** page) and unfold the run's lines: each torrent it
      would select, and each one it would turn down for a reason worth seeing (a duplicate, no preferred
-     format, not free), with links to their details. The log has them too, with the results the filter
-     rejects at the `debug` level.
+     format, not free), with links to their details. A run shows at most 100 such lines, 50 of them for
+     torrents turned down, and says how many more there were. The log has them all, with the results the
+     filter rejects at the `debug` level.
   4. If the list is not what you want, change the block's settings, restart and press **Dry run** again.
   5. When it is, remove `search_interval = 0` (or press **Run now**), and it runs for real.
 
@@ -1064,7 +1071,8 @@ blocks above.
   This suits a one-off backfill: a block that runs only when you press **Run now**, usually with
   `sort_by = "oldest_first"` and a higher `max_pages`. Check it with `dry_run = true` first, as above, then
   remove `dry_run`, restart and press **Run now** once.
-- `max_active_downloads` (which needs a `name`) caps how many unfinished downloads one block may have.
+- `max_active_downloads` (which needs a `name`) caps how many of one block's selections may wait on the **Selected** page to be
+  downloaded.
 
 Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
 
@@ -1136,7 +1144,8 @@ each `grab` block in turn. Each block only takes a torrent its `cost` accepts, s
 well: VIP and freeleech torrents are always downloaded for free, whatever the cost says. A result must match
 the title and an author closely; Hardcover and MAM sometimes
 name a book differently, so the **Lists** page has a **Search MAM** link on every book for the ones it
-misses. A book that is still missing a format is searched for again once a day, not on every run, and
+misses. A book that is still missing a format is searched for again once a day, not on every run, and once
+a week after MAM has had nothing for it for a week; and
 books you take off the list on Hardcover are no longer searched for.
 
 Use `dry_run = true` first to see in the log what a list would select. See
@@ -1312,7 +1321,8 @@ MAM has: each is listed once, as already owned. One torrent is listed for each b
 searched, the log says how many torrents MAM returned, how many of them were already in the library or selected,
 how many books the rest came to, and how many of those were new.
 
-Each run makes at most `searches_per_run` MAM searches (10 by default), and searches each series or author
+Each run searches at most `searches_per_run` series or authors (10 by default), each search one or more
+requests to MAM: the first search, and one every 30 days, reads every page of results (up to 100). It searches each series or author
 at most once every `search_again_after` hours (24); the **Following** page and each series' or author's own
 page show when it was last searched and when it will be searched again at the earliest. Fifty series on the page are then each searched once a day,
 in five runs. This keeps the number of requests to MAM low. Use
@@ -1372,8 +1382,10 @@ Other safeguards:
 - `ignore_torrents = ["123456"]` lists MAM ids that must never be selected.
 - `add_torrents_stopped = true` adds torrents to qBittorrent in the stopped state, so you can review them
   before they start.
-- Fetchshelf only removes files it linked itself, and never overwrites another torrent's files. Unlink, Clean
-  and Relink leave a file in place when another book in the same folder also lists it.
+- Fetchshelf only removes files it linked itself, plus the `metadata.json`, `metadata.opf`, `series.json` and
+  `cover.jpg` (or `.png`, `.webp`) in the book's folder, whoever put them there. It never overwrites another
+  torrent's files. Unlink, Clean and Relink leave a file in place when another book in the same folder also
+  lists it, and leave those extra files alone in a folder another torrent shares.
 
 Suggested starting point for a new setup: `min_ratio = 2`, `unsat_buffer = 10` or more,
 `wedge_buffer = 5`, `cost = "free"` on your first autograb, and `dry_run = true` until the log looks right.
@@ -1404,7 +1416,7 @@ Where it shows:
 - The **Account** page puts the estimate next to MAM's counts, linking to the torrents. The two can differ:
   snatches from outside Fetchshelf or another client, torrents Fetchshelf only has as metadata, and seeding time
   counted differently by MAM. MAM's counts are what matter.
-- The **Torrents** page has a *Seeding* filter, and the *Client status* column says how many hours a torrent still
+- The **Torrents** page has a *Seeding* filter, and the *Status* column says how many hours a torrent still
   needs.
 - A torrent's page says how far it has got and by when, from qBittorrent's numbers right then.
 - **Unlink** and **Remove from qBittorrent with data** on a torrent that isn't satisfied say so before you confirm.
@@ -1687,8 +1699,9 @@ split. When they are wrong, there are several ways out:
 Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
 preference. If two copies of the same book are linked, the one whose format comes earlier in the list is
 kept, and ties go to the larger one. A copy is ranked by the format it was linked in, with its library's own
-`audio_types` or `ebook_types` when the library sets them. With `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the
-same book.
+`audio_types` or `ebook_types` when the library sets them; when the copies were linked into libraries with
+different lists, all of them are ranked with the top-level list instead. With `ebook_types = ["epub", "pdf"]`, an
+epub replaces a pdf of the same book.
 
 Two torrents count as **the same book** when their titles match, they have the same media type (ebooks and
 comics count as one), language and edition, they share an author, and they share a narrator or both have none.
@@ -1760,7 +1773,7 @@ book, and the next Link run links it again if a library still accepts it.
 ### When the folder no longer matches
 
 If a book's metadata changes, or you change the configuration, the folder where it should be can differ
-from where it is. The torrent is then flagged in the *Mismatch* column on the **Torrents** page:
+from where it is. The torrent is then flagged with a badge in the *Status* column on the **Torrents** page:
 
 - **No library:** no library accepts the torrent any more. A torrent Fetchshelf knows but has never linked,
   such as one that was already in qBittorrent under another category, gets this flag too, and the log says
@@ -1787,7 +1800,8 @@ edited by hand with MAM's.
 There is no login. See [Security and privacy](#security-and-privacy).
 
 The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
-**Library** (**Series**, **Duplicates**, and **Following**, **Lists** and **Library check** when they apply) and
+**Library** (**Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check** when
+it found something) and
 **Insight** (**Events** and **Statistics**), and at the right **Account**, **Config** and the theme menu. The theme
 menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
 in the bar names the jobs running, on every page.
@@ -1799,15 +1813,15 @@ of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?
 | Page | What it is for |
 |---|---|
 | **Search** (home) | Search MAM and download books by hand. |
-| **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; below them, the kinds of job that are not configured. |
+| **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; at the end of the second group, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
-| **Selected** | The queue of torrents that are chosen but not yet started. |
+| **Selected** | The queue of torrents that are chosen and not yet finished downloading. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
-| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, and each Upgrade run with what it did. |
-| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
+| **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, bonus points spent, and each Upgrade run with what it did. |
+| **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list, Follow, Upgrade and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
 | **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. In the menu only while it found something; always reachable from the job on the **Jobs** page. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and list files, and your MAM bookmarks, with what was found for each. Only in the menu when a `[[hardcover_list]]`, `[[file_list]]` or `[[bookmarks_list]]` is configured. |
@@ -1822,7 +1836,8 @@ The page shows what MAM said at its last read, with the time of that read. Fetch
 starts, and the autograb, list and Download jobs read it on every run, so the page itself doesn't call MAM. **Refresh
 from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
 and then says which job it is, leaving the numbers as they were. Until something has read the account after
-a restart, the page only offers **Refresh from MAM**.
+a restart, a note takes the place of **From MAM** and **What Fetchshelf works out from it**; **Over time**,
+**Bonus points** and **Connection to MAM** still show what Fetchshelf has kept.
 
 **From MAM:** the account's name and class, ratio, uploaded and downloaded, unsatisfied snatches in use out
 of the limit, wedges, and bonus points. Below them, **Snatches** lists every kind of snatch MAM counts, with
@@ -1887,8 +1902,8 @@ monitoring system such as Prometheus and Grafana, see [`metrics`](configuration.
 
 ### Selected
 
-Shows each queued torrent with its cost, category, tags, what chose it (an autograb or a manual
-search), and when it was queued and started. You can remove entries, or change a queued torrent's cost,
+Shows each queued torrent with its cost, category, tags, what chose it (an autograb, a list, Follow, Upgrade
+or the Search page), and when it was queued and started. A started torrent stays until its download finishes. You can remove entries, or change a queued torrent's cost,
 category and tags before it starts. The cost can be changed to `Ratio`, `TryWedge` or `UseWedge` (the
 `ratio`, `try_wedge` and `wedge` costs from the configuration); the free costs only record what MAM
 reported, so they cannot be chosen by hand.
@@ -1897,8 +1912,9 @@ reported, so they cannot be chosen by hand.
 
 - **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
   several words each must appear somewhere in those, in any order. The newest torrents come first; click
-  the **Title** heading to sort by title, and click it again to reverse the order. The dropdowns below the
-  search box show only some of the torrents, and apply as soon as you choose:
+  the **Title**, **Format**, **Category**, **Status** or **Added** heading to sort by it, and click it again to
+  reverse the order. The dropdowns in the **Filters** panel below the search box show only some of the
+  torrents, and apply as soon as you choose; the browser remembers whether the panel is open:
   - *Status*: *Linked*, or *Not linked*, which covers the four kinds below. *Waiting to be linked* means the
     Link job hasn't linked it yet, because it is still downloading or no library accepts it (then it is also
     flagged *No library*). *Replaced* means the Clean job retired it for a better copy, and *Unlinked by
@@ -1907,7 +1923,7 @@ reported, so they cannot be chosen by hand.
   - *Library*: the `[[library]]` the torrent was linked into.
   - *qBittorrent category*: the torrent's category in qBittorrent, as of the last Link run or
     **Check qBittorrent**.
-  - *Problems*: a library mismatch (see the *Mismatch* column), torrents **Check qBittorrent** found missing
+  - *Problems*: a library mismatch (the badge in the *Status* column), torrents **Check qBittorrent** found missing
     from qBittorrent, torrents removed from MAM (found by an autograb with
     [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
@@ -1924,10 +1940,11 @@ reported, so they cannot be chosen by hand.
   Pages hold 25 torrents; choose 50, 100, 500 or *All* under *Per page*, next to the export links or below
   the list. Your browser remembers the choice for this list. Use the page numbers, **Prev** and **Next** below
   the list to move between pages.
-- **Columns.** Besides the metadata, *Client status* is the torrent's state in qBittorrent as of the last
-  check, and *Mismatch* shows when a linked book's folder no longer matches your library settings (see
+- **Columns.** The columns are *Title* (with authors and series), *Format* (media type and language),
+  *Category*, *Status* and *Added*. *Status* is the torrent's state in qBittorrent as of the last check, with
+  a badge when a linked book's folder no longer matches your library settings (see
   [When the folder no longer matches](#when-the-folder-no-longer-matches)). An unlinked book has
-  *(unlinked)* after its title, and one MAM no longer has *(removed from MAM)* after its client status.
+  *(unlinked)* after its title, and one MAM no longer has *(removed from MAM)* after its status.
   **Edit** on each row opens the metadata editor.
 - **Bulk actions.** Tick rows, then **Clean selected**, **Refresh selected**, **Relink selected**, **Unlink
   selected** or **Remove selected**. The last two sit apart at the right of the bar and ask for confirmation first.
@@ -1953,7 +1970,8 @@ reported, so they cannot be chosen by hand.
     went, with **Reload the list** to see the changes, until you **Dismiss** it. A restart of Fetchshelf stops
     one that is running and forgets the panel; what was done to each torrent stays done. A bulk action and the
     Link and Clean jobs take turns, one torrent at a time, so they never work on the same files at once.
-  - **Set category**, below the other buttons, gives the ticked torrents one of the qBittorrent categories
+  - **Set category**, in the same bar between **Relink selected** and **Unlink selected**, and only when a library
+    has a `category` or `extra_categories` is set, gives the ticked torrents one of the qBittorrent categories
     your `[[library]]` blocks use, or one of the `extra_categories` in your configuration, chosen from the
     dropdown. A library's category is how a torrent added outside Fetchshelf, or under another category, gets
     linked: the next Link run picks it up. An `extra_categories` one, marked *no library*, is for torrents that
@@ -1962,7 +1980,8 @@ reported, so they cannot be chosen by hand.
     *No library* and leaves its library files where they are: **Unlink** it first to take it out of the library. In
     qBittorrent, a torrent in Automatic Torrent Management mode also moves its files to the new category's
     save path.
-- **Check qBittorrent.** Updates the *Client status* column for every torrent. Books recorded with
+- **Check qBittorrent.** Updates the *Status* column for every torrent, and takes downloads that have
+  finished off the **Selected** queue. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Export.** **CSV** and **JSON** next to **Check qBittorrent** download the list as it is searched, filtered
   and sorted, every page of it: MAM id, title, authors, narrators, series, media type, language, the linked
@@ -1999,8 +2018,8 @@ use them to see why something happened. Filter
 the list with the dropdowns above it: by event type, by the job that grabbed a torrent (an autograb, a list,
 Follow, Upgrade or the Search page), or by the library that linked it. With the type set to *Updated*, a
 further dropdown filters by the field an update changed. A choice applies straight away; **Clear filters** shows the whole list again. Pages hold 25 events; choose 50, 100, 500 or *All* under *Per page* below the list. Your
-browser remembers the choice for this list. Use **First**, **Previous**, **Next** and **Last** to move
-between pages.
+browser remembers the choice for this list. Use the page numbers, **Prev** and **Next** to move between
+pages.
 
 ### Errors
 
@@ -2021,6 +2040,8 @@ updated while it keeps failing and disappears once the item succeeds. The jobs t
 - **Hardcover list**, **File list** and **Bookmarks list**: a book a list couldn't search MAM for, or a bookmark
   it couldn't handle, linking to its list. A refusal
   from MAM that stops the whole run is a failing job instead, not an entry per book.
+- **Follow**: a series or author whose search failed.
+- **Upgrade**: a linked book whose search for a better copy failed.
 - **Audiobookshelf**: a linked torrent that couldn't be matched to an Audiobookshelf item, such as one with no
   author or in a folder no Audiobookshelf library contains. A book Audiobookshelf hasn't scanned yet is not
   an error and gets no entry.
@@ -2142,7 +2163,10 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Hardcover list (one per `[[hardcover_list]]`) | Reads the list from Hardcover, searches MAM for the books still missing a format and selects what qualifies. | Same. |
 | File list (one per `[[file_list]]`) | Reads the list file, then does what a Hardcover list does. | Same. |
 | Bookmarks list (`[[bookmarks_list]]`) | Reads the MAM bookmarks and selects those its `grab` blocks take. | Same. |
-| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a list or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
+| Follow | Searches MAM for the followed series and authors, and selects what qualifies (see [Completing series and following authors](#completing-series-and-following-authors)). | Every [`[follow]`](configuration.md#follow) `search_interval` minutes, or the top-level one. |
+| Upgrade | Searches MAM for better copies of linked books (see [Finding better copies](#finding-better-copies)). | Every [`[upgrade]`](configuration.md#upgrade) `search_interval` minutes, or the top-level one. |
+| Bonus | Spends bonus points on wedges and upload credit (see [Spending bonus points](#spending-bonus-points)). | Every [`[bonus]`](configuration.md#bonus) `bonus_interval` minutes, every two hours by default. |
+| Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a list, Follow, Upgrade or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
 | Clean | Retires lesser formats. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
@@ -2152,8 +2176,8 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 
 Autograb and list jobs are named after the block's `name`, or `autograb[0]`,
 `hardcover_list[0]`, `file_list[0]`, `bookmarks_list` and so on if it has none. Give your blocks names so the Jobs page is
-easy to read. Below the jobs, the page lists each kind of optional job you have not configured, such as
-*Hardcover list is not configured*.
+easy to read. At the end of the jobs that come with a section of the configuration, the page lists each
+kind of optional job you have not configured, such as *Hardcover list is not configured*.
 
 - **Run now** starts a job immediately. This works for every job, whatever its interval.
 - **Dry run**, for autograbs, lists, Follow and Upgrade, runs the job once without selecting or
@@ -2173,7 +2197,8 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   the Clean run after Link or a Download run after an autograb: cancel that one on its own. A cancelled
   job runs again at its next interval. **Cancel** stops only the run it was shown for: if that run has
   ended and another started before the page caught up, the new run carries on.
-- An interval of `0` means the job never runs by itself.
+- An interval of `0` means the job never runs on a schedule. Some jobs are still started by others: Link
+  when a download finishes, Download after a selection, and Clean after Link.
 - Only one job talks to MAM at a time. If you press **Run now** while another is running, it waits its
   turn.
 - The *last result* shows what the run did, such as *Success: 3 torrents linked* or *Success: 312 search
@@ -2181,13 +2206,13 @@ easy to read. Below the jobs, the page lists each kind of optional job you have 
   that run ends. A failed job tries again at
   its next interval; while its runs keep failing, its row is shown in red with since when and how many runs
   in a row, and it is listed on the **Errors** page. One failing torrent never stops the others: the
-  Download, Link, Clean, Audiobookshelf and list jobs then show *Finished with errors*
+  Download, Link, Clean, Audiobookshelf, list, Follow, Upgrade and Bonus jobs then show *Finished with errors*
   with the number of torrents or books that failed, and each is listed on the **Errors** page, except a
   download that failed because MAM couldn't be reached, which stays queued for the next run.
 - With an empty `mam_id`, no job runs at all.
 
 Selecting a job's name opens its **history**: its runs, newest first, 50 to a page, each with when it
-started, how long it took, what started it (*Schedule*, *Startup*, *Manual* or *Another job*), its result and
+started, how long it took, what started it (*Schedule*, *Startup*, *Manual*, *Dry run* or *Another job*), its result and
 its summary. Hover over a summary for its numbers. **Only runs that didn't succeed** leaves out the
 successful ones. The newest 200 runs of each job are kept.
 
@@ -2199,8 +2224,9 @@ interval after its start counts instead, and a container that keeps restarting c
 often than its interval.
 
 A job that has never run, or is overdue, runs soon after start, one after another so they don't all reach
-MAM at once: Link (with Audiobookshelf and Backup) after 30 seconds, then each autograb and list in
-the order of the configuration, 30 seconds apart, and the Download job after the last of them. The history
+MAM at once: Link (with Audiobookshelf, Backup and Seeding) after 30 seconds, then, 30 seconds apart, each
+autograb, each Hardcover list, each file list and the bookmarks list, each kind in the order of the
+configuration, then Follow, Upgrade and Bonus, and the Download job after the last of them. The history
 shows those runs as started by *Startup*, and *Next run in* on the Jobs page shows when each job will run.
 
 ## Getting notified
@@ -2229,16 +2255,18 @@ are for following along.
   failing and one when it works again.
 - **A refused `mam_id` is one message,** not one per job it stopped: the message says until when MAM calls are
   paused and what to do. A block that wants it doesn't also get a failure for each job.
-- **Bursts are merged.** Grabs and links within 30 seconds of each other are one message: "Grabbed 4
-  torrents: *A*, *B*, *C* and 1 more."
+- **Bursts are merged.** Grabs, links and `unsatisfied_not_seeding` warnings within 30 seconds of each other
+  are one message: "Grabbed 4 torrents: *A*, *B*, *C* and 1 more." A burst that never pauses is sent after 5
+  minutes.
 - **Hit-and-runs.** `hit_and_run` is sent when MAM counts more hit-and-runs than the last count Fetchshelf saw.
   The count is kept across restarts, so one that appears while Fetchshelf is stopped is still reported. The
   first time a block asks for the event, a hit-and-run that already exists is reported once.
 - **Trying it.** The **Config** page lists each block, with the URL hidden, and **Send a test message**, which
   sends to that block straight away and shows the HTTP status or what went wrong. `--check-config` lists the
   blocks too, with the URLs hidden.
-- **When delivery fails,** the message is tried once more after 10 seconds, then dropped, with a warning in
-  the log. Nothing waits for the network: a service that is down never slows a job, nor another block's
+- **When delivery fails,** because the service doesn't answer, answers with a server error (5xx) or with
+  "too many requests" (429), the message is tried once more after 10 seconds, then dropped, with a warning in
+  the log. Any other refusal, such as a wrong address or token, drops it at once, also with a warning. Nothing waits for the network: a service that is down never slows a job, nor another block's
   messages. Messages are not stored, so those still waiting when Fetchshelf stops get 5 seconds to be sent,
   and are lost if that is not enough; the log says how many.
   The **Events** page and each job's history on the **Jobs** page have the same facts.
@@ -2327,6 +2355,7 @@ What matters:
 | `config.toml` | the `/config` folder | Your settings and secrets. |
 | `data.db` | the `/database` folder | Everything Fetchshelf remembers: torrents, selections, events, errors. |
 | `keys` | the `/database` folder | Keys that protect the web interface's forms. Not essential: without them, a page that was open before is refused once, and works again after a reload. |
+| `covers` | the `/database` folder | The OPDS catalog's covers, read from the books. Not essential: they are read again when needed. |
 | `instance-id` | the `/database` folder | A random name for this installation, used in the names of the browser cookies that protect its forms, so two Fetchshelf installations on one machine (on different ports) don't overwrite each other's cookies. Not essential: a new one is made if it is missing, and a page that was open before is refused once. |
 
 Your library and downloads are separate; back them up the way you normally do. Fetchshelf's own data is
@@ -2385,18 +2414,23 @@ fix the ownership of the copied files.
   `allowed_hosts` set to the names you reach Fetchshelf by, such as `["fetchshelf.lan"]`, any other name is
   refused with HTTP 400 before a page runs. Reaching it by IP address needs that address listed too (see
   [`allowed_hosts`](configuration.md#top-level-settings)).
-- **Secrets in `config.toml`:** `mam_id`, the qBittorrent and Audiobookshelf credentials, and the OPDS password.
+- **Secrets in `config.toml`:** `mam_id`, the qBittorrent and Audiobookshelf credentials, the Hardcover token,
+  the OPDS password, and each `[[notify]]` block's `url` and `token`.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
   in its own file instead; protect that file the same way.
-- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state),
-  qBittorrent and Audiobookshelf (on your network). It sends no usage data anywhere else.
+- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state, and covers
+  from MAM's image server), qBittorrent and Audiobookshelf (on your network), Hardcover with your token when
+  a `[[hardcover_list]]` is set, and the services your `[[notify]]` blocks name, which receive book titles and
+  job names in the messages. Requests to MAM and Hardcover say they come from `Fetchshelf/<version>`. It
+  sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's
-  reply. At the `debug` level they also contain the titles of the torrents each job looks at, including
-  every search result an autograb rejects; the default level, `information`, leaves those out, but a
-  `dry_run` block logs its titles at any level. Error messages can name hosts, folders and files on your
+  reply. At the default level, `information`, they also contain the titles of the books that are linked,
+  retired, matched in Audiobookshelf, given a cover or checked for a better copy. The `debug` level adds
+  every search result a job looks at, including each one an autograb rejects; a `dry_run` block logs those
+  at any level. Error messages can name hosts, folders and files on your
   system. Read a log before you share it and remove anything you consider private.
 
 ## Troubleshooting
@@ -2412,7 +2446,7 @@ below). *Connection refused* means Fetchshelf is not answering at all: read `doc
 
 ### The container exits or restarts
 
-Run `docker logs fetchshelf`. If the message begins with *Invalid configuration*, fix the setting it names
+Run `docker logs fetchshelf`. If the message says *Invalid configuration*, fix the setting it names
 (a misspelled key or name, a missing `url`, a library with both or neither of `category` and
 `download_dir`, a number out of range, and so on) and restart. While the container keeps restarting,
 `docker exec` can't reach it; check the file with a one-off container instead:
@@ -2425,8 +2459,8 @@ use `--user` or `user:` instead, make sure that user can write to both folders.
 
 ### Nothing runs
 
-An empty `mam_id` means no jobs run. Also check the interval: `0` means the job only runs when you press
-**Run now**.
+An empty `mam_id` means no jobs run. Also check the interval: `0` means the job doesn't run on a schedule,
+only when you press **Run now** or another job starts it.
 
 ### MAM login fails, or "too many requests", or the account is blocked
 
@@ -2448,14 +2482,16 @@ container name rather than `localhost`, and make sure both containers share a ne
 
 ### Linking fails or files do not appear
 
-- *Source missing.* Fetchshelf cannot see the path qBittorrent reported. Add or fix `path_mapping`, or
-  mount the same folder in both containers.
+- *Cannot link: source file not found: …* Fetchshelf cannot see the path qBittorrent reported. Add or fix
+  `path_mapping`, or mount the same folder in both containers.
 - *Cross-device link* (with `method = "hardlink"`). Hardlinks need the same filesystem, and in Docker the
   same mount: two separate mounts count as different devices even on one disk. Mount the folder that holds
   both downloads and library, or use the default `hardlink_or_copy`.
-- *No library matched.* No library accepts the torrent's category, save path or tags. Check your `[[tag]]`
-  rules and `[[library]]` entries.
-- *No author.* The torrent has no author in its metadata. Use **Edit** to add one: on the torrent's row on the
+- **No library accepts the torrent.** This is not an entry on the **Errors** page: the torrent simply stays
+  unlinked. When Fetchshelf knows the torrent, the **Torrents** page marks it *No library* in its *Status*
+  column. Check the torrent's category, save path or tags against your `[[tag]]` rules and `[[library]]`
+  entries; with `download_dir`, it must be the folder qBittorrent saves to, as Fetchshelf sees it.
+- *Torrent has no author; cannot be linked.* The torrent has no author in its metadata. Use **Edit** to add one: on the torrent's row on the
   **Torrents** page, or on the **Errors** page for a torrent added in qBittorrent that Fetchshelf has no
   record of yet.
 - *No wanted file type.* None of the torrent's files has an extension from the format list for its media
@@ -2552,8 +2588,9 @@ well. Audiobookshelf is just the one app it has a direct integration with.
 **Can I use it without qBittorrent?** No. Both halves work through qBittorrent.
 
 **Does it ever delete my downloaded data?** Clean and **Unlink** only remove files that Fetchshelf itself
-linked, `cover.jpg`, `metadata.json` and `metadata.opf` in a book's own library folder, and the folders this leaves
-empty, up to but never including the `library_dir`. The one action that
+linked, `cover.jpg` (or `.png`, `.webp`), `metadata.json`, `metadata.opf` and `series.json` in a book's own library
+folder, and the folders this leaves empty, up to but never including the `library_dir`. **Delete selected** on
+the **Library check** page deletes the folders and files you tick there. The one action that
 deletes torrent data is **Remove from qBittorrent with data** on a torrent's page, which you click yourself
 and then confirm.
 
@@ -2564,8 +2601,10 @@ and then confirm.
   downloads are not linked either. Start it again with `docker start fetchshelf` (or
   `docker compose start fetchshelf`).
 - **Keep Fetchshelf running, but download nothing on its own:** in `config.toml`, set
-  `search_interval = 0`, set any `search_interval` on an individual `[[autograb]]` to `0` as well, and
-  restart. Autograbs then run only when you press **Run now**, and linking carries on as before.
+  `search_interval = 0`, set any `search_interval` on an individual `[[autograb]]`, list, `[follow]` or
+  `[upgrade]` to `0` as well, and restart. They then run only when you press **Run now**, and linking
+  carries on as before. A `[bonus]` section keeps spending points on its `bonus_interval`; set that to `0`
+  too to stop it.
 
 Either way, torrents already in qBittorrent keep downloading; pause them in qBittorrent if you want them to
 stop too. To keep downloading but review each torrent before it starts, set `add_torrents_stopped = true`
@@ -2580,7 +2619,7 @@ your autograbs, or `categories = { audio = true, ebook = false }`.
 start it with **Run now**.
 
 **Can I use more than one qBittorrent?** Yes, list several `[[qbittorrent]]` entries. New downloads go to
-the first. Linking works against all of them.
+the first, unless a `client` setting or the Search page chooses another. Linking works against all of them.
 
 **Can I prefer one format over another?** Yes, with the order of the format lists: `audio_types`,
 `ebook_types`, `music_types` and `radio_types`.
@@ -2599,5 +2638,5 @@ the first. Linking works against all of them.
 - **Include in a report:** the Fetchshelf version (shown on the **Config** page, and in the first line of the
   log, `Fetchshelf 2026.10.2 starting`), what you expected and what happened, the relevant lines from the
   log, and your configuration with the secrets removed.
-- **Remove secrets first:** replace `mam_id`, passwords and tokens with placeholders such as
-  `replace-with-your-token`. Also check log lines for private paths and names.
+- **Remove secrets first:** replace `mam_id`, passwords, tokens and `[[notify]]` URLs with placeholders such
+  as `replace-with-your-token`. Also check log lines for private paths and names.

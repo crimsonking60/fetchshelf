@@ -312,8 +312,10 @@ files, such as images or text files that came with it, are left out. Next to the
 `metadata.json` with the book's details, which Audiobookshelf reads.
 
 Torrents in that folder that didn't come from MAM, such as ones from another tracker, are looked up on MAM, not
-found, and listed on the **Errors** page as *MAM has no torrent with this info-hash*. That does no harm; you can
-remove the entries there.
+found, and listed on the **Errors** page as *MAM has no torrent with this info-hash*. That does no harm, and the
+entries are best left there: each one holds back the next MAM lookup of its torrent for a day, so a removed entry
+is looked up again on the next Link run. Libraries matched by category instead of `download_dir` keep such
+torrents out altogether.
 
 #### Optional: audiobooks and ebooks apart
 
@@ -545,7 +547,7 @@ Look first at the **Errors** page and at Fetchshelf's log:
 docker compose logs --tail 100 fetchshelf
 ```
 
-**Nothing runs; the Jobs page shows no runs.** `mam_id` is empty, or Fetchshelf wasn't restarted after you set
+**Nothing runs; the Jobs page lists no jobs.** `mam_id` is empty, or Fetchshelf wasn't restarted after you set
 it. Set it, check and restart.
 
 **Every job fails with *MAM refused the request (HTTP 403)*.** MAM didn't accept the session: it has expired, or
@@ -558,15 +560,19 @@ accepts a session id.
 Use the service name or the machine's address, not `localhost`. **Check qBittorrent** on the **Torrents** page
 tests the connection after a restart.
 
-**Downloads finish, but nothing appears in the library.** The **Errors** page says why for each torrent:
+**Downloads finish, but nothing appears in the library.** First check that a `[[library]]` takes the torrent.
+One that no library takes is not linked and not listed on the **Errors** page: Fetchshelf leaves it alone. When
+Fetchshelf already knows it, for example because it downloaded it, the **Torrents** page marks it *No library*.
+With `download_dir`, check that it is the folder qBittorrent saves to, as Fetchshelf sees it. With categories,
+check that the torrent has one of them in qBittorrent.
 
-- *Source missing*: Fetchshelf can't see the folder qBittorrent reported. qBittorrent's **Default Save Path**
-  isn't under the shared folder, or the path needs translating with `path_mapping` (step 1 and step 4).
-- *No library matched*: no `[[library]]` takes the torrent. With `download_dir`, check that it is the folder
-  qBittorrent saves to, as Fetchshelf sees it. With categories, check that the torrent has one of them in
-  qBittorrent.
-- *No author*: MAM has no author for this book. **Edit**, on its row on the **Errors** or **Torrents** page,
-  adds one, and the next Link run links it.
+For a torrent a library takes, the **Errors** page says why it wasn't linked:
+
+- *Cannot link: source file not found: …*: Fetchshelf can't see the folder qBittorrent reported. qBittorrent's
+  **Default Save Path** isn't under the shared folder, or the path needs translating with `path_mapping` (step 1
+  and step 4).
+- *Torrent has no author; cannot be linked.*: MAM has no author for this book. **Edit**, on its row on the
+  **Errors** or **Torrents** page, adds one, and the next Link run links it.
 
 **The library takes as much space as the downloads.** The files were copied, not hardlinked: the downloads and
 the library are on different disks, or reach Fetchshelf through two mounts instead of one. Mount the folder
