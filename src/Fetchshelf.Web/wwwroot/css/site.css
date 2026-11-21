@@ -655,6 +655,30 @@ body:not(.bulk-notice-in-view):has(.bulk-progress) .bulk-bar { bottom: 3.25rem; 
 .sparkline { display: block; max-width: 100%; height: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; }
 .sparkline polyline { fill: none; stroke: var(--accent-line); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .sparkline circle { fill: var(--accent-line); }
+/* ---- MAM API page ---------------------------------------------------------- */
+
+.mam-chart-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; padding: 0.25rem; }
+.mam-chart { display: block; width: 100%; height: auto; }
+.mam-chart .mam-grid { stroke: var(--border); stroke-width: 1; }
+.mam-chart .mam-axis { fill: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.mam-chart .mam-bar { fill: var(--accent-line); }
+.mam-chart .mam-hit { fill: transparent; }
+.mam-chart .mam-hit:hover { fill: var(--text); fill-opacity: 0.08; }
+.mam-chart .mam-error { stroke: var(--c-danger); stroke-width: 2; pointer-events: none; }
+.mam-chart .mam-no-answer { stroke-dasharray: 4 3; }
+.mam-chart .mam-error-hit { stroke: transparent; stroke-width: 9; }
+.mam-tip { position: fixed; z-index: 50; max-width: 26rem; padding: 0.4rem 0.6rem; white-space: pre-line; pointer-events: none;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; font-size: 0.85rem; }
+.mam-window { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.4rem 0 1rem; }
+.mam-step { font-size: 1.2rem; padding: 0 0.6rem; text-decoration: none; }
+.mam-step.disabled { color: var(--text-muted); opacity: 0.4; }
+.mam-stats { margin-bottom: 1rem; padding: 0.5rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+.mam-stats h3 { margin-top: 0.25rem; }
+.mam-stat-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.4rem 1.5rem; margin: 0 0 0.75rem; }
+.mam-stat-list dt { color: var(--text-muted); font-size: 0.85rem; }
+.mam-stat-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+.mam-bad { color: var(--c-danger); }
+
 .account-strip { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0 0 1rem; }
 .account-strip .notice { flex-basis: 100%; margin: 0; }
 

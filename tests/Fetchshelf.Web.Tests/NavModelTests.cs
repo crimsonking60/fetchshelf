@@ -28,6 +28,7 @@ public class NavModelTests
         var model = NavModel.Build(Inputs(account: true, follow: true, lists: true, findings: 4));
 
         Assert.Equal(["Books", "Series", "Following", "Lists", "Duplicates", "Library check"], Labels(model.Groups[0].Entries));
+        Assert.Equal(["Events", "Statistics", "MAM API"], Labels(model.Groups[1].Entries));
         Assert.Equal(["Account", "Config"], Labels(model.Trailing));
     }
 

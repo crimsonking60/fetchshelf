@@ -63,6 +63,10 @@ public sealed record NavModel(IReadOnlyList<NavEntry> Primary, IReadOnlyList<Nav
 
         // Looking back.
         List<NavEntry> insight = [new("/Events/Index", "Events"), new("/Statistics/Index", "Statistics")];
+        if (inputs.HasAccount)
+        {
+            insight.Add(new("/MamApi/Index", "MAM API"));
+        }
 
         List<NavEntry> trailing = [];
         if (inputs.HasAccount)
