@@ -5,6 +5,80 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.20 - 2026-11-21
+
+A new **Books** page, first in the **Library** menu, shows every book Fetchshelf has linked, audiobooks included, as
+a grid of covers to browse, search and open in Audiobookshelf. With an `[opds]` section its files can be downloaded
+there too, behind the OPDS login when one is set. Covers now also come from each book's folder and from m4b, mp3 and
+CBR files, which gives the OPDS catalog covers for PDFs and comics as well. The documentation was checked against the
+code, and where they disagreed, either was put right.
+
+### Upgrading
+
+- Nothing is needed for the database: it is unchanged, so going back to 2026.11.19 is possible.
+- **Some configurations are now refused at start-up.** `[audiobookshelf]` needs both `url` and `token`, every
+  `[[library]]` needs `library_dir`, two `[[hardcover_list]]` blocks can't read the same `status` or `list`, and
+  `media_type` takes only names such as `"Ebook"`. Run `--check-config` against the new version before switching
+  over; an error names the section it is in.
+- **Log files are limited.** With `FETCHSHELF_LOG_DIR` set, a log file now rolls on to a new one at 100 MB, and the
+  newest 31 files are kept. An unknown `FETCHSHELF_LOG` value is warned about at start-up.
+- **The `covers` folder** next to the database is used without an `[opds]` section too, for the **Books** page, and
+  the Clean job removes the covers of books no longer in the library once a week.
+- **`metadata.json` language names** are written as shown (`Brazilian Portuguese`, not `BrazilianPortuguese`). Files
+  already written change at their book's next relink.
+- `--update-search-title`, which was never documented, is removed; started with it, Fetchshelf ignores it and runs as
+  usual.
+- No setting is added or renamed.
+
+### Added
+
+- **Books**: a page of every linked book, audiobooks included, as a grid of covers: **Recently added**, **Authors**,
+  **Series** and **Libraries** (one column, A-Z), a search over title, author and series, and an **All / Audiobooks /
+  Ebooks** filter. A book opens with its details, narrators, description and files, **Open in Audiobookshelf** when
+  it is matched, and **Details** for its torrent page. A series links to the **Series** page for its missing books.
+  `g` then `b` opens it. See [Browsing your books](https://fetchshelf.readthedocs.io/en/v2026.11.20/user-guide/#browsing-your-books) (#162, #163, #166, #169).
+- **Books**: with an `[opds]` section, each file downloads with a `Title - Author` name and resumable ranges; an
+  audiobook in several files also downloads as one zip, with its `Disc N` folders, and one in a single file has a
+  preview in the browser's player. With an `[opds]` login, downloads and covers ask for it, while the page itself
+  doesn't (#163, #164).
+- **Covers**: a book's cover is the image in its own folder (`cover.*`, `folder.*` or its only image), such as the one
+  `covers_from_mam` writes, else the cover inside the file: EPUB and CBZ as before, and now m4b, m4a, mp3 and CBR. In
+  a series-layout library, where a series' books share a folder, only covers inside the files are used. The OPDS
+  catalog gets the same covers (#165).
+- **Clean** removes, once a week, the cached covers of books no longer in the library (#167).
+- **Jobs**: Backup, Bonus, Follow and Upgrade are listed as not configured when they aren't (#158).
+- **Config**: the `[audiobookshelf]` and `[hardcover]` sections, with their tokens hidden, and
+  `download_after_selection` (#158).
+
+### Changed
+
+- **Wedges**: a selection to be fetched with a wedge is checked on MAM just before the wedge is spent, and downloaded
+  without one if it has turned freeleech or VIP meanwhile. A `wedge` selection waiting at `wedge_buffer` makes no
+  request, as before (#153).
+- **Lists**: with `prefer_format`, once the preferred format is selected or in the library, the other format is no
+  longer searched for; it is wanted again if the preferred one leaves the queue or the library (#153).
+- **Torrents**: **Refresh selected** skips torrents edited by hand and lists them under the operation's problems; a
+  torrent's own **Refresh** still replaces the edits after asking (#157).
+- **Library check**: always in the **Library** menu, with a count when the last check found something, and always
+  linked from its job on the **Jobs** page. **Delete selected** asks for confirmation first (#158, #168).
+- **OPDS**: a book split into several files lists its parts in number order (`Part 2` before `Part 10`) (#162).
+- `--check-config` lists Library check, Seeding, Backup, Follow, Upgrade and Bonus with the other jobs (#155).
+- Configuration errors name the section they are in, such as `the [[library]] 'Audiobooks'` (#155).
+
+### Fixed
+
+- **Lists**: a book on a list without an author was never found: the search asked MAM for an empty author and the
+  match required one. It is now searched for and matched on its title alone (#156).
+- **Split collections**: a hand edit of a collection's book was shown on the Torrents page, but the book's folder kept
+  following MAM's details; **Refresh and relink** now moves it to match the edit (#157).
+- **Config page**: **Run now** showed an unstyled fragment instead of the Jobs page (#158).
+- A list page said a missing format is searched for once a day; it is daily in a book's first week on the list, then
+  weekly (#156).
+- `utils/fs` knew only some event kinds and error stages, and its `--state` and `--stage` filters didn't ignore case
+  as documented (#160).
+- The user, developer and maintainer documentation was corrected wherever it no longer matched the code, and the
+  example configurations work as their comments say (#152, #154).
+
 ## 2026.11.19 - 2026-11-20
 
 A Link run over a large library takes seconds instead of a minute. The **Torrents** page keeps **Check qBittorrent**,
