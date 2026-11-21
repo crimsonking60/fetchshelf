@@ -33,6 +33,24 @@ public class ListLibraryMatcherTests
     }
 
     [Fact]
+    public void BookWithoutAuthors_MatchesOnTheTitleAlone()
+    {
+        var candidates = new[] { Build("match", "Mistborn", ["Brandon Sanderson"]) };
+
+        var match = ListLibraryMatcher.FindMatch("Mistborn", [], FilterMainType.Audio, candidates);
+
+        Assert.Equal("match", match?.Payload);
+    }
+
+    [Fact]
+    public void BookWithoutAuthors_StillNeedsTheTitle()
+    {
+        var candidates = new[] { Build("no-match", "A Completely Different Book", ["Brandon Sanderson"]) };
+
+        Assert.Null(ListLibraryMatcher.FindMatch("Mistborn", [], FilterMainType.Audio, candidates));
+    }
+
+    [Fact]
     public void TitleBelowThreshold_ReturnsNull()
     {
         var candidates = new[] { Build("no-match", "A Completely Different Book", ["Brandon Sanderson"]) };

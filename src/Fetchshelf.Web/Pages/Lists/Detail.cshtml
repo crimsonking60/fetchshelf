@@ -7,7 +7,7 @@
 <h2>@Model.ListName</h2>
 @await Html.PartialAsync("_PageExplanation", Model.IsBookmarks
     ? "This page shows the torrents bookmarked on MAM and what happened to each. A bookmark not yet selected or in the library is looked at again on every run of the list, so one that turns freeleech is taken. Mark a bookmark done to leave it alone."
-    : $"This page shows the books {(Model.IsFile ? "in this list file" : "on this Hardcover shelf or list")} and what Fetchshelf found on MAM for each format. A book still missing a format is searched for again once a day. Mark a book done to stop searching for it.")
+    : $"This page shows the books {(Model.IsFile ? "in this list file" : "on this Hardcover shelf or list")} and what Fetchshelf found on MAM for each format. A book still missing a format is searched for again once a day for its first week on the list, then once a week. Mark a book done to stop searching for it.")
 @if (Model.FilePath is not null)
 {
     <p class="muted">File: <code>@Model.FilePath</code></p>

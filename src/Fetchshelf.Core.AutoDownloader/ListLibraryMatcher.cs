@@ -15,7 +15,8 @@ public static class ListLibraryMatcher
     /// <summary>
     /// Returns the first candidate of <paramref name="mainType"/> whose title scores at least
     /// <see cref="TitleScoreThreshold"/> and shares at least one author scoring above
-    /// <see cref="AuthorScoreThreshold"/> with <paramref name="authors"/>, or null if none match.
+    /// <see cref="AuthorScoreThreshold"/> with <paramref name="authors"/>, or null if none match. A book without authors,
+    /// such as a title-only line in a list file, matches on the title alone.
     /// </summary>
     public static ListCandidate<T>? FindMatch<T>(
         string title, IReadOnlyList<string> authors, FilterMainType mainType, IEnumerable<ListCandidate<T>> candidates)
@@ -33,7 +34,7 @@ public static class ListLibraryMatcher
                 continue;
             }
 
-            var hasMatchingAuthor = metadata.Authors.Any(
+            var hasMatchingAuthor = authors.Count == 0 || metadata.Authors.Any(
                 candidateAuthor => authors.Any(author => Fuzz.Ratio(author, candidateAuthor) > AuthorScoreThreshold));
             if (!hasMatchingAuthor)
             {
