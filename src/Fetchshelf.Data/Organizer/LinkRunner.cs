@@ -418,31 +418,33 @@ public sealed class LinkRunner(
         {
             var id = CollectionBookId.For(torrent.Hash, book.Position);
             var chosen = files.Where(f => book.Files.Contains(f.Name, StringComparer.Ordinal)).ToList();
-            var folder = await BookFolderAsync(library, book.Metadata, id, Directory.Exists, cancellationToken);
-            var placement = PlaceFiles(library, book.Metadata, chosen, mappedSavePath, null, book.Format, folder);
+
+            // Details edited by hand on a book are kept, as for any torrent, and place it: its folder follows the edit.
+            var bookMetadata = known.TryGetValue(id, out var record)
+                ? HandEdits.KeepOver(TorrentMetadataSerializer.Deserialize(record.MetadataJson), book.Metadata)
+                : book.Metadata;
+            var folder = await BookFolderAsync(library, bookMetadata, id, Directory.Exists, cancellationToken);
+            var placement = PlaceFiles(library, bookMetadata, chosen, mappedSavePath, null, book.Format, folder);
             LinkCover(library, book, placement.Folder, mappedSavePath);
 
-            if (!known.TryGetValue(id, out var record))
+            if (record is null)
             {
                 record = new TorrentEntity
                 {
                     Id = id,
                     MamId = metadata.MamId,
-                    NormalizedTitleKey = TitleNormalizer.Normalize(book.Metadata.Title),
-                    Title = book.Metadata.Title,
-                    MetadataJson = TorrentMetadataSerializer.Serialize(book.Metadata),
+                    NormalizedTitleKey = TitleNormalizer.Normalize(bookMetadata.Title),
+                    Title = bookMetadata.Title,
+                    MetadataJson = TorrentMetadataSerializer.Serialize(bookMetadata),
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
                 dbContext.Torrents.Add(record);
             }
             else
             {
-                // Details edited by hand on a book are kept, as for any torrent.
-                var current = TorrentMetadataSerializer.Deserialize(record.MetadataJson);
-                var kept = HandEdits.KeepOver(current, book.Metadata);
-                record.MetadataJson = TorrentMetadataSerializer.Serialize(kept);
-                record.Title = kept.Title;
-                record.NormalizedTitleKey = TitleNormalizer.Normalize(kept.Title);
+                record.MetadataJson = TorrentMetadataSerializer.Serialize(bookMetadata);
+                record.Title = bookMetadata.Title;
+                record.NormalizedTitleKey = TitleNormalizer.Normalize(bookMetadata.Title);
             }
 
             record.CollectionTorrentId = torrent.Hash;
@@ -451,7 +453,7 @@ public sealed class LinkRunner(
             record.ReplacedAt = null;
             RecordPlacement(record, torrent, library, placement, null, book.Format);
             await AppendLinkedEventAsync(record, library, placement.Folder, cancellationToken);
-            placements.Add(DescribePlacement(book.Metadata.Title, placement));
+            placements.Add(DescribePlacement(bookMetadata.Title, placement));
         }
 
         // A book of an earlier split that is no longer one of them (the torrent's files changed) is unlinked.

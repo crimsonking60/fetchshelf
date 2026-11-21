@@ -1,4 +1,5 @@
 using Fetchshelf.Clients.QBittorrent;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Configuration;
@@ -102,6 +103,13 @@ public sealed class BulkActionRunner(
                 var unlinked = await cleaner.UnlinkAsync(id, connections);
                 return (unlinked.Succeeded, unlinked.Message);
             case BulkAction.Refresh:
+                // Replacing details edited by hand is asked for on the torrent's own page, one torrent at a time.
+                if (await dbContext.Torrents.Where(t => t.Id == id).Select(t => t.MetadataJson).FirstOrDefaultAsync() is { } json
+                    && HandEdits.AreIn(TorrentMetadataSerializer.Deserialize(json)))
+                {
+                    return (false, EditedByHandSkipped);
+                }
+
                 return await linkRunner.RefreshAsync(id) == RefreshOutcome.NotFoundOnMam
                     ? (false, "MAM did not find it, so nothing was refreshed.")
                     : (true, string.Empty);
@@ -129,6 +137,9 @@ public sealed class BulkActionRunner(
                 return (true, string.Empty);
         }
     }
+
+    /// <summary>Why a bulk Refresh left a torrent alone.</summary>
+    public const string EditedByHandSkipped = "skipped, as its details were edited by hand; Refresh on its own page replaces them.";
 
     /// <summary>"Relinked 18 of 23 torrents.", and, when it stopped early, how far it got. The problems are listed apart.</summary>
     public static string Summary(BulkOperation.Verbs verbs, int total, int handled, int done, int problems, BulkOperationState state)

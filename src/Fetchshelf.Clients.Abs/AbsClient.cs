@@ -111,7 +111,7 @@ public sealed class AbsClient
             Isbn = metadata.Isbn,
             Asin = metadata.Asin,
             Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata),
-            Language = metadata.Language.ToString(),
+            Language = LanguageNameResolver.DisplayName(metadata.Language),
             Explicit = metadata.Flags.HasFlag(BookFlags.Explicit),
             Abridged = metadata.Flags.HasFlag(BookFlags.Abridged),
         };

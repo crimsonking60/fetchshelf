@@ -1955,7 +1955,8 @@ reported, so they cannot be chosen by hand.
     `cover.jpg` and metadata files (unless the kept copy shares the folder), and its folder and the series and
     author folders above it if they are then empty. The downloaded data in qBittorrent is left alone. If no other copy of the book is linked, *Clean*
     does nothing. The Clean job does the same automatically after every link run.
-  - *Refresh* re-reads its metadata from MAM.
+  - *Refresh* re-reads its metadata from MAM. A torrent whose details were edited by hand is skipped and listed
+    with the reason; **Refresh** on its own page replaces the edits, after asking.
   - *Relink* does what **Refresh and relink** does on a torrent's page, but with the details Fetchshelf already
     has, without asking MAM. That is what you want after a configuration change, or after **Refresh** or
     **Edit**. When it is done it says above the list how many were relinked and why any were not. One that

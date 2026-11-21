@@ -165,6 +165,28 @@ public sealed class LinkRunnerCollectionTests : IDisposable
     }
 
     [Fact]
+    public async Task Relink_ABookEditedByHand_IsPlacedByTheEdit()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        await Runner(context, EbookLibrary()).RunAsync(new QBittorrentConnection(), Client(files));
+        var mort = await context.Torrents.SingleAsync(t => t.Id == Book(1));
+        mort.MetadataJson = TorrentMetadataSerializer.Serialize(
+            TorrentMetadataSerializer.Deserialize(mort.MetadataJson) with { Title = "Mortality", MetadataSource = MetadataSource.Manual });
+        await context.SaveChangesAsync();
+
+        var result = await Runner(context, EbookLibrary()).RelinkAsync(Book(1), [(new QBittorrentConnection(), Client(files))]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var editedFolder = Path.Combine(LibraryDir, "Terry Pratchett", "Discworld", "Discworld #4 - Mortality");
+        Assert.True(File.Exists(Path.Combine(editedFolder, "Mort - Terry Pratchett.epub")));
+        Assert.Contains("\"title\": \"Mortality\"", File.ReadAllText(Path.Combine(editedFolder, "metadata.json")));
+        context.ChangeTracker.Clear();
+        var relinked = await context.Torrents.SingleAsync(t => t.Id == Book(1));
+        Assert.Equal(("Mortality", editedFolder), (relinked.Title, relinked.LibraryPath));
+    }
+
+    [Fact]
     public async Task Relink_ABooksId_RelinksItsCollection_AndWithoutSplittingMergesItBack()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
