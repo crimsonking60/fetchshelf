@@ -21,6 +21,10 @@
                     @(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Author="@book.Authors[i]">@book.Authors[i]</a>
                 }</span></p>
         }
+        @if (book.Narrators.Count > 0)
+        {
+            <p><span class="label">Narrators</span><span class="value" id="book-narrators">@string.Join(", ", book.Narrators)</span></p>
+        }
         @if (book.Series.Count > 0)
         {
             <p><span class="label">Series</span><span class="value">@for (var i = 0; i < book.Series.Count; i++)
