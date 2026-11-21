@@ -741,10 +741,10 @@ The catalog offers:
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
   split into several files offers each part.
 - **Covers:** the image in the book's own folder, such as the `cover.jpg` that
-  [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB or CBZ file. A PDF or
-  another format has one only from its folder. In a series-layout library a series' books share a folder, so only
-  covers inside the files are used. Covers are kept in a `covers` folder next to the database, so each book is only
-  opened once; one added to or removed from a folder is noticed.
+  [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB file or the first page of a
+  CBZ or CBR comic. A PDF or another format has one only from its folder. In a series-layout library a series' books
+  share a folder, so only covers inside the files are used. Covers are kept in a `covers` folder next to the
+  database, so each book is only opened once; one added to or removed from a folder is noticed.
 
 What it serves: every linked book in a served library whose MAM media type is Ebook, Manga, Comic Book or
 Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked

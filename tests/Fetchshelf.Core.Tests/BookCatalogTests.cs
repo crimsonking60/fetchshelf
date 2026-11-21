@@ -67,6 +67,7 @@ public class BookCatalogTests
     [InlineData("mp3", "epub", "Book.epub")]
     [InlineData("flac", "pdf", null)]
     [InlineData(null, "cbz", "Book.cbz")]
+    [InlineData(null, "cbr", "Book.cbr")]
     public void EmbeddedCoverFile_IsTheFirstFileOfAFormatThatCanHoldOne(string? audio, string? ebook, string? expected)
     {
         var files = new[] { audio, ebook }.OfType<string>().Select(extension => ($"Book.{extension}", 1L));

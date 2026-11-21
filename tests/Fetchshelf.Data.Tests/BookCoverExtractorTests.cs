@@ -100,9 +100,86 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.Equal(Jpeg, BookCoverExtractor.Extract(path)!.Bytes);
     }
 
+    [Fact]
+    public void Extract_CbzSkipsAnImageTooLargeToBeACover()
+    {
+        var path = WriteZip(_root, "comic.cbz", ("page000 wrap.jpg", [.. Jpeg, .. new byte[BookCoverExtractor.MaxCoverBytes]]), ("page001.png", Png));
+
+        Assert.Equal(Png, BookCoverExtractor.Extract(path)!.Bytes);
+    }
+
+    /// <summary>
+    /// A RAR 4 archive with its files stored uncompressed, built by hand since nothing here writes RAR: a marker, the
+    /// archive header, a header and the data for each file, and the end block. Each header's check is the low half of
+    /// the CRC-32 of the rest of it.
+    /// </summary>
+    internal static string WriteRar(string folder, string fileName, params (string Name, byte[] Bytes)[] entries)
+    {
+        static byte[] Block(byte type, ushort flags, byte[] body)
+        {
+            byte[] rest = [type, .. BitConverter.GetBytes(flags), .. BitConverter.GetBytes((ushort)(7 + body.Length)), .. body];
+            return [.. BitConverter.GetBytes((ushort)(Crc32(rest) & 0xFFFF)), .. rest];
+        }
+
+        var file = new List<byte>("Rar!\x1a\x07\x00"u8.ToArray());
+        file.AddRange(Block(0x73, 0, new byte[6]));
+        foreach (var (name, bytes) in entries)
+        {
+            var nameBytes = Encoding.UTF8.GetBytes(name);
+            byte[] header =
+            [
+                .. BitConverter.GetBytes((uint)bytes.Length), .. BitConverter.GetBytes((uint)bytes.Length), 0,
+                .. BitConverter.GetBytes(Crc32(bytes)), .. BitConverter.GetBytes(0x5A210000u),
+                29, 0x30, .. BitConverter.GetBytes((ushort)nameBytes.Length), .. BitConverter.GetBytes(0x20u), .. nameBytes,
+            ];
+            file.AddRange(Block(0x74, 0x8000, header));
+            file.AddRange(bytes);
+        }
+
+        file.AddRange(Block(0x7B, 0x4000, []));
+        var path = Path.Combine(folder, fileName);
+        File.WriteAllBytes(path, [.. file]);
+        return path;
+    }
+
+    /// <summary>The CRC-32 RAR and zip use (polynomial 0xEDB88320), bit by bit: short inputs only.</summary>
+    private static uint Crc32(byte[] bytes)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in bytes)
+        {
+            crc ^= b;
+            for (var bit = 0; bit < 8; bit++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+            }
+        }
+
+        return ~crc;
+    }
+
+    [Fact]
+    public void Extract_CbrFirstImageByName()
+    {
+        var path = WriteRar(_root, "comic.cbr", ("ComicInfo.xml", "<x/>"u8.ToArray()), ("page002.png", Png), ("page001.jpg", Jpeg));
+
+        Assert.Equal(Jpeg, BookCoverExtractor.Extract(path)!.Bytes);
+    }
+
+    [Fact]
+    public void Extract_ComicsAreReadByWhatTheyAre_NotTheirExtension()
+    {
+        var zipNamedCbr = WriteZip(_root, "zip.cbr", ("page001.jpg", Jpeg));
+        var rarNamedCbz = WriteRar(_root, "rar.cbz", ("page001.png", Png));
+
+        Assert.Equal(Jpeg, BookCoverExtractor.Extract(zipNamedCbr)!.Bytes);
+        Assert.Equal(Png, BookCoverExtractor.Extract(rarNamedCbz)!.Bytes);
+    }
+
     [Theory]
     [InlineData("broken.epub")]
     [InlineData("broken.cbz")]
+    [InlineData("broken.cbr")]
     public void Extract_NotAZip_IsNull(string fileName)
     {
         var path = Path.Combine(_root, fileName);

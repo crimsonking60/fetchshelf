@@ -56,11 +56,11 @@ public sealed record CatalogBook
     public bool HasOwnFolder { get; init; } = true;
 
     /// <summary>
-    /// The file whose embedded cover Fetchshelf can read: the first ebook file when it is an EPUB or CBZ, else the first
+    /// The file whose embedded cover Fetchshelf can read: the first ebook file when it is an EPUB, CBZ or CBR, else the first
     /// audio file when it is an m4b, m4a or mp3; null when there is none.
     /// </summary>
     public CatalogFile? EmbeddedCoverFile =>
-        EbookFiles.Count > 0 && EbookFiles[0].Extension is "epub" or "cbz" ? EbookFiles[0]
+        EbookFiles.Count > 0 && EbookFiles[0].Extension is "epub" or "cbz" or "cbr" ? EbookFiles[0]
         : AudioFiles.Count > 0 && AudioFiles[0].Extension is "m4b" or "m4a" or "mp3" ? AudioFiles[0]
         : null;
 
