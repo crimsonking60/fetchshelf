@@ -98,6 +98,20 @@ public sealed class BookCatalogReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadAsync_BooksInASeriesLayoutLibrary_ShareTheirFolder()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedAsync(context, "saga1", "/library/comics/Saga", "cbz", MediaType.ComicBook, files: "Saga 1.cbz");
+        await SeedAsync(context, "served", "/library/ebooks/Author/Book");
+        List<Library> libraries = [Libraries[0], new() { Category = "comics", LibraryDir = "/library/comics", Layout = LibraryLayout.Series }];
+
+        var catalog = await new BookCatalogReader(context, libraries).ReadAsync();
+
+        Assert.False(catalog.Find("saga1")!.HasOwnFolder);
+        Assert.True(catalog.Find("served")!.HasOwnFolder);
+    }
+
+    [Fact]
     public async Task OpdsLibrariesSetting_NarrowsWhatIsServed()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);

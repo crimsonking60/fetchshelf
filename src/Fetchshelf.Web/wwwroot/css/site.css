@@ -726,7 +726,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 /* A cover keeps a book's shape whether or not there is one; without one the title's first letter stands in. */
 .book-cover { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border: 1px solid var(--border); border-radius: 3px; background: var(--surface-2); }
 .book-cover::before { content: attr(data-initial); position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.5rem; color: var(--text-muted); }
-.book-cover img { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; }
+.book-cover img { position: relative; display: block; width: 100%; height: 100%; object-fit: contain; background: var(--surface-2); }
 .book-formats { margin-top: 0.15rem; }
 .book-files { padding-left: 1.2rem; }
 .book-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.5rem 0 1rem; }

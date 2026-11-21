@@ -5,9 +5,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fetchshelf.Data.Opds;
 
 /// <summary>
-/// Covers for the OPDS catalog, read out of the book files once and kept in a folder next to the database. A cached
-/// cover is named after the book and its file's size and modification time, so a file placed again gets a fresh one.
-/// A book without a cover is remembered too, so it isn't opened on every request.
+/// Covers for the OPDS catalog and the Books page, kept in a folder next to the database. A book's cover is the image
+/// in its own folder (<see cref="FolderCover"/>) when there is one, else the one embedded in its file, read out once. A
+/// cached cover is named after the book and its source's size and modification time, so a file placed again, or a
+/// folder image added or removed, gets a fresh one. A book without a cover is remembered too, so it isn't opened on
+/// every request.
 /// </summary>
 public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logger = null)
 {
@@ -16,7 +18,7 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
 
     private readonly ILogger<OpdsCoverCache> _logger = logger ?? NullLogger<OpdsCoverCache>.Instance;
 
-    /// <summary>The book's cover, or null when its first file has none, isn't there, or can't be read.</summary>
+    /// <summary>The book's cover, or null when it has none, its file isn't there, or it can't be read.</summary>
     public async Task<BookCover?> GetAsync(CatalogBook book, CancellationToken cancellationToken = default)
     {
         if (!book.MayHaveCover)
@@ -24,13 +26,15 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
             return null;
         }
 
-        var file = new FileInfo(Path.Combine(book.Folder, book.EbookFiles[0].RelativePath));
-        if (!file.Exists)
+        var folderImage = book.HasOwnFolder ? FolderCover.Find(book.Folder) : null;
+        var source = folderImage
+            ?? (book.EmbeddedCoverFile is { } file ? new FileInfo(Path.Combine(book.Folder, file.RelativePath)) : null);
+        if (source is null || !source.Exists)
         {
             return null;
         }
 
-        var key = $"{SafeId(book.Id)}-{file.Length}-{file.LastWriteTimeUtc.Ticks}";
+        var key = $"{SafeId(book.Id)}-{(folderImage is null ? "file" : "folder")}-{source.Length}-{source.LastWriteTimeUtc.Ticks}";
         var coverPath = Path.Combine(folder, key + CoverSuffix);
         if (File.Exists(coverPath))
         {
@@ -47,11 +51,11 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
         BookCover? cover;
         try
         {
-            cover = BookCoverExtractor.Extract(file.FullName);
+            cover = folderImage is not null ? FolderCover.Read(folderImage.FullName) : BookCoverExtractor.Extract(source.FullName);
         }
         catch (IOException ex)
         {
-            _logger.LogWarning("Could not read the cover of {File}: {Error}", file.FullName, ex.Message);
+            _logger.LogWarning("Could not read the cover of {File}: {Error}", source.FullName, ex.Message);
             return null;
         }
 
@@ -59,7 +63,7 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
         RemoveOlderVersions(book.Id);
         if (cover is null)
         {
-            _logger.LogDebug("{File} has no cover Fetchshelf can read", file.FullName);
+            _logger.LogDebug("{File} has no cover Fetchshelf can read", source.FullName);
             await File.WriteAllBytesAsync(noCoverPath, [], cancellationToken);
             return null;
         }

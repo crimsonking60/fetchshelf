@@ -36,7 +36,7 @@ public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyLi
                 row.ChosenAudioExtension, row.ChosenEbookExtension, files.Select(file => (file.RelativePath, file.SizeBytes)));
             if (book is not null)
             {
-                books.Add(book with { AbsId = row.AbsId });
+                books.Add(book with { AbsId = row.AbsId, HasOwnFolder = !libraries[index].IsSeriesLayout });
             }
         }
 

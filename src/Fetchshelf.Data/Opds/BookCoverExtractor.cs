@@ -1,12 +1,16 @@
 using System.IO.Compression;
 using System.Xml.Linq;
+using SharpCompress.Archives.Rar;
 
 namespace Fetchshelf.Data.Opds;
 
 /// <summary>A cover image and its MIME type.</summary>
 public sealed record BookCover(byte[] Bytes, string ContentType);
 
-/// <summary>Reads the cover image out of a book file: an EPUB's declared cover, or a CBZ's first image.</summary>
+/// <summary>
+/// Reads the cover image out of a book file: an EPUB's declared cover, a CBZ or CBR's first image, or the cover embedded in an
+/// m4b, m4a or mp3 (<see cref="AudioCoverReader"/>).
+/// </summary>
 public static class BookCoverExtractor
 {
     /// <summary>Covers larger than this are left out, as MAM covers are.</summary>
@@ -23,9 +27,22 @@ public static class BookCoverExtractor
     public static BookCover? Extract(string path)
     {
         var extension = Path.GetExtension(path).ToLowerInvariant();
-        if (extension is not (".epub" or ".cbz"))
+        if (extension is ".m4b" or ".m4a" or ".mp3")
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096);
+            var bytes = extension == ".mp3" ? AudioCoverReader.ReadId3(stream) : AudioCoverReader.ReadMp4(stream);
+            return bytes is not null && SniffImageType(bytes) is { } contentType ? new BookCover(bytes, contentType) : null;
+        }
+
+        if (extension is not (".epub" or ".cbz" or ".cbr"))
         {
             return null;
+        }
+
+        // A comic's extension doesn't always tell the truth: a .cbr may be a zip, and a .cbz a RAR archive.
+        if (extension is ".cbz" or ".cbr" && IsRar(path))
+        {
+            return RarFirstImage(path);
         }
 
         try
@@ -96,11 +113,48 @@ public static class BookCoverExtractor
         return zip.GetEntry(entryPath);
     }
 
+    private static bool IsRar(string path)
+    {
+        Span<byte> magic = stackalloc byte[4];
+        using var stream = File.OpenRead(path);
+        return stream.ReadAtLeast(magic, 4, throwOnEndOfStream: false) == 4 && magic.SequenceEqual("Rar!"u8);
+    }
+
+    /// <summary>The first image of a RAR archive, as for a zip; null when it has none or isn't a readable RAR archive.</summary>
+    private static BookCover? RarFirstImage(string path)
+    {
+        try
+        {
+            using var archive = RarArchive.OpenArchive(path);
+            var entry = archive.Entries
+                .Where(e => !e.IsDirectory && e.Key is { } key && ImageExtensions.Contains(Path.GetExtension(key).ToLowerInvariant()))
+                .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(e => e.Size <= MaxCoverBytes);
+            if (entry is null)
+            {
+                return null;
+            }
+
+            using var stream = entry.OpenEntryStream();
+            return ReadCapped(stream);
+        }
+        catch (Exception ex) when (ex is SharpCompress.Common.ArchiveException or SharpCompress.Common.InvalidFormatException or InvalidOperationException
+            or NotSupportedException or IndexOutOfRangeException or ArgumentException)
+        {
+            // A broken, encrypted or unusual archive: no cover rather than an error.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The first image by name small enough to be a cover: a comic sometimes starts with a large wraparound scan, and
+    /// the front cover follows it.
+    /// </summary>
     private static ZipArchiveEntry? FirstImage(ZipArchive zip) =>
         zip.Entries
             .Where(entry => ImageExtensions.Contains(Path.GetExtension(entry.FullName).ToLowerInvariant()))
             .OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+            .FirstOrDefault(entry => entry.Length <= MaxCoverBytes);
 
     private static BookCover? Read(ZipArchiveEntry entry)
     {
@@ -111,6 +165,12 @@ public static class BookCoverExtractor
 
         // The declared length can't be trusted in a broken or crafted zip, so the copy stops at the limit as well.
         using var stream = entry.Open();
+        return ReadCapped(stream);
+    }
+
+    /// <summary>An image read from <paramref name="stream"/>, or null when it is larger than the cap or not an image.</summary>
+    private static BookCover? ReadCapped(Stream stream)
+    {
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
         int read;

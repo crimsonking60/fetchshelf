@@ -49,8 +49,23 @@ public sealed record CatalogBook
     /// <summary>The matched Audiobookshelf item's id, or null when the book isn't matched.</summary>
     public string? AbsId { get; init; }
 
-    /// <summary>Whether the book's ebook can hold a cover Fetchshelf knows how to read (EPUB, CBZ).</summary>
-    public bool MayHaveCover => EbookFiles.Count > 0 && EbookFiles[0].Extension is "epub" or "cbz";
+    /// <summary>
+    /// Whether the folder is the book's own, so an image in it is the book's cover. Not so in a series-layout library,
+    /// where a series' books share one folder.
+    /// </summary>
+    public bool HasOwnFolder { get; init; } = true;
+
+    /// <summary>
+    /// The file whose embedded cover Fetchshelf can read: the first ebook file when it is an EPUB, CBZ or CBR, else the first
+    /// audio file when it is an m4b, m4a or mp3; null when there is none.
+    /// </summary>
+    public CatalogFile? EmbeddedCoverFile =>
+        EbookFiles.Count > 0 && EbookFiles[0].Extension is "epub" or "cbz" or "cbr" ? EbookFiles[0]
+        : AudioFiles.Count > 0 && AudioFiles[0].Extension is "m4b" or "m4a" or "mp3" ? AudioFiles[0]
+        : null;
+
+    /// <summary>Whether a cover may be found: an image in the book's own folder, or one embedded in its file.</summary>
+    public bool MayHaveCover => HasOwnFolder || EmbeddedCoverFile is not null;
 }
 
 /// <summary>Turns a linked torrent into a <see cref="CatalogBook"/>, or leaves it out of the catalog.</summary>
