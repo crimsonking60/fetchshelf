@@ -1840,8 +1840,8 @@ edited by hand with MAM's.
 There is no login. See [Security and privacy](#security-and-privacy).
 
 The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
-**Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check** when
-it found something) and
+**Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check**,
+with a count when it found something) and
 **Insight** (**Events** and **Statistics**), and at the right **Account**, **Config** and the theme menu. The theme
 menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
 in the bar names the jobs running, on every page.
@@ -1863,7 +1863,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, bonus points spent, and each Upgrade run with what it did. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list, Follow, Upgrade and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
-| **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. In the menu only while it found something; always reachable from the job on the **Jobs** page. |
+| **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. Under **Library** in the menu, with a count of the findings when there are any. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and list files, and your MAM bookmarks, with what was found for each. Only in the menu when a `[[hardcover_list]]`, `[[file_list]]` or `[[bookmarks_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |

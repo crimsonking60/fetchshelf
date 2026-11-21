@@ -77,13 +77,14 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
-    public async Task BeforeACheck_SaysSo_AndTheMenuHasNoEntry()
+    public async Task BeforeACheck_SaysSo_AndTheMenuEntryHasNoBadge()
     {
         using var fixture = Fixture();
 
         var html = await fixture.CreateClient().GetStringAsync("/LibraryCheck");
 
         Assert.Contains("Not checked since Fetchshelf started.", html);
+        Assert.Contains("href=\"/LibraryCheck\"", html);
         Assert.DoesNotContain("library-check-badge", html);
     }
 
