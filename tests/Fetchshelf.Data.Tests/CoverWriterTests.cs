@@ -131,6 +131,29 @@ public sealed class CoverWriterTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_PastTheLimit_SettlesBooksWithAnImage_AndCountsOnlyThoseWithout()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        // More than a page of books, most with an image already; four without, one of them on the second page.
+        for (var mamId = 1; mamId <= 502; mamId++)
+        {
+            await (mamId is 1 or 2 or 3 or 502 ? SeedLinkedAsync(context, mamId) : SeedLinkedAsync(context, mamId, "01.mp3", "cover.jpg"));
+        }
+
+        var source = new FakeCoverSource(_ => Jpeg);
+        var one = new CoverWriterOptions(MaxFetchesPerRun: 1);
+
+        var first = await new CoverWriter(context, source, [BookLibrary], one).RunAsync();
+        var waitingIds = await context.Torrents.AsNoTracking().Where(t => t.CoverCheckedAt == null).Select(t => t.MamId).OrderBy(id => id).ToListAsync();
+        var second = await new CoverWriter(context, source, [BookLibrary], one).RunAsync();
+
+        Assert.Equal(new CoverRunSummary(1, 3), first);
+        Assert.Equal([2L, 3, 502], waitingIds);
+        Assert.Equal(new CoverRunSummary(1, 2), second);
+        Assert.Equal([1L, 2], source.Asked);
+    }
+
+    [Fact]
     public async Task RunAsync_MamRefusesTheAccount_StopsAndLeavesTheBookForLater()
     {
         using var context = OrganizerTestSupport.CreateContext(DbPath);
