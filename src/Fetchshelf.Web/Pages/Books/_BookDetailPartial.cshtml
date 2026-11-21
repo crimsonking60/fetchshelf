@@ -53,6 +53,20 @@
 {
     <p id="downloads-off" class="muted">Downloads are offered with an <code>[opds]</code> section in the configuration, behind its login when it has one.</p>
 }
+else if (book.AudioFiles.Count == 1)
+{
+    @* The browser's own player: enough to hear what a book sounds like, not to listen to it (no saved position, no chapters). *@
+    <div class="book-preview">
+        <span class="label">Preview</span>
+        <audio id="book-preview" controls preload="none" src="@BookEndpoints.FileHref(book, CatalogFileKind.Audio, 0)"></audio>
+        <span class="muted">Plays in the browser, without a saved position or chapters. To listen, use Audiobookshelf or download it.</span>
+    </div>
+}
+else if (book.AudioFiles.Count > 1)
+{
+    <p><a id="audio-zip" href="@BookEndpoints.AudioZipHref(book)" download>Download all @book.AudioFiles.Count audio files as a zip</a>
+        <span class="muted">(@Fetchshelf.Web.Pages.Books.DetailModel.Size(book.AudioFiles.Sum(file => file.SizeBytes)); a zip can't resume an interrupted download, so the files below can also be downloaded one by one)</span></p>
+}
 @foreach (var (kind, files, label) in new[] { (CatalogFileKind.Audio, book.AudioFiles, "Audio"), (CatalogFileKind.Ebook, book.EbookFiles, "Ebook") })
 {
     @if (files.Count > 0)

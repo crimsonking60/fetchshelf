@@ -13,6 +13,8 @@ public static class BookEndpoints
 {
     public static string CoverHref(CatalogBook book) => $"/books/{Uri.EscapeDataString(book.Id)}/cover";
 
+    public static string AudioZipHref(CatalogBook book) => $"/books/{Uri.EscapeDataString(book.Id)}/audio.zip";
+
     public static string FileHref(CatalogBook book, CatalogFileKind kind, int index) =>
         $"/books/{Uri.EscapeDataString(book.Id)}/{(kind == CatalogFileKind.Audio ? "audio" : "ebook")}/{index}";
 
@@ -45,6 +47,10 @@ public static class BookEndpoints
 
         books.MapGet("/audio/{index:int}", (BookCatalogCache cache, ILoggerFactory loggers, string id, int index, CancellationToken ct) =>
             ServeAsync(cache, loggers, id, CatalogFileKind.Audio, index, ct));
+        books.MapGet("/audio.zip", async (BookCatalogCache cache, ILoggerFactory loggers, string id, CancellationToken ct) =>
+            (await cache.GetAsync(ct)).Find(id) is { } book
+                ? BookFiles.ServeAudioZip(book, loggers.CreateLogger(typeof(BookEndpoints)))
+                : Results.NotFound());
         books.MapGet("/ebook/{index:int}", (BookCatalogCache cache, ILoggerFactory loggers, string id, int index, CancellationToken ct) =>
             ServeAsync(cache, loggers, id, CatalogFileKind.Ebook, index, ct));
     }

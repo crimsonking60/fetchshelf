@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -282,5 +283,61 @@ public sealed class BooksPageTests : IDisposable
         var html = await fixture.CreateClient().GetStringAsync("/books");
 
         Assert.True(IndexOf(html, "href=\"/Books\"") < IndexOf(html, "href=\"/Series\""));
+    }
+
+    [Fact]
+    public async Task AudioZip_HoldsExactlyThePlacedAudioFiles_InTheirDiscFolders_Uncompressed()
+    {
+        using var fixture = await LibraryAsync(Opds);
+        await File.WriteAllTextAsync(Path.Combine(Audiobooks, "Frank Herbert", "Dune", "cover.jpg"), "not placed by the Link job");
+
+        using var response = await GetAsync(fixture, "/books/dune/audio.zip");
+        using var zip = new ZipArchive(await response.Content.ReadAsStreamAsync(), ZipArchiveMode.Read);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/zip", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("Dune - Frank Herbert.zip", response.Content.Headers.ContentDisposition?.FileNameStar);
+        Assert.Equal(["Disc 1/01.mp3", "Disc 2/02.mp3"], zip.Entries.Select(entry => entry.FullName));
+        Assert.All(zip.Entries, entry => Assert.Equal(entry.Length, entry.CompressedLength));
+        using var reader = new StreamReader(zip.Entries[1].Open());
+        Assert.Equal("contents of Disc 2/02.mp3", await reader.ReadToEndAsync());
+    }
+
+    [Fact]
+    public async Task AudioZip_RefusedWithoutOpds_WithoutTheLogin_AndForABookWithoutAudio()
+    {
+        using var withoutOpds = await LibraryAsync();
+        using var withLogin = await LibraryAsync(Opds + "username = \"reader\"\npassword = \"s3cret\"\n");
+
+        using var notMapped = await GetAsync(withoutOpds, "/books/dune/audio.zip");
+        using var noLogin = await GetAsync(withLogin, "/books/dune/audio.zip");
+        using var loggedIn = await GetAsync(withLogin, "/books/dune/audio.zip", "reader:s3cret");
+        using var ebook = await GetAsync(withLogin, "/books/justice/audio.zip", "reader:s3cret");
+
+        Assert.Equal(HttpStatusCode.NotFound, notMapped.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, noLogin.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, loggedIn.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, ebook.StatusCode);
+    }
+
+    [Fact]
+    public async Task Detail_SingleFileAudiobookGetsAPreview_SeveralFilesAZip()
+    {
+        using var fixture = await LibraryAsync(Opds);
+        using var withoutOpds = await LibraryAsync();
+        var client = fixture.CreateClient();
+
+        var single = await client.GetStringAsync("/books/sword");
+        var several = await client.GetStringAsync("/books/dune");
+        var ebook = await client.GetStringAsync("/books/justice");
+        var off = await withoutOpds.CreateClient().GetStringAsync("/books/sword");
+
+        Assert.Contains("<audio id=\"book-preview\" controls preload=\"none\" src=\"/books/sword/audio/0\">", single);
+        Assert.DoesNotContain("id=\"audio-zip\"", single);
+        Assert.Contains("id=\"audio-zip\" href=\"/books/dune/audio.zip\"", several);
+        Assert.DoesNotContain("<audio", several);
+        Assert.DoesNotContain("<audio", ebook);
+        Assert.DoesNotContain("id=\"audio-zip\"", ebook);
+        Assert.DoesNotContain("<audio", off);
     }
 }

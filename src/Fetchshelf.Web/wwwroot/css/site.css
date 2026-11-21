@@ -729,4 +729,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .book-cover img { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; }
 .book-formats { margin-top: 0.15rem; }
 .book-files { padding-left: 1.2rem; }
+.book-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.5rem 0 1rem; }
+.book-preview .label { color: var(--text-muted); }
+.book-preview audio { width: min(28rem, 100%); }
 .book-files li { margin-bottom: 0.25rem; overflow-wrap: anywhere; }

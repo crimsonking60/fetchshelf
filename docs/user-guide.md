@@ -784,6 +784,13 @@ Fetchshelf can see which books there are but needs the login to download them. W
 files are listed but not offered. A downloaded file is named like `Title - Author.m4b`, with the part number when
 a book has several.
 
+- **An audiobook in several files** can also be downloaded as one zip, `Title - Author.zip`, with the files as
+  Fetchshelf placed them, `Disc N` folders included. The zip is built while it downloads, so the browser can't show
+  how long is left, and an interrupted download has to start over; for a large book over a slow connection,
+  download the files one by one instead.
+- **An audiobook in one file** has a **Preview**: the browser's own player, to hear what it sounds like. It
+  remembers no position and shows no chapters, so for listening use Audiobookshelf, or download the file.
+
 ## Finding and downloading books
 
 The **Search** page is also the home page. Use it to search MAM yourself and download a book by hand.
