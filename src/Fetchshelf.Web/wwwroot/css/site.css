@@ -717,6 +717,7 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .book-view.current { font-weight: 600; color: var(--text); text-decoration: none; }
 .book-groups { columns: 18rem auto; column-gap: 2rem; padding-left: 1.2rem; }
 .book-groups li { break-inside: avoid; margin-bottom: 0.2rem; }
+.book-groups.single-column { columns: auto; }
 .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 1.25rem 1rem; padding: 0; margin: 0 0 1rem; list-style: none; }
 .book-card { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; font-size: 0.9rem; }
 .book-card .book-open { display: flex; flex-direction: column; gap: 0.35rem; text-decoration: none; }

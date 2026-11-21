@@ -151,6 +151,9 @@ public sealed class BooksPageTests : IDisposable
         Assert.Contains("Imperial Radch</a> <span class=\"muted\">2 books", series);
         Assert.True(IndexOf(oneSeries, "Ancillary Justice") < IndexOf(oneSeries, "Ancillary Sword"));
         Assert.Contains("id=\"series-page-link\" href=\"/Series?Q=Imperial%20Radch&amp;Show=all\"", oneSeries);
+        Assert.Contains("class=\"book-groups single-column\"", libraries);
+        Assert.True(IndexOf(libraries, "Audiobooks</a>") < IndexOf(libraries, "Ebooks</a>"));
+        Assert.DoesNotContain("single-column", authors);
         Assert.Contains("Ebooks</a> <span class=\"muted\">1 book<", libraries);
         Assert.Contains("Audiobooks</a> <span class=\"muted\">2 books", libraries);
         Assert.Contains("Dune", audiobookLibrary);

@@ -3,6 +3,11 @@
 Decided 2026-11-21: Audiobookshelf was tried as the ebook platform and set aside, so the page is built. Every open
 question takes its proposed answer.
 
+Done 2026-11-21: steps 1-4 merged as #162 (shared catalog), #163 (Books page), #164 (zip and preview) and #165
+(folder and audio covers, and CBR covers). The docs of step 5 went in with each step. Not done here: trying it by
+hand on a phone and a desktop browser (playing the preview, the book dialog, the `[opds]` login prompt), and pruning
+the `covers` folder of books no longer in the library.
+
 Reviewed 2026-11-21 against the app as it is now; what changed since the first version is listed at the end.
 
 ## Context

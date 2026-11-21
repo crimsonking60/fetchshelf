@@ -153,7 +153,9 @@ public class IndexModel(BookCatalogCache catalogCache) : PageModel
         }
         else if (View == ViewLibraries)
         {
+            // Few enough to read down one column, A-Z.
             ShowGroups(catalog.Libraries
+                .OrderBy(library => library.Name, StringComparer.Create(CultureInfo.InvariantCulture, ignoreCase: true))
                 .Select(library => new BookGroupLink(
                     library.Name, catalog.ByLibrary(library.Index).Count, RouteFor(nameof(Library), library.Index.ToString(CultureInfo.InvariantCulture))))
                 .ToList());
