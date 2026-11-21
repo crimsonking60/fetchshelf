@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Fetchshelf.Core.Catalog;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Opds;
 
@@ -11,11 +12,11 @@ public class OpdsFeedBuilderTests
     private static readonly XNamespace OpenSearch = "http://a9.com/-/spec/opensearch/1.1/";
     private static readonly DateTimeOffset Now = new(2026, 11, 7, 12, 30, 0, TimeSpan.FromHours(1));
 
-    private static OpdsBook Book(string extension = "epub", int files = 1, string? description = "The first book.", IReadOnlyList<Series>? series = null) =>
-        OpdsBooks.From(
+    private static CatalogBook Book(string extension = "epub", int files = 1, string? description = "The first book.", IReadOnlyList<Series>? series = null) =>
+        CatalogBooks.From(
             "abc123",
-            OpdsCatalogTests.Metadata("The Way of Kings", series: series ?? [OpdsCatalogTests.InSeries("Stormlight Archive", 1, "1")]) with { Description = description },
-            "/books/kings", Now, 0, extension,
+            BookCatalogTests.Metadata("The Way of Kings", series: series ?? [BookCatalogTests.InSeries("Stormlight Archive", 1, "1")]) with { Description = description },
+            "/books/kings", Now, 0, null, extension,
             Enumerable.Range(1, files).Select(i => ($"part{i}.{extension}", (long)(1000 * i))))!;
 
     private static string Href(XElement parent, string rel) =>

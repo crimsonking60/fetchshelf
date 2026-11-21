@@ -1,9 +1,11 @@
 using System.Text;
 using System.Xml.Linq;
+using Fetchshelf.Core.Catalog;
 using Fetchshelf.Core.Opds;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Opds;
+using Fetchshelf.Web.Catalog;
 
 namespace Fetchshelf.Web.Opds;
 
@@ -27,9 +29,9 @@ public static class OpdsEndpoints
         MapViews(opds);
         MapViews(opds.MapGroup("/libraries/{index:int}"));
 
-        opds.MapGet("/libraries", async (OpdsCatalogCache cache, TimeProvider time, CancellationToken ct) =>
+        opds.MapGet("/libraries", async (BookCatalogCache cache, TimeProvider time, CancellationToken ct) =>
         {
-            var catalog = await cache.GetAsync(ct);
+            var catalog = await cache.GetOpdsAsync(ct);
             var entries = catalog.Libraries.Select(library => new OpdsNavigationEntry(
                 $"urn:fetchshelf:opds:library:{library.Index}", library.Name,
                 Count(catalog.ByLibrary(library.Index).Count, "book"), $"/opds/libraries/{library.Index}", LeadsToBooks: false));
@@ -43,13 +45,13 @@ public static class OpdsEndpoints
                 OpdsFeedBuilder.Serialize(OpdsFeedBuilder.OpenSearchDescription($"{request.Scheme}://{request.Host}/opds/search?q={{searchTerms}}")),
                 OpdsFeedBuilder.OpenSearchType, Encoding.UTF8));
 
-        opds.MapGet("/search", async (OpdsCatalogCache cache, TimeProvider time, string? q, int? page, CancellationToken ct) =>
+        opds.MapGet("/search", async (BookCatalogCache cache, TimeProvider time, string? q, int? page, CancellationToken ct) =>
             BookFeed($"urn:fetchshelf:opds:search:{q}", $"Search: {q}", $"/opds/search?q={Uri.EscapeDataString(q ?? string.Empty)}",
-                (await cache.GetAsync(ct)).Search(q ?? string.Empty), page, time));
+                (await cache.GetOpdsAsync(ct)).Search(q ?? string.Empty), page, time));
 
-        opds.MapGet("/books/{id}/files/{index:int}", async (OpdsCatalogCache cache, ILoggerFactory loggers, string id, int index, CancellationToken ct) =>
+        opds.MapGet("/books/{id}/files/{index:int}", async (BookCatalogCache cache, ILoggerFactory loggers, string id, int index, CancellationToken ct) =>
         {
-            if ((await cache.GetAsync(ct)).Find(id) is not { } book || index < 0 || index >= book.Files.Count)
+            if ((await cache.GetOpdsAsync(ct)).Find(id) is not { } book || index < 0 || index >= book.EbookFiles.Count)
             {
                 return Results.NotFound();
             }
@@ -57,7 +59,7 @@ public static class OpdsEndpoints
             // Nothing from the request becomes part of the path: the book and file come from the catalog, and the
             // stored relative path must still lead inside the book's folder.
             var folder = Path.GetFullPath(book.Folder);
-            var path = Path.GetFullPath(Path.Combine(folder, book.Files[index].RelativePath));
+            var path = Path.GetFullPath(Path.Combine(folder, book.EbookFiles[index].RelativePath));
             if (path == folder.TrimEnd(Path.DirectorySeparatorChar) || !PathPrefix.IsSameOrUnder(path, folder))
             {
                 return Results.NotFound();
@@ -69,13 +71,13 @@ public static class OpdsEndpoints
                 return Results.NotFound();
             }
 
-            var file = book.Files[index];
+            var file = book.EbookFiles[index];
             return Results.File(path, OpdsFeedBuilder.MediaTypeFor(file.Extension), DownloadName(book, index), enableRangeProcessing: true);
         });
 
-        opds.MapGet("/books/{id}/cover", async (OpdsCatalogCache cache, OpdsCoverCache covers, HttpResponse response, string id, CancellationToken ct) =>
+        opds.MapGet("/books/{id}/cover", async (BookCatalogCache cache, OpdsCoverCache covers, HttpResponse response, string id, CancellationToken ct) =>
         {
-            if ((await cache.GetAsync(ct)).Find(id) is not { } book || await covers.GetAsync(book, ct) is not { } cover)
+            if ((await cache.GetOpdsAsync(ct)).Find(id) is not { } book || await covers.GetAsync(book, ct) is not { } cover)
             {
                 return Results.NotFound();
             }
@@ -91,7 +93,7 @@ public static class OpdsEndpoints
     /// </summary>
     private static void MapViews(RouteGroupBuilder views)
     {
-        views.MapGet("/", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, CancellationToken ct) =>
+        views.MapGet("/", async (BookCatalogCache cache, TimeProvider time, HttpContext context, CancellationToken ct) =>
         {
             if (await ScopeAsync(cache, context, ct) is not var (catalog, scope))
             {
@@ -113,18 +115,18 @@ public static class OpdsEndpoints
             return Navigation(OpdsFeedBuilder.Navigation(id, title, scope.Library is null ? OpdsFeedBuilder.RootHref : scope.Href, time.GetUtcNow(), entries));
         });
 
-        views.MapGet("/recent", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+        views.MapGet("/recent", async (BookCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
             await ScopeAsync(cache, context, ct) is var (catalog, scope)
                 ? BookFeed($"{scope.Id}:recent", scope.Title("Recently added"), $"{scope.Href}/recent", catalog.Recent(), page, time)
                 : Results.NotFound());
 
-        views.MapGet("/authors", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+        views.MapGet("/authors", async (BookCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
             await ScopeAsync(cache, context, ct) is var (catalog, scope)
                 ? GroupFeed($"{scope.Id}:authors", scope.Title("Authors"), $"{scope.Href}/authors", catalog.Authors(), page, time,
                     author => ($"{scope.Id}:author:{author}", $"{scope.Href}/author?name={Uri.EscapeDataString(author)}"))
                 : Results.NotFound());
 
-        views.MapGet("/author", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
+        views.MapGet("/author", async (BookCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
         {
             if (string.IsNullOrEmpty(name) || await ScopeAsync(cache, context, ct) is not var (catalog, scope)
                 || catalog.ByAuthor(name) is not { Count: > 0 } books)
@@ -135,13 +137,13 @@ public static class OpdsEndpoints
             return BookFeed($"{scope.Id}:author:{name}", name, $"{scope.Href}/author?name={Uri.EscapeDataString(name)}", books, page, time);
         });
 
-        views.MapGet("/series", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
+        views.MapGet("/series", async (BookCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
             await ScopeAsync(cache, context, ct) is var (catalog, scope)
                 ? GroupFeed($"{scope.Id}:series", scope.Title("Series"), $"{scope.Href}/series", catalog.Series(), page, time,
                     series => ($"{scope.Id}:series:{series}", $"{scope.Href}/series/books?name={Uri.EscapeDataString(series)}"))
                 : Results.NotFound());
 
-        views.MapGet("/series/books", async (OpdsCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
+        views.MapGet("/series/books", async (BookCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
         {
             if (string.IsNullOrEmpty(name) || await ScopeAsync(cache, context, ct) is not var (catalog, scope)
                 || catalog.BySeries(name) is not { Count: > 0 } books)
@@ -163,9 +165,9 @@ public static class OpdsEndpoints
     /// The catalog a request is for: the whole catalog, or the library its `{index}` names. Null for an index that
     /// isn't a served library with books.
     /// </summary>
-    private static async Task<(OpdsCatalog Catalog, CatalogScope Scope)?> ScopeAsync(OpdsCatalogCache cache, HttpContext context, CancellationToken ct)
+    private static async Task<(BookCatalog Catalog, CatalogScope Scope)?> ScopeAsync(BookCatalogCache cache, HttpContext context, CancellationToken ct)
     {
-        var catalog = await cache.GetAsync(ct);
+        var catalog = await cache.GetOpdsAsync(ct);
         if (context.Request.RouteValues["index"] is not string raw)
         {
             return (catalog, new CatalogScope(OpdsFeedBuilder.RootHref, "urn:fetchshelf:opds", Library: null));
@@ -181,20 +183,20 @@ public static class OpdsEndpoints
     }
 
     /// <summary>The name a downloaded file gets: "Title - Author.epub", with a part number when a book has several files.</summary>
-    public static string DownloadName(OpdsBook book, int index)
+    public static string DownloadName(CatalogBook book, int index)
     {
         var name = book.Authors.Count > 0 ? $"{book.Title} - {book.Authors[0]}" : book.Title;
-        if (book.Files.Count > 1)
+        if (book.EbookFiles.Count > 1)
         {
             name += $" ({index + 1})";
         }
 
         var invalid = Path.GetInvalidFileNameChars();
         var safe = new string(name.Where(c => !invalid.Contains(c) && !char.IsControl(c)).ToArray()).Trim();
-        return $"{(safe.Length > 0 ? safe : "book")}.{book.Files[index].Extension}";
+        return $"{(safe.Length > 0 ? safe : "book")}.{book.EbookFiles[index].Extension}";
     }
 
-    private static IResult BookFeed(string id, string title, string href, IReadOnlyList<OpdsBook> books, int? page, TimeProvider time)
+    private static IResult BookFeed(string id, string title, string href, IReadOnlyList<CatalogBook> books, int? page, TimeProvider time)
     {
         var (items, opdsPage) = OpdsPage.Of(books, page ?? 1, PageSize, number => WithPage(href, number));
         var feed = OpdsFeedBuilder.Acquisition(id, title, opdsPage.Number == 1 ? href : WithPage(href, opdsPage.Number), time.GetUtcNow(), items, opdsPage);
@@ -202,7 +204,7 @@ public static class OpdsEndpoints
     }
 
     private static IResult GroupFeed(
-        string id, string title, string href, IReadOnlyList<OpdsGroup> groups, int? page, TimeProvider time, Func<string, (string Id, string Href)> linkFor)
+        string id, string title, string href, IReadOnlyList<CatalogGroup> groups, int? page, TimeProvider time, Func<string, (string Id, string Href)> linkFor)
     {
         var (items, opdsPage) = OpdsPage.Of(groups, page ?? 1, PageSize, number => WithPage(href, number));
         var entries = items.Select(group =>

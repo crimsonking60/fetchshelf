@@ -68,7 +68,13 @@ public sealed class PageScaleTests(ITestOutputHelper output)
             category = "ebooks"
             library_dir = "/library/ebooks"
 
+            [[library]]
+            name = "Audiobooks"
+            category = "audiobooks"
+            library_dir = "/library/audiobooks"
+
             [opds]
+            libraries = ["Ebooks"]
             """;
         using var fixture = new FetchshelfWebAppFixture(configToml: config);
         var data = ScaleSeeder.Build(ScaleFactAttribute.TorrentCount!.Value, "/downloads", "/library/audiobooks", "/library/ebooks");
