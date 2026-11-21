@@ -744,7 +744,8 @@ The catalog offers:
   [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB file or the first page of a
   CBZ or CBR comic. A PDF or another format has one only from its folder. In a series-layout library a series' books
   share a folder, so only covers inside the files are used. Covers are kept in a `covers` folder next to the
-  database, so each book is only opened once; one added to or removed from a folder is noticed.
+  database, so each book is only opened once; one added to or removed from a folder is noticed. Once a week the
+  Clean job removes the cached covers of books no longer in the library.
 
 What it serves: every linked book in a served library whose MAM media type is Ebook, Manga, Comic Book or
 Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked
@@ -2209,7 +2210,7 @@ Fetchshelf does its work in jobs, listed on the **Jobs** page.
 | Bonus | Spends bonus points on wedges and upload credit (see [Spending bonus points](#spending-bonus-points)). | Every [`[bonus]`](configuration.md#bonus) `bonus_interval` minutes, every two hours by default. |
 | Download | Starts selected torrents in qBittorrent within your limits. | As soon as an autograb, a list, Follow, Upgrade or the Search page selects something (unless `download_after_selection = false`), and every `search_interval` minutes. If it is already running when something is selected, it runs once more straight after, so the new selection isn't left for the next interval. |
 | Link | Links finished torrents into libraries. | Every `link_interval` minutes. |
-| Clean | Retires lesser formats. | After each link run. |
+| Clean | Retires lesser formats, and once a week removes the cached covers of books no longer in the library. | After each link run. |
 | Audiobookshelf | Matches linked books to Audiobookshelf items. | Every `[audiobookshelf]` `interval` minutes. |
 | Backup | Backs up the database into the [`[backup]`](configuration.md#backup) folder and deletes the oldest beyond `keep`. | Every `[backup]` `interval` minutes, once a day by default. |
 | Library check | Compares the library folders with Fetchshelf's records (see [Checking the library](#checking-the-library)). | Only from the Jobs page or its own page. |

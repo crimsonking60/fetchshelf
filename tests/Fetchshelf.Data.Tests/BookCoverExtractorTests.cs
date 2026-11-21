@@ -387,6 +387,45 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.Equal(Jpeg, (await cache.GetAsync(book))!.Bytes);
         Assert.Null(await cache.GetAsync(book with { HasOwnFolder = false }));
     }
+
+    [Fact]
+    public async Task CoverCache_Prune_RemovesBooksNoLongerLinked_AndAbandonedWrites_AtMostOnceAWeek()
+    {
+        var cacheFolder = Path.Combine(_root, "covers");
+        var cache = new OpdsCoverCache(cacheFolder);
+        var now = new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero);
+        Assert.Null(cache.PruneIfDue(["kept"], now));
+
+        foreach (var id in new[] { "kept", "gone-3", "nocover" })
+        {
+            var bookFolder = Directory.CreateDirectory(Path.Combine(_root, "books", id)).FullName;
+            if (id == "nocover")
+            {
+                WriteZip(bookFolder, "Book.epub", ContainerXml(), Opf("", ""));
+            }
+            else
+            {
+                WriteEpubWithCover(bookFolder, "Book.epub");
+            }
+
+            await cache.GetAsync(CatalogBooks.From(id, OpdsTestMetadata.Ebook("Book"), bookFolder, now, 0, null, "epub", [("Book.epub", 10)])!);
+        }
+
+        var kept = Directory.GetFiles(cacheFolder).Single(file => Path.GetFileName(file).StartsWith("kept-", StringComparison.Ordinal));
+        var abandoned = kept + ".0123abc";
+        var writing = kept + ".4567def";
+        File.WriteAllBytes(abandoned, Jpeg);
+        File.SetLastWriteTimeUtc(abandoned, now.UtcDateTime.AddHours(-2));
+        File.WriteAllBytes(writing, Jpeg);
+        File.SetLastWriteTimeUtc(writing, now.UtcDateTime.AddMinutes(-1));
+
+        // "gone-3" is cached as "gone3": the removed one is found by the same name.
+        Assert.Equal(3, cache.PruneIfDue(["kept", "nocover-x"], now));
+        Assert.Equal([kept, writing], Directory.GetFiles(cacheFolder).Where(file => !file.EndsWith(".pruned", StringComparison.Ordinal)).Order());
+
+        Assert.Null(cache.PruneIfDue([], now.AddDays(6)));
+        Assert.Equal(2, cache.PruneIfDue([], now.AddDays(8)));
+    }
 }
 
 internal static class OpdsTestMetadata

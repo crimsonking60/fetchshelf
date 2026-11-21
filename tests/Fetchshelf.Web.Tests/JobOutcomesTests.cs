@@ -181,6 +181,18 @@ public class JobOutcomesTests
         Assert.Equal("No superseded copies to retire", JobOutcomes.Clean(new CleanRunSummary(0, 0)).Summary);
 
     [Fact]
+    public void Clean_WeeklyCoverPrune_IsAddedWhenItRemovedSomething()
+    {
+        var pruned = JobOutcomes.Clean(new CleanRunSummary(0, 0), prunedCovers: 12);
+        var nothingPruned = JobOutcomes.Clean(new CleanRunSummary(0, 0), prunedCovers: 0);
+
+        Assert.Equal("No superseded copies to retire; 12 cached covers of books no longer in the library removed", pruned.Summary);
+        Assert.Equal(12, pruned.Counts!["covers_pruned"]);
+        Assert.Equal("No superseded copies to retire", nothingPruned.Summary);
+        Assert.False(JobOutcomes.Clean(new CleanRunSummary(0, 0)).Counts!.ContainsKey("covers_pruned"));
+    }
+
+    [Fact]
     public void Download_SelectionsLeftQueued_SaysWhichBudgetHeldThemBack()
     {
         var outcome = JobOutcomes.Download(new DownloadRunSummary(1, 0, 4, 3, "the ratio budget is 0 B (ratio 2.01, min_ratio 2)"));
