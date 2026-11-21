@@ -50,7 +50,7 @@ else if (Model.Groups is { } groups)
     }
     else
     {
-        <ul id="book-groups" class="book-groups">
+        <ul id="book-groups" class="book-groups@(Model.View == Fetchshelf.Web.Pages.Books.IndexModel.ViewLibraries ? " single-column" : "")">
             @foreach (var group in groups)
             {
                 <li><a asp-page="/Books/Index" asp-all-route-data="group.Route">@group.Name</a> <span class="muted">@group.BookCount @(group.BookCount == 1 ? "book" : "books")</span></li>
