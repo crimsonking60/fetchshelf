@@ -8,8 +8,9 @@ Before upgrading, read the **Upgrading** notes of every release between your ver
 ## 2026.11.20 - 2026-11-21
 
 A new **Books** page, first in the **Library** menu, shows every book Fetchshelf has linked, audiobooks included, as
-a grid of covers to browse, search and open in Audiobookshelf. With an `[opds]` section its files can be downloaded
-there too, behind the OPDS login when one is set. Covers now also come from each book's folder and from m4b, mp3 and
+a grid of covers to browse, search and open in Audiobookshelf. Its books' files, audiobooks included, can be
+downloaded from it when the configuration has an `[opds]` section, behind the OPDS login when one is set; the OPDS
+catalog itself still serves ebooks only. Covers now also come from each book's folder and from m4b, mp3 and
 CBR files, which gives the OPDS catalog covers for PDFs and comics as well. The documentation was checked against the
 code, and where they disagreed, either was put right.
 
@@ -37,10 +38,11 @@ code, and where they disagreed, either was put right.
   Ebooks** filter. A book opens with its details, narrators, description and files, **Open in Audiobookshelf** when
   it is matched, and **Details** for its torrent page. A series links to the **Series** page for its missing books.
   `g` then `b` opens it. See [Browsing your books](https://fetchshelf.readthedocs.io/en/v2026.11.20/user-guide/#browsing-your-books) (#162, #163, #166, #169).
-- **Books**: with an `[opds]` section, each file downloads with a `Title - Author` name and resumable ranges; an
-  audiobook in several files also downloads as one zip, with its `Disc N` folders, and one in a single file has a
-  preview in the browser's player. With an `[opds]` login, downloads and covers ask for it, while the page itself
-  doesn't (#163, #164).
+- **Books**: each file, audiobooks included, downloads from the page with a `Title - Author` name and resumable
+  ranges; an audiobook in several files also downloads as one zip, with its `Disc N` folders, and one in a single file
+  has a preview in the browser's player. Downloads are offered only when the configuration has an `[opds]` section,
+  which still serves only ebooks to e-readers; with an `[opds]` login, the page's downloads and covers ask for it,
+  while the page itself doesn't (#163, #164).
 - **Covers**: a book's cover is the image in its own folder (`cover.*`, `folder.*` or its only image), such as the one
   `covers_from_mam` writes, else the cover inside the file: EPUB and CBZ as before, and now m4b, m4a, mp3 and CBR. In
   a series-layout library, where a series' books share a folder, only covers inside the files are used. The OPDS
