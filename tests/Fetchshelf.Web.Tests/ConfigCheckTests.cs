@@ -132,10 +132,49 @@ public sealed class ConfigCheckTests : IDisposable
     [Fact]
     public void Run_BackupSection_IsSummedUp()
     {
-        var (exitCode, output) = Check("mam_id = \"\"\n[backup]\nfolder = \"backups\"\nkeep = 14\n");
+        var (exitCode, output) = Check("mam_id = \"session\"\n[backup]\nfolder = \"backups\"\nkeep = 14\n");
 
         Assert.Equal(0, exitCode);
-        Assert.Contains("Backup: to backups, every 1440 min, keep 14, and before upgrades", output);
+        Assert.Matches(@"Backup\s+to backups, every 1440 min, keep 14, and before upgrades", output);
+    }
+
+    [Fact]
+    public void Run_EveryOptionalJob_HasARow()
+    {
+        var (exitCode, output) = Check("""
+            mam_id = "session"
+            search_interval = 30
+
+            [[library]]
+            name = "audiobooks"
+            category = "audiobooks"
+            library_dir = "/library/audiobooks"
+
+            [seeding]
+
+            [backup]
+            folder = "backups"
+
+            [follow]
+            dry_run = true
+
+            [[follow.grab]]
+
+            [upgrade]
+            libraries = ["audiobooks"]
+            search_interval = 0
+
+            [bonus]
+            keep_points = 5000
+            """);
+
+        Assert.Equal(0, exitCode);
+        Assert.Matches(@"Library check\s+only from the Jobs page", output);
+        Assert.Matches(@"Seeding\s+\d+ hours within \d+ days", output);
+        Assert.Matches(@"Backup\s+to backups", output);
+        Assert.Matches(@"Follow\s+1 grab block, 10 searches per run, every 30 min, dry run", output);
+        Assert.Matches(@"Upgrade\s+audiobooks, 20 searches per run, only from the Jobs page", output);
+        Assert.Matches(@"Bonus\s+keep_points 5000, every 120 min", output);
     }
 
     [Fact]

@@ -52,4 +52,25 @@ public class SharedFilterConfigMapperTests
         Assert.Equal(50, filter.MaxSnatched);
         Assert.Equal(3, filter.MaxAuthors);
     }
+
+    [Theory]
+    [InlineData("2")]
+    [InlineData("Ebook, Manga")]
+    [InlineData("Novel")]
+    public void ToTorrentFilter_MediaTypeThatIsNotAName_Throws(string mediaType)
+    {
+        var config = new SharedFilterConfig { MediaType = [mediaType] };
+
+        var exception = Assert.Throws<ConfigurationException>(() => SharedFilterConfigMapper.ToTorrentFilter(config));
+
+        Assert.Equal($"Invalid configuration: unrecognized media type '{mediaType}'.", exception.Message);
+    }
+
+    [Fact]
+    public void ToTorrentFilter_MediaTypeInAnyCase_IsAccepted()
+    {
+        var filter = SharedFilterConfigMapper.ToTorrentFilter(new SharedFilterConfig { MediaType = ["comicbook"] });
+
+        Assert.Equal([MediaType.ComicBook], filter.MediaTypes);
+    }
 }

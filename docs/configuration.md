@@ -627,13 +627,14 @@ an `[[autograb]]` with `type = "mine"` and `cost = "metadata_only_add"` does it 
 
 Repeatable. Follows the books with one reading status on [Hardcover](https://hardcover.app), such as *Want to
 Read*, or the books on one of your Hardcover lists, and searches MAM for each of them. Needs
-[`[hardcover]`](#hardcover).
+[`[hardcover]`](#hardcover). Each status or list can have only one `[[hardcover_list]]`: Fetchshelf keeps one
+list per status or Hardcover list, so two blocks reading the same one are refused at startup.
 
 | Setting | Default | Description |
 |---|---|---|
 | `name` | unset | Shown in logs, on the Jobs page and on the **Lists** page. Unnamed entries are called `hardcover_list[0]`, `hardcover_list[1]`, ... on the Jobs page. The same rules as for an autograb's [`name`](#the-shared-torrent-filter) apply. |
 | `status` | — | A reading status: `want_to_read`, `currently_reading`, `read`, `paused` or `did_not_finish`. Set either `status` or `list`. |
-| `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. |
+| `list` | — | The slug of one of your Hardcover lists: the last part of its address, such as `books-to-fetch` in `hardcover.app/@you/lists/books-to-fetch`. An empty `list` counts as not set. |
 | `prefer_format` | unset | `audio` or `ebook`. When both an audiobook and an ebook of a book are found, only this format is downloaded. Once this format is selected or in the library, the other one is no longer searched for, even when it turns up later; if this format's selection is removed or its copy leaves the library, the other one is wanted again. Unset means both. |
 | `category` | unset | qBittorrent category forced on everything this list downloads. Overrides `[[tag]]` rules. Use it to send different lists to different libraries. |
 | `client` | unset | The `name` of the [`[[qbittorrent]]`](#qbittorrent) that receives everything this list downloads. Unset: the first matching `[[tag]]` rule's, else the first `[[qbittorrent]]`. |

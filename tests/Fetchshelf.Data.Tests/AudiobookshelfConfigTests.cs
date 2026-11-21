@@ -38,4 +38,17 @@ public sealed class AudiobookshelfConfigTests : IDisposable
         Assert.Equal("secret-token", abs.Token);
         Assert.Equal(10, abs.Interval);
     }
+
+    [Theory]
+    [InlineData("token = \"secret-token\"", "url")]
+    [InlineData("url = \"http://abs.local\"", "token")]
+    [InlineData("url = \"http://abs.local\"\ntoken = \"\"", "token")]
+    public void Load_AudiobookshelfSectionMissingUrlOrToken_StopsStartup(string body, string missing)
+    {
+        File.WriteAllText(ConfigPath, $"mam_id = \"\"\n\n[audiobookshelf]\n{body}\n");
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.StartsWith($"Invalid configuration: the [audiobookshelf] section is missing '{missing}'", exception.Message);
+    }
 }

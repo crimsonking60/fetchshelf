@@ -467,21 +467,23 @@ public static partial class ConfigLoader
 
     private static void ValidateQBittorrentConnections(FetchshelfSettings settings)
     {
-        foreach (var connection in settings.QBittorrent)
+        for (var i = 0; i < settings.QBittorrent.Count; i++)
         {
+            var connection = settings.QBittorrent[i];
+            var label = ConfigValueValidator.Label("qbittorrent", connection.Name, i);
             if (string.IsNullOrWhiteSpace(connection.Url))
             {
-                throw new ConfigurationException("Invalid configuration: a [[qbittorrent]] section is missing 'url'.");
+                throw new ConfigurationException($"Invalid configuration: {label} is missing 'url'.");
             }
 
             if (string.IsNullOrWhiteSpace(connection.Username))
             {
-                throw new ConfigurationException("Invalid configuration: a [[qbittorrent]] section is missing 'username'.");
+                throw new ConfigurationException($"Invalid configuration: {label} is missing 'username'.");
             }
 
             if (string.IsNullOrWhiteSpace(connection.Password))
             {
-                throw new ConfigurationException("Invalid configuration: a [[qbittorrent]] section is missing 'password'.");
+                throw new ConfigurationException($"Invalid configuration: {label} is missing 'password'.");
             }
         }
     }
@@ -518,21 +520,28 @@ public static partial class ConfigLoader
 
     private static void ValidateLibraries(FetchshelfSettings settings)
     {
-        foreach (var library in settings.Library)
+        for (var i = 0; i < settings.Library.Count; i++)
         {
+            var library = settings.Library[i];
+            var label = ConfigValueValidator.Label("library", library.Name, i);
+            if (string.IsNullOrWhiteSpace(library.LibraryDir))
+            {
+                throw new ConfigurationException($"Invalid configuration: {label} is missing 'library_dir', the folder the books are linked into.");
+            }
+
             var hasCategory = !string.IsNullOrWhiteSpace(library.Category);
             var hasDownloadDir = !string.IsNullOrWhiteSpace(library.DownloadDir);
 
             if (hasCategory && hasDownloadDir)
             {
                 throw new ConfigurationException(
-                    "Invalid configuration: a [[library]] section must specify only one of 'category' or 'download_dir', not both.");
+                    $"Invalid configuration: {label} must specify only one of 'category' or 'download_dir', not both.");
             }
 
             if (!hasCategory && !hasDownloadDir)
             {
                 throw new ConfigurationException(
-                    "Invalid configuration: a [[library]] section must specify one of 'category' or 'download_dir'.");
+                    $"Invalid configuration: {label} must specify one of 'category' or 'download_dir'.");
             }
 
             ValidateLayout(library);
@@ -601,30 +610,32 @@ public static partial class ConfigLoader
 
     private static void ValidateAutograbs(FetchshelfSettings settings)
     {
-        foreach (var autograb in settings.Autograb)
+        for (var i = 0; i < settings.Autograb.Count; i++)
         {
+            var autograb = settings.Autograb[i];
+            var label = ConfigValueValidator.Label("autograb", autograb.Name, i);
             if (autograb.Type is null)
             {
-                throw new ConfigurationException("Invalid configuration: an [[autograb]] section is missing 'type'.");
+                throw new ConfigurationException($"Invalid configuration: {label} is missing 'type'.");
             }
 
             if (autograb.MaxActiveDownloads is not null && string.IsNullOrWhiteSpace(autograb.Name))
             {
                 throw new ConfigurationException(
-                    "Invalid configuration: an [[autograb]] section setting 'max_active_downloads' must also set 'name'.");
+                    $"Invalid configuration: {label} sets 'max_active_downloads' and must also set 'name'.");
             }
 
             // Its queued torrents are matched to it by name when they are downloaded.
             if ((autograb.UnsatBuffer is not null || autograb.WedgeBuffer is not null) && string.IsNullOrWhiteSpace(autograb.Name))
             {
                 throw new ConfigurationException(
-                    "Invalid configuration: an [[autograb]] section setting 'unsat_buffer' or 'wedge_buffer' must also set 'name'.");
+                    $"Invalid configuration: {label} sets 'unsat_buffer' or 'wedge_buffer' and must also set 'name'.");
             }
 
             if (!AutograbSearchOptions.TryParseSortBy(autograb.SortBy, out _))
             {
                 throw new ConfigurationException(
-                    $"Invalid configuration: an [[autograb]] section has an unrecognized 'sort_by' value '{autograb.SortBy}'; " +
+                    $"Invalid configuration: {label} has an unrecognized 'sort_by' value '{autograb.SortBy}'; " +
                     $"expected one of {AutograbSearchOptions.SortByNames}.");
             }
 
@@ -632,7 +643,7 @@ public static partial class ConfigLoader
             if (unknownField is not null)
             {
                 throw new ConfigurationException(
-                    $"Invalid configuration: an [[autograb]] section has an unrecognized 'search_in' field '{unknownField}'; " +
+                    $"Invalid configuration: {label} has an unrecognized 'search_in' field '{unknownField}'; " +
                     $"expected one of {AutograbSearchOptions.SearchInNames}.");
             }
         }
@@ -718,7 +729,22 @@ public static partial class ConfigLoader
 
     private static void ValidateAudiobookshelf(FetchshelfSettings settings)
     {
-        if (settings.Audiobookshelf is not { PathMapping.Count: > 0 } abs)
+        if (settings.Audiobookshelf is not { } abs)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(abs.Url))
+        {
+            throw new ConfigurationException("Invalid configuration: the [audiobookshelf] section is missing 'url', the address of Audiobookshelf.");
+        }
+
+        if (string.IsNullOrWhiteSpace(abs.Token))
+        {
+            throw new ConfigurationException("Invalid configuration: the [audiobookshelf] section is missing 'token', an Audiobookshelf API token.");
+        }
+
+        if (abs.PathMapping.Count == 0)
         {
             return;
         }
@@ -817,9 +843,16 @@ public static partial class ConfigLoader
             throw new ConfigurationException("Invalid configuration: the [hardcover] section needs 'token' or 'token_file'.");
         }
 
-        foreach (var list in settings.HardcoverList)
+        // Each status or list is stored as one list, so two blocks on the same one would overwrite each other's state.
+        var seen = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < settings.HardcoverList.Count; i++)
         {
-            var label = string.IsNullOrWhiteSpace(list.Name) ? "a [[hardcover_list]] section" : $"the [[hardcover_list]] '{list.Name}'";
+            var list = settings.HardcoverList[i];
+            var label = ConfigValueValidator.Label("hardcover_list", list.Name, i);
+            if (string.IsNullOrWhiteSpace(list.List))
+            {
+                list.List = null;
+            }
 
             if (settings.Hardcover is null)
             {
@@ -832,6 +865,13 @@ public static partial class ConfigLoader
             {
                 throw new ConfigurationException(
                     $"Invalid configuration: {label} must set one of 'status' or 'list', not both.");
+            }
+
+            var source = list.List is { } slug ? $"list = \"{slug}\"" : $"status = \"{UnderscoredNamingConvention.Instance.Apply(list.Status!.Value.ToString())}\"";
+            if (!seen.TryAdd(source, label))
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {label} and {seen[source]} both read {source}; one block per status or list.");
             }
 
             ValidateListSearch(label, list.Grab, list.PreferFormat);

@@ -217,7 +217,7 @@ public sealed class AutograbConfigTests : IDisposable
         var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
 
         Assert.Equal(
-            "Invalid configuration: an [[autograb]] section setting 'unsat_buffer' or 'wedge_buffer' must also set 'name'.",
+            "Invalid configuration: the 1st [[autograb]] section sets 'unsat_buffer' or 'wedge_buffer' and must also set 'name'.",
             exception.Message);
     }
 
@@ -300,5 +300,23 @@ public sealed class AutograbConfigTests : IDisposable
         var entry = Assert.Single(ConfigLoader.Load(ConfigPath).Autograb);
 
         Assert.Equal(ConfiguredCost.Ratio, entry.Cost);
+    }
+
+    [Fact]
+    public void Load_SecondAutograbWithoutType_NamesItsPosition()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[autograb]]
+            type = "bookmarks"
+
+            [[autograb]]
+            query = "x"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: the 2nd [[autograb]] section is missing 'type'.", exception.Message);
     }
 }

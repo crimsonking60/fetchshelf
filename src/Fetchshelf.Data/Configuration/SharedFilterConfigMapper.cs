@@ -64,8 +64,10 @@ public static class SharedFilterConfigMapper
         return new MainTypeCategoryFilter { Allowed = categories };
     }
 
-    private static MediaType ParseMediaType(string name) => Enum.TryParse<MediaType>(name, ignoreCase: true, out var mediaType)
-        ? mediaType
+    // Enum.TryParse also takes "2" or "Ebook, Manga"; only the names count.
+    private static MediaType ParseMediaType(string name) =>
+        Enum.GetNames<MediaType>().FirstOrDefault(known => string.Equals(known, name, StringComparison.OrdinalIgnoreCase)) is { } match
+        ? Enum.Parse<MediaType>(match)
         : throw new ConfigurationException($"Invalid configuration: unrecognized media type '{name}'.");
 
     private static Language ParseLanguage(string name) => LanguageNameResolver.TryResolve(name, out var language)
