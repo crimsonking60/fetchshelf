@@ -30,6 +30,7 @@ public static class WebServices
             options.Conventions.AddPageRoute("/Torrents/Detail", "torrents/{id}");
             options.Conventions.AddPageRoute("/Torrents/Edit", "torrents/{id}/edit");
             options.Conventions.AddPageRoute("/Search/Detail", "search/{mamId:long}");
+            options.Conventions.AddPageRoute("/Books/Detail", "books/{id}");
             options.Conventions.AddPageRoute("/Following/Detail", "following/{id:int}");
             options.Conventions.AddPageRoute("/Following/ToLookAt", "following/to-look-at");
         });

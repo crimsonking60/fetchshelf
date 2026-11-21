@@ -19,7 +19,7 @@ public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyLi
     {
         var rows = await dbContext.Torrents.AsNoTracking()
             .Where(t => t.LibraryPath != null && (t.ChosenAudioExtension != null || t.ChosenEbookExtension != null))
-            .Select(t => new { t.Id, t.MetadataJson, t.LibraryPath, t.LinkedFilesJson, t.ChosenAudioExtension, t.ChosenEbookExtension, t.CreatedAt })
+            .Select(t => new { t.Id, t.MetadataJson, t.LibraryPath, t.LinkedFilesJson, t.ChosenAudioExtension, t.ChosenEbookExtension, t.CreatedAt, t.AbsId })
             .ToListAsync(cancellationToken);
 
         var books = new List<CatalogBook>();
@@ -36,7 +36,7 @@ public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyLi
                 row.ChosenAudioExtension, row.ChosenEbookExtension, files.Select(file => (file.RelativePath, file.SizeBytes)));
             if (book is not null)
             {
-                books.Add(book);
+                books.Add(book with { AbsId = row.AbsId });
             }
         }
 

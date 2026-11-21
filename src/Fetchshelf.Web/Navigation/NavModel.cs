@@ -47,7 +47,7 @@ public sealed record NavModel(IReadOnlyList<NavEntry> Primary, IReadOnlyList<Nav
         ];
 
         // What is in the library and what is missing from it.
-        List<NavEntry> library = [new("/Series/Index", "Series")];
+        List<NavEntry> library = [new("/Books/Index", "Books"), new("/Series/Index", "Series")];
         if (inputs.FollowConfigured)
         {
             library.Add(new("/Following/Index", "Following", Badge("follow-badge", inputs.FollowCount, FindsTitle(inputs.FollowCount))));

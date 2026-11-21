@@ -3,6 +3,7 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Web.Metrics;
+using Fetchshelf.Web.Catalog;
 using Fetchshelf.Web.Opds;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
@@ -78,6 +79,7 @@ public static class FetchshelfApp
                 Results.Text(PrometheusText.Format(await collector.CollectAsync(ct)), PrometheusText.ContentType));
         }
 
+        app.MapBookEndpoints(settings);
         if (settings.Opds is { } opds)
         {
             app.MapOpdsEndpoints(opds);

@@ -46,6 +46,9 @@ public sealed record CatalogBook
     /// <summary>The ebook files, in the same order.</summary>
     public required IReadOnlyList<CatalogFile> EbookFiles { get; init; }
 
+    /// <summary>The matched Audiobookshelf item's id, or null when the book isn't matched.</summary>
+    public string? AbsId { get; init; }
+
     /// <summary>Whether the book's ebook can hold a cover Fetchshelf knows how to read (EPUB, CBZ).</summary>
     public bool MayHaveCover => EbookFiles.Count > 0 && EbookFiles[0].Extension is "epub" or "cbz";
 }

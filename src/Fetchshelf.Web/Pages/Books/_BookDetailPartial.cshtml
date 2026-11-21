@@ -1,0 +1,84 @@
+@model Fetchshelf.Web.Pages.Books.DetailModel
+@using Fetchshelf.Core.Catalog
+@using Fetchshelf.Web.Catalog
+@using Fetchshelf.Web.Pages.Books
+@* One book's details and actions: the body of its own page, and of the dialog the Books page opens. *@
+@{
+    var book = Model.Book!;
+}
+<h2 id="book-title">@book.Title</h2>
+
+<div class="hit-summary">
+    @if (book.MayHaveCover)
+    {
+        <img class="hit-cover" src="@BookEndpoints.CoverHref(book)" alt="Cover" loading="lazy" />
+    }
+    <div class="meta-block">
+        @if (book.Authors.Count > 0)
+        {
+            <p><span class="label">Authors</span><span class="value">@for (var i = 0; i < book.Authors.Count; i++)
+                {
+                    @(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Author="@book.Authors[i]">@book.Authors[i]</a>
+                }</span></p>
+        }
+        @if (book.Series.Count > 0)
+        {
+            <p><span class="label">Series</span><span class="value">@for (var i = 0; i < book.Series.Count; i++)
+                {
+                    var series = book.Series[i];
+                    @(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Series="@series.Name">@BookCardViewModel.SeriesText(series)</a>
+                }</span></p>
+        }
+        <p><span class="label">Media type</span><span class="value">@BookCardViewModel.MediaTypeLabel(book.MediaType)</span></p>
+        <p><span class="label">Language</span><span class="value">@Model.LanguageName</span></p>
+        @if (book.Genres.Count > 0)
+        {
+            <p><span class="label">Genres</span><span class="value">@string.Join(", ", book.Genres)</span></p>
+        }
+        <p><span class="label">Library</span><span class="value">@Model.LibraryName</span></p>
+        <p><span class="label">Added</span><span class="value"><local-time value="book.AddedAt" date /></span></p>
+    </div>
+</div>
+
+<div class="actions" id="book-actions">
+    @if (Model.AbsLink is { } absLink)
+    {
+        <a id="abs-link" href="@absLink" target="_blank" rel="noreferrer">Open in Audiobookshelf</a>
+    }
+    <a id="torrent-link" asp-page="/Torrents/Detail" asp-route-id="@book.Id">Details</a>
+</div>
+
+<h3>Files</h3>
+@if (!Model.DownloadsAvailable)
+{
+    <p id="downloads-off" class="muted">Downloads are offered with an <code>[opds]</code> section in the configuration, behind its login when it has one.</p>
+}
+@foreach (var (kind, files, label) in new[] { (CatalogFileKind.Audio, book.AudioFiles, "Audio"), (CatalogFileKind.Ebook, book.EbookFiles, "Ebook") })
+{
+    @if (files.Count > 0)
+    {
+        <ul class="book-files" id="book-files-@(kind == CatalogFileKind.Audio ? "audio" : "ebook")">
+            @for (var i = 0; i < files.Count; i++)
+            {
+                var file = files[i];
+                <li>
+                    @if (Model.DownloadsAvailable)
+                    {
+                        <a href="@BookEndpoints.FileHref(book, kind, i)" download>@file.RelativePath</a>
+                    }
+                    else
+                    {
+                        @file.RelativePath
+                    }
+                    <span class="muted">@label, @file.Extension.ToUpperInvariant(), @Fetchshelf.Web.Pages.Books.DetailModel.Size(file.SizeBytes)</span>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@if (Fetchshelf.Core.Metadata.DescriptionText.From(book.Description) is { } description)
+{
+    <h3>Description</h3>
+    <p id="book-description" class="hit-description">@description</p>
+}

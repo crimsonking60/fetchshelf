@@ -2,7 +2,6 @@ using System.Text;
 using System.Xml.Linq;
 using Fetchshelf.Core.Catalog;
 using Fetchshelf.Core.Opds;
-using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Opds;
 using Fetchshelf.Web.Catalog;
@@ -50,30 +49,9 @@ public static class OpdsEndpoints
                 (await cache.GetOpdsAsync(ct)).Search(q ?? string.Empty), page, time));
 
         opds.MapGet("/books/{id}/files/{index:int}", async (BookCatalogCache cache, ILoggerFactory loggers, string id, int index, CancellationToken ct) =>
-        {
-            if ((await cache.GetOpdsAsync(ct)).Find(id) is not { } book || index < 0 || index >= book.EbookFiles.Count)
-            {
-                return Results.NotFound();
-            }
-
-            // Nothing from the request becomes part of the path: the book and file come from the catalog, and the
-            // stored relative path must still lead inside the book's folder.
-            var folder = Path.GetFullPath(book.Folder);
-            var path = Path.GetFullPath(Path.Combine(folder, book.EbookFiles[index].RelativePath));
-            if (path == folder.TrimEnd(Path.DirectorySeparatorChar) || !PathPrefix.IsSameOrUnder(path, folder))
-            {
-                return Results.NotFound();
-            }
-
-            if (!File.Exists(path))
-            {
-                loggers.CreateLogger(typeof(OpdsEndpoints)).LogWarning("OPDS download of {Title}: {Path} is missing", book.Title, path);
-                return Results.NotFound();
-            }
-
-            var file = book.EbookFiles[index];
-            return Results.File(path, OpdsFeedBuilder.MediaTypeFor(file.Extension), DownloadName(book, index), enableRangeProcessing: true);
-        });
+            (await cache.GetOpdsAsync(ct)).Find(id) is { } book
+                ? BookFiles.Serve(book, CatalogFileKind.Ebook, index, loggers.CreateLogger(typeof(OpdsEndpoints)))
+                : Results.NotFound());
 
         opds.MapGet("/books/{id}/cover", async (BookCatalogCache cache, OpdsCoverCache covers, HttpResponse response, string id, CancellationToken ct) =>
         {
@@ -180,20 +158,6 @@ public static class OpdsEndpoints
         }
 
         return (library, new CatalogScope($"/opds/libraries/{index}", $"urn:fetchshelf:opds:library:{index}", library.Libraries[0].Name));
-    }
-
-    /// <summary>The name a downloaded file gets: "Title - Author.epub", with a part number when a book has several files.</summary>
-    public static string DownloadName(CatalogBook book, int index)
-    {
-        var name = book.Authors.Count > 0 ? $"{book.Title} - {book.Authors[0]}" : book.Title;
-        if (book.EbookFiles.Count > 1)
-        {
-            name += $" ({index + 1})";
-        }
-
-        var invalid = Path.GetInvalidFileNameChars();
-        var safe = new string(name.Where(c => !invalid.Contains(c) && !char.IsControl(c)).ToArray()).Trim();
-        return $"{(safe.Length > 0 ? safe : "book")}.{book.EbookFiles[index].Extension}";
     }
 
     private static IResult BookFeed(string id, string title, string href, IReadOnlyList<CatalogBook> books, int? page, TimeProvider time)

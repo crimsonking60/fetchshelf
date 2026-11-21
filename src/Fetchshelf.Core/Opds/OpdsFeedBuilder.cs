@@ -123,16 +123,7 @@ public static class OpdsFeedBuilder
     }
 
     /// <summary>The MIME type a format's files are served with.</summary>
-    public static string MediaTypeFor(string extension) => extension.ToLowerInvariant() switch
-    {
-        "epub" => "application/epub+zip",
-        "pdf" => "application/pdf",
-        "mobi" => "application/x-mobipocket-ebook",
-        "azw3" or "azw" => "application/vnd.amazon.ebook",
-        "cbz" => "application/vnd.comicbook+zip",
-        "cbr" => "application/vnd.comicbook-rar",
-        _ => "application/octet-stream",
-    };
+    public static string MediaTypeFor(string extension) => CatalogFiles.ContentTypeFor(extension);
 
     private static XElement Feed(string id, string title, string selfHref, string selfType, DateTimeOffset updated, OpdsPage? page)
     {

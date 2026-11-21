@@ -401,10 +401,13 @@ libraries = ["Ebooks", "Comics"]
 - **Validation.** Every name in `libraries` must be the `name` of a `[[library]]`; an unknown name stops
   Fetchshelf from starting. Libraries without a `name` can only be served by leaving `libraries` empty.
 - **Login.** With `username` and a password, every `/opds` address asks for them with HTTP Basic, which OPDS
-  readers support; a wrong or missing login gets HTTP 401. Only the catalog asks: the rest of Fetchshelf stays
-  without a login. Setting `username` without a password, or a password without `username`, stops Fetchshelf
+  readers support; a wrong or missing login gets HTTP 401. Only the catalog, and the **Books** page's covers and
+  downloads, ask: the rest of Fetchshelf stays without a login. Setting `username` without a password, or a password without `username`, stops Fetchshelf
   from starting. A wrong login is logged with the address it came from, never with what was sent. HTTP Basic sends
   the password readably, so outside your home network, reach the catalog over HTTPS through a reverse proxy.
+- **The Books page.** With an `[opds]` section, the **Books** page offers each linked book's files for download,
+  audiobooks included and in every library, whatever `libraries` says; without one it only lists them. See
+  [Browsing your books](user-guide.md#browsing-your-books).
 - **Environment.** `FETCHSHELF_CONF_opds_libraries` (comma-separated) sets `libraries`, and
   `FETCHSHELF_CONF_opds_username`, `FETCHSHELF_CONF_opds_password` and `FETCHSHELF_CONF_opds_password_file` the
   login. Each creates the section if the file has none.
