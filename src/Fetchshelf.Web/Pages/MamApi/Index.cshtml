@@ -1,0 +1,38 @@
+@page
+@model Fetchshelf.Web.Pages.MamApi.IndexModel
+@using Fetchshelf.Web.Pages.MamApi
+@{
+    ViewData["Title"] = "MAM API";
+}
+
+<h2>MAM API</h2>
+@await Html.PartialAsync("_PageExplanation", $"Every call Fetchshelf made to MAM: when it started, how long it took and what MAM answered, to see the pattern of calls behind a 429 (too many requests). The chart counts the calls per interval and marks each 4xx or 5xx answer, or call without an answer, with a red line; pointing at a bar or a line shows its details. The calls are kept for {Fetchshelf.Data.MamCalls.MamCallRecorder.DaysKept} days, and the page refreshes itself while it shows the latest window.")
+
+<form method="get" class="toolbar" id="mam-api-options">
+    <label>Group by
+        <select name="Group" onchange="this.form.requestSubmit()">
+            @foreach (var minutes in MamApiView.GroupMinutes)
+            {
+                <option value="@minutes" selected="@(Model.Group == minutes)">@MamApiView.GroupLabel(minutes)</option>
+            }
+        </select>
+    </label>
+    <label>Show
+        <select name="Span" onchange="this.form.requestSubmit()">
+            @foreach (var hours in MamApiView.SpanHours)
+            {
+                <option value="@hours" selected="@(Model.Span == hours)">@MamApiView.SpanLabel(hours)</option>
+            }
+        </select>
+    </label>
+    @if (Model.End is { } end)
+    {
+        <input type="hidden" name="End" value="@end" />
+    }
+    <noscript><button type="submit">Show</button></noscript>
+</form>
+
+@await Html.PartialAsync("_MamApiPartial", Model)
+
+<div id="mam-tip" class="mam-tip" role="tooltip" hidden></div>
+<script src="~/js/mam-chart.js" asp-append-version="true"></script>

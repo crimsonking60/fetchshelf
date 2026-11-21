@@ -486,6 +486,46 @@ namespace Fetchshelf.Data.Migrations
                     b.ToTable("ListItems");
                 });
 
+            modelBuilder.Entity("Fetchshelf.Data.Entities.MamCallEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Caller")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DurationMs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Failure")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("StartedAtMs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtMs");
+
+                    b.ToTable("MamCalls");
+                });
+
             modelBuilder.Entity("Fetchshelf.Data.Entities.NotificationStateEntity", b =>
                 {
                     b.Property<string>("Key")

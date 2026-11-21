@@ -1,0 +1,98 @@
+@model Fetchshelf.Web.Pages.MamApi.IndexModel
+@using Fetchshelf.Web.Pages.MamApi
+@* The chart, statistics and calls of one window. The latest window refreshes itself, except while the chart is pointed at,
+   so a tooltip being read isn't swept away. *@
+@{
+    var view = Model.View;
+    var stats = view.Stats;
+}
+<div id="mam-api"
+     hx-get="@(Model.Live ? Url.Page("/MamApi/Index", "Partial", new { Model.Group, Model.Span }) : null)"
+     hx-trigger="@(Model.Live ? "every 15s [!document.querySelector('#mam-chart:hover')]" : null)"
+     hx-swap="@(Model.Live ? "outerHTML" : null)">
+    <div class="mam-chart-box">
+        @Html.Raw(MamApiChartSvg.Build(view))
+    </div>
+    <nav class="mam-window" aria-label="Window">
+        <a id="mam-previous" class="mam-step" asp-page="/MamApi/Index" asp-route-Group="@Model.Group" asp-route-Span="@Model.Span" asp-route-End="@Model.PreviousEnd" title="The @MamApiView.SpanLabel(Model.Span) before" aria-label="Earlier">&#9664;</a>
+        <span id="mam-window-range"><local-time value="view.Start" /> – <local-time value="view.End" />@(Model.Live ? " (now)" : "")</span>
+        @if (Model.Live)
+        {
+            <span class="mam-step disabled" aria-hidden="true">&#9654;</span>
+        }
+        else
+        {
+            <a id="mam-next" class="mam-step" asp-page="/MamApi/Index" asp-route-Group="@Model.Group" asp-route-Span="@Model.Span" asp-route-End="@Model.NextEnd" title="The @MamApiView.SpanLabel(Model.Span) after" aria-label="Later">&#9654;</a>
+        }
+    </nav>
+
+    <section id="mam-stats" class="mam-stats">
+        <h3>In this window</h3>
+        @if (stats.Calls == 0)
+        {
+            <p id="no-calls-message" class="empty">No calls to MAM in this window.</p>
+        }
+        else
+        {
+            <dl class="mam-stat-list">
+                <div><dt>Calls</dt><dd id="stat-calls">@stats.Calls <span class="muted">(@stats.CallsPerHour.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) an hour)</span></dd></div>
+                <div><dt>Answers</dt><dd id="stat-answers">@stats.Ok OK, @stats.ClientErrors 4xx, @stats.ServerErrors 5xx, @stats.NoAnswer without an answer</dd></div>
+                <div><dt>429 (too many requests)</dt><dd id="stat-429" class="@(stats.RateLimited > 0 ? "mam-bad" : "")">@stats.RateLimited@if (stats.LastRateLimitedAt is { } last) {<span class="muted">, last <local-time value="last" /></span>}</dd></div>
+                @if (stats.BusiestMinute is { } minute)
+                {
+                    <div><dt>Most in one minute</dt><dd id="stat-busiest-minute">@minute.Calls <span class="muted">from <local-time value="minute.At" /></span></dd></div>
+                }
+                @if (stats.BusiestTenMinutes is { } ten)
+                {
+                    <div><dt>Most in ten minutes</dt><dd id="stat-busiest-ten">@ten.Calls <span class="muted">from <local-time value="ten.At" /></span></dd></div>
+                }
+                @if (stats.ShortestGap is { } gap)
+                {
+                    <div><dt>Shortest gap between calls</dt><dd id="stat-gap">@MamApiView.Duration((int)gap.TotalMilliseconds)</dd></div>
+                }
+                @if (stats.MedianMs is { } median)
+                {
+                    <div><dt>Time to answer</dt><dd id="stat-duration">@MamApiView.Duration(median) median, @MamApiView.Duration(stats.P95Ms ?? 0) for 95 %, @MamApiView.Duration(stats.MaxMs ?? 0) at most</dd></div>
+                }
+            </dl>
+            <div class="stat-grid">
+                @foreach (var (title, id, rows) in new[] { ("Endpoint", "by-endpoint", stats.ByEndpoint), ("Made by", "by-caller", stats.ByCaller) })
+                {
+                    <table id="@id" class="stat-table">
+                        <thead><tr><th>@title</th><th class="num">Calls</th><th class="num">Failed</th><th class="num">Median</th></tr></thead>
+                        <tbody>
+                            @foreach (var row in rows)
+                            {
+                                <tr><td>@row.Label</td><td class="num">@row.Calls</td><td class="num@(row.Errors > 0 ? " mam-bad" : "")">@row.Errors</td><td class="num">@MamApiView.Duration(row.MedianMs)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        }
+    </section>
+
+    @if (view.NewestFirst.Count > 0)
+    {
+        <h3>Calls</h3>
+        @if (view.NewestFirst.Count > IndexModel.TableRows)
+        {
+            <p class="muted">The newest @IndexModel.TableRows of @view.NewestFirst.Count calls.</p>
+        }
+        <table id="mam-calls">
+            <thead><tr><th>Started</th><th>Result</th><th class="num">Time</th><th>Call</th><th>Made by</th></tr></thead>
+            <tbody>
+                @foreach (var call in view.NewestFirst.Take(IndexModel.TableRows))
+                {
+                    <tr class="@(call.IsError ? "mam-error-row" : "")">
+                        <td class="nowrap"><local-time value="call.StartedAt" /></td>
+                        <td class="nowrap@(call.IsError ? " mam-bad" : "")">@call.Result</td>
+                        <td class="num nowrap">@MamApiView.Duration(call.DurationMs)</td>
+                        <td>@call.Method @(call.Endpoint == "Cover images" ? $"{call.Host}{call.Path}" : call.Path)</td>
+                        <td>@(call.Caller ?? "No job (a page)")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

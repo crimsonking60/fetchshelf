@@ -32,6 +32,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<AccountSnapshotEntity> AccountSnapshots => Set<AccountSnapshotEntity>();
 
+    public DbSet<MamCallEntity> MamCalls => Set<MamCallEntity>();
+
     public DbSet<TorrentPersonEntity> TorrentPeople => Set<TorrentPersonEntity>();
 
     public DbSet<TorrentSeriesEntity> TorrentSeries => Set<TorrentSeriesEntity>();
@@ -201,6 +203,11 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
         modelBuilder.Entity<AccountSnapshotEntity>(entity =>
         {
             entity.HasKey(s => s.Day);
+        });
+
+        modelBuilder.Entity<MamCallEntity>(entity =>
+        {
+            entity.HasIndex(c => c.StartedAtMs);
         });
 
         modelBuilder.Entity<JobRunEntity>(entity =>

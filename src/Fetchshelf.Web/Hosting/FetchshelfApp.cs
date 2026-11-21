@@ -140,6 +140,7 @@ public static class FetchshelfApp
             FetchshelfJobs.RegisterAutoDownloaderJobs(app.Services, settings);
         }
 
+        FetchshelfJobs.ConnectMamCalls(app.Services);
         if (NotificationServices.NotificationsOn(settings))
         {
             FetchshelfJobs.ConnectMamNotifications(app.Services);

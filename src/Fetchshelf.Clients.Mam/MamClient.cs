@@ -85,6 +85,34 @@ public sealed partial class MamClient(
     /// </summary>
     public event Action<MamAccountSnapshot?, MamAccountSnapshot>? AccountStateRead;
 
+    /// <summary>
+    /// Raised after every request sent to MAM, answered or not, for the MAM API page. Handlers run on the thread that
+    /// made the call, so they must be quick, and one that throws is logged and skipped.
+    /// </summary>
+    public event Action<MamCall>? CallCompleted;
+
+    private void ReportCall(HttpRequestMessage request, DateTimeOffset startedAt, long started, int? statusCode, string? failure)
+    {
+        if (CallCompleted is null)
+        {
+            return;
+        }
+
+        var call = new MamCall(
+            startedAt, _timeProvider.GetElapsedTime(started), request.Method.Method, request.RequestUri?.Host ?? "?",
+            RedactDownloadHash(request.RequestUri?.AbsolutePath ?? "?"), statusCode, failure);
+        Raise(() => CallCompleted?.Invoke(call));
+    }
+
+    /// <summary>Why a request got no answer, in a few words.</summary>
+    private static string DescribeFailure(Exception ex, CancellationToken cancellationToken) => ex switch
+    {
+        OperationCanceledException when cancellationToken.IsCancellationRequested => "Cancelled",
+        TaskCanceledException => "No answer in time",
+        HttpRequestException => "Connection failed",
+        _ => ex.GetType().Name,
+    };
+
     private void Raise(Action raise)
     {
         try
@@ -323,17 +351,27 @@ public sealed partial class MamClient(
         }
 
         HttpResponseMessage response;
+        var startedAt = _timeProvider.GetUtcNow();
+        var started = _timeProvider.GetTimestamp();
         try
         {
             response = await httpClient.SendAsync(request, cancellationToken);
         }
-        catch (Exception ex) when (mayRetry && IsNoAnswer(ex, cancellationToken))
+        catch (Exception ex)
         {
+            ReportCall(request, startedAt, started, null, DescribeFailure(ex, cancellationToken));
+            if (!mayRetry || !IsNoAnswer(ex, cancellationToken))
+            {
+                throw;
+            }
+
             _logger.LogInformation(
                 "MAM {Method} {Endpoint} failed ({Reason}), trying again in {Delay} s",
                 request.Method, RedactDownloadHash(request.RequestUri?.AbsolutePath ?? "?"), DescribeNoAnswer(ex), TransientRetryDelay.TotalSeconds);
             return null;
         }
+
+        ReportCall(request, startedAt, started, (int)response.StatusCode, null);
 
         if (mayRetry && (int)response.StatusCode is 502 or 503 or 504)
         {

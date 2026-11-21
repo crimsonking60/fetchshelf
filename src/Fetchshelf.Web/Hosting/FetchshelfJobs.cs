@@ -6,6 +6,7 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.Account;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.MamCalls;
 using Fetchshelf.Data.Notifications;
 using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Organizer;
@@ -244,6 +245,17 @@ public static class FetchshelfJobs
     {
         var recorder = services.GetRequiredService<AccountSnapshotRecorder>();
         services.GetRequiredService<MamClient>().AccountStateRead += (previous, current) => recorder.Enqueue(current);
+    }
+
+    /// <summary>
+    /// Hands every call made to MAM to <see cref="MamCallRecorder"/>, naming who held the MAM gate at the time. The handler
+    /// runs on the thread of the MAM call, so it only hands the call over.
+    /// </summary>
+    public static void ConnectMamCalls(IServiceProvider services)
+    {
+        var recorder = services.GetRequiredService<MamCallRecorder>();
+        var gate = services.GetRequiredService<MamAccessGate>();
+        services.GetRequiredService<MamClient>().CallCompleted += call => recorder.Enqueue(call, gate.Owner);
     }
 
     /// <summary>

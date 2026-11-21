@@ -7,6 +7,7 @@ using Fetchshelf.Data;
 using Fetchshelf.Data.Account;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.MamCalls;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,12 @@ public static class ClientServices
         services.AddSingleton<IMamCoverSource, MamCoverSource>();
         services.AddSingleton<MamAccessGate>();
         services.AddSingleton<MamPageGate>();
+        // Every call made to MAM, for the MAM API page.
+        services.AddSingleton(sp => new MamCallRecorder(
+            sp.GetRequiredService<IDbContextFactory<FetchshelfDbContext>>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<MamCallRecorder>>()));
+        services.AddHostedService<MamCallRecording>();
         if (settings.BackgroundJobsEnabled)
         {
             // The account's numbers from the start, not only once a job has read them.

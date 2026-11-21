@@ -1842,7 +1842,7 @@ There is no login. See [Security and privacy](#security-and-privacy).
 The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
 **Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check**,
 with a count when it found something) and
-**Insight** (**Events** and **Statistics**), and at the right **Account**, **Config** and the theme menu. The theme
+**Insight** (**Events**, **Statistics** and, when `mam_id` is set, **MAM API**), and at the right **Account**, **Config** and the theme menu. The theme
 menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
 in the bar names the jobs running, on every page.
 
@@ -1856,6 +1856,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; at the end of the second group, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
+| **MAM API** | Every call Fetchshelf made to MAM, as a chart and a table, to see the pattern behind a 429 (too many requests). Only in the menu when `mam_id` is set. See [MAM API](#mam-api). |
 | **Selected** | The queue of torrents that are chosen and not yet finished downloading. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Books** | Every linked book, audiobooks included, to find one and open it in Audiobookshelf or download it. See [Browsing your books](#browsing-your-books). |
@@ -1940,6 +1941,22 @@ Totals from what Fetchshelf has recorded, worked out at most once a minute:
 
 Months are calendar months in UTC. The ratio, upload and bonus points over time are on the **Account** page. For a
 monitoring system such as Prometheus and Grafana, see [`metrics`](configuration.md#prometheus-metrics).
+
+### MAM API
+
+Every request Fetchshelf sends to MAM is recorded: when it started, how long it took, what MAM answered (the HTTP
+status, or why there was no answer) and which job made it. A request sent again after a 502, 503 or 504, or after no
+answer, counts as two calls. The calls are kept for 30 days.
+
+- **The chart** counts the calls in each interval of 1, 10 or 30 minutes (**Group by**) over 1, 6 or 14 hours
+  (**Show**). Each call MAM answered with a 4xx or 5xx is a red line, and each call without an answer a dashed red line.
+  Pointing at a bar shows how many calls it holds, to what and by whom; pointing at a line shows that call. Below the
+  chart, the arrows move a window back or forward. The latest window refreshes itself every 15 seconds.
+- **In this window:** the number of calls, how many were answered with an error, the 429s and the last one, the most
+  calls within any one minute and any ten minutes, the shortest gap between two calls, and how long MAM took to answer;
+  then the calls by endpoint and by the job that made them. A call made by a page, such as a search on the Search
+  page, shows as *No job (a page)*.
+- **Calls:** every call in the window, newest first, up to 500.
 
 ### Selected
 
