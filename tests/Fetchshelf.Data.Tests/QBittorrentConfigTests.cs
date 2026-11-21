@@ -171,4 +171,21 @@ public sealed class QBittorrentConfigTests : IDisposable
         Assert.Contains("[[tag]]", exception.Message);
         Assert.Contains("absolute", exception.Message);
     }
+
+    [Fact]
+    public void Load_NamedQBittorrentMissingPassword_NamesTheSection()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[qbittorrent]]
+            name = "VPN"
+            url = "http://localhost:8080"
+            username = "admin"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Equal("Invalid configuration: the [[qbittorrent]] 'VPN' is missing 'password'.", exception.Message);
+    }
 }

@@ -50,20 +50,6 @@ public static class ConfigSummary
                 + (opds.RequiresLogin ? $", login {opds.Username}" : ", no login"));
         }
 
-        if (settings.Seeding is { } seeding)
-        {
-            var tag = seeding.TagUnsatisfied is { } name ? $", tag {name}" : "";
-            var hold = seeding.WarnBeforeRemoval ? ", on_cleaned held back while unsatisfied" : "";
-            text.AppendLine(CultureInfo.InvariantCulture,
-                $"Seeding: {seeding.SeedHours} hours within {seeding.WithinDays} days, {Schedule(seeding.Interval)}{tag}{hold}");
-        }
-
-        if (settings.Backup is { } backup)
-        {
-            text.AppendLine(CultureInfo.InvariantCulture,
-                $"Backup: to {backup.Folder}, {Schedule(backup.Interval)}, keep {backup.Keep}{(backup.BeforeUpgrade ? ", and before upgrades" : "")}");
-        }
-
         AppendNotifications(text, settings);
 
         return text.ToString();
@@ -143,11 +129,25 @@ public static class ConfigSummary
         var rows = new List<(string Name, string Details)>
         {
             (JobNames.Link, Schedule(settings.LinkInterval)),
+            (JobNames.LibraryCheck, Schedule(0)),
             (JobNames.Clean, "after every Link run"),
         };
         if (settings.Audiobookshelf is { } abs)
         {
             rows.Add((JobNames.Audiobookshelf, Schedule(abs.Interval)));
+        }
+
+        if (settings.Seeding is { } seeding)
+        {
+            var tag = seeding.TagUnsatisfied is { } name ? $", tag {name}" : "";
+            var hold = seeding.WarnBeforeRemoval ? ", on_cleaned held back while unsatisfied" : "";
+            rows.Add((JobNames.Seeding, $"{seeding.SeedHours} hours within {seeding.WithinDays} days, {Schedule(seeding.Interval)}{tag}{hold}"));
+        }
+
+        if (settings.Backup is { } backup)
+        {
+            rows.Add((JobNames.Backup,
+                $"to {backup.Folder}, {Schedule(backup.Interval)}, keep {backup.Keep}{(backup.BeforeUpgrade ? ", and before upgrades" : "")}"));
         }
 
         for (var i = 0; i < settings.Autograb.Count; i++)
@@ -163,7 +163,7 @@ public static class ConfigSummary
             var entry = settings.HardcoverList[i];
             var source = entry.Status is { } status ? $"Hardcover {Underscored(status.ToString())}" : $"Hardcover list '{entry.List}'";
             rows.Add((AutoDownloaderJobNames.HardcoverList(entry, i),
-                $"{source}, {entry.Grab.Count} grab block{(entry.Grab.Count == 1 ? "" : "s")}, " +
+                $"{source}, {GrabBlocks(entry.Grab.Count)}, " +
                 $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }
 
@@ -172,15 +172,35 @@ public static class ConfigSummary
             var entry = settings.FileList[i];
             var shelf = entry.Shelf is null ? "" : $", shelf '{entry.Shelf}'";
             rows.Add((AutoDownloaderJobNames.FileList(entry, i),
-                $"file {entry.Path}{shelf}, {entry.Grab.Count} grab block{(entry.Grab.Count == 1 ? "" : "s")}, " +
+                $"file {entry.Path}{shelf}, {GrabBlocks(entry.Grab.Count)}, " +
                 $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
         }
 
         foreach (var entry in settings.BookmarksList)
         {
             rows.Add((AutoDownloaderJobNames.BookmarksList(entry),
-                $"MAM bookmarks, {entry.Grab.Count} grab block{(entry.Grab.Count == 1 ? "" : "s")}, " +
+                $"MAM bookmarks, {GrabBlocks(entry.Grab.Count)}, " +
                 $"{Schedule(entry.SearchInterval ?? settings.SearchInterval)}{DryRun(entry.DryRun)}"));
+        }
+
+        if (settings.Follow is { } follow)
+        {
+            rows.Add((JobNames.Follow,
+                $"{GrabBlocks(follow.Grab.Count)}, {follow.SearchesPerRun} searches per run, " +
+                $"{Schedule(follow.SearchInterval ?? settings.SearchInterval)}{DryRun(follow.DryRun)}"));
+        }
+
+        if (settings.Upgrade is { } upgrade)
+        {
+            var libraries = upgrade.Libraries.Count == 0 ? "every library" : string.Join(", ", upgrade.Libraries);
+            rows.Add((JobNames.Upgrade,
+                $"{libraries}, {upgrade.SearchesPerRun} searches per run, " +
+                $"{Schedule(upgrade.SearchInterval ?? settings.SearchInterval)}{DryRun(upgrade.DryRun)}"));
+        }
+
+        if (settings.Bonus is { } bonus)
+        {
+            rows.Add((JobNames.Bonus, $"keep_points {bonus.KeepPoints}, {Schedule(bonus.BonusInterval)}{DryRun(bonus.DryRun)}"));
         }
 
         var afterSelections = settings.DownloadAfterSelection ? ", and after selections" : "";
@@ -202,6 +222,8 @@ public static class ConfigSummary
     }
 
     private static string Schedule(int minutes) => minutes > 0 ? $"every {minutes} min" : "only from the Jobs page";
+
+    private static string GrabBlocks(int count) => $"{count} grab block{(count == 1 ? "" : "s")}";
 
     private static string DryRun(bool dryRun) => dryRun ? ", dry run" : "";
 

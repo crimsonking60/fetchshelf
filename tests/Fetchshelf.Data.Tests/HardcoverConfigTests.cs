@@ -271,4 +271,54 @@ public sealed class HardcoverConfigTests : IDisposable
             Environment.SetEnvironmentVariable("FETCHSHELF_CONF_hardcover_token", null);
         }
     }
+
+    [Theory]
+    [InlineData("status = \"read\"", "status = \"read\"")]
+    [InlineData("list = \"books-to-fetch\"", "list = \"books-to-fetch\"")]
+    public void Load_TwoListsReadingTheSameStatusOrList_StopsStartup(string source, string named)
+    {
+        var exception = LoadFails($"""
+            mam_id = ""
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            name = "First"
+            {source}
+
+            [[hardcover_list.grab]]
+
+            [[hardcover_list]]
+            {source}
+
+            [[hardcover_list.grab]]
+            """);
+
+        Assert.Equal(
+            $"Invalid configuration: the 2nd [[hardcover_list]] section and the [[hardcover_list]] 'First' both read {named}; one block per status or list.",
+            exception.Message);
+    }
+
+    [Fact]
+    public void Load_BlankListBesideStatus_CountsAsUnset()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            status = "read"
+            list = " "
+
+            [[hardcover_list.grab]]
+            """);
+
+        var list = Assert.Single(ConfigLoader.Load(ConfigPath).HardcoverList);
+
+        Assert.Null(list.List);
+        Assert.Equal(HardcoverListStatus.Read, list.Status);
+    }
 }

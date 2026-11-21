@@ -361,4 +361,39 @@ public sealed class LibraryConfigTests : IDisposable
 
         Assert.True(Assert.Single(ConfigLoader.Load(ConfigPath).Library).SplitCollections);
     }
+
+    [Fact]
+    public void Load_LibraryWithoutLibraryDir_StopsStartupNamingTheLibrary()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            name = "Audiobooks"
+            category = "audiobooks"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains("the [[library]] 'Audiobooks' is missing 'library_dir'", exception.Message);
+    }
+
+    [Fact]
+    public void Load_LibraryWithNeitherCategoryNorDownloadDir_NamesItsPosition()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+
+            [[library]]
+            library_dir = "/library"
+            category = "audiobooks"
+
+            [[library]]
+            library_dir = "/ebooks"
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.StartsWith("Invalid configuration: the 2nd [[library]] section must specify one of", exception.Message);
+    }
 }
