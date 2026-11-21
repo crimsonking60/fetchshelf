@@ -98,6 +98,14 @@ public class ListMamQueryBuilderTests
     }
 
     [Fact]
+    public void Build_NoAuthors_SearchesTheTitleAlone()
+    {
+        var query = ListMamQueryBuilder.Build("Mistborn", []);
+
+        Assert.Equal("@title Mistborn", query);
+    }
+
+    [Fact]
     public void Build_MultipleAuthors_JoinedWithPipe()
     {
         var query = ListMamQueryBuilder.Build("Good Omens", ["Terry Pratchett", "Neil Gaiman"]);

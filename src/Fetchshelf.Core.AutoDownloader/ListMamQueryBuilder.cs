@@ -46,9 +46,15 @@ public static partial class ListMamQueryBuilder
     public static string PlainWords(string name) =>
         SpacesPattern().Replace(NotPlainPattern().Replace(name, " "), " ").Trim();
 
+    /// <summary>The search text; without authors, the title alone, since an empty <c>@author ()</c> matches nothing.</summary>
     public static string Build(string title, IReadOnlyList<string> authors)
     {
         var titleQuery = BuildTitleQuery(title);
+        if (authors.Count == 0)
+        {
+            return $"@title {titleQuery}";
+        }
+
         // Each name is a quoted phrase, so only a quote or a backslash in it could break the search.
         var authorQuery = string.Join('|', authors.Select(a => $"\"{BuildAuthorQuery(a.Replace('"', ' ').Replace('\\', ' '))}\""));
         return $"@title {titleQuery} @author ({authorQuery})";
