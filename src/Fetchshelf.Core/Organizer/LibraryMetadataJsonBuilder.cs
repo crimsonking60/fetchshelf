@@ -28,7 +28,7 @@ public static class LibraryMetadataJsonBuilder
             Asin = metadata.Asin,
             Tags = metadata.Flags.HasFlag(BookFlags.Lgbt) ? ["LGBT"] : [],
             Genres = BuildGenres(metadata),
-            Language = metadata.Language.ToString(),
+            Language = LanguageNameResolver.DisplayName(metadata.Language),
             Explicit = metadata.Flags.HasFlag(BookFlags.Explicit),
             Abridged = metadata.Flags.HasFlag(BookFlags.Abridged),
         };

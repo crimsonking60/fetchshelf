@@ -48,6 +48,15 @@ public class LibraryMetadataJsonBuilderTests
     }
 
     [Fact]
+    public void Build_LanguageOfMoreThanOneWord_IsWrittenAsItsName()
+    {
+        var json = LibraryMetadataJsonBuilder.Build(Build() with { Language = Language.BrazilianPortuguese });
+        using var document = JsonDocument.Parse(json);
+
+        Assert.Equal("Brazilian Portuguese", document.RootElement.GetProperty("language").GetString());
+    }
+
+    [Fact]
     public void Build_TitleWithShortPrefixBeforeColon_DoesNotSplitSubtitle()
     {
         var metadata = Build() with { Title = "Vol: The Beginning" };
