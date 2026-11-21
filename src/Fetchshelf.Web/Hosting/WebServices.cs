@@ -1,23 +1,21 @@
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Statistics;
+using Fetchshelf.Web.Catalog;
 using Fetchshelf.Web.Metrics;
-using Fetchshelf.Web.Opds;
 
 namespace Fetchshelf.Web.Hosting;
 
-/// <summary>What the web interface itself needs: Razor Pages and its routes, the health check, the Account page's summary, and the OPDS caches.</summary>
+/// <summary>What the web interface itself needs: Razor Pages and its routes, the health check, the Account page's summary, and the book catalog and cover caches.</summary>
 public static class WebServices
 {
     public static IServiceCollection AddFetchshelfWeb(this IServiceCollection services, FetchshelfSettings settings, FetchshelfPaths paths)
     {
-        if (settings.Opds is not null)
-        {
-            services.AddSingleton<OpdsCatalogCache>();
-            // Covers read out of the books live next to the database, like the form keys, so they survive a new container.
-            services.AddSingleton(sp => new OpdsCoverCache(
-                Path.Combine(paths.DataFolder, "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
-        }
+        // The catalog and its covers serve both the OPDS feeds and the Books page, so they are there without `[opds]` too.
+        services.AddSingleton<BookCatalogCache>();
+        // Covers read out of the books live next to the database, like the form keys, so they survive a new container.
+        services.AddSingleton(sp => new OpdsCoverCache(
+            Path.Combine(paths.DataFolder, "covers"), sp.GetRequiredService<ILogger<OpdsCoverCache>>()));
 
         services.AddScoped<Pages.Account.AccountSummaryBuilder>();
         services.AddScoped<LibraryStatistics>();

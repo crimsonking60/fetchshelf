@@ -17,4 +17,13 @@ public sealed class OpdsSettings
 
     /// <summary>Whether OPDS readers must log in.</summary>
     public bool RequiresLogin => !string.IsNullOrEmpty(Username);
+
+    /// <summary>The indexes of the served libraries among <paramref name="libraries"/>; null when every library is served.</summary>
+    public IReadOnlySet<int>? ServedLibraryIndexes(IReadOnlyList<Library> libraries) =>
+        Libraries.Count == 0
+            ? null
+            : libraries.Select((library, index) => (library.Name, Index: index))
+                .Where(l => l.Name is { } name && Libraries.Contains(name))
+                .Select(l => l.Index)
+                .ToHashSet();
 }

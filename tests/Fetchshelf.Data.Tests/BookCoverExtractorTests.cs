@@ -1,6 +1,6 @@
 using System.IO.Compression;
 using System.Text;
-using Fetchshelf.Core.Opds;
+using Fetchshelf.Core.Catalog;
 using Fetchshelf.Data.Opds;
 
 namespace Fetchshelf.Data.Tests;
@@ -139,8 +139,8 @@ public sealed class BookCoverExtractorTests : IDisposable
         var bookFolder = Directory.CreateDirectory(Path.Combine(_root, "Author", "Book")).FullName;
         var cacheFolder = Path.Combine(_root, "covers");
         WriteEpubWithCover(bookFolder, "Book.epub");
-        var book = OpdsBooks.From(
-            "abc", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, "epub", [("Book.epub", 10)])!;
+        var book = CatalogBooks.From(
+            "abc", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, null, "epub", [("Book.epub", 10)])!;
         var cache = new OpdsCoverCache(cacheFolder);
 
         Assert.Equal(Jpeg, (await cache.GetAsync(book))!.Bytes);
@@ -164,7 +164,7 @@ public sealed class BookCoverExtractorTests : IDisposable
         var bookFolder = Directory.CreateDirectory(Path.Combine(_root, "NoCover")).FullName;
         var cacheFolder = Path.Combine(_root, "covers");
         WriteZip(bookFolder, "Book.epub", ContainerXml(), Opf("", ""));
-        var book = OpdsBooks.From("nocover", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, "epub", [("Book.epub", 10)])!;
+        var book = CatalogBooks.From("nocover", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, null, "epub", [("Book.epub", 10)])!;
         var cache = new OpdsCoverCache(cacheFolder);
 
         Assert.Null(await cache.GetAsync(book));

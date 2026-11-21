@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Fetchshelf.Core.Catalog;
 using Fetchshelf.Core.Metadata;
 
 namespace Fetchshelf.Core.Opds;
@@ -43,11 +44,11 @@ public static class OpdsFeedBuilder
     private static readonly XNamespace Opds = "http://opds-spec.org/2010/catalog";
     private static readonly XNamespace OpenSearch = "http://a9.com/-/spec/opensearch/1.1/";
 
-    /// <summary>The address of a book's file, by its position in <see cref="OpdsBook.Files"/>.</summary>
-    public static string FileHref(OpdsBook book, int index) => $"/opds/books/{Uri.EscapeDataString(book.Id)}/files/{index}";
+    /// <summary>The address of a book's file, by its position in <see cref="CatalogBook.EbookFiles"/>.</summary>
+    public static string FileHref(CatalogBook book, int index) => $"/opds/books/{Uri.EscapeDataString(book.Id)}/files/{index}";
 
     /// <summary>The address of a book's cover.</summary>
-    public static string CoverHref(OpdsBook book) => $"/opds/books/{Uri.EscapeDataString(book.Id)}/cover";
+    public static string CoverHref(CatalogBook book) => $"/opds/books/{Uri.EscapeDataString(book.Id)}/cover";
 
     /// <summary>A feed of links to other feeds, such as the root catalog or the list of authors.</summary>
     public static XDocument Navigation(
@@ -69,7 +70,7 @@ public static class OpdsFeedBuilder
 
     /// <summary>A feed of books, each with its download links.</summary>
     public static XDocument Acquisition(
-        string id, string title, string selfHref, DateTimeOffset updated, IEnumerable<OpdsBook> books, OpdsPage page)
+        string id, string title, string selfHref, DateTimeOffset updated, IEnumerable<CatalogBook> books, OpdsPage page)
     {
         var feed = Feed(id, title, selfHref, AcquisitionType, updated, page);
         feed.Add(
@@ -166,7 +167,7 @@ public static class OpdsFeedBuilder
         return feed;
     }
 
-    private static XElement BookEntry(OpdsBook book)
+    private static XElement BookEntry(CatalogBook book)
     {
         var entry = new XElement(Atom + "entry",
             new XElement(Atom + "title", book.Title),
@@ -192,14 +193,14 @@ public static class OpdsFeedBuilder
                 Link("http://opds-spec.org/image/thumbnail", CoverHref(book), type: null));
         }
 
-        for (var i = 0; i < book.Files.Count; i++)
+        for (var i = 0; i < book.EbookFiles.Count; i++)
         {
-            var file = book.Files[i];
+            var file = book.EbookFiles[i];
             var link = Link("http://opds-spec.org/acquisition", FileHref(book, i), MediaTypeFor(file.Extension));
             link.Add(new XAttribute("length", file.SizeBytes.ToString(CultureInfo.InvariantCulture)));
-            if (book.Files.Count > 1)
+            if (book.EbookFiles.Count > 1)
             {
-                link.Add(new XAttribute("title", $"Part {i + 1} of {book.Files.Count}"));
+                link.Add(new XAttribute("title", $"Part {i + 1} of {book.EbookFiles.Count}"));
             }
 
             entry.Add(link);

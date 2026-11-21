@@ -1,4 +1,4 @@
-using Fetchshelf.Core.Opds;
+using Fetchshelf.Core.Catalog;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -17,14 +17,14 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
     private readonly ILogger<OpdsCoverCache> _logger = logger ?? NullLogger<OpdsCoverCache>.Instance;
 
     /// <summary>The book's cover, or null when its first file has none, isn't there, or can't be read.</summary>
-    public async Task<BookCover?> GetAsync(OpdsBook book, CancellationToken cancellationToken = default)
+    public async Task<BookCover?> GetAsync(CatalogBook book, CancellationToken cancellationToken = default)
     {
         if (!book.MayHaveCover)
         {
             return null;
         }
 
-        var file = new FileInfo(Path.Combine(book.Folder, book.Files[0].RelativePath));
+        var file = new FileInfo(Path.Combine(book.Folder, book.EbookFiles[0].RelativePath));
         if (!file.Exists)
         {
             return null;
