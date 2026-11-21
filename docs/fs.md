@@ -26,9 +26,9 @@ fs sql        QUERY
 ## DESCRIPTION
 
 **fs** reads a Fetchshelf database and prints what it holds: the torrents and where they stand, the files
-linked into the libraries, the event log, the download queue, errors, skipped duplicates and the Hardcover
-lists. It shows the same records as the web interface's pages, in a form suited to a terminal, a shell
-pipeline or another script.
+linked into the libraries, the event log, the download queue, errors, skipped duplicates and the lists
+(Hardcover lists, list files and the MAM bookmarks list). It shows the same records as the web interface's
+pages, in a form suited to a terminal, a shell pipeline or another script.
 
 **fs** only reads. It opens the database read-only, so it is safe to run while Fetchshelf is running, and it
 never talks to MAM, qBittorrent or Audiobookshelf. What it shows is what Fetchshelf last recorded: a torrent's
@@ -166,10 +166,11 @@ Lists the torrents Fetchshelf has a record of, the rows of the **Torrents** page
   language.
 
 `--author TEXT`, `--series TEXT`
-: Only torrents with `TEXT` in an author's name or a series name.
+: Only torrents with `TEXT` in an author's name or a series name. Each takes one value, used as it is,
+  commas included.
 
-Each filter option can be repeated, or given several values separated by commas, to allow any of them:
-`--status replaced,unlinked`. Different options must all match.
+Each of the other filter options can be repeated, or given several values separated by commas, to allow any
+of them: `--status replaced,unlinked`. Different options must all match.
 
 Columns: `id`, `mam_id`, `title`, `authors`, `narrators`, `series`, `media_type`, `language`, `status`,
 `library`, `category`, `client_status`, `mismatch`, `format`, `file_types`, `size`, `linked_size`, `files`,
@@ -182,8 +183,10 @@ Shows everything about one torrent: its fields, the files linked into the librar
 and any torrents skipped as duplicates of it. Alias: `show`.
 
 `ID` is an info-hash, the start of one (at least 4 characters, as shown in tables), `mam:` and a MAM id for a
-metadata-only record, or a MAM id. When it matches more than one torrent, **fs** lists them and exits with
-status 2.
+metadata-only record, or a MAM id. A book of a split collection has the collection's info-hash followed by
+`-` and its position, such as `<hash>-3`, so the start of a collection's info-hash matches the collection and
+each of its books; give the whole id then. When it matches more than one torrent, **fs** lists them and exits
+with status 2.
 
 In `table` format the output is laid out for reading. In `tsv` format it is `name<TAB>value` lines, with one
 `file`, `event` or `error` line for each of those. In `json` format it is one object with every torrent
@@ -214,7 +217,9 @@ compare the time of the event.
 : Text in the torrent's title, the event's details or the info-hash.
 
 `--kind KIND`
-: `grabbed`, `linked`, `cleaned`, `updated`, `removed-from-mam` or `unlinked`.
+: `grabbed`, `linked`, `cleaned`, `updated`, `removed-from-mam`, `unlinked`, `bonus-purchase`,
+  `deleted-from-library` (a folder or file the Library check found was deleted) or `upgrade-run` (a run of the
+  Upgrade job ended).
 
 `--torrent ID`
 : Only this torrent's events. `ID` is as for `torrent`; a MAM id also finds events of a torrent whose record
@@ -249,10 +254,12 @@ Columns: `selected_id`, `mam_id`, `title`, `authors`, `media_type`, `state`, `co
 Shows the errors on the **Errors** page, newest first. `--since` and `--until` compare the time of the error.
 
 `--stage STAGE`
-: `grabber`, `linker` or `cleaner`.
+: `grabber`, `linker`, `cleaner`, `audiobookshelf`, `hardcover-list`, `file-list`, `bookmarks-list`,
+  `follow`, `upgrade`, or `snatchlist` (only in databases from versions that had snatch lists).
 
-Columns: `error_id`, `stage`, `key`, `title`, `error`, `time`. `key` is the MAM id for the grabber and the
-info-hash for the linker and cleaner.
+Columns: `error_id`, `stage`, `key`, `title`, `error`, `time`. `key` says what the error is about: the MAM id
+for the grabber, the info-hash for the linker, cleaner, Audiobookshelf and upgrade stages, and for the list
+and follow stages the list's book or the followed series or author, as Fetchshelf keys them.
 
 ### duplicates
 
@@ -264,7 +271,8 @@ Columns: `duplicate_id`, `mam_id`, `title`, `authors`, `media_type`, `size`, `du
 
 ### lists
 
-Shows the Hardcover lists Fetchshelf has read, with how many books each has. Sorted by name.
+Shows the lists Fetchshelf has read (Hardcover lists, list files and the MAM bookmarks list), with how many
+books each has. Sorted by name.
 
 Columns: `list_id`, `name`, `type`, `books`, `done`, `removed`, `added`, `updated`. `books` counts the books
 on the list now, `done` those marked done on the **Lists** page, `removed` those no longer on the list.
@@ -284,7 +292,8 @@ the time the book first appeared on the list.
 `--status STATUS`
 : Books where either format has this status: `selected` (a torrent was selected), `wanted` (found, but it
   costs more than the list allows), `not-wanted` (found, but the list prefers the other format), `existing`
-  (the library has it), `not-found`, or `none` (not looked for yet).
+  (the library has it), `not-found`, `no-grab-block` (a known torrent, such as a bookmark, that no `grab`
+  block takes), or `none` (not looked for yet).
 
 `--all`
 : Include books marked done and books no longer on the list.
@@ -309,8 +318,8 @@ Runs `QUERY` against the database and prints the result in the chosen format, in
 returns it unless `--sort` is given. The database is read-only, so statements that change it fail. Quote the
 query, or the shell splits it.
 
-The tables are `Torrents`, `Events`, `SelectedTorrents`, `ErroredTorrents`, `DuplicateTorrents`, `Lists`
-and `ListItems`. Times are stored as text such as `2026-11-09 14:03:10.1234567+00:00`, and most details
+The main tables are `Torrents`, `Events`, `SelectedTorrents`, `ErroredTorrents`, `DuplicateTorrents`,
+`Lists` and `ListItems`; `fs sql "SELECT name FROM sqlite_master WHERE type = 'table'"` lists them all. Times are stored as text such as `2026-11-09 14:03:10.1234567+00:00`, and most details
 about a book are in the `MetadataJson` column, which SQLite's JSON functions can read:
 `json_extract(MetadataJson, '$.Authors[0]')`. The schema can change between releases; the other commands
 are the stable interface.

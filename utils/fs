@@ -20,8 +20,11 @@ MAM_URL = "https://www.myanonamouse.net/t/{}"
 METADATA_ONLY_PREFIX = "mam:"
 NOT_IN_CLIENT = "not in client"
 
-EVENT_KINDS = ["grabbed", "linked", "cleaned", "updated", "removed-from-mam", "unlinked"]
-ERROR_STAGES = ["grabber", "linker", "cleaner"]
+# In the order of Fetchshelf's EventKind and ErrorStage, whose number is what the database stores.
+EVENT_KINDS = ["grabbed", "linked", "cleaned", "updated", "removed-from-mam", "unlinked", "bonus-purchase",
+               "deleted-from-library", "upgrade-run"]
+ERROR_STAGES = ["grabber", "linker", "cleaner", "snatchlist", "hardcover-list", "audiobookshelf", "follow", "upgrade",
+                "file-list", "bookmarks-list"]
 TORRENT_STATUSES = ["linked", "waiting", "replaced", "unlinked", "metadata-only"]
 SELECTED_STATES = ["queued", "downloading", "removed"]
 FORMATS = ["table", "tsv", "csv", "json", "jsonl"]
@@ -160,7 +163,8 @@ LIST_ITEM_COLUMNS = columns(
     ("authors", "list", "Authors", True),
     ("series", "str", "Series and number", True),
     ("prefer", "str", "Preferred format: audio, ebook or empty"),
-    ("audio_status", "str", "selected, wanted, not-wanted, existing, not-found, or empty when not looked for"),
+    ("audio_status", "str",
+     "selected, wanted, not-wanted, existing, not-found, no-grab-block, or empty when not looked for"),
     ("audio_mam_id", "int", "MAM id found for the audiobook"),
     ("ebook_status", "str", "As audio_status, for the ebook"),
     ("ebook_mam_id", "int", "MAM id found for the ebook"),
@@ -401,7 +405,8 @@ def resolve_torrent(db, ident):
         return None
     if len(rows) > 1:
         choices = "\n".join(f"  {r['Id']}  {r['Title']}" for r in rows)
-        raise UsageError(f"{ident!r} matches {len(rows)} torrents; use more of the info-hash:\n{choices}")
+        raise UsageError(
+            f"{ident!r} matches {len(rows)} torrents; use more of the info-hash, or a whole id as listed:\n{choices}")
     return torrent_row(rows[0])
 
 
@@ -713,6 +718,11 @@ def cmd_files(db, args, out):
     return out.emit(rows, FILE_COLUMNS, ["path"], "path", id_column="path")
 
 
+def column(row, name):
+    """A column that older databases may not have yet."""
+    return row[name] if name in row.keys() else None
+
+
 def event_row(row, titles):
     kind = EVENT_KINDS[row["Kind"]] if 0 <= row["Kind"] < len(EVENT_KINDS) else str(row["Kind"])
     removed = load_json(row["FilesRemovedJson"], None)
@@ -722,10 +732,15 @@ def event_row(row, titles):
                                       "wedge" if row["WedgeUsed"] else None) if p)
     elif kind == "updated":
         detail = "; ".join(changes)
-    elif kind in ("linked", "cleaned", "unlinked"):
+    elif kind in ("linked", "cleaned", "unlinked", "deleted-from-library"):
         detail = row["LibraryPath"] or ""
         if removed:
             detail = (detail + f" ({len(removed)} file(s) removed)").strip()
+    elif kind == "bonus-purchase":
+        gb = column(row, "BonusUploadGb")
+        detail = " ".join(p for p in (column(row, "BonusSpend"), f"{gb} GB" if gb else None) if p)
+    elif kind == "upgrade-run":
+        detail = column(row, "RunSummary") or ""
     else:
         detail = ""
     return {
@@ -791,11 +806,12 @@ def selected_row(row):
 
 def cmd_selected(db, args, out):
     states = split_values(args.state) or ["queued", "downloading"]
-    if states == ["all"]:
+    if [loose(s) for s in states] == ["all"]:
         states = SELECTED_STATES
     check_choices(states, SELECTED_STATES, "--state")
+    wanted = {loose(s) for s in states}
     rows = [selected_row(r) for r in db.execute("SELECT * FROM SelectedTorrents")]
-    rows = [s for s in rows if s["state"] in states and within(s["added"], args)]
+    rows = [s for s in rows if s["state"] in wanted and within(s["added"], args)]
     grabbers = split_values(args.grabber)
     if grabbers:
         rows = [s for s in rows if loose(s["grabber"]) in {loose(g) for g in grabbers}]
@@ -819,7 +835,8 @@ def cmd_errors(db, args, out):
     stages = split_values(args.stage)
     check_choices(stages, ERROR_STAGES, "--stage")
     rows = [error_row(r) for r in db.execute("SELECT * FROM ErroredTorrents")]
-    rows = [e for e in rows if within(e["time"], args) and (not stages or e["stage"] in stages)]
+    wanted = {loose(s) for s in stages}
+    rows = [e for e in rows if within(e["time"], args) and (not stages or loose(e["stage"]) in wanted)]
     return out.emit(rows, ERROR_COLUMNS, ["time", "stage", "key", "title", "error"], "time", True,
                     id_column="key")
 
@@ -866,7 +883,7 @@ def cmd_lists(db, args, out):
 def cmd_list_items(db, args, out):
     require_lists(db)
     statuses = split_values(args.status)
-    allowed = ["selected", "wanted", "not-wanted", "existing", "not-found", "none"]
+    allowed = ["selected", "wanted", "not-wanted", "existing", "not-found", "no-grab-block", "none"]
     check_choices(statuses, allowed, "--status")
     rows = []
     for r in db.execute("SELECT * FROM ListItems"):
@@ -1072,7 +1089,7 @@ def build_parser():
     sub.add_argument("query", nargs="*", help="text in the title, authors or series")
     sub.add_argument("--list", metavar="ID", help="only this list (its id, or the end of it, e.g. want_to_read)")
     sub.add_argument("--status", action="append", metavar="STATUS",
-                     help="selected, wanted, not-wanted, existing, not-found, or none (not looked for); "
+                     help="selected, wanted, not-wanted, existing, not-found, no-grab-block, or none (not looked for); "
                           "matches either format")
     sub.add_argument("--all", action="store_true", help="include books marked done or no longer on the list")
 
