@@ -1330,7 +1330,9 @@ not free, selected, in the library, or dismissed.
 The list can be limited to ebooks or audiobooks, sorted by title, book number, size or when it was found (click a
 column heading; an arrow shows the column sorted by and which way), and paged. A series lists its books by number to
 begin with, with the number first, and an author the newest found first. **To look at** on the **Following** page lists what waits to be downloaded or dismissed for every series
-and author together, which is what the count on the menu link counts. On both, a torrent's title opens its
+and author together, which is what the count on the menu link counts. A find that reaches the library or the
+selection queue by another route, such as another follow, an autograb or the **Search** page, leaves **To look at** at
+the next Follow run, whether its own follow is searched in that run or not. On both, a torrent's title opens its
 details from MAM over the page, as on the **Search** page; **Close** goes back to the list. Tick several finds
 to **Download**, **Wedge download** or **Dismiss** them at once.
 

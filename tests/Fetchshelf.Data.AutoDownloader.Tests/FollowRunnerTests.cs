@@ -321,6 +321,40 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task FollowsNotDue_HaveFindsThatReachedTheLibraryRetired_WithoutASearch()
+    {
+        var harness = CreateHarness(Results());
+        // Both searched just now, so neither is due; the ignored one is left alone.
+        AddFollows(harness,
+            Follow(FollowKind.Author, "James S. A. Corey", FollowMode.Watch, lastSearched: Now),
+            Follow(FollowKind.Series, "The Expanse", FollowMode.Ignore, lastSearched: Now));
+        var (watched, ignored) = (harness.Context.Follows.Single(f => f.Mode == FollowMode.Watch).Id, harness.Context.Follows.Single(f => f.Mode == FollowMode.Ignore).Id);
+        FollowFindEntity Find(int followId, long mamId, string title) => new()
+        {
+            FollowId = followId,
+            MamId = mamId,
+            Title = title,
+            MediaSide = "Audio",
+            Language = "English",
+            Status = FollowFindStatus.New,
+            FoundAt = Now.AddHours(-5),
+            StatusAt = Now.AddHours(-5),
+        };
+        harness.Context.FollowFinds.AddRange(
+            Find(watched, 1, "Leviathan Wakes"), Find(watched, 2, "Caliban's War"), Find(ignored, 3, "Leviathan Wakes"));
+        await harness.Context.SaveChangesAsync();
+        // Grabbed since by another route, such as a series follow on Auto.
+        AddToLibrary(harness, "hash1", 1, "Leviathan Wakes", "The Expanse", "1");
+        AddToLibrary(harness, "hash3", 3, "Leviathan Wakes", "The Expanse", "1");
+
+        var summary = await harness.RunAsync();
+
+        Assert.Equal(0, summary.Searched);
+        Assert.Empty(harness.Searches);
+        Assert.Equal([(1L, FollowFindStatus.Owned), (2L, FollowFindStatus.New), (3L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
+    [Fact]
     public async Task FindsOfOneBookAndFormat_AreTidiedToTheMostSettled_LeavingTheDismissedOne()
     {
         var harness = CreateHarness(Results());
