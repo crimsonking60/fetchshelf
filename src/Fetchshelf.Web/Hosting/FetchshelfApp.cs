@@ -88,8 +88,7 @@ public static class FetchshelfApp
 
     /// <summary>
     /// Runs Fetchshelf: <c>--healthcheck</c> and <c>--check-config</c> answer and exit; otherwise it builds the app,
-    /// backs up and upgrades the database, runs <c>--update-search-title</c> and exits if asked, registers the jobs and
-    /// serves until stopped. Returns the process's exit code.
+    /// backs up and upgrades the database, registers the jobs and serves until stopped. Returns the process's exit code.
     /// </summary>
     public static async Task<int> RunAsync(string[] args)
     {
@@ -131,17 +130,6 @@ public static class FetchshelfApp
         {
             await Log.CloseAndFlushAsync();
             return 1;
-        }
-
-        if (args.Contains("--update-search-title"))
-        {
-            using var maintenanceScope = app.Services.CreateScope();
-            var maintenanceDbContext = maintenanceScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
-            Log.Information("Update search title started");
-            var (rekeyedTorrents, rekeyedSelections) = await TitleMaintenanceRunner.RunAsync(maintenanceDbContext);
-            Log.Information("Update search title done: {Torrents} torrent and {Selections} selection keys changed", rekeyedTorrents, rekeyedSelections);
-            await Log.CloseAndFlushAsync();
-            return 0;
         }
 
         if (settings.BackgroundJobsEnabled)
