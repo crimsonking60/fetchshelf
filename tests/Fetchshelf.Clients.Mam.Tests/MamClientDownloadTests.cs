@@ -40,7 +40,7 @@ public class MamClientDownloadTests
     }
 
     [Fact]
-    public async Task DownloadTorrentFileAsync_ConsecutiveDownloads_RequestAtLeast1sDelay()
+    public async Task DownloadTorrentFileAsync_ConsecutiveDownloads_AreTwoSecondsApart()
     {
         var timeProvider = new ManualTimeProvider();
         var requestedDelays = new List<TimeSpan>();
@@ -56,7 +56,6 @@ public class MamClientDownloadTests
         timeProvider.Advance(TimeSpan.FromMilliseconds(200)); // only 200ms passed before the next download
         await client.DownloadTorrentFileAsync("def456", 2);
 
-        var delay = Assert.Single(requestedDelays);
-        Assert.True(delay >= TimeSpan.FromMilliseconds(700), $"Expected a delay topping up to ~1s total, requested {delay}.");
+        Assert.Equal(TimeSpan.FromMilliseconds(1800), Assert.Single(requestedDelays));
     }
 }
