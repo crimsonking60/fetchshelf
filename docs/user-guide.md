@@ -169,8 +169,8 @@ Other environment variables you can set:
 |---|---|---|
 | `FETCHSHELF_CONFIG_FILE` | `/config/config.toml` | Where the configuration file is. |
 | `FETCHSHELF_DATA_FILE` | `/database/data.db` | Where the database is. |
-| `FETCHSHELF_LOG` | `information` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. |
-| `FETCHSHELF_LOG_DIR` | empty | If set, also write daily rotating log files to this folder. Logs always go to the container output. |
+| `FETCHSHELF_LOG` | `information` | Log level: `verbose`, `debug`, `information`, `warning` or `error`. Any other value is ignored, with a warning in the log. |
+| `FETCHSHELF_LOG_DIR` | empty | If set, also write log files to this folder: one a day, named like `fetchshelf20261121.log`, and a new one (`fetchshelf20261121_001.log`) whenever a file reaches 100 MB. The newest 31 files are kept and older ones deleted. Logs always go to the container output. |
 | `FETCHSHELF_CONF_<setting>` | | Override a configuration setting. See [Configuring Fetchshelf](#configuring-fetchshelf). |
 
 ### Health check
