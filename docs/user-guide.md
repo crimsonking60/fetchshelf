@@ -26,6 +26,7 @@ by step, with only what you need for it. This guide is the full reference.
 - [Setting up your library](#setting-up-your-library)
 - [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)
 - [Reading on an e-reader (OPDS)](#reading-on-an-e-reader-opds)
+- [Browsing your books](#browsing-your-books)
 - [Finding and downloading books](#finding-and-downloading-books)
 - [Automatic downloads](#automatic-downloads)
 - [Books you want, from Hardcover](#books-you-want-from-hardcover)
@@ -759,6 +760,29 @@ Only the catalog asks for the login; the rest of Fetchshelf doesn't. The reader 
 HTTP Basic, which anyone listening on the network can read, so to read away from home, reach the catalog over
 HTTPS through a reverse proxy, and keep the rest of Fetchshelf behind that proxy's own login or off the internet.
 See [Security and privacy](#security-and-privacy).
+
+## Browsing your books
+
+The **Books** page, first in the **Library** menu, shows every book Fetchshelf has linked, audiobooks included, as
+a grid of covers with title, authors and series. It is for finding a book and opening it where it is best read or
+heard; it doesn't play or show books itself. The **Torrents** page is for managing the same books, and the
+**Series** page for completing series.
+
+- **Recently added**, **Authors**, **Series** (each series' books in order, with a link to the series on the
+  **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
+- **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
+  companion PDF doesn't count as an ebook.
+- **Covers** come from EPUB and CBZ files, as in the OPDS catalog; other books show their title's first letter.
+- **A book** opens over the page with its details, its files and sizes, and links: **Open in Audiobookshelf**
+  when Fetchshelf has matched it there (see [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)), and
+  **Details**, its page under **Torrents**.
+
+**Downloads.** A book's files can be downloaded from it only with an [`[opds]`](configuration.md#opds) section in
+the configuration: the page then offers what an OPDS reader could fetch, audiobooks included. With a login in
+`[opds]`, the downloads and the covers ask for it too, while the page itself doesn't, so anyone who reaches
+Fetchshelf can see which books there are but needs the login to download them. Without an `[opds]` section the
+files are listed but not offered. A downloaded file is named like `Title - Author.m4b`, with the part number when
+a book has several.
 
 ## Finding and downloading books
 
@@ -1801,7 +1825,7 @@ edited by hand with MAM's.
 There is no login. See [Security and privacy](#security-and-privacy).
 
 The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
-**Library** (**Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check** when
+**Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check** when
 it found something) and
 **Insight** (**Events** and **Statistics**), and at the right **Account**, **Config** and the theme menu. The theme
 menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
@@ -1809,7 +1833,7 @@ in the bar names the jobs running, on every page.
 
 Each page starts with a short explanation, shown in full on the first visit and folded to one line after that. At
 the bottom of every page are the Fetchshelf version and the keyboard shortcuts: <kbd>/</kbd> goes to the search box
-of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?</kbd> shows the list).
+of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?</kbd> shows the list).
 
 | Page | What it is for |
 |---|---|
@@ -1819,6 +1843,7 @@ of Search, Torrents and Series, and <kbd>g</kbd> then a letter to a page (<kbd>?
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Selected** | The queue of torrents that are chosen and not yet finished downloading. |
 | **Torrents** | Every torrent Fetchshelf knows. |
+| **Books** | Every linked book, audiobooks included, to find one and open it in Audiobookshelf or download it. See [Browsing your books](#browsing-your-books). |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, bonus points spent, and each Upgrade run with what it did. |
@@ -2409,8 +2434,9 @@ fix the ownership of the copied files.
 - **There is no login.** Anyone who can open the web interface can start downloads, remove records and, with
   the torrent page actions, delete data from qBittorrent. Only expose Fetchshelf on a trusted network, or
   put it behind a reverse proxy that does authentication. Never publish port 3157 to the internet. The OPDS
-  catalog lets anyone who can reach it download your books, unless `[opds]` sets a `username` and `password`
-  (see [Reading on an e-reader](#reading-on-an-e-reader-opds)).
+  catalog, and the **Books** page's downloads, let anyone who can reach them download your books, unless `[opds]`
+  sets a `username` and `password` (see [Reading on an e-reader](#reading-on-an-e-reader-opds) and
+  [Browsing your books](#browsing-your-books)).
 - **Set `allowed_hosts`.** A web page open in a browser on your network can point a name it controls at
   Fetchshelf's address and use Fetchshelf as if it were you, a trick called DNS rebinding. With
   `allowed_hosts` set to the names you reach Fetchshelf by, such as `["fetchshelf.lan"]`, any other name is

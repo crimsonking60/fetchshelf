@@ -1,0 +1,8 @@
+@page
+@model Fetchshelf.Web.Pages.Books.DetailModel
+@{
+    ViewData["Title"] = Model.Book?.Title ?? "Book";
+}
+
+<p><a id="back-to-books" asp-page="/Books/Index">Back to the books</a></p>
+@await Html.PartialAsync("_BookDetailPartial", Model)

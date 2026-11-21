@@ -96,6 +96,15 @@ public sealed class PageScaleTests(ITestOutputHelper output)
         await TimeAsync(client, "OPDS search", "/opds/search?q=kings");
 
         Assert.Contains("http://opds-spec.org/acquisition", recent);
+
+        // The Books page reads the same cached catalog, audiobooks included.
+        var books = await TimeAsync(client, "Books, recently added", "/books");
+        await TimeAsync(client, "Books, audiobooks only", "/books?Format=audiobooks");
+        await TimeAsync(client, "Books, authors", "/books?View=authors");
+        await TimeAsync(client, "Books, series", "/books?View=series");
+        await TimeAsync(client, "Books, one author", "/books?Author=Author%2000042");
+        await TimeAsync(client, "Books, search", "/books?Q=kings");
+        Assert.Contains("class=\"book-card\"", books);
     }
 
     [ScaleFact]
