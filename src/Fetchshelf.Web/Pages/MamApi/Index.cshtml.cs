@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.MamApi;
 
 /// <summary>
-/// The calls Fetchshelf made to MAM in a window of 1, 6 or 14 hours: a chart of calls per group interval with the
+/// The calls Fetchshelf made to MAM in a window of 1, 6 or 24 hours: a chart of calls per group interval with the
 /// errors marked, statistics, and every call, newest first. Without <see cref="End"/> the window ends now and the
 /// page refreshes itself.
 /// </summary>

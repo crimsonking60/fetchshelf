@@ -122,7 +122,8 @@ public static class MamApiChartSvg
         <= 1 => TimeSpan.FromMinutes(10),
         <= 3 => TimeSpan.FromMinutes(30),
         <= 8 => TimeSpan.FromHours(1),
-        _ => TimeSpan.FromHours(2),
+        <= 14 => TimeSpan.FromHours(2),
+        _ => TimeSpan.FromHours(3),
     };
 
     private static string Iso(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);

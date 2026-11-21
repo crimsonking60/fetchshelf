@@ -63,7 +63,7 @@ public sealed record MamApiView(
     public static readonly IReadOnlyList<int> GroupMinutes = [1, 10, 30];
 
     /// <summary>The windows the page offers, in hours.</summary>
-    public static readonly IReadOnlyList<int> SpanHours = [1, 6, 14];
+    public static readonly IReadOnlyList<int> SpanHours = [1, 6, 24];
 
     /// <summary>
     /// The window of <paramref name="span"/> that ends at <paramref name="end"/>, or, without one, at the end of the

@@ -1948,7 +1948,7 @@ Every request Fetchshelf sends to MAM is recorded: when it started, how long it 
 status, or why there was no answer) and which job made it. A request sent again after a 502, 503 or 504, or after no
 answer, counts as two calls. The calls are kept for 30 days.
 
-- **The chart** counts the calls in each interval of 1, 10 or 30 minutes (**Group by**) over 1, 6 or 14 hours
+- **The chart** counts the calls in each interval of 1, 10 or 30 minutes (**Group by**) over 1, 6 or 24 hours
   (**Show**). Each call MAM answered with a 4xx or 5xx is a red line, and each call without an answer a dashed red line.
   Pointing at a bar shows how many calls it holds, to what and by whom; pointing at a line shows that call. Below the
   chart, the arrows move a window back or forward. The latest window refreshes itself every 15 seconds.
