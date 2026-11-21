@@ -71,7 +71,7 @@ public partial class JobsPageTests
         var html = await client.GetStringAsync("/Jobs");
 
         var lines = Regex.Matches(html, "<p>([^<]+) is not configured</p>").Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(["Audiobookshelf", "Autograb", "Bookmarks list", "File list", "Hardcover list", "Seeding"], lines);
+        Assert.Equal(["Audiobookshelf", "Autograb", "Backup", "Bonus", "Bookmarks list", "File list", "Follow", "Hardcover list", "Seeding", "Upgrade"], lines);
         Assert.True(html.IndexOf("id=\"unconfigured-jobs\"", StringComparison.Ordinal) > html.IndexOf("</table>", StringComparison.Ordinal));
     }
 
@@ -215,6 +215,42 @@ public partial class JobsPageTests
         response.EnsureSuccessStatusCode();
         Assert.Contains("Success", html);
         Assert.NotNull(fixture.JobRegistry.Get("example-job")!.LastRun);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RunNow_HtmxGetsTheJobList_APlainFormIsSentToTheJobsPage(bool fromHtmx)
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("example-job", _ => Task.CompletedTask);
+        var client = fixture.CreateNoRedirectClient();
+        var token = ExtractAntiforgeryToken(await (await client.GetAsync("/Jobs")).Content.ReadAsStringAsync());
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/Jobs?handler=Trigger")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["jobName"] = "example-job",
+                ["__RequestVerificationToken"] = token,
+            }),
+        };
+        if (fromHtmx)
+        {
+            request.Headers.Add("HX-Request", "true");
+        }
+
+        var response = await client.SendAsync(request);
+
+        if (fromHtmx)
+        {
+            response.EnsureSuccessStatusCode();
+            Assert.DoesNotContain("<html", await response.Content.ReadAsStringAsync());
+        }
+        else
+        {
+            Assert.Equal(System.Net.HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/Jobs", response.Headers.Location?.OriginalString);
+        }
     }
 
     [Fact]

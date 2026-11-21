@@ -247,7 +247,7 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         Assert.Contains("Until then, the findings below are from the previous check", page);
         Assert.Contains("hx-get=\"?handler=Status\"", page);
-        Assert.Contains("<button type=\"submit\" class=\"danger\" disabled=\"disabled\">Delete selected</button>", page);
+        Assert.Matches("<button type=\"submit\" class=\"danger\" disabled=\"disabled\"[^>]*>Delete selected</button>", page);
         Assert.Contains("The Library check is running, so these are the previous check's findings.", afterDelete);
         Assert.True(Directory.Exists(folder));
         Assert.Equal(System.Net.HttpStatusCode.NoContent, status.StatusCode);
@@ -364,11 +364,22 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
-    public async Task JobsPage_WithoutFindings_HasNoFindingsLink()
+    public async Task JobsPage_WithoutFindings_StillLinksThePage()
     {
         using var fixture = new FetchshelfWebAppFixture();
         fixture.JobRegistry.Register(Fetchshelf.Data.Configuration.JobNames.LibraryCheck, _ => Task.CompletedTask);
 
-        Assert.DoesNotContain("library-check-findings", await fixture.CreateClient().GetStringAsync("/Jobs"));
+        Assert.Contains("<a id=\"library-check-findings\" href=\"/LibraryCheck\">Open</a>", await fixture.CreateClient().GetStringAsync("/Jobs"));
+    }
+
+    [Fact]
+    public async Task DeleteSelected_AsksFirst()
+    {
+        using var fixture = Fixture();
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, MakeFolder("Author/Old"), "Audiobooks")], DateTimeOffset.UtcNow);
+
+        var page = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck"));
+
+        Assert.Matches("data-confirm=\"Delete \\{n\\} from the disk\\? This can't be undone.\"[^>]*>Delete selected</button>", page);
     }
 }

@@ -2093,7 +2093,7 @@ back with its findings straight away. With more than one library, a dropdown abo
 - An unknown folder is shown at its outermost folder with files, with its size, number of files and newest file. One
   that looks like a linked book, by its `metadata.json` or by its name beside the book's folder, says *an older folder
   of* that book: the common case after going back to a backup, and the one safe to delete.
-- **Delete selected** checks each folder or file again first: it must still be inside a library's folder, and no book
+- **Delete selected** asks for confirmation, then checks each folder or file again: it must still be inside a library's folder, and no book
   may use it by then. Folders left empty above it are removed too, up to the library's folder, and each deletion is an
   event. Audiobookshelf marks a deleted book's item missing on its next scan.
 - For each book whose folder or files are gone, the check asks qBittorrent what **Relink** would run into, and *What to
