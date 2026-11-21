@@ -7,8 +7,10 @@ using Fetchshelf.Data.Account;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Notifications;
+using Fetchshelf.Data.Opds;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Hosting;
 
@@ -57,8 +59,15 @@ public static class FetchshelfJobs
         {
             using var scope = scopeFactory.CreateScope();
             var cleaner = scope.ServiceProvider.GetRequiredService<Cleaner>();
-            return JobOutcomes.Clean(await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct));
-        }, "Retires superseded duplicate torrents once a newer copy is linked.");
+            var summary = await cleaner.RunAsync(QBittorrentConnections.Build(settings, qbittorrentFactory), ct);
+
+            // Once a week: the cached covers of books that have left the library.
+            var linkedIds = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Torrents
+                .Where(t => t.LibraryPath != null).Select(t => t.Id).ToListAsync(ct);
+            var prunedCovers = scope.ServiceProvider.GetRequiredService<OpdsCoverCache>()
+                .PruneIfDue(linkedIds, scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow());
+            return JobOutcomes.Clean(summary, prunedCovers);
+        }, "Retires superseded duplicate torrents once a newer copy is linked, and once a week removes the cached covers of books no longer in the library.");
 
         if (settings.Audiobookshelf is not null)
         {

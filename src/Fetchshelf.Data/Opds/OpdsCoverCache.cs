@@ -9,12 +9,21 @@ namespace Fetchshelf.Data.Opds;
 /// in its own folder (<see cref="FolderCover"/>) when there is one, else the one embedded in its file, read out once. A
 /// cached cover is named after the book and its source's size and modification time, so a file placed again, or a
 /// folder image added or removed, gets a fresh one. A book without a cover is remembered too, so it isn't opened on
-/// every request.
+/// every request. Covers of books no longer in the library are removed by <see cref="PruneIfDue"/>.
 /// </summary>
 public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logger = null)
 {
+    /// <summary>How often <see cref="PruneIfDue"/> prunes.</summary>
+    public static readonly TimeSpan PruneEvery = TimeSpan.FromDays(7);
+
     private const string CoverSuffix = ".cover";
     private const string NoCoverSuffix = ".none";
+
+    /// <summary>An empty file whose modification time is when the cache was last pruned.</summary>
+    private const string PrunedMarker = ".pruned";
+
+    /// <summary>A cover being written is renamed into place at once; one left behind this long was interrupted.</summary>
+    private static readonly TimeSpan AbandonedAfter = TimeSpan.FromHours(1);
 
     private readonly ILogger<OpdsCoverCache> _logger = logger ?? NullLogger<OpdsCoverCache>.Instance;
 
@@ -73,6 +82,55 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
         await File.WriteAllBytesAsync(temporaryPath, cover.Bytes, cancellationToken);
         File.Move(temporaryPath, coverPath, overwrite: true);
         return cover;
+    }
+
+    /// <summary>
+    /// Removes the cached covers, and "no cover" notes, of every book not in <paramref name="linkedIds"/>, and covers
+    /// left half written; at most once every <see cref="PruneEvery"/>, as the last prune's time is kept in the folder.
+    /// </summary>
+    /// <param name="linkedIds">The ids of every book in a library.</param>
+    /// <returns>How many files were removed, or null when the last prune was too recent or there is no cache yet.</returns>
+    public int? PruneIfDue(IEnumerable<string> linkedIds, DateTimeOffset now)
+    {
+        var marker = new FileInfo(Path.Combine(folder, PrunedMarker));
+        if (!Directory.Exists(folder) || (marker.Exists && now - new DateTimeOffset(marker.LastWriteTimeUtc, TimeSpan.Zero) < PruneEvery))
+        {
+            return null;
+        }
+
+        var kept = linkedIds.Select(SafeId).ToHashSet(StringComparer.Ordinal);
+        var removed = 0;
+        foreach (var file in new DirectoryInfo(folder).EnumerateFiles())
+        {
+            if (file.Name == PrunedMarker)
+            {
+                continue;
+            }
+
+            var dash = file.Name.IndexOf('-', StringComparison.Ordinal);
+            var id = dash > 0 ? file.Name[..dash] : file.Name;
+            var abandoned = !file.Name.EndsWith(CoverSuffix, StringComparison.Ordinal) && !file.Name.EndsWith(NoCoverSuffix, StringComparison.Ordinal)
+                && now - new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero) > AbandonedAfter;
+            if (kept.Contains(id) && !abandoned)
+            {
+                continue;
+            }
+
+            try
+            {
+                file.Delete();
+                removed++;
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning("Could not remove the cached cover {File}: {Error}", file.FullName, ex.Message);
+            }
+        }
+
+        File.WriteAllBytes(marker.FullName, []);
+        File.SetLastWriteTimeUtc(marker.FullName, now.UtcDateTime);
+        _logger.LogInformation("Cover cache pruned: {Removed} files of books no longer in the library removed", removed);
+        return removed;
     }
 
     private void RemoveOlderVersions(string id)

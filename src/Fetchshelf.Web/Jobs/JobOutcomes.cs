@@ -78,13 +78,25 @@ public static class JobOutcomes
             });
     }
 
-    public static JobOutcome Clean(CleanRunSummary summary) => Finish(
-        summary.Retired == 0 && summary.Failed == 0
+    /// <param name="prunedCovers">Cached covers removed by the weekly prune; null when it didn't run.</param>
+    public static JobOutcome Clean(CleanRunSummary summary, int? prunedCovers = null)
+    {
+        var line = summary.Retired == 0 && summary.Failed == 0
             ? "No superseded copies to retire"
-            : Count(summary.Retired, "superseded copy", "superseded copies") + " retired",
-        summary.Failed,
-        "could not be retired; see the Errors page",
-        new() { ["retired"] = summary.Retired, ["failed"] = summary.Failed });
+            : Count(summary.Retired, "superseded copy", "superseded copies") + " retired";
+        if (prunedCovers > 0)
+        {
+            line += $"; {Count(prunedCovers.Value, "cached cover", "cached covers")} of books no longer in the library removed";
+        }
+
+        var counts = new Dictionary<string, long> { ["retired"] = summary.Retired, ["failed"] = summary.Failed };
+        if (prunedCovers is { } pruned)
+        {
+            counts["covers_pruned"] = pruned;
+        }
+
+        return Finish(line, summary.Failed, "could not be retired; see the Errors page", counts);
+    }
 
     public static JobOutcome Audiobookshelf(AbsMatchSummary summary)
     {
