@@ -19,7 +19,7 @@ public sealed record NavGroup(string Label, IReadOnlyList<NavEntry> Entries)
 /// <param name="ErrorCount">Failing jobs and new errors; the Errors badge.</param>
 /// <param name="ErrorDescription">The Errors badge's tooltip.</param>
 /// <param name="FollowCount">Finds waiting to be looked at; the Following badge.</param>
-/// <param name="LibraryFindings">Findings of the last Library check; the Library check entry exists only while this is above 0.</param>
+/// <param name="LibraryFindings">Findings of the last Library check; the Library check badge.</param>
 public sealed record NavInputs(
     bool HasAccount, bool FollowConfigured, bool ListsConfigured, int ErrorCount, string ErrorDescription, int FollowCount, int LibraryFindings);
 
@@ -59,10 +59,7 @@ public sealed record NavModel(IReadOnlyList<NavEntry> Primary, IReadOnlyList<Nav
         }
 
         library.Add(new("/Duplicates/Index", "Duplicates"));
-        if (inputs.LibraryFindings > 0)
-        {
-            library.Add(new("/LibraryCheck/Index", "Library check", Badge("library-check-badge", inputs.LibraryFindings, "Findings of the last Library check")));
-        }
+        library.Add(new("/LibraryCheck/Index", "Library check", Badge("library-check-badge", inputs.LibraryFindings, "Findings of the last Library check")));
 
         // Looking back.
         List<NavEntry> insight = [new("/Events/Index", "Events"), new("/Statistics/Index", "Statistics")];

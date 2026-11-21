@@ -17,7 +17,7 @@ public class NavModelTests
 
         Assert.Equal(["Search", "Torrents", "Selected", "Jobs", "Errors"], Labels(model.Primary));
         Assert.Equal(["Library", "Insight"], model.Groups.Select(g => g.Label).ToArray());
-        Assert.Equal(["Books", "Series", "Duplicates"], Labels(model.Groups[0].Entries));
+        Assert.Equal(["Books", "Series", "Duplicates", "Library check"], Labels(model.Groups[0].Entries));
         Assert.Equal(["Events", "Statistics"], Labels(model.Groups[1].Entries));
         Assert.Equal(["Config"], Labels(model.Trailing));
     }
@@ -32,9 +32,9 @@ public class NavModelTests
     }
 
     [Theory]
-    [InlineData(false, false, 0, new[] { "Books", "Series", "Duplicates" })]
-    [InlineData(true, false, 0, new[] { "Books", "Series", "Following", "Duplicates" })]
-    [InlineData(false, true, 0, new[] { "Books", "Series", "Lists", "Duplicates" })]
+    [InlineData(false, false, 0, new[] { "Books", "Series", "Duplicates", "Library check" })]
+    [InlineData(true, false, 0, new[] { "Books", "Series", "Following", "Duplicates", "Library check" })]
+    [InlineData(false, true, 0, new[] { "Books", "Series", "Lists", "Duplicates", "Library check" })]
     [InlineData(false, false, 2, new[] { "Books", "Series", "Duplicates", "Library check" })]
     public void Build_LibraryMenu_FollowsTheConfiguration(bool follow, bool lists, int findings, string[] expected) =>
         Assert.Equal(expected, Labels(NavModel.Build(Inputs(follow: follow, lists: lists, findings: findings)).Groups[0].Entries));
