@@ -49,16 +49,15 @@ public static class CatalogFiles
     };
 
     /// <summary>The name a downloaded file gets: "Title - Author.epub", with a part number when there are several files.</summary>
-    public static string DownloadName(CatalogBook book, IReadOnlyList<CatalogFile> files, int index)
-    {
-        var name = book.Authors.Count > 0 ? $"{book.Title} - {book.Authors[0]}" : book.Title;
-        if (files.Count > 1)
-        {
-            name += $" ({index + 1})";
-        }
+    public static string DownloadName(CatalogBook book, IReadOnlyList<CatalogFile> files, int index) =>
+        NamedAfter(book, files.Count > 1 ? $" ({index + 1})" : string.Empty, files[index].Extension);
 
+    /// <summary>"Title - Author" with <paramref name="suffix"/> and the extension, left with only characters a file name may have.</summary>
+    public static string NamedAfter(CatalogBook book, string suffix, string extension)
+    {
+        var name = (book.Authors.Count > 0 ? $"{book.Title} - {book.Authors[0]}" : book.Title) + suffix;
         var invalid = Path.GetInvalidFileNameChars();
         var safe = new string(name.Where(c => !invalid.Contains(c) && !char.IsControl(c)).ToArray()).Trim();
-        return $"{(safe.Length > 0 ? safe : "book")}.{files[index].Extension}";
+        return $"{(safe.Length > 0 ? safe : "book")}.{extension}";
     }
 }

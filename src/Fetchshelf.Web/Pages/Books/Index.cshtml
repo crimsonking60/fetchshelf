@@ -121,6 +121,10 @@ else if (Model.Books is { } books)
         document.getElementById('book-dialog-close').addEventListener('click', function () {
             dialog.close();
         });
+        // A preview stops when the dialog closes, rather than playing on behind the page.
+        dialog.addEventListener('close', function () {
+            dialog.querySelectorAll('audio').forEach(function (audio) { audio.pause(); });
+        });
         dialog.addEventListener('click', function (event) {
             if (event.target === dialog) {
                 dialog.close();
