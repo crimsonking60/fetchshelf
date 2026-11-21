@@ -219,13 +219,18 @@ Then:
 
 3. **Exercise the core paths:** run each job from the Jobs page, download something small and free, let it
    link, check the Torrents, Selected, Events and Errors pages, and check the library folder on disk.
-4. **Try the migrations on a copy of a real database,** never the original:
+4. **Try the upgrade on a copy of a real database,** never the original. Start Fetchshelf on the copy: at
+   startup it runs the migrations and then the numbered data upgrades in `DatabaseMigrator`, which
+   `dotnet ef database update` alone leaves out.
 
    ```sh
    cp ~/fetchshelf-dev/data.db /tmp/upgrade-test.db
-   dotnet ef database update --project src/Fetchshelf.Data --startup-project src/Fetchshelf.Data \
-     --connection "Data Source=/tmp/upgrade-test.db"
+   FETCHSHELF_DATA_FILE=/tmp/upgrade-test.db FETCHSHELF_CONFIG_FILE=/tmp/upgrade-test.toml \
+     FETCHSHELF_CONF_web_port=23158 dotnet run --project src/Fetchshelf.Web
    ```
+
+   The config file doesn't exist yet, so it is created with an empty `mam_id` and no job runs; the port keeps
+   it clear of a running instance. Check the log for the upgrade, then stop it.
 
 5. **Build and run the container:** `docker compose up --build`.
 
