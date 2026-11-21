@@ -223,4 +223,61 @@ public sealed class FetchshelfLoggingTests : IDisposable
             Console.SetError(originalError);
         }
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("debug")]
+    [InlineData("Warning")]
+    public void LevelWarning_UnsetOrALevel_IsNull(string? value) => Assert.Null(FetchshelfLogging.LevelWarning(value));
+
+    [Theory]
+    [InlineData("loud")]
+    [InlineData("2")]
+    [InlineData("Debug, Error")]
+    public void LevelWarning_NotALevel_NamesTheValueAndTheLevels(string value)
+    {
+        var warning = FetchshelfLogging.LevelWarning(value);
+
+        Assert.NotNull(warning);
+        Assert.Contains($"'{value}'", warning);
+        Assert.Contains("Verbose, Debug, Information, Warning, Error, Fatal", warning);
+    }
+
+    [Fact]
+    public void Build_ANumberAsLevel_IsIgnored()
+    {
+        var originalError = Console.Error;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetError(writer);
+            var logger = FetchshelfLogging.Build(null, "4").CreateLogger();
+
+            LogAndFlush(logger, l => l.Write(LogEventLevel.Information, "information-message"));
+
+            Assert.Contains("information-message", writer.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
+    public void Build_ADaysFileAtTheSizeLimit_RollsToANewFile()
+    {
+        var logger = FetchshelfLogging.Build(_tempDir, null).CreateLogger();
+        var line = new string('x', 1024 * 1024);
+
+        LogAndFlush(logger, l =>
+        {
+            for (var i = 0; i < 101; i++)
+            {
+                l.Information("{Line}", line);
+            }
+        });
+
+        Assert.True(Directory.GetFiles(_tempDir, "fetchshelf*.log").Length > 1);
+    }
 }

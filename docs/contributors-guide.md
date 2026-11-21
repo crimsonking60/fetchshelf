@@ -359,8 +359,8 @@ automatically on first start.
 | --- | --- | --- |
 | `FETCHSHELF_CONFIG_FILE` | Path to `config.toml`. | `config.toml` in the working directory. |
 | `FETCHSHELF_DATA_FILE` | Path to the SQLite database. | `data.db` in the working directory. |
-| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal`. An unknown value is ignored. | `Information` |
-| `FETCHSHELF_LOG_DIR` | If set, also write daily log files to this folder. | Console only. |
+| `FETCHSHELF_LOG` | Minimum log level: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal`. An unknown value is ignored, with a warning in the log. | `Information` |
+| `FETCHSHELF_LOG_DIR` | If set, also write daily log files to this folder, a new one at 100 MB; the newest 31 are kept. | Console only. |
 | `FETCHSHELF_CONF_<setting>` | Overrides a top-level setting, such as `FETCHSHELF_CONF_web_port=23157`; see [How the file is loaded](configuration.md#how-the-file-is-loaded). | Unset. |
 
 A development instance next to a live one is easier to tell apart with `development_banner = true` in its

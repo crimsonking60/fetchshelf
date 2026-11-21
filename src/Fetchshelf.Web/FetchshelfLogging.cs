@@ -11,13 +11,15 @@ namespace Fetchshelf.Web;
 /// </summary>
 public static class FetchshelfLogging
 {
+    /// <summary>A day's log file starts a new one, <c>fetchshelf20261121_001.log</c>, at this size.</summary>
+    public const long FileSizeLimitBytes = 100L * 1024 * 1024;
+
+    /// <summary>The newest log files kept; older ones are deleted.</summary>
+    public const int RetainedFileCount = 31;
+
     public static LoggerConfiguration Build(string? logDirEnv, string? logLevelEnv)
     {
-        var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
-        if (!string.IsNullOrWhiteSpace(logLevelEnv) && Enum.TryParse<LogEventLevel>(logLevelEnv, ignoreCase: true, out var level))
-        {
-            levelSwitch.MinimumLevel = level;
-        }
+        var levelSwitch = new LoggingLevelSwitch(ParseLevel(logLevelEnv) ?? LogEventLevel.Information);
 
         var frameworkLevel = AtLeast(levelSwitch.MinimumLevel, LogEventLevel.Warning);
 
@@ -41,11 +43,30 @@ public static class FetchshelfLogging
         {
             configuration = configuration.WriteTo.File(
                 Path.Combine(logDirEnv, "fetchshelf.log"),
-                rollingInterval: RollingInterval.Day);
+                rollingInterval: RollingInterval.Day,
+                fileSizeLimitBytes: FileSizeLimitBytes,
+                rollOnFileSizeLimit: true,
+                retainedFileCountLimit: RetainedFileCount);
         }
 
         return configuration;
     }
+
+    /// <summary>
+    /// The warning to log when <c>FETCHSHELF_LOG</c> is set to something that is not a level, which is then ignored; null
+    /// when it is unset or a level.
+    /// </summary>
+    public static string? LevelWarning(string? logLevelEnv) =>
+        string.IsNullOrWhiteSpace(logLevelEnv) || ParseLevel(logLevelEnv) is not null
+            ? null
+            : $"FETCHSHELF_LOG is '{logLevelEnv}', which is not a log level, so Information is used. "
+              + $"Expected one of {string.Join(", ", Enum.GetNames<LogEventLevel>())}.";
+
+    // Enum.TryParse also takes "2" or "Debug, Error"; only the names count.
+    private static LogEventLevel? ParseLevel(string? name) =>
+        Enum.GetNames<LogEventLevel>().FirstOrDefault(known => string.Equals(known, name?.Trim(), StringComparison.OrdinalIgnoreCase)) is { } match
+            ? Enum.Parse<LogEventLevel>(match)
+            : null;
 
     private static bool IsUnencryptedKeyWarning(LogEvent logEvent) =>
         logEvent.Properties.TryGetValue("SourceContext", out var source)

@@ -104,10 +104,15 @@ public static class FetchshelfApp
             return ConfigCheck.Run(paths.ConfigFile, Console.Out);
         }
 
+        var logLevel = Environment.GetEnvironmentVariable("FETCHSHELF_LOG");
         Log.Logger = FetchshelfLogging
-            .Build(paths.LogFolder, Environment.GetEnvironmentVariable("FETCHSHELF_LOG"))
+            .Build(paths.LogFolder, logLevel)
             .CreateLogger();
         Log.Information("Fetchshelf {Version} starting", AppVersion.Current);
+        if (FetchshelfLogging.LevelWarning(logLevel) is { } levelWarning)
+        {
+            Log.Warning("{Warning}", levelWarning);
+        }
 
         FetchshelfBuiltApp built;
         try
