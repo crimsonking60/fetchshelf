@@ -1,6 +1,7 @@
 # Library explorer: browse the library in the web UI — implementation plan
 
-Not yet an issue: written up to decide whether it's worth building at all (see "Before deciding").
+Decided 2026-11-21: Audiobookshelf was tried as the ebook platform and set aside, so the page is built. Every open
+question takes its proposed answer.
 
 Reviewed 2026-11-21 against the app as it is now; what changed since the first version is listed at the end.
 
