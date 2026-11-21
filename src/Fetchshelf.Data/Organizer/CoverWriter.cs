@@ -38,63 +38,81 @@ public sealed class CoverWriter(
     /// <summary>Books read from the database at a time while looking for those that need a cover.</summary>
     private const int PageSize = 500;
 
+    /// <summary>
+    /// Looks at every book not looked at yet, and fetches covers for those that need one until the run's limit is reached
+    /// or MAM refuses the account. Past that point the rest are still looked at, without fetching: a book that doesn't
+    /// need a cover (it has an image, or is in a series library) is settled, and one that does is counted and waits, so
+    /// the number waiting is exact and later runs only look at those.
+    /// </summary>
     public async Task<CoverRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
-        var (fetches, written) = (0, 0);
+        var (fetches, written, waiting) = (0, 0, 0);
+        var fetching = options.MaxFetchesPerRun > 0;
+        (long MamId, string Id)? after = null;
         while (true)
         {
-            var page = await dbContext.Torrents
-                .Where(t => t.LibraryPath != null && t.CoverCheckedAt == null)
+            var query = dbContext.Torrents.Where(t => t.LibraryPath != null && t.CoverCheckedAt == null);
+            if (after is var (mamId, id))
+            {
+                // Books that wait stay unchecked, so each page starts after the last one read rather than at the top.
+                query = query.Where(t => t.MamId > mamId || (t.MamId == mamId && string.Compare(t.Id, id) > 0));
+            }
+
+            var page = await query
                 .OrderBy(t => t.MamId).ThenBy(t => t.Id) // a stable order, so each run goes on where the last stopped
                 .Take(PageSize)
                 .ToListAsync(cancellationToken);
-            var settled = 0;
             foreach (var torrent in page)
             {
                 if (!NeedsCover(torrent))
                 {
                     torrent.CoverCheckedAt = DateTimeOffset.UtcNow;
-                    settled++;
                     continue;
                 }
 
-                if (fetches >= options.MaxFetchesPerRun)
+                if (!fetching || fetches >= options.MaxFetchesPerRun)
                 {
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                    var waiting = await CountWaitingAsync(cancellationToken);
-                    _logger.LogInformation(
-                        "Fetched {Max} covers from MAM, the most for one run; {Count} more books will get theirs in the next runs",
-                        options.MaxFetchesPerRun, waiting);
-                    return new CoverRunSummary(written, waiting);
+                    fetching = false;
+                    waiting++;
+                    continue;
                 }
 
                 fetches++;
-                switch (await FetchAndWriteAsync(torrent, cancellationToken))
+                var result = await FetchAndWriteAsync(torrent, cancellationToken);
+                if (result is null)
                 {
-                    case true:
-                        written++;
-                        break;
-                    case null:
-                        // MAM refused the account: every later request would fail too, so the rest wait for the next run.
-                        await dbContext.SaveChangesAsync(cancellationToken);
-                        return new CoverRunSummary(written, await CountWaitingAsync(cancellationToken));
+                    // MAM refused the account: every later request would fail too, so the rest wait for the next run.
+                    fetching = false;
+                    waiting++;
+                    continue;
+                }
+
+                if (result == true)
+                {
+                    written++;
                 }
 
                 torrent.CoverCheckedAt = DateTimeOffset.UtcNow;
-                settled++;
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
-            if (page.Count < PageSize || settled == 0)
+            if (page.Count < PageSize)
             {
-                return new CoverRunSummary(written, 0);
+                break;
             }
-        }
-    }
 
-    /// <summary>Books that would be looked at: some of them have an image already, so this is at most how many need one.</summary>
-    private Task<int> CountWaitingAsync(CancellationToken cancellationToken) =>
-        dbContext.Torrents.CountAsync(t => t.LibraryPath != null && t.CoverCheckedAt == null, cancellationToken);
+            after = (page[^1].MamId, page[^1].Id);
+        }
+
+        if (waiting > 0)
+        {
+            _logger.LogInformation(
+                "Fetched {Fetched} covers from MAM in this run; {Count} more books without a cover will get theirs in the next runs",
+                fetches, waiting);
+        }
+
+        return new CoverRunSummary(written, waiting);
+    }
 
     /// <summary>
     /// Whether the book's folder needs a cover: it is a book folder of a configured library that places files, it exists,
