@@ -14,10 +14,14 @@ public static class UnconfiguredJobs
         {
             ("Audiobookshelf", settings.Audiobookshelf is not null),
             ("Autograb", settings.Autograb.Count > 0),
+            ("Backup", settings.Backup is not null),
+            ("Bonus", settings.Bonus is not null),
             ("Bookmarks list", settings.BookmarksList.Count > 0),
             ("File list", settings.FileList.Count > 0),
+            ("Follow", settings.Follow is not null),
             ("Hardcover list", settings.HardcoverList.Count > 0),
             ("Seeding", settings.Seeding is not null),
+            ("Upgrade", settings.Upgrade is not null),
         };
         return kinds.Where(kind => !kind.Configured).Select(kind => kind.Name).Order(StringComparer.Ordinal).ToList();
     }

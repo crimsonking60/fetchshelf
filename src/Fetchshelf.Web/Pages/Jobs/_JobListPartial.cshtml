@@ -94,9 +94,9 @@
                                 }
                                 <button type="submit">@(job.IsRunning ? "Cancel" : "Run now")</button>
                             </form>
-                            @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck && LibraryCheck.Findings.Count > 0)
+                            @if (job.Name == Fetchshelf.Data.Configuration.JobNames.LibraryCheck)
                             {
-                                <a id="library-check-findings" asp-page="/LibraryCheck/Index">Findings</a>
+                                <a id="library-check-findings" asp-page="/LibraryCheck/Index">@(LibraryCheck.Findings.Count > 0 ? "Findings" : "Open")</a>
                             }
                             @if (!job.IsRunning && job.HasDryRun && Settings.DryJobButtons)
                             {

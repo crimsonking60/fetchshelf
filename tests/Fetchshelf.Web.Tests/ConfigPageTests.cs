@@ -166,6 +166,31 @@ public class ConfigPageTests
     }
 
     [Fact]
+    public async Task Get_ConfigPage_ShowsAudiobookshelfHardcoverAndDownloadAfterSelection_WithoutTheTokens()
+    {
+        using var fixture = new FetchshelfWebAppFixture("""
+            mam_id = ""
+            download_after_selection = false
+
+            [audiobookshelf]
+            url = "http://abs.test"
+            token = "secret-abs-token"
+            interval = 30
+
+            [hardcover]
+            token = "secret-hardcover-token"
+            """);
+
+        var html = await fixture.CreateClient().GetStringAsync("/config");
+
+        Assert.Contains("<tr><th>download_after_selection</th><td>False</td></tr>", html);
+        Assert.Matches("<table id=\"audiobookshelf\">.*http://abs.test.*<th>interval</th><td>30</td>", html.ReplaceLineEndings(" "));
+        Assert.Contains("<table id=\"hardcover\">", html);
+        Assert.DoesNotContain("secret-abs-token", html);
+        Assert.DoesNotContain("secret-hardcover-token", html);
+    }
+
+    [Fact]
     public async Task Post_TriggerAutograbFromConfigPage_RunsThatAutograbbersJob()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);

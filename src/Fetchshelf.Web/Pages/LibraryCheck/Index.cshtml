@@ -108,7 +108,8 @@
                 }
             </tbody>
         </table>
-        <div class="actions"><button type="submit" class="danger" disabled="@Model.Running">Delete selected</button></div>
+        <div class="actions"><button type="submit" class="danger" disabled="@Model.Running" data-confirm-noun="folder or file|folders or files"
+            data-confirm="Delete {n} from the disk? This can't be undone." data-confirm-label="Delete">Delete selected</button></div>
     </form>
 }
 

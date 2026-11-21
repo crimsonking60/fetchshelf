@@ -41,9 +41,10 @@ public class IndexModel(
     /// The "Run now" action for a registered job. Starts the job without waiting for it to finish, so the
     /// response reflects "Running" immediately; polling (see `pollJobs` in Index.cshtml) picks up the
     /// completed result once the job finishes. <see cref="CancellationToken.None"/> is used deliberately
-    /// instead of the request's token, since the job must outlive this request.
+    /// instead of the request's token, since the job must outlive this request. A plain form, such as the Config page's
+    /// <b>Run now</b>, is sent on to the Jobs page instead of getting the bare list.
     /// </summary>
-    public PartialViewResult OnPostTrigger(string jobName, bool dryRun = false)
+    public IActionResult OnPostTrigger(string jobName, bool dryRun = false)
     {
         // A job without a dry run gets a real one only if asked for one: a Dry run button from a page out of date never runs it for real.
         if (!dryRun || (settings.DryJobButtons && jobRegistry.Get(jobName)?.DryRunAsync is not null))
@@ -51,8 +52,7 @@ public class IndexModel(
             _ = jobRegistry.TriggerAsync(jobName, dryRun ? JobTrigger.DryRun : JobTrigger.Manual, CancellationToken.None);
         }
 
-        JobList = BuildJobList();
-        return Partial("_JobListPartial", JobList);
+        return JobListOrPage();
     }
 
     /// <summary>
@@ -60,9 +60,20 @@ public class IndexModel(
     /// point where nothing is left half done, which polling then shows. The button carries the number of the run it was
     /// shown for, so a click on a list a moment out of date doesn't stop a run that started since.
     /// </summary>
-    public PartialViewResult OnPostCancel(string jobName, long? runNumber)
+    public IActionResult OnPostCancel(string jobName, long? runNumber)
     {
         jobRegistry.Cancel(jobName, runNumber);
+        return JobListOrPage();
+    }
+
+    /// <summary>The job list for htmx to swap in; the whole page for a plain form post.</summary>
+    private IActionResult JobListOrPage()
+    {
+        if (!Request.Headers.ContainsKey("HX-Request"))
+        {
+            return RedirectToPage("/Jobs/Index");
+        }
+
         JobList = BuildJobList();
         return Partial("_JobListPartial", JobList);
     }
