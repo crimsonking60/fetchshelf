@@ -740,8 +740,11 @@ The catalog offers:
   the start of its description, since OPDS has no series field.
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
   split into several files offers each part.
-- **Covers** read from EPUB and CBZ files. PDFs and other formats have no cover in the catalog. Covers are
-  kept in a `covers` folder next to the database, so each book is only opened once.
+- **Covers:** the image in the book's own folder, such as the `cover.jpg` that
+  [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB or CBZ file. A PDF or
+  another format has one only from its folder. In a series-layout library a series' books share a folder, so only
+  covers inside the files are used. Covers are kept in a `covers` folder next to the database, so each book is only
+  opened once; one added to or removed from a folder is noticed.
 
 What it serves: every linked book in a served library whose MAM media type is Ebook, Manga, Comic Book or
 Periodical Ebook. Audiobooks are never served, nor is the PDF that comes with some audiobooks. A newly linked
@@ -772,7 +775,8 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
   **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
 - **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
   companion PDF doesn't count as an ebook.
-- **Covers** come from EPUB and CBZ files, as in the OPDS catalog; other books show their title's first letter.
+- **Covers** come from the book's folder or its file, as in the OPDS catalog, and for audiobooks also from the
+  cover inside an m4b, m4a or mp3 file. A book without one shows its title's first letter.
 - **A book** opens over the page with its details, its files and sizes, and links: **Open in Audiobookshelf**
   when Fetchshelf has matched it there (see [Connecting to Audiobookshelf](#connecting-to-audiobookshelf)), and
   **Details**, its page under **Torrents**.
@@ -1648,6 +1652,9 @@ logged and left without one.
 
 Series libraries are left out: comics and manga carry their cover inside the file, and one series folder holds many
 books. The cover is removed with the book's metadata files.
+
+The [OPDS catalog](#reading-on-an-e-reader-opds) and the [Books page](#browsing-your-books) show a book folder's cover
+too, whoever put it there, so PDFs and audiobooks get one in both.
 
 The covers come from MAM's image server, as the Search page's covers do. It isn't among the parts of MAM that its API
 documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at

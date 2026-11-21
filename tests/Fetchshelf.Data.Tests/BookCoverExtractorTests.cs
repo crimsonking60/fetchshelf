@@ -171,6 +171,145 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.EndsWith(".none", Assert.Single(Directory.GetFiles(cacheFolder)));
         Assert.Null(await cache.GetAsync(book));
     }
+
+    /// <summary>An MP4 box: its size, its four-letter type and its contents.</summary>
+    private static byte[] Box(string type, params byte[][] contents)
+    {
+        var body = contents.SelectMany(part => part).ToArray();
+        var size = BitConverter.GetBytes(8 + body.Length);
+        Array.Reverse(size);
+        return [.. size, .. Encoding.ASCII.GetBytes(type), .. body];
+    }
+
+    /// <summary>An m4b holding <paramref name="cover"/> in moov/udta/meta/ilst/covr/data, its audio first or last.</summary>
+    private string WriteM4b(byte[]? cover, bool moovLast = false)
+    {
+        var ilst = cover is null ? Box("ilst") : Box("ilst", Box("covr", Box("data", [0, 0, 0, 13, 0, 0, 0, 0], cover)));
+        var moov = Box("moov", Box("mvhd", new byte[20]), Box("udta", Box("meta", [0, 0, 0, 0], Box("hdlr", new byte[25]), ilst)));
+        var mdat = Box("mdat", new byte[5000]);
+        byte[] file = [.. Box("ftyp", "M4B "u8.ToArray()), .. moovLast ? mdat : moov, .. moovLast ? moov : mdat];
+        var path = Path.Combine(_root, $"book-{Guid.NewGuid():N}.m4b");
+        File.WriteAllBytes(path, file);
+        return path;
+    }
+
+    private static byte[] SyncSafe(int value) =>
+        [(byte)((value >> 21) & 0x7F), (byte)((value >> 14) & 0x7F), (byte)((value >> 7) & 0x7F), (byte)(value & 0x7F)];
+
+    private static byte[] BigEndian(int value) => [(byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value];
+
+    /// <summary>An ID3v2.3 or 2.4 frame.</summary>
+    private static byte[] Frame(int version, string id, byte[] data) =>
+        [.. Encoding.ASCII.GetBytes(id), .. version == 4 ? SyncSafe(data.Length) : BigEndian(data.Length), 0, 0, .. data];
+
+    /// <summary>An APIC frame's contents: Latin-1, the MIME type, the picture type and a description.</summary>
+    private static byte[] Apic(byte pictureType, byte[] image, byte encoding = 0) =>
+        [encoding, .. "image/jpeg"u8.ToArray(), 0, pictureType, .. encoding == 1 ? new byte[] { 0xFF, 0xFE, (byte)'x', 0, 0, 0 } : [(byte)'x', 0], .. image];
+
+    private string WriteMp3(int version, params byte[][] frames)
+    {
+        var body = frames.SelectMany(frame => frame).ToArray();
+        byte[] file = [.. "ID3"u8.ToArray(), (byte)version, 0, 0, .. SyncSafe(body.Length + 10), .. body, .. new byte[10], 0xFF, 0xFB, .. new byte[400]];
+        var path = Path.Combine(_root, $"book-{Guid.NewGuid():N}.mp3");
+        File.WriteAllBytes(path, file);
+        return path;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void M4b_CoverIsReadWhereverTheMoovBoxIs(bool moovLast) =>
+        Assert.Equal(Png, BookCoverExtractor.Extract(WriteM4b(Png, moovLast))!.Bytes);
+
+    [Fact]
+    public void M4b_WithoutCover_OrNotAnMp4_HasNone()
+    {
+        var notMp4 = Path.Combine(_root, "noise.m4b");
+        File.WriteAllBytes(notMp4, Encoding.ASCII.GetBytes("this is not an mp4 file at all"));
+
+        Assert.Null(BookCoverExtractor.Extract(WriteM4b(cover: null)));
+        Assert.Null(BookCoverExtractor.Extract(notMp4));
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void Mp3_FrontCoverIsPreferred_OverAnEarlierPicture(int version)
+    {
+        var path = WriteMp3(version,
+            Frame(version, "TIT2", [0, .. "Dune"u8.ToArray()]),
+            Frame(version, "APIC", Apic(0, Png)),
+            Frame(version, "APIC", Apic(3, Jpeg, encoding: 1)));
+
+        Assert.Equal(Jpeg, BookCoverExtractor.Extract(path)!.Bytes);
+    }
+
+    [Fact]
+    public void Mp3_OnlyAnotherPicture_IsUsed_AndNoTagMeansNoCover()
+    {
+        var other = WriteMp3(3, Frame(3, "APIC", Apic(0, Png)));
+        var noTag = Path.Combine(_root, "plain.mp3");
+        File.WriteAllBytes(noTag, [0xFF, 0xFB, .. new byte[100]]);
+
+        Assert.Equal(Png, BookCoverExtractor.Extract(other)!.Bytes);
+        Assert.Null(BookCoverExtractor.Extract(noTag));
+        Assert.Null(BookCoverExtractor.Extract(WriteMp3(3, Frame(3, "TIT2", [0, .. "Dune"u8.ToArray()]))));
+    }
+
+    [Fact]
+    public void Mp3_Id3v22Picture_IsRead()
+    {
+        byte[] pic = [0, .. "JPG"u8.ToArray(), 3, 0, .. Jpeg];
+        byte[] frame = [.. "PIC"u8.ToArray(), 0, 0, (byte)pic.Length, .. pic];
+        Assert.Equal(Jpeg, BookCoverExtractor.Extract(WriteMp3(2, frame))!.Bytes);
+    }
+
+    [Theory]
+    [InlineData(new[] { "back.jpg", "Cover.png", "folder.jpg" }, "Cover.png")]
+    [InlineData(new[] { "back.jpg", "folder.jpg" }, "folder.jpg")]
+    [InlineData(new[] { "scan.jpg" }, "scan.jpg")]
+    [InlineData(new[] { "one.jpg", "two.jpg" }, null)]
+    [InlineData(new string[0], null)]
+    public void FolderCover_PrefersCover_ThenFolder_ThenTheOnlyImage(string[] images, string? expected)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_root, "Folder")).FullName;
+        File.WriteAllText(Path.Combine(folder, "Book.m4b"), "audio");
+        foreach (var image in images)
+        {
+            File.WriteAllBytes(Path.Combine(folder, image), Jpeg);
+        }
+
+        Assert.Equal(expected, FolderCover.Find(folder)?.Name);
+    }
+
+    [Fact]
+    public async Task CoverCache_FolderImageComesFirst_AndWhenItGoesTheBookFilesCoverIsUsed()
+    {
+        var bookFolder = Directory.CreateDirectory(Path.Combine(_root, "Author", "Audio")).FullName;
+        File.Copy(WriteM4b(Png), Path.Combine(bookFolder, "Book.m4b"));
+        File.WriteAllBytes(Path.Combine(bookFolder, "cover.jpg"), Jpeg);
+        var book = CatalogBooks.From(
+            "audio", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, "m4b", null, [("Book.m4b", 10)])!;
+        var cache = new OpdsCoverCache(Path.Combine(_root, "covers"));
+
+        Assert.Equal(Jpeg, (await cache.GetAsync(book))!.Bytes);
+        File.Delete(Path.Combine(bookFolder, "cover.jpg"));
+        Assert.Equal(Png, (await cache.GetAsync(book))!.Bytes);
+    }
+
+    [Fact]
+    public async Task CoverCache_PdfGetsItsFolderImage_ButNotInASharedSeriesFolder()
+    {
+        var bookFolder = Directory.CreateDirectory(Path.Combine(_root, "Author", "Pdf")).FullName;
+        File.WriteAllText(Path.Combine(bookFolder, "Book.pdf"), "%PDF");
+        File.WriteAllBytes(Path.Combine(bookFolder, "cover.jpg"), Jpeg);
+        var book = CatalogBooks.From(
+            "pdf", OpdsTestMetadata.Ebook("Book"), bookFolder, DateTimeOffset.UtcNow, 0, null, "pdf", [("Book.pdf", 4)])!;
+        var cache = new OpdsCoverCache(Path.Combine(_root, "covers"));
+
+        Assert.Equal(Jpeg, (await cache.GetAsync(book))!.Bytes);
+        Assert.Null(await cache.GetAsync(book with { HasOwnFolder = false }));
+    }
 }
 
 internal static class OpdsTestMetadata

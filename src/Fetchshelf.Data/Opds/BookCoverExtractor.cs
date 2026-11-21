@@ -6,7 +6,10 @@ namespace Fetchshelf.Data.Opds;
 /// <summary>A cover image and its MIME type.</summary>
 public sealed record BookCover(byte[] Bytes, string ContentType);
 
-/// <summary>Reads the cover image out of a book file: an EPUB's declared cover, or a CBZ's first image.</summary>
+/// <summary>
+/// Reads the cover image out of a book file: an EPUB's declared cover, a CBZ's first image, or the cover embedded in an
+/// m4b, m4a or mp3 (<see cref="AudioCoverReader"/>).
+/// </summary>
 public static class BookCoverExtractor
 {
     /// <summary>Covers larger than this are left out, as MAM covers are.</summary>
@@ -23,6 +26,13 @@ public static class BookCoverExtractor
     public static BookCover? Extract(string path)
     {
         var extension = Path.GetExtension(path).ToLowerInvariant();
+        if (extension is ".m4b" or ".m4a" or ".mp3")
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096);
+            var bytes = extension == ".mp3" ? AudioCoverReader.ReadId3(stream) : AudioCoverReader.ReadMp4(stream);
+            return bytes is not null && SniffImageType(bytes) is { } contentType ? new BookCover(bytes, contentType) : null;
+        }
+
         if (extension is not (".epub" or ".cbz"))
         {
             return null;

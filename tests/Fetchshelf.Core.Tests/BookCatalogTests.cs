@@ -59,7 +59,31 @@ public class BookCatalogTests
         Assert.Equal(["Dune 01.mp3", "Dune 02.mp3"], book.AudioFiles.Select(file => file.RelativePath));
         Assert.Equal(["Dune.pdf"], book.EbookFiles.Select(file => file.RelativePath));
         Assert.Equal(MediaType.Audiobook, book.MediaType);
-        Assert.False(book.MayHaveCover);
+        Assert.Equal("Dune 01.mp3", book.EmbeddedCoverFile?.RelativePath);
+    }
+
+    [Theory]
+    [InlineData("m4b", null, "Book.m4b")]
+    [InlineData("mp3", "epub", "Book.epub")]
+    [InlineData("flac", "pdf", null)]
+    [InlineData(null, "cbz", "Book.cbz")]
+    public void EmbeddedCoverFile_IsTheFirstFileOfAFormatThatCanHoldOne(string? audio, string? ebook, string? expected)
+    {
+        var files = new[] { audio, ebook }.OfType<string>().Select(extension => ($"Book.{extension}", 1L));
+        var book = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, audio, ebook, files)!;
+
+        Assert.Equal(expected, book.EmbeddedCoverFile?.RelativePath);
+    }
+
+    [Fact]
+    public void MayHaveCover_InItsOwnFolderAlways_InASharedOneOnlyWithAnEmbeddedCover()
+    {
+        var pdf = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "pdf", [("Book.pdf", 1)])!;
+        var epub = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "epub", [("Book.epub", 1)])!;
+
+        Assert.True(pdf.MayHaveCover);
+        Assert.False((pdf with { HasOwnFolder = false }).MayHaveCover);
+        Assert.True((epub with { HasOwnFolder = false }).MayHaveCover);
     }
 
     [Fact]
