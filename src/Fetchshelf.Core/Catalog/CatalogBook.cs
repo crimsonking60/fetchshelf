@@ -22,6 +22,9 @@ public sealed record CatalogBook
 
     public required IReadOnlyList<string> Authors { get; init; }
 
+    /// <summary>The narrators of an audiobook; empty when the metadata names none.</summary>
+    public IReadOnlyList<string> Narrators { get; init; } = [];
+
     public required IReadOnlyList<CatalogSeries> Series { get; init; }
 
     public string? Description { get; init; }
@@ -97,6 +100,7 @@ public static class CatalogBooks
             Id = id,
             Title = metadata.Title,
             Authors = metadata.Authors,
+            Narrators = metadata.Narrators,
             Series = metadata.Series
                 .Select(series => new CatalogSeries(
                     series.Name,

@@ -43,7 +43,7 @@ public sealed class BooksPageTests : IDisposable
     /// <summary>Puts a book's files in its library folder and records the torrent the way the Link job would.</summary>
     private async Task SeedAsync(
         FetchshelfWebAppFixture fixture, string hash, string title, MediaType mediaType, string[] files, string author = "Ann Leckie",
-        Series? series = null, string? absId = null, DateTimeOffset? createdAt = null, string? description = null)
+        Series? series = null, string? absId = null, DateTimeOffset? createdAt = null, string? description = null, string[]? narrators = null)
     {
         var library = mediaType == MediaType.Audiobook ? Audiobooks : Ebooks;
         var folder = Path.Combine(library, author, title);
@@ -61,6 +61,7 @@ public sealed class BooksPageTests : IDisposable
             MediaType = mediaType,
             Series = series is null ? [] : [series],
             Description = description,
+            Narrators = narrators ?? [],
         };
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -89,7 +90,7 @@ public sealed class BooksPageTests : IDisposable
             series: new Series { Name = "Imperial Radch", Entries = [SeriesEntry.ForNumber(1, "1")] }, createdAt: day);
         await SeedAsync(fixture, "sword", "Ancillary Sword", MediaType.Audiobook, ["Ancillary Sword.m4b", "Ancillary Sword.pdf"],
             series: new Series { Name = "Imperial Radch", Entries = [SeriesEntry.ForNumber(2, "2")] }, absId: "li_sword", createdAt: day.AddDays(1),
-            description: "<strong>Narrated by Adjoa Andoh</strong><br />The second book.");
+            description: "<strong>Narrated by Adjoa Andoh</strong><br />The second book.", narrators: ["Adjoa Andoh", "Celeste Ciulla"]);
         await SeedAsync(fixture, "dune", "Dune", MediaType.Audiobook, ["Disc 2/02.mp3", "Disc 1/01.mp3"], author: "Frank Herbert", createdAt: day.AddDays(2));
         return fixture;
     }
@@ -201,6 +202,8 @@ public sealed class BooksPageTests : IDisposable
         Assert.DoesNotContain("<html", matched);
         Assert.Contains("id=\"book-description\" class=\"hit-description\">Narrated by Adjoa Andoh", matched);
         Assert.DoesNotContain("&lt;strong&gt;", matched);
+        Assert.Contains("<span class=\"value\" id=\"book-narrators\">Adjoa Andoh, Celeste Ciulla</span>", matched);
+        Assert.DoesNotContain("id=\"book-narrators\"", notMatched);
         Assert.DoesNotContain("id=\"abs-link\"", notMatched);
         Assert.Contains("<html", notMatched);
         Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(fixture, "/books/no-such-book")).StatusCode);
