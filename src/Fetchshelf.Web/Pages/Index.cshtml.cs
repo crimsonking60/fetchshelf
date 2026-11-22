@@ -60,6 +60,26 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
+    /// <summary>A genre by MAM's id, or <see cref="GenreFilters.NoGenre"/>: only results with it are shown. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Genre { get; set; }
+
+    /// <summary><c>Fiction</c>, <c>Nonfiction</c> or <see cref="GenreFilters.Neither"/>. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Fiction { get; set; }
+
+    /// <summary>Whether `genres = true`, which shows the Fiction and Genre filters.</summary>
+    public bool GenresOn => settings.Genres;
+
+    /// <summary>The Genre filter's choices: every genre MAM has, by its names, A-Z, then No genre.</summary>
+    public IReadOnlyList<(string Value, string Label)> GenreOptions => GenreFilters.Options(GenreLabels.All, Genre);
+
+    /// <summary>The Fiction filter's choices; MAM gives nearly every torrent a main category, so Neither only when in use.</summary>
+    public IReadOnlyList<(string Value, string Label)> FictionOptions => GenreFilters.FictionChoices(false, Fiction);
+
+    /// <summary>How many of the results on this page the Fiction and Genre filters hid. MAM can't be asked for them.</summary>
+    public int GenreHidden { get; private set; }
+
     /// <summary>The search's choices, each made known and in range once; the links, the heading and the query read these.</summary>
     public SearchChoices Choices => _choices ??= SearchQueryBuilder.Choices(Q, In, Sort, Type, PageNumber);
 
@@ -125,6 +145,16 @@ public class IndexModel(
             values[nameof(Type)] = SearchType;
         }
 
+        if (GenresOn && !string.IsNullOrEmpty(Fiction))
+        {
+            values[nameof(Fiction)] = Fiction;
+        }
+
+        if (GenresOn && !string.IsNullOrEmpty(Genre))
+        {
+            values[nameof(Genre)] = Genre;
+        }
+
         if (pageNumber > 1)
         {
             values[nameof(PageNumber)] = pageNumber;
@@ -135,7 +165,9 @@ public class IndexModel(
 
     /// <summary>The query-string names that make up a search, carried through a result's Download and Import forms.</summary>
     public static IReadOnlySet<string> SearchStateKeys { get; } =
-        new HashSet<string>([nameof(Q), nameof(Lang), nameof(In), nameof(Sort), nameof(Type), nameof(PageNumber)], StringComparer.OrdinalIgnoreCase);
+        new HashSet<string>(
+            [nameof(Q), nameof(Lang), nameof(In), nameof(Sort), nameof(Type), nameof(PageNumber), nameof(Fiction), nameof(Genre)],
+            StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The cookie that remembers the category chosen for downloads, as people usually fill one library at a time.</summary>
     public const string CategoryCookie = "fs-search-category";
@@ -286,6 +318,15 @@ public class IndexModel(
             if (SearchType == SearchQueryBuilder.NotSnatchedType)
             {
                 SnatchedLeftOut = records.RemoveAll(record => record.IsSnatchedByMe);
+            }
+
+            // Nor for a genre or main category: the results of this page are filtered, and the page says how many went.
+            if (GenresOn && (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction)))
+            {
+                GenreHidden = records.RemoveAll(record => !GenreFilters.Matches(
+                    record.GenreCategoryIds.Select(id => (GenreCategory)id).ToHashSet(),
+                    record.FictionCategoryId is 1 or 2 ? (FictionCategory)record.FictionCategoryId : null,
+                    Genre, Fiction));
             }
 
             Results = records

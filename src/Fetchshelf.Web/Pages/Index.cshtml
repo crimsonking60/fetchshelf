@@ -47,6 +47,27 @@
             <label><input type="checkbox" name="In" value="@value" checked="@Model.SearchFields.Contains(value)" /> @label</label>
         }
     </div>
+    @if (Model.GenresOn)
+    {
+        @* Not asked of MAM, which can't filter by them: the page's results are filtered, and the count says how many went. *@
+        <div id="search-genre-filters" class="toolbar">
+            <span class="search-fields-label">Show only:</span>
+            <select name="Fiction" aria-label="Fiction" onchange="this.form.requestSubmit()">
+                <option value="">Fiction or not</option>
+                @foreach (var (value, label) in Model.FictionOptions)
+                {
+                    <option value="@value" selected="@(Model.Fiction == value)">@label</option>
+                }
+            </select>
+            <select name="Genre" aria-label="Genre" onchange="this.form.requestSubmit()">
+                <option value="">Any genre</option>
+                @foreach (var (value, label) in Model.GenreOptions)
+                {
+                    <option value="@value" selected="@(Model.Genre == value)">@label</option>
+                }
+            </select>
+        </div>
+    }
 </form>
 
 

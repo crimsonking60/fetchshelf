@@ -23,7 +23,9 @@ namespace Fetchshelf.Data.AutoDownloader;
 /// Whether MAM refused a request and ended the run before every selection was tried, so how many are left waiting for
 /// budget isn't known: <paramref name="LeftQueued"/> counts only those tried before.
 /// </param>
-public sealed record DownloadRunSummary(int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null, bool StoppedByMam = false);
+/// <param name="StopReason">What MAM answered when it stopped the run (<paramref name="StoppedByMam"/>).</param>
+public sealed record DownloadRunSummary(
+    int Started, int Failed, int Queued = 0, int LeftQueued = 0, string? LimitedBy = null, bool StoppedByMam = false, string? StopReason = null);
 
 /// <summary>The settings the Download job runs by.</summary>
 /// <param name="MinRatio">`min_ratio`: no download may take the account's ratio below it.</param>
@@ -89,6 +91,7 @@ public sealed class DownloadRunner(
         var (startedCount, failedCount) = (0, 0);
         var (overRatio, noSlot) = (0, 0);
         var stoppedByMam = false;
+        string? stopReason = null;
         // Why selections wait, as it stood when the first of each kind was held back: later torrents change the budget.
         string? ratioLimit = null, slotLimit = null;
         foreach (var selected in pending)
@@ -106,6 +109,7 @@ public sealed class DownloadRunner(
                 _logger.LogError("Stopped downloading at {Torrent}: {Error} The rest stay queued for the next run", name, ex.Message);
                 failedCount++;
                 stoppedByMam = true;
+                stopReason = ex.Message;
                 break;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -123,6 +127,7 @@ public sealed class DownloadRunner(
                 }
 
                 dbContext.DiscardPendingChanges();
+                await RecordFailureAsync(selected, name, $"{ex.Message} It stays queued for the next run.", cancellationToken);
                 continue;
             }
 
@@ -164,7 +169,7 @@ public sealed class DownloadRunner(
 
         var limits = new[] { ratioLimit, slotLimit }.OfType<string>().ToList();
         return new DownloadRunSummary(
-            startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits), stoppedByMam);
+            startedCount, failedCount, pending.Count, overRatio + noSlot, limits.Count == 0 ? null : string.Join("; ", limits), stoppedByMam, stopReason);
     }
 
     private void LogOutcome(SelectedTorrentEntity selected, string name, DownloadOutcome outcome, bool wedgeSpent)
@@ -481,6 +486,25 @@ public sealed class DownloadRunner(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A selection that could not be downloaded for a reason the next run may not have, on the Errors page under its MAM
+    /// id. It stays queued, so no restore is offered; starting it later clears the row. Recording it never stops the run.
+    /// </summary>
+    private async Task RecordFailureAsync(SelectedTorrentEntity selected, string name, string errorText, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ErrorLog.RecordAsync(
+                dbContext, ErrorStage.Grabber, selected.MamId.ToString(), name, errorText, null, cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("Could not record on the Errors page that {Torrent} failed: {Error}", name, ex.Message);
+            dbContext.DiscardPendingChanges();
+        }
     }
 
     private Task ClearGrabberErrorAsync(long mamId, CancellationToken cancellationToken) =>

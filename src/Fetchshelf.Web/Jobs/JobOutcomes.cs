@@ -233,14 +233,32 @@ public static class JobOutcomes
             + $"{summary.Kept} kept",
         new Dictionary<string, long> { ["bytes"] = summary.Backup.SizeBytes, ["kept"] = summary.Kept });
 
-    public static JobOutcome Download(DownloadRunSummary summary) => Finish(
-        summary.Queued == 0
+    /// <summary>
+    /// The Download run's line. Torrents that couldn't be downloaded are on the Errors page; a run MAM stopped says what
+    /// MAM answered, which concerns the account rather than the torrent, so it has no row there.
+    /// </summary>
+    public static JobOutcome Download(DownloadRunSummary summary)
+    {
+        var line = summary.Queued == 0
             ? "No selected torrents waiting to be downloaded"
             : $"{summary.Started} of {Count(summary.Queued, "queued torrent", "queued torrents")} added to qBittorrent"
-                + (summary.LeftQueued > 0 ? $"; {summary.LeftQueued} stay queued: {summary.LimitedBy}" : ""),
-        summary.Failed,
-        "could not be downloaded; see the log",
-        new() { ["queued"] = summary.Queued, ["started"] = summary.Started, ["failed"] = summary.Failed, ["left_queued"] = summary.LeftQueued });
+                + (summary.LeftQueued > 0 ? $"; {summary.LeftQueued} stay queued: {summary.LimitedBy}" : "");
+        var counts = new Dictionary<string, long>
+        {
+            ["queued"] = summary.Queued,
+            ["started"] = summary.Started,
+            ["failed"] = summary.Failed,
+            ["left_queued"] = summary.LeftQueued,
+        };
+        var failed = summary.Failed - (summary.StoppedByMam ? 1 : 0);
+        if (summary.StoppedByMam)
+        {
+            var stopped = $"{line}; stopped when MAM refused a request ({summary.StopReason}); the rest stay queued for the next run";
+            throw new JobCompletedWithErrorsException(failed > 0 ? $"{stopped}; {failed} could not be downloaded; see the Errors page" : stopped, counts);
+        }
+
+        return Finish(line, failed, "could not be downloaded; see the Errors page", counts);
+    }
 
     /// <summary>The outcome, or with failures the same line and counts thrown as a run that finished with errors.</summary>
     private static JobOutcome Finish(string line, int failed, string failedText, Dictionary<string, long> counts)

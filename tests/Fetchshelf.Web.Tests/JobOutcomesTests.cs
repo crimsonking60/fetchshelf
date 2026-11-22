@@ -202,6 +202,29 @@ public class JobOutcomesTests
     }
 
     [Fact]
+    public void Download_TorrentsThatFailed_PointToTheErrorsPage()
+    {
+        var failed = Assert.Throws<JobCompletedWithErrorsException>(() => JobOutcomes.Download(new DownloadRunSummary(8, 1, 15, 5, "no slot is free")));
+
+        Assert.Equal("8 of 15 queued torrents added to qBittorrent; 5 stay queued: no slot is free; 1 could not be downloaded; see the Errors page", failed.Message);
+    }
+
+    [Fact]
+    public void Download_StoppedByMam_SaysWhatMamAnswered_AndCountsOnlyTheOtherFailures()
+    {
+        var stopped = Assert.Throws<JobCompletedWithErrorsException>(() =>
+            JobOutcomes.Download(new DownloadRunSummary(2, 1, 5, StoppedByMam: true, StopReason: "MAM answered 429 (too many requests).")));
+        var both = Assert.Throws<JobCompletedWithErrorsException>(() =>
+            JobOutcomes.Download(new DownloadRunSummary(2, 2, 5, StoppedByMam: true, StopReason: "MAM answered 429 (too many requests).")));
+
+        Assert.Equal(
+            "2 of 5 queued torrents added to qBittorrent; stopped when MAM refused a request (MAM answered 429 (too many requests).); "
+            + "the rest stay queued for the next run",
+            stopped.Message);
+        Assert.EndsWith("the rest stay queued for the next run; 1 could not be downloaded; see the Errors page", both.Message);
+    }
+
+    [Fact]
     public void Download_SomeQueued_SaysHowManyWereAdded() =>
         Assert.Equal("1 of 3 queued torrents added to qBittorrent", JobOutcomes.Download(new DownloadRunSummary(1, 0, 3)).Summary);
 

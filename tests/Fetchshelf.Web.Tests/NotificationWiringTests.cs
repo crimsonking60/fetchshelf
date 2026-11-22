@@ -205,7 +205,7 @@ public class NotificationWiringTests
         unsatInUse = 5;
         await mam.RefreshAccountStateAsync();
         await registry.TriggerAsync("Download");
-        Assert.Contains("1 could not be downloaded", registry.Get("Download")!.LastRun!.Summary ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("stopped when MAM refused a request", registry.Get("Download")!.LastRun!.Summary ?? string.Empty, StringComparison.Ordinal);
 
         unsatInUse = 20;
         await mam.RefreshAccountStateAsync();

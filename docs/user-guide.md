@@ -882,6 +882,12 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   These two filters only hide rows in the results already on the page, and the line below the results says
   how many they hide. They do not change what is asked of MAM, so they cannot bring in more results, and they
   are reset by a new search or a change of page.
+- **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), on the line below *Search in*: show only
+  fiction or nonfiction, and only the results with one of MAM's genres, or with none. MAM can't be asked for either,
+  so they hide results of the page MAM returned, and the line below the results says how many: "2 of the 100 results
+  on this page hidden by the genre filters". A page can come out short, or empty; **Next** goes on to MAM's next page,
+  filtered the same way. Unlike the two filters above, they are part of the search: they are kept by the pages, and
+  a result's details then show its main category and genres by MAM's names.
 - Click a result's title for everything MAM returns for it: cover, narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
@@ -2176,8 +2182,10 @@ with this info-hash*: such a torrent is usually from another tracker or was remo
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
 went stale, and couldn't be refreshed, is taken out of the queue instead; **Retry download** puts it back on the
 **Selected** page. One that MAM no longer has (deleted or merged) is taken out with that reason and has no
-**Retry download**. A download that failed because MAM couldn't be reached stays queued for the next run and gets
-no entry here; the log says why.
+**Retry download**. A download that failed for another reason, such as MAM or qBittorrent not answering, stays
+queued for the next run and is listed here with the reason; its entry goes once a later run starts it. A run that MAM
+stopped by refusing the account (blocked, too many requests, or a refused session) gets no entry: that concerns the
+account, not one torrent, and the job's result and the [MAM refused notification](#getting-notified) say so.
 A torrent that couldn't be linked because MAM gives it no author, and that Fetchshelf has no record of yet,
 has **Edit**: it opens the metadata editor filled in with MAM's details, and saving with an author added
 creates the record. The next Link run then links it.
