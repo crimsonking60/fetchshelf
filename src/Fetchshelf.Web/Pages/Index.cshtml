@@ -88,6 +88,9 @@ else
             // is being searched is kept here and put back on the new controls, which are listened to through the page.
             let currentMediaFilter = 'All';
             let hideDownloaded = false;
+            // Fiction and Genre (with genres = true): a row's main category, and its genre ids, space-separated.
+            let currentFiction = '';
+            let currentGenre = '';
 
             function applyFilters() {
                 const mediaSlug = slugByFilter[currentMediaFilter];
@@ -95,10 +98,21 @@ else
                 if (hideDownloadedCheckbox != null) {
                     hideDownloadedCheckbox.checked = hideDownloaded;
                 }
+                const fictionSelect = document.getElementById('search-fiction');
+                if (fictionSelect != null) {
+                    fictionSelect.value = currentFiction;
+                }
+                const genreSelect = document.getElementById('search-genre');
+                if (genreSelect != null) {
+                    genreSelect.value = currentGenre;
+                }
                 document.querySelectorAll('#search-results tbody tr').forEach(function (row) {
                     const matchesMedia = !mediaSlug || row.dataset.mediaType === mediaSlug;
                     const matchesStatus = !hideDownloaded || (row.dataset.status === 'none' && row.dataset.inQbittorrent !== 'true');
-                    row.hidden = !(matchesMedia && matchesStatus);
+                    const matchesFiction = !currentFiction || row.dataset.fiction === currentFiction;
+                    const genres = (row.dataset.genres || '').split(' ').filter(function (id) { return id !== ''; });
+                    const matchesGenre = !currentGenre || (currentGenre === 'none' ? genres.length === 0 : genres.includes(currentGenre));
+                    row.hidden = !(matchesMedia && matchesStatus && matchesFiction && matchesGenre);
                 });
                 const hiddenNote = document.getElementById('results-hidden');
                 if (hiddenNote != null) {
@@ -122,6 +136,12 @@ else
             document.body.addEventListener('change', function (event) {
                 if (event.target.id === 'hide-downloaded') {
                     hideDownloaded = event.target.checked;
+                    applyFilters();
+                } else if (event.target.id === 'search-fiction') {
+                    currentFiction = event.target.value;
+                    applyFilters();
+                } else if (event.target.id === 'search-genre') {
+                    currentGenre = event.target.value;
                     applyFilters();
                 }
             });

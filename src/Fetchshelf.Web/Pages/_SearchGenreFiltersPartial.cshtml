@@ -1,23 +1,23 @@
 @model Fetchshelf.Web.Pages.IndexModel
-@* The Fiction and Genre filters, at the top of the results' filter box. They belong to the search form (form="search-form"),
-   so a change searches again from the first page with them; MAM can't be asked for them, so the page's results are
-   filtered and the count below says how many went. *@
+@* The Fiction and Genre filters, at the top of the results' filter box. Like the filters below them they hide rows of this
+   page in the browser, from each row's genres and main category: MAM is asked nothing, and the count below the results
+   says how many are hidden. *@
 @if (Model.GenresOn)
 {
     <div id="search-genre-filters">
         <span>Show only:</span>
-        <select name="Fiction" form="search-form" aria-label="Fiction" onchange="this.form.requestSubmit()">
+        <select id="search-fiction" aria-label="Fiction">
             <option value="">Fiction or not</option>
-            @foreach (var (value, label) in Model.FictionOptions)
+            @foreach (var (value, label) in Fetchshelf.Web.Pages.IndexModel.FictionOptions)
             {
-                <option value="@value" selected="@(Model.Fiction == value)">@label</option>
+                <option value="@value">@label</option>
             }
         </select>
-        <select name="Genre" form="search-form" aria-label="Genre" onchange="this.form.requestSubmit()">
+        <select id="search-genre" aria-label="Genre">
             <option value="">Any genre</option>
-            @foreach (var (value, label) in Model.GenreOptions)
+            @foreach (var (value, label) in Fetchshelf.Web.Pages.IndexModel.GenreOptions)
             {
-                <option value="@value" selected="@(Model.Genre == value)">@label</option>
+                <option value="@value">@label</option>
             }
         </select>
     </div>

@@ -1,13 +1,13 @@
 using System.Net;
-using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Web.Tests;
 
 /// <summary>
-/// With `genres = true`, the Search page's Fiction and Genre filters, which MAM can't be asked for: the results of a page
-/// are filtered, and the page says how many went. And a result's main category and genres by MAM's names.
+/// With `genres = true`, the Search page's Fiction and Genre filters, which hide rows of the page in the browser like Hide
+/// downloaded torrents and Show: every row carries its genres and main category. And a result's main category and genres
+/// by MAM's names.
 /// </summary>
-public sealed partial class SearchGenreFilterTests
+public sealed class SearchGenreFilterTests
 {
     // Three hits: nonfiction Historical and Military/War, fiction Historical, fiction Science Fiction and Romance. MAM
     // found 250, so there is a next page.
@@ -44,64 +44,49 @@ public sealed partial class SearchGenreFilterTests
         html.IndexOf("<table id=\"search-results\"", StringComparison.Ordinal) is var start and >= 0 ? html[start..] : string.Empty;
 
     [Fact]
-    public async Task TheFilters_HideResultsOfThePage_AndSaySoInTheCount_AndPagingKeepsThem()
+    public async Task EveryRow_CarriesItsGenresAndMainCategory_ForTheFiltersInTheBrowser()
     {
         using var fixture = Fixture(genres: true);
 
-        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=history&Fiction=Fiction&Genre=17");
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=history");
 
-        Assert.Contains("Historical Novel", Results(html));
-        Assert.DoesNotContain("Nonfiction History", Results(html));
-        Assert.DoesNotContain("Space Romance", Results(html));
-        Assert.Contains("<span id=\"genre-hidden\">2 of the 3 results on this page hidden by the genre filters.</span>", html);
-        Assert.Matches(NextPageLink(), html);
+        Assert.Contains("data-genres=\"17 63\" data-fiction=\"Nonfiction\"", html);
+        Assert.Contains("data-genres=\"17\" data-fiction=\"Fiction\"", html);
+        Assert.Contains("data-genres=\"42 45\" data-fiction=\"Fiction\"", html);
     }
 
     [Fact]
-    public async Task EveryResultHidden_SaysSo_AndStillOffersTheNextPage()
+    public async Task TheFilters_InTheResultsBox_AboveTheOthers_WithEveryMamGenre_AndAskMamNothing()
     {
         using var fixture = Fixture(genres: true);
+        var client = fixture.CreateClient();
 
-        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=history&Genre=none");
+        var page = await client.GetStringAsync("/?Q=history");
+        // The address doesn't filter: every result comes back, for the browser to hide.
+        var results = await client.GetStringAsync("/?handler=Results&Q=history&Genre=none&Fiction=Fiction");
 
-        // MAM found 250, so there is a next page to try.
-        Assert.Contains("No results. All 3 on this page were hidden by the genre filters; the next page may have some.", html);
-        // The filters stay, to be changed.
-        Assert.Contains("<option value=\"none\" selected=\"selected\">No genre</option>", html);
-        Assert.Contains("id=\"next-page\"", html);
-    }
-
-    [Fact]
-    public async Task TheForm_HasTheFilters_FictionFirst_WithEveryMamGenre()
-    {
-        using var fixture = Fixture(genres: true);
-
-        var page = await fixture.CreateClient().GetStringAsync("/?Q=history&Genre=63");
-
-        // In the results' filter box, above Hide downloaded torrents, and part of the search form.
         var start = page.IndexOf("id=\"search-genre-filters\"", StringComparison.Ordinal);
         var filters = page[start..page.IndexOf("</div>", start, StringComparison.Ordinal)];
         Assert.True(page.IndexOf("id=\"search-filters\"", StringComparison.Ordinal) < start);
         Assert.True(start < page.IndexOf("id=\"hide-downloaded\"", StringComparison.Ordinal));
-        Assert.Contains("<select name=\"Fiction\" form=\"search-form\"", filters);
-        Assert.True(filters.IndexOf("name=\"Fiction\"", StringComparison.Ordinal) < filters.IndexOf("name=\"Genre\"", StringComparison.Ordinal));
-        Assert.Contains("<option value=\"63\" selected=\"selected\">Military/War</option>", filters);
+        Assert.True(filters.IndexOf("id=\"search-fiction\"", StringComparison.Ordinal) < filters.IndexOf("id=\"search-genre\"", StringComparison.Ordinal));
+        Assert.DoesNotContain("name=", filters);
+        Assert.Contains("<option value=\"63\">Military/War</option>", filters);
         Assert.Contains("<option value=\"26\">Erotica/Sexual Content</option>", filters);
+        Assert.Contains("<option value=\"none\">No genre</option>", filters);
         Assert.DoesNotContain("value=\"Neither\"", filters);
+        Assert.Contains("Space Romance", Results(results));
+        Assert.Contains("Nonfiction History", Results(results));
     }
 
     [Fact]
-    public async Task GenresOff_NoFilters_AndTheFiltersInTheAddressAreIgnored()
+    public async Task GenresOff_NoFilters()
     {
         using var fixture = Fixture(genres: false);
-        var client = fixture.CreateClient();
 
-        var page = await client.GetStringAsync("/?Q=history");
-        var html = await client.GetStringAsync("/?handler=Results&Q=history&Genre=none");
+        var page = await fixture.CreateClient().GetStringAsync("/?Q=history");
 
         Assert.DoesNotContain("id=\"search-genre-filters\"", page);
-        Assert.Contains("Space Romance", Results(html));
-        Assert.DoesNotContain("genre-hidden", html);
     }
 
     [Fact]
@@ -115,6 +100,4 @@ public sealed partial class SearchGenreFilterTests
         Assert.Contains("id=\"hit-genres\"><span class=\"label\">Genres</span><span class=\"value\">Historical, Military/War</span>", html);
     }
 
-    [GeneratedRegex("id=\"next-page\"[^>]*href=\"[^\"]*Fiction=Fiction&amp;Genre=17&amp;PageNumber=2|href=\"[^\"]*Fiction=Fiction&amp;Genre=17&amp;PageNumber=2\"[^>]*id=\"next-page\"")]
-    private static partial Regex NextPageLink();
 }

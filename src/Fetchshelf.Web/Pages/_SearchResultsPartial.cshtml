@@ -17,12 +17,7 @@ else if (Model.SearchError is not null)
 }
 else if (Model.ResultsLoaded && Model.Results.Count == 0)
 {
-    @if (Model.GenresOn)
-    {
-        @* Every result hidden by them, or none found: they stay, to be changed. *@
-        <div id="search-filters">@await Html.PartialAsync("_SearchGenreFiltersPartial", Model)</div>
-    }
-    <p id="no-results-message" class="empty">No results.@(Model.SnatchedLeftOut > 0 ? $" {Model.SnatchedLeftOut} on this page were left out as snatched before." : "")@(Model.GenreHidden > 0 ? $" All {Model.GenreHidden} on this page were hidden by the genre filters{(Model.HasNextPage ? "; the next page may have some" : "")}." : "")</p>
+    <p id="no-results-message" class="empty">No results.@(Model.SnatchedLeftOut > 0 ? $" {Model.SnatchedLeftOut} on this page were left out as snatched before." : "")</p>
     @await Html.PartialAsync("_SearchPagerPartial", Model)
 }
 else

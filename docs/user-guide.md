@@ -887,12 +887,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   These two filters only hide rows in the results already on the page, and the line below the results says
   how many they hide. They do not change what is asked of MAM, so they cannot bring in more results, and they
   are reset by a new search or a change of page.
-- **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), on the line below *Search in*: show only
-  fiction or nonfiction, and only the results with one of MAM's genres, or with none. MAM can't be asked for either,
-  so they hide results of the page MAM returned, and the line below the results says how many: "2 of the 100 results
-  on this page hidden by the genre filters". A page can come out short, or empty; **Next** goes on to MAM's next page,
-  filtered the same way. Unlike the two filters above, they are part of the search: they are kept by the pages, and
-  a result's details then show its main category and genres by MAM's names.
+- **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), at the top of the same box: show only
+  fiction or nonfiction, and only the results with one of MAM's genres, or with none. Like the two filters below them,
+  they hide rows of the page already shown, without asking MAM again, are counted in the same line below the results,
+  and are reset the same way. A result's details show its main category and genres by MAM's names.
 - Click a result's title for everything MAM returns for it: cover, narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
