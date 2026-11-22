@@ -257,6 +257,7 @@ form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 /* On a narrow screen the form may get narrower than that width, so the box shrinks rather than pushing Search off. */
 .toolbar-stack:has(> .search-line) { min-width: 0; max-width: 100%; }
 #books-search { margin: 0.6rem 0 1rem; }
+#edit-genres { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.2rem 1rem; }
 .toolbar-bar > .push { margin: 0 0 0 auto; }
 /* The actions beside a search form, kept together: Check qBittorrent, the export links and Per page. */
 .list-actions { column-gap: 1.5rem; justify-content: flex-end; }
@@ -268,6 +269,7 @@ fieldset label { display: inline-flex; align-items: center; gap: 0.3rem; margin:
 
 .edit-form { display: grid; gap: 0.85rem; max-width: 40rem; }
 .edit-form > label { display: grid; gap: 0.25rem; font-weight: 500; }
+.edit-form > .edit-note { margin: 0 0 -0.5rem; font-size: 0.9em; }
 .edit-form > button[type="submit"] { justify-self: start; padding: 0.4rem 1.4rem; }
 
 /* ---- tables -------------------------------------------------------------- */
@@ -421,6 +423,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
 }
 #search-filters > label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+#search-genre-filters { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 #media-filter { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 #media-filter > label {
     display: inline-block; cursor: pointer;

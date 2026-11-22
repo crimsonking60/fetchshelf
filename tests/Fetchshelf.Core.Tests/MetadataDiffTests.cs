@@ -30,8 +30,20 @@ public class MetadataDiffTests
                 Series = [new Series { Name = "Dune", Entries = [SeriesEntry.ForNumber(2m, "2")] }],
                 Language = Language.German,
                 LegacyCategory = LegacyCategory.AudiobookScienceFiction,
+                FictionCategory = FictionCategory.Fiction,
+                GenreCategories = new HashSet<GenreCategory> { GenreCategory.ScienceFiction },
                 Flags = BookFlags.Violence,
             }).Select(change => change.Field));
+
+    [Fact]
+    public void Between_MainCategoryAndGenres_ByMamsNames() =>
+        Assert.Equal(
+            [new FieldChange("MainCategory", "", "Nonfiction"), new FieldChange("Genres", "", "Historical, Military/War")],
+            MetadataDiff.Between(Original, Original with
+            {
+                FictionCategory = FictionCategory.Nonfiction,
+                GenreCategories = new HashSet<GenreCategory> { GenreCategory.Military, GenreCategory.Historical },
+            }));
 
     [Fact]
     public void Between_SeriesAndFlags_AreWrittenAsTheEditPageShowsThem() =>

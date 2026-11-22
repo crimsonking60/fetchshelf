@@ -13,7 +13,8 @@ namespace Fetchshelf.Data.Catalog;
 /// is optional. A split collection's books are each their own record with their own folder; the collection's own record
 /// has none and is left out.
 /// </summary>
-public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyList<Library> libraries)
+/// <param name="mamGenreNames">`genres = true`: the books' genres by MAM's names, with Fiction or Nonfiction.</param>
+public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyList<Library> libraries, bool mamGenreNames = false)
 {
     public async Task<BookCatalog> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -33,7 +34,7 @@ public sealed class BookCatalogReader(FetchshelfDbContext dbContext, IReadOnlyLi
             var files = row.LinkedFilesJson is null ? [] : JsonSerializer.Deserialize<List<LinkedFileRecord>>(row.LinkedFilesJson) ?? [];
             var book = CatalogBooks.From(
                 row.Id, TorrentMetadataSerializer.Deserialize(row.MetadataJson), row.LibraryPath!, row.CreatedAt, index,
-                row.ChosenAudioExtension, row.ChosenEbookExtension, files.Select(file => (file.RelativePath, file.SizeBytes)));
+                row.ChosenAudioExtension, row.ChosenEbookExtension, files.Select(file => (file.RelativePath, file.SizeBytes)), mamGenreNames);
             if (book is not null)
             {
                 books.Add(book with { AbsId = row.AbsId, HasOwnFolder = !libraries[index].IsSeriesLayout });

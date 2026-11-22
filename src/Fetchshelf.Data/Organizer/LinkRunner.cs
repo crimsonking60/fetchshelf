@@ -38,7 +38,8 @@ public enum RefreshOutcome
 /// How long the write lock is left free between two batches of a run; <see cref="SqliteWriteBatch.YieldTime"/> unless
 /// given. Tests whose lookups answer at once pass zero: there a batch ends at nearly every torrent.
 /// </param>
-public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null, TimeSpan? BatchYield = null);
+/// <param name="MamGenreNames">`genres = true`: metadata.json and metadata.opf name the genres as MAM does, with Fiction or Nonfiction.</param>
+public sealed record LinkRunnerOptions(bool ExcludeNarratorInLibraryDir, Language? FirstLanguage = null, TimeSpan? BatchYield = null, bool MamGenreNames = false);
 
 /// <summary>
 /// Runs the link run, linking, library mismatch detection, refresh, and manual metadata override.
@@ -688,12 +689,12 @@ public sealed class LinkRunner(
 
             if (library.MetadataJson)
             {
-                File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata));
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.json"), LibraryMetadataJsonBuilder.Build(metadata, options.MamGenreNames));
             }
 
             if (library.MetadataOpf)
             {
-                File.WriteAllText(Path.Combine(destinationFolder, "metadata.opf"), LibraryMetadataOpfBuilder.Build(metadata));
+                File.WriteAllText(Path.Combine(destinationFolder, "metadata.opf"), LibraryMetadataOpfBuilder.Build(metadata, options.MamGenreNames));
             }
         }
 

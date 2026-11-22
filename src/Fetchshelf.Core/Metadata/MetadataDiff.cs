@@ -7,7 +7,8 @@ public sealed record FieldChange(string Field, string From, string To);
 public static class MetadataDiff
 {
     /// <summary>Every field an Updated event can record, in the order <see cref="Between"/> records them.</summary>
-    public static readonly IReadOnlyList<string> Fields = ["Title", "Authors", "Narrators", "Series", "Language", "LegacyCategory", "Flags"];
+    public static readonly IReadOnlyList<string> Fields =
+        ["Title", "Authors", "Narrators", "Series", "Language", "LegacyCategory", "MainCategory", "Genres", "Flags"];
 
     /// <summary>The recorded fields that differ, in a fixed order; empty when none does.</summary>
     public static List<FieldChange> Between(TorrentMetadata from, TorrentMetadata to)
@@ -19,11 +20,19 @@ public static class MetadataDiff
         AddIfChanged(changes, "Series", SeriesText(from), SeriesText(to));
         AddIfChanged(changes, "Language", from.Language.ToString(), to.Language.ToString());
         AddIfChanged(changes, "LegacyCategory", from.LegacyCategory.ToString(), to.LegacyCategory.ToString());
+        AddIfChanged(changes, "MainCategory", MainCategoryText(from), MainCategoryText(to));
+        AddIfChanged(changes, "Genres", GenresText(from), GenresText(to));
         AddIfChanged(changes, "Flags", from.Flags.ToString(), to.Flags.ToString());
         return changes;
     }
 
     /// <summary>Every series on one line, as the edit page writes them: <c>Name #1,2; Other</c>.</summary>
+    private static string MainCategoryText(TorrentMetadata metadata) =>
+        metadata.FictionCategory is { } main ? GenreLabels.FictionLabel(main) : string.Empty;
+
+    private static string GenresText(TorrentMetadata metadata) =>
+        string.Join(", ", (metadata.GenreCategories ?? new HashSet<GenreCategory>()).Order().Select(GenreLabels.Label));
+
     private static string SeriesText(TorrentMetadata metadata) => string.Join("; ", metadata.Series.Select(SeriesParser.FormatLine));
 
     private static void AddIfChanged(List<FieldChange> changes, string field, string from, string to)

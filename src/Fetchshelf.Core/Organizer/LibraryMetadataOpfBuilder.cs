@@ -16,7 +16,8 @@ public static class LibraryMetadataOpfBuilder
     private const string Dc = "http://purl.org/dc/elements/1.1/";
     private const string MamIdentifierId = "mam_id";
 
-    public static string Build(TorrentMetadata metadata)
+    /// <param name="mamGenreNames">`genres = true`: the subjects are the genres by MAM's names, with Fiction or Nonfiction.</param>
+    public static string Build(TorrentMetadata metadata, bool mamGenreNames = false)
     {
         var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false) };
         using var stream = new MemoryStream();
@@ -61,7 +62,7 @@ public static class LibraryMetadataOpfBuilder
 
             WriteIdentifier(writer, "ISBN", metadata.Isbn);
             WriteIdentifier(writer, "ASIN", metadata.Asin);
-            foreach (var genre in LibraryMetadataJsonBuilder.BuildGenres(metadata))
+            foreach (var genre in LibraryMetadataJsonBuilder.BuildGenres(metadata, mamGenreNames))
             {
                 writer.WriteElementString("dc", "subject", Dc, XmlSafeText.Clean(genre));
             }

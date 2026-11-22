@@ -135,6 +135,29 @@ public sealed class AbsClientTests
     }
 
     [Fact]
+    public async Task UpdateItemMetadataAsync_WithMamGenreNames_SendsMamsNames_AndTheMainCategory()
+    {
+        string? body = null;
+        var client = new AbsClient(
+            new HttpClient(new FakeHttpMessageHandler(request =>
+            {
+                body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            })),
+            new AbsClientOptions { BaseUrl = "http://abs.local", Token = Token, MamGenreNames = true });
+
+        await client.UpdateItemMetadataAsync("item1", BuildMetadata() with
+        {
+            FictionCategory = FictionCategory.Nonfiction,
+            GenreCategories = new HashSet<GenreCategory> { GenreCategory.Politics },
+        });
+
+        var genres = System.Text.Json.JsonDocument.Parse(body!).RootElement.GetProperty("metadata").GetProperty("genres").EnumerateArray().Select(g => g.GetString());
+        Assert.Contains("Nonfiction", genres);
+        Assert.Contains("Politics/Sociology", genres);
+    }
+
+    [Fact]
     public async Task DeleteItemAsync_ItemId_TargetsThatItem()
     {
         HttpRequestMessage? capturedRequest = null;

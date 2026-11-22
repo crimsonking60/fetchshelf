@@ -10,6 +10,12 @@ public sealed record SearchResultViewModel(
     long MamId, string Title, string AuthorsDisplay, long SizeBytes, string SizeDisplay, bool IsFree, bool IsPersonalFreeleech, bool IsVip,
     bool WedgePreHighlighted, MamResultStatus Status, string MediaTypeSlug, string MediaTypeLabel)
 {
+    /// <summary>The genres by MAM's ids, space-separated, for the page's Genre filter; empty without any.</summary>
+    public string GenreIds { get; init; } = string.Empty;
+
+    /// <summary>"Fiction" or "Nonfiction" for the page's Fiction filter; empty when MAM gave neither.</summary>
+    public string Fiction { get; init; } = string.Empty;
+
     /// <summary>The authors one by one, in MAM's order, each linking to more by them.</summary>
     public IReadOnlyList<string> Authors { get; init; } = [];
 
@@ -79,6 +85,8 @@ public sealed record SearchResultViewModel(
             FormatQuality = preferenceLists is null ? null : RateFormats(record, preferenceLists),
             IsSnatchedByMe = record.IsSnatchedByMe,
             CannotDownloadReason = preferenceLists is null ? null : CannotDownloadReasonFor(record, preferenceLists),
+            GenreIds = string.Join(' ', record.GenreCategoryIds.Distinct().Order()),
+            Fiction = record.FictionCategoryId switch { 1 => "Fiction", 2 => "Nonfiction", _ => string.Empty },
         };
 
     /// <summary>

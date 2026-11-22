@@ -604,7 +604,12 @@ takes it. `deny_genres` keeps books with a genre out, and names are MAM's, as on
   *Different library* on the **Torrents** page (see [When the folder no longer matches](#when-the-folder-no-longer-matches));
   tick them and choose **Relink selected** to move them.
 - **Books without genres**, such as ones entered by hand, are taken only by a library without `allow_genres` or
-  `fiction`.
+  `fiction`. A book's main category and genres can be set by hand on its **Edit** page, as can a misclassified one's.
+- **Genre names in files.** With `genres = true`, `metadata.json`, `metadata.opf`, Audiobookshelf and the OPDS catalog
+  get MAM's genre names, such as *Politics/Sociology* rather than *Politics*, and *Fiction* or *Nonfiction* as one more
+  genre. Files already written keep the old names until they are written again: tick the books on the **Torrents**
+  page and choose **Relink selected**, or a book's own **Refresh and relink**. Audiobookshelf gets the new names
+  then too. With `genres = false` they stay as they were.
 
 ### Link methods
 
@@ -882,12 +887,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   These two filters only hide rows in the results already on the page, and the line below the results says
   how many they hide. They do not change what is asked of MAM, so they cannot bring in more results, and they
   are reset by a new search or a change of page.
-- **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), on the line below *Search in*: show only
-  fiction or nonfiction, and only the results with one of MAM's genres, or with none. MAM can't be asked for either,
-  so they hide results of the page MAM returned, and the line below the results says how many: "2 of the 100 results
-  on this page hidden by the genre filters". A page can come out short, or empty; **Next** goes on to MAM's next page,
-  filtered the same way. Unlike the two filters above, they are part of the search: they are kept by the pages, and
-  a result's details then show its main category and genres by MAM's names.
+- **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), at the top of the same box: show only
+  fiction or nonfiction, and only the results with one of MAM's genres, or with none. Like the two filters below them,
+  they hide rows of the page already shown, without asking MAM again, are counted in the same line below the results,
+  and are reset the same way. A result's details show its main category and genres by MAM's names.
 - Click a result's title for everything MAM returns for it: cover, narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
@@ -1634,7 +1637,7 @@ example:
 | `title`, `subtitle` | A title with a colon is split at the colon, unless the part before it is shorter than 4 characters. |
 | `description` | The torrent's description on MAM. |
 | `isbn`, `asin` | When MAM has them; otherwise `null`. |
-| `genres` | The torrent's MAM category and genres, such as `Fantasy` or `Science Fiction`. |
+| `genres` | The torrent's MAM category and genres, such as `Fantasy` or `Science Fiction`. With [`genres = true`](#sorting-books-by-genre), the genres have MAM's names, such as `Politics/Sociology`, and `Fiction` or `Nonfiction` is one more. |
 | `tags` | `LGBT` when MAM flags the torrent so; otherwise empty. |
 | `language` | The language, such as `English`. |
 | `explicit`, `abridged` | From MAM's flags. |
@@ -2128,7 +2131,8 @@ reported, so they cannot be chosen by hand.
   separated by commas, and press **Set category and tags**. Any other category no library uses is only offered
   when the torrent already has it.
 - **Edit.** If MAM's metadata is wrong, **Edit** lets you correct the title, authors, narrators, series
-  (one `Name #number` per line), language, category and flags. Everything else MAM said about the torrent,
+  (one `Name #number` per line), language, category and flags, and, with [`genres = true`](#sorting-books-by-genre),
+  its main category (fiction, nonfiction or neither) and genres. Everything else MAM said about the torrent,
   such as its description, ISBN and file types, is kept. A hand-edited torrent keeps your values
   through link runs, **Refresh and relink**, and autograbs, lists and Follow coming across the
   torrent again; only **Refresh** replaces them with MAM's details, and on a hand-edited torrent it asks first.

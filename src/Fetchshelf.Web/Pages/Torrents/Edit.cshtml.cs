@@ -1,6 +1,7 @@
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Torrents;
 
-public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner) : PageModel
+public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner, FetchshelfSettings settings) : PageModel
 {
     public string Id { get; private set; } = string.Empty;
 
@@ -21,6 +22,14 @@ public class EditModel(FetchshelfDbContext dbContext, LinkRunner linkRunner) : P
     public IEnumerable<LegacyCategory> Categories => Enum.GetValues<LegacyCategory>();
 
     public IEnumerable<BookFlags> AllFlags => Enum.GetValues<BookFlags>().Where(f => f != BookFlags.None);
+
+    /// <summary>Whether `genres = true`, which offers the main category and genres for editing.</summary>
+    public bool GenresOn => settings.Genres;
+
+    /// <summary>Every genre MAM has, by its names, A-Z, plus any the book has that Fetchshelf doesn't know.</summary>
+    public IReadOnlyList<GenreCategory> AllGenres =>
+        GenreLabels.All.Concat(Input.Genres.Select(id => (GenreCategory)id)).Distinct()
+            .OrderBy(GenreLabels.Label, StringComparer.OrdinalIgnoreCase).ToList();
 
     public async Task OnGetAsync(string id)
     {

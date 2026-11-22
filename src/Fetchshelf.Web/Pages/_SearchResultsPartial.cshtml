@@ -17,7 +17,7 @@ else if (Model.SearchError is not null)
 }
 else if (Model.ResultsLoaded && Model.Results.Count == 0)
 {
-    <p id="no-results-message" class="empty">No results.@(Model.SnatchedLeftOut > 0 ? $" {Model.SnatchedLeftOut} on this page were left out as snatched before." : "")@(Model.GenreHidden > 0 ? $" All {Model.GenreHidden} on this page were hidden by the genre filters; the next page may have some." : "")</p>
+    <p id="no-results-message" class="empty">No results.@(Model.SnatchedLeftOut > 0 ? $" {Model.SnatchedLeftOut} on this page were left out as snatched before." : "")</p>
     @await Html.PartialAsync("_SearchPagerPartial", Model)
 }
 else
@@ -26,7 +26,7 @@ else
     {
         @* Sent with every Download click on the page; the category qBittorrent gets, and with it the library, and which qBittorrent. *@
         <div class="toolbar" id="download-category-bar">
-            <label>Download into
+            <label>Download into:
                 <select id="download-category" name="category">
                     <option value="">the category the tag rules give</option>
                     @foreach (var (value, label) in Model.CategoryOptions)
@@ -51,6 +51,7 @@ else
     }
     @* Right above the table they narrow; the page's script keeps their state when the results arrive. *@
     <div id="search-filters">
+        @await Html.PartialAsync("_SearchGenreFiltersPartial", Model)
         <label>
             <input type="checkbox" id="hide-downloaded" />
             Hide downloaded torrents
