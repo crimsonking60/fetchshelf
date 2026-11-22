@@ -17,6 +17,9 @@ namespace Fetchshelf.Data.Organizer;
 public sealed record CoverRunSummary(int FromFiles, int Fetched, int Waiting)
 {
     public int Written => FromFiles + Fetched;
+
+    /// <summary>The fetched covers by the name of the source they came from, such as "Open Library".</summary>
+    public IReadOnlyDictionary<string, int> FetchedFrom { get; init; } = new Dictionary<string, int>();
 }
 
 /// <summary>The settings the cover pass runs by.</summary>
@@ -66,7 +69,8 @@ public sealed class CoverWriter(
     /// </summary>
     public async Task<CoverRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
-        var (fromFiles, fetched, fetches, waiting) = (0, 0, 0, 0);
+        var (fromFiles, fetches, waiting) = (0, 0, 0);
+        var fetchedFrom = new Dictionary<string, int>();
         var reading = Stopwatch.StartNew();
         var fetching = coverSource is not null && options.MaxFetchesPerRun > 0;
         (long MamId, string Id)? after = null;
@@ -111,7 +115,7 @@ public sealed class CoverWriter(
                     continue;
                 }
 
-                if (coverSource is null || !MayFetch(torrent))
+                if (coverSource is null || !MayFetch(torrent) || !coverSource.CanFind(torrent))
                 {
                     // Nothing more to try: settled without a cover.
                     torrent.CoverCheckedAt = DateTimeOffset.UtcNow;
@@ -126,18 +130,19 @@ public sealed class CoverWriter(
                 }
 
                 fetches++;
-                var result = await FetchAndWriteAsync(torrent, cancellationToken);
-                if (result is null)
+                var (outcome, source) = await FetchAndWriteAsync(torrent, cancellationToken);
+                if (outcome is FetchOutcome.Refused or FetchOutcome.Deferred)
                 {
-                    // The source refused: every later request would fail too, so the rest wait for the next run.
-                    fetching = false;
+                    // Refused: every later request would fail too, so the rest wait for the next run. Deferred: the
+                    // sources that could find this book refused, others still work.
+                    fetching = outcome != FetchOutcome.Refused;
                     waiting++;
                     continue;
                 }
 
-                if (result == true)
+                if (outcome == FetchOutcome.Written)
                 {
-                    fetched++;
+                    fetchedFrom[source!] = fetchedFrom.GetValueOrDefault(source!) + 1;
                 }
 
                 torrent.CoverCheckedAt = DateTimeOffset.UtcNow;
@@ -152,6 +157,7 @@ public sealed class CoverWriter(
             after = (page[^1].MamId, page[^1].Id);
         }
 
+        var fetched = fetchedFrom.Values.Sum();
         if (waiting > 0)
         {
             _logger.LogInformation(
@@ -159,7 +165,7 @@ public sealed class CoverWriter(
                 fromFiles, fetched, waiting);
         }
 
-        return new CoverRunSummary(fromFiles, fetched, waiting);
+        return new CoverRunSummary(fromFiles, fetched, waiting) { FetchedFrom = fetchedFrom };
     }
 
     /// <summary>
@@ -213,12 +219,15 @@ public sealed class CoverWriter(
         return null;
     }
 
+    private enum FetchOutcome { Written, NotWritten, Refused, Deferred }
+
     /// <summary>
-    /// Fetches the book's cover from the cover source and writes it into its folder. True when written; false when the
-    /// source has none, or the request failed for a reason that says nothing about the source (logged, and not tried
-    /// again); null when the source refused, which ends fetching for this run.
+    /// Fetches the book's cover from the cover source and writes it into its folder: Written, with the source's name;
+    /// NotWritten when the source has none, or the request failed for a reason that says nothing about the source (logged,
+    /// and not tried again); Refused when the source refused, which ends fetching for this run; Deferred when the sources
+    /// that could find this book refused, and it waits.
     /// </summary>
-    private async Task<bool?> FetchAndWriteAsync(TorrentEntity torrent, CancellationToken cancellationToken)
+    private async Task<(FetchOutcome Outcome, string? Source)> FetchAndWriteAsync(TorrentEntity torrent, CancellationToken cancellationToken)
     {
         CoverImage? image;
         try
@@ -228,21 +237,26 @@ public sealed class CoverWriter(
         catch (CoverSourceRefusedException ex)
         {
             _logger.LogWarning("Stopped fetching covers: {Error} The rest are fetched in a later run", ex.Message);
-            return null;
+            return (FetchOutcome.Refused, null);
         }
-        catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
+        catch (CoverSourceDeferredException)
+        {
+            return (FetchOutcome.Deferred, null);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             _logger.LogInformation("No cover for {Title}: {Error}", torrent.Title, ex.Message);
-            return false;
+            return (FetchOutcome.NotWritten, null);
         }
 
         if (image is null)
         {
             _logger.LogInformation("No cover for {Title}: none was found", torrent.Title);
-            return false;
+            return (FetchOutcome.NotWritten, null);
         }
 
-        return await WriteAsync(torrent, image, "the cover source", cancellationToken);
+        var source = image.Source ?? "the cover source";
+        return await WriteAsync(torrent, image, source, cancellationToken) ? (FetchOutcome.Written, source) : (FetchOutcome.NotWritten, null);
     }
 
     /// <summary>

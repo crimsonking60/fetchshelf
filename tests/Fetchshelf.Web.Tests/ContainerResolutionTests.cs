@@ -18,6 +18,7 @@ public sealed class ContainerResolutionTests
         min_ratio = 1.5
         add_torrents_stopped = true
         exclude_narrator_in_library_dir = true
+        covers = 20
 
         [[qbittorrent]]
         url = "http://qbittorrent.test"
@@ -113,6 +114,8 @@ public sealed class ContainerResolutionTests
         Assert.Equal("Audiobooks", Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Data.Configuration.Library>>()).Name);
         Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Core.AutoDownloader.TagRule>>());
         Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Clients.QBittorrent.QBittorrentClient>>());
+        Assert.IsType<Fetchshelf.Data.Organizer.ChainedCoverSource>(scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.ICoverSource>());
+        Assert.Equal(20, scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.CoverWriterOptions>().MaxFetchesPerRun);
     }
 
     [Fact]
@@ -125,6 +128,8 @@ public sealed class ContainerResolutionTests
         Assert.All(PageModels(), page => Assert.NotNull(ActivatorUtilities.CreateInstance(scope.ServiceProvider, page)));
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<LinkRunner>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<DownloadRunner>());
+        // Without covers, no cover source: nothing is asked of Open Library or Audnexus.
+        Assert.Null(scope.ServiceProvider.GetService<Fetchshelf.Data.Organizer.ICoverSource>());
     }
 
     [Fact]
