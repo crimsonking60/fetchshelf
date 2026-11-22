@@ -19,6 +19,28 @@ public sealed record GenreCondition(IReadOnlySet<GenreCategory> AllowGenres, IRe
     /// <summary>Whether the condition asks nothing, so a library with it takes every book its category and tags give it.</summary>
     public bool IsEmpty => AllowGenres.Count == 0 && DenyGenres.Count == 0 && Fiction is null;
 
+    /// <summary>The condition in words, by MAM's names, such as "nonfiction; any of Historical; none of Romance"; null when empty.</summary>
+    public string? Describe()
+    {
+        var parts = new List<string>();
+        if (Fiction is { } fiction)
+        {
+            parts.Add(GenreLabels.FictionLabel(fiction).ToLowerInvariant());
+        }
+
+        if (AllowGenres.Count > 0)
+        {
+            parts.Add("any of " + string.Join(", ", AllowGenres.Order().Select(GenreLabels.Label)));
+        }
+
+        if (DenyGenres.Count > 0)
+        {
+            parts.Add("none of " + string.Join(", ", DenyGenres.Order().Select(GenreLabels.Label)));
+        }
+
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
     public bool Matches(TorrentMetadata metadata)
     {
         var genres = metadata.GenreCategories ?? new HashSet<GenreCategory>();

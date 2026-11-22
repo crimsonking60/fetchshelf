@@ -1,3 +1,4 @@
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 
@@ -395,5 +396,78 @@ public sealed class LibraryConfigTests : IDisposable
         var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
 
         Assert.StartsWith("Invalid configuration: the 2nd [[library]] section must specify one of", exception.Message);
+    }
+
+    [Fact]
+    public void Load_GenreSettings_WithGenresOn_AreParsedByMamsNames()
+    {
+        File.WriteAllText(ConfigPath, """
+            mam_id = ""
+            genres = true
+
+            [[library]]
+            name = "History"
+            library_dir = "/library/history"
+            category = "ebooks"
+            fiction = "Nonfiction"
+            allow_genres = ["Historical", "military / war"]
+            deny_genres = ["Juvenile"]
+
+            [[library]]
+            library_dir = "/library/ebooks"
+            category = "ebooks"
+            """);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.True(settings.Genres);
+        var history = settings.Library[0].Genres;
+        Assert.Equal([GenreCategory.Historical, GenreCategory.Military], history.AllowGenres.Order());
+        Assert.Equal([GenreCategory.Juvenile], history.DenyGenres);
+        Assert.Equal(FictionCategory.Nonfiction, history.Fiction);
+        Assert.Equal("nonfiction; any of Historical, Military/War; none of Juvenile", history.Describe());
+        Assert.True(settings.Library[1].Genres.IsEmpty);
+    }
+
+    [Theory]
+    [InlineData("allow_genres = [\"Fantasy\"]")]
+    [InlineData("deny_genres = [\"Romance\"]")]
+    [InlineData("fiction = \"fiction\"")]
+    public void Load_AGenreSetting_WithoutGenresOn_IsRefused(string setting)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [[library]]
+            name = "Fantasy"
+            library_dir = "/library/fantasy"
+            category = "ebooks"
+            {setting}
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+        Assert.Contains("the [[library]] 'Fantasy'", exception.Message);
+        Assert.Contains("need genres = true", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("allow_genres = [\"Space Opera\"]", "'Space Opera' in 'allow_genres', which is not one of MAM's genres. The genres are: Action/Adventure, ")]
+    [InlineData("deny_genres = [\"Politics\"]", "'Politics' in 'deny_genres', which is not one of MAM's genres")]
+    [InlineData("allow_genres = [\"Romance\"]\ndeny_genres = [\"romance\"]", "has 'Romance' in both 'allow_genres' and 'deny_genres'")]
+    [InlineData("fiction = \"poetry\"", "has fiction = \"poetry\"; it takes \"fiction\" or \"nonfiction\"")]
+    public void Load_AGenreSettingThatCantBeUsed_IsRefused_SayingWhy(string setting, string expected)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+            genres = true
+
+            [[library]]
+            library_dir = "/library/books"
+            category = "ebooks"
+            {setting}
+            """);
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+        Assert.Contains(expected, exception.Message);
     }
 }

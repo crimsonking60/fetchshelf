@@ -1,3 +1,4 @@
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 
 namespace Fetchshelf.Core.Tests;
@@ -82,5 +83,48 @@ public class LibraryMatcherTests
         var index = LibraryMatcher.FindMatchingLibraryIndex(libraries, null, "/data/audiobooks2/book", []);
 
         Assert.Equal(1, index);
+    }
+
+    private static TorrentMetadata Book(FictionCategory? fiction, params GenreCategory[] genres) => new()
+    {
+        MamId = 1,
+        VipStatus = VipStatus.NotVip,
+        MediaType = MediaType.Ebook,
+        FictionCategory = fiction,
+        LegacyCategory = LegacyCategory.EbookHistory,
+        GenreCategories = genres.ToHashSet(),
+        Language = Language.English,
+        Title = "A Book",
+        MetadataSource = MetadataSource.Mam,
+        UploadTime = DateTimeOffset.UnixEpoch,
+    };
+
+    [Fact]
+    public void CandidateIndexes_EveryLibraryTheCategoryGives_InOrder_WhateverTheirGenres()
+    {
+        LibraryMatchRule[] libraries =
+        [
+            new() { Category = "ebooks", Genres = new(new HashSet<GenreCategory> { GenreCategory.Historical }, new HashSet<GenreCategory>(), FictionCategory.Nonfiction) },
+            new() { Category = "audiobooks" },
+            new() { Category = "ebooks" },
+        ];
+
+        Assert.Equal([0, 2], LibraryMatcher.CandidateIndexes(libraries, "ebooks", "/downloads/book", []));
+        Assert.Equal(0, LibraryMatcher.FindMatchingLibraryIndex(libraries, "ebooks", "/downloads/book", []));
+    }
+
+    [Fact]
+    public void ChooseForBook_TheFirstCandidateWhoseGenresTakeIt_ElseNone()
+    {
+        LibraryMatchRule[] libraries =
+        [
+            new() { Category = "ebooks", Genres = new(new HashSet<GenreCategory> { GenreCategory.Historical }, new HashSet<GenreCategory>(), FictionCategory.Nonfiction) },
+            new() { Category = "ebooks", Genres = new(new HashSet<GenreCategory>(), new HashSet<GenreCategory> { GenreCategory.Romance }, null) },
+        ];
+
+        Assert.Equal(0, LibraryMatcher.ChooseForBook(libraries, [0, 1], Book(FictionCategory.Nonfiction, GenreCategory.Historical)));
+        Assert.Equal(1, LibraryMatcher.ChooseForBook(libraries, [0, 1], Book(FictionCategory.Fiction, GenreCategory.Historical)));
+        Assert.Null(LibraryMatcher.ChooseForBook(libraries, [0, 1], Book(FictionCategory.Fiction, GenreCategory.Romance)));
+        Assert.Null(LibraryMatcher.ChooseForBook(libraries, [], Book(null)));
     }
 }

@@ -167,6 +167,9 @@
                                 case RelinkBlocker.NoLibraryAccepts:
                                     <text>No library accepts its qBittorrent category (@(string.IsNullOrEmpty(finding.BlockerDetail) ? "none" : finding.BlockerDetail)), save path or tags. Give it a library's category on its <a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">torrent page</a>, then <strong>Relink</strong>.</text>
                                     break;
+                                case RelinkBlocker.NoLibraryTakesGenres:
+                                    <text>@finding.BlockerDetail Change a library's <code>allow_genres</code>, <code>deny_genres</code> or <code>fiction</code> so one takes it, or add a library without them, then <strong>Relink</strong>.</text>
+                                    break;
                                 case RelinkBlocker.NoAuthor:
                                     <text>The book has no author, which its folder name needs. Add one on its <a asp-page="/Torrents/Edit" asp-route-id="@finding.TorrentId">Edit page</a>, then <strong>Relink</strong>.</text>
                                     break;
