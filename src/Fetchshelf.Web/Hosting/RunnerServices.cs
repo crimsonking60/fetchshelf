@@ -35,7 +35,7 @@ public static class RunnerServices
         services.AddScoped<ClientStatusChecker>();
         services.AddScoped<LinkRunner>();
         services.AddSingleton(new CoverWriterOptions(settings.CoversFromMam));
-        services.AddScoped<CoverWriter>();
+        // CoverWriter is registered with a cover source (ICoverSource); MAM's cover server is no longer one.
         services.AddSingleton<LibraryCheckResults>();
         services.AddScoped<LibraryChecker>();
         services.AddScoped<DownloadProgressChecker>();

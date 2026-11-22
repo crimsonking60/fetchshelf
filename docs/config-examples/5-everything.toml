@@ -42,7 +42,7 @@ metadata_json = true  # write metadata.json (Audiobookshelf's format) in every l
 metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
 link_method = "hardlink_or_copy" # how files are placed in every library without its own 'method' (default)
 split_collections = false        # split a collection into one library book each, in every library without its own setting
-covers_from_mam = 20  # covers fetched from MAM per Link run for book folders without an image, 0 to 100; default 0
+covers_from_mam = 20  # covers per Link run for book folders without an image, 0 to 100; default 0. None in this version: MAM refuses
 metrics = false       # serve Prometheus metrics at /metrics
 genres = true         # MAM's genres and fiction/nonfiction: libraries by genre, and genre filters on the pages; default false
 
@@ -77,6 +77,7 @@ exclude_narrator_in_library_dir = false
 [search]
 # Results bigger than this get the "Wedge download" button highlighted.
 wedge_over = "100 MiB"
+covers = false   # a cover in a result's details, from the cover sources (not MAM, which refuses); none in this version
 
 # =====================================================================================================
 # [audiobookshelf]: optional. Remove the section to switch the integration off.

@@ -1,4 +1,3 @@
-using Fetchshelf.Clients.Mam;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
 using Microsoft.EntityFrameworkCore;
@@ -17,21 +16,21 @@ public sealed class CoverWriterTests : IDisposable
 
     private Library BookLibrary => new() { LibraryDir = LibraryDir, Category = "audiobooks", Method = LibraryLinkMethod.Hardlink };
 
-    /// <summary>MAM's covers, by MAM id; an id without one has none. Records every id asked for.</summary>
-    private sealed class FakeCoverSource(Func<long, MamImage?> cover) : IMamCoverSource
+    /// <summary>A cover source's covers, by MAM id; an id without one has none. Records every id asked for.</summary>
+    private sealed class FakeCoverSource(Func<long, CoverImage?> cover) : ICoverSource
     {
         public List<long> Asked { get; } = [];
 
-        public Task<MamImage?> FetchAsync(long mamId, CancellationToken cancellationToken = default)
+        public Task<CoverImage?> FetchAsync(Fetchshelf.Data.Entities.TorrentEntity torrent, CancellationToken cancellationToken = default)
         {
-            Asked.Add(mamId);
-            return Task.FromResult(cover(mamId));
+            Asked.Add(torrent.MamId);
+            return Task.FromResult(cover(torrent.MamId));
         }
     }
 
     private static readonly CoverWriterOptions Options = new(MaxFetchesPerRun: 20);
 
-    private static MamImage Jpeg => new([0xFF, 0xD8, 0xFF], "image/jpeg");
+    private static CoverImage Jpeg => new([0xFF, 0xD8, 0xFF], "image/jpeg");
 
     /// <summary>A linked book with MAM id <paramref name="mamId"/> whose folder holds <paramref name="files"/>.</summary>
     private async Task<string> SeedLinkedAsync(FetchshelfDbContext context, long mamId, params string[] files)
@@ -76,7 +75,7 @@ public sealed class CoverWriterTests : IDisposable
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         var folder = await SeedLinkedAsync(context, 1);
 
-        await new CoverWriter(context, new FakeCoverSource(_ => new MamImage([1], "image/png")), [BookLibrary], Options).RunAsync();
+        await new CoverWriter(context, new FakeCoverSource(_ => new CoverImage([1], "image/png")), [BookLibrary], Options).RunAsync();
 
         Assert.True(File.Exists(Path.Combine(folder, "cover.png")));
     }
@@ -159,7 +158,7 @@ public sealed class CoverWriterTests : IDisposable
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         await SeedLinkedAsync(context, 1);
         await SeedLinkedAsync(context, 2);
-        var source = new FakeCoverSource(_ => throw new MamRateLimitedException("MAM says too many requests."));
+        var source = new FakeCoverSource(_ => throw new CoverSourceRefusedException("The source says too many requests."));
 
         var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
 

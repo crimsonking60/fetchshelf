@@ -1,4 +1,3 @@
-using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
@@ -26,7 +25,7 @@ public sealed record CoverWriterOptions(int MaxFetchesPerRun);
 /// </summary>
 public sealed class CoverWriter(
     FetchshelfDbContext dbContext,
-    IMamCoverSource coverSource,
+    ICoverSource coverSource,
     IReadOnlyList<Library> libraries,
     CoverWriterOptions options,
     LibraryWriteGate? writeGate = null,
@@ -137,12 +136,12 @@ public sealed class CoverWriter(
     /// </summary>
     private async Task<bool?> FetchAndWriteAsync(TorrentEntity torrent, CancellationToken cancellationToken)
     {
-        MamImage? image;
+        CoverImage? image;
         try
         {
-            image = await coverSource.FetchAsync(torrent.MamId, cancellationToken);
+            image = await coverSource.FetchAsync(torrent, cancellationToken);
         }
-        catch (Exception ex) when (ex is MamRateLimitedException or MamAccountBlockedException or MamForbiddenException)
+        catch (CoverSourceRefusedException ex)
         {
             _logger.LogWarning("Stopped fetching covers: {Error} The rest are fetched in a later run", ex.Message);
             return null;
@@ -155,7 +154,7 @@ public sealed class CoverWriter(
 
         if (image is null || CoverFile.NameFor(image.ContentType) is not { } name)
         {
-            _logger.LogInformation("No cover for {Title}: MAM has none it serves as a JPEG, PNG or WebP image", torrent.Title);
+            _logger.LogInformation("No cover for {Title}: none was found as a JPEG, PNG or WebP image", torrent.Title);
             return false;
         }
 

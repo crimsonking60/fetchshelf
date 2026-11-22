@@ -89,7 +89,7 @@ public class DetailModel(
                 return;
             }
 
-            Record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnThumbnail = true, ReturnMediaInfo = true })).Data
+            Record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnMediaInfo = true })).Data
                 .FirstOrDefault();
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
@@ -115,9 +115,8 @@ public class DetailModel(
         }
 
         Description = DescriptionText.From(Record.Description);
-        // Fetched by Fetchshelf with the session, not by the browser, which may not be logged in to MAM.
-        var cover = MamCoverAddress.For(Record, mamOptions);
-        ThumbnailUrl = mamClient.IsMamAddress(cover) ? Url.Page("/Search/Detail", "Cover", new { mamId, url = cover }) : null;
+        // No cover from MAM: its cover server refuses Fetchshelf since 2026-11-22. `[search] covers` shows one from a
+        // cover source once there is one.
         MediaInfo = MamHitDetails.MediaInfoSections(Record.MediaInfoJson);
         RawFields = MamHitDetails.RawFields(Record.RawJson);
 
@@ -135,35 +134,6 @@ public class DetailModel(
             QBittorrentCategory = presence.CategoryOf(mamId, known.Select(t => t.Id));
             InQBittorrent = QBittorrentCategory is not null;
         }
-    }
-
-    /// <summary>
-    /// The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.
-    /// It doesn't take the MAM gate: it is an image from MAM's image host, not a call to its API, which the browser would
-    /// make itself if it were logged in to MAM.
-    /// </summary>
-    public async Task<IActionResult> OnGetCoverAsync(long mamId, string? url)
-    {
-        if (!mamClient.IsMamAddress(url))
-        {
-            return NotFound();
-        }
-
-        try
-        {
-            if (await mamClient.DownloadImageAsync(url!, HttpContext.RequestAborted) is { } image)
-            {
-                Response.Headers.CacheControl = "private, max-age=86400";
-                return File(image.Bytes, image.ContentType);
-            }
-        }
-        catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
-        {
-            // The torrent's id, not the address: the address comes from the request as typed, the id is a number.
-            logger.LogInformation("Could not fetch the cover of MAM torrent {MamId}: {Error}", mamId, ex.Message);
-        }
-
-        return NotFound();
     }
 
     /// <summary>Whether `genres = true`, which shows the hit's main category and genres by MAM's names.</summary>
