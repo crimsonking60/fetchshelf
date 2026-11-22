@@ -13,7 +13,7 @@ namespace Fetchshelf.Web.Pages.Books;
 public sealed record BookCardViewModel(
     string Id, string Title, IReadOnlyList<string> Authors, string? SeriesLine, IReadOnlyList<string> Formats, string? CoverHref, string Initial)
 {
-    /// <summary>How many authors a card shows; a book with more shows these and "... more", which lists them all.</summary>
+    /// <summary>How many authors a card shows; a book with more shows these and "... more", which opens the book with all of them.</summary>
     public const int AuthorsShown = 3;
 
     /// <summary>The authors the card shows, joined.</summary>

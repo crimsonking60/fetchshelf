@@ -776,8 +776,8 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
 
 - **Recently added**, **Authors**, **Series** (each series' books in order, with a link to the series on the
   **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
-- **Authors** on a card stop at three; for a book with more, **... more** lists them all, each leading to their
-  books.
+- **Authors** on a card stop at three; for a book with more, **... more** opens the book, like its cover, with all
+  of them.
 - **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
   companion PDF doesn't count as an ebook.
 - **Covers** come from the book's folder or its file, as in the OPDS catalog, and for audiobooks also from the

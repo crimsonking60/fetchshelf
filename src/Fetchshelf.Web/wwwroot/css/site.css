@@ -748,9 +748,6 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .book-card .book-title { font-weight: 600; overflow-wrap: anywhere; }
 .book-card .book-open:hover .book-title { text-decoration: underline; }
 .book-card .book-author, .book-card .book-series { overflow-wrap: anywhere; }
-#authors-dialog { width: min(28rem, 95vw); }
-#authors-dialog-body h3 { margin-top: 0; }
-.authors-list { margin: 0; padding-left: 1.2em; }
 /* A cover keeps a book's shape whether or not there is one; without one the title's first letter stands in. */
 .book-cover { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border: 1px solid var(--border); border-radius: 3px; background: var(--surface-2); }
 .book-cover::before { content: attr(data-initial); position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.5rem; color: var(--text-muted); }

@@ -163,23 +163,27 @@ public sealed class BooksPageTests : IDisposable
     }
 
     [Fact]
-    public async Task ABookWithMoreThanThreeAuthors_ShowsThreeOnItsCard_AndMoreListsThemAll()
+    public async Task ABookWithMoreThanThreeAuthors_ShowsThreeOnItsCard_AndMoreOpensTheBookLikeItsCover()
     {
         using var fixture = new FetchshelfWebAppFixture(Config());
         string[] five = ["Ann Leckie", "Martha Wells", "Becky Chambers", "Yoon Ha Lee", "Aliette de Bodard"];
         await SeedAsync(fixture, "anthology", "Starships", MediaType.Ebook, ["Starships.epub"], authors: five);
         await SeedAsync(fixture, "trio", "Three Hands", MediaType.Ebook, ["Three Hands.epub"], authors: five[..3]);
+        var client = fixture.CreateClient();
 
-        var page = await fixture.CreateClient().GetStringAsync("/books");
+        var page = await client.GetStringAsync("/books");
+        var dialog = await client.GetStringAsync("/books/anthology?handler=Partial");
 
-        var start = IndexOf(page, ">Starships<");
-        var card = page[start..page.IndexOf("</template>", start, StringComparison.Ordinal)];
-        Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers <button", card);
-        Assert.Contains(">... more</button>", card);
-        var template = card[IndexOf(card, "<template class=\"authors-all\">")..];
-        Assert.All(five, author => Assert.Contains($"Author={Uri.EscapeDataString(author)}\">{author}</a>", template));
+        var start = IndexOf(page, "hx-get=\"/books/anthology?handler=Partial\"");
+        var card = page[start..page.IndexOf("</li>", start, StringComparison.Ordinal)];
+        Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers <a class=\"authors-more\"", card);
+        Assert.DoesNotContain("Yoon Ha Lee", card[..IndexOf(card, "authors-more")]);
+        // "... more" asks for the same book dialog as the cover, and that lists every author.
+        Assert.Equal(2, card.Split("hx-get=\"/books/anthology?handler=Partial\"").Length - 1);
+        Assert.Contains(">... more</a>", card);
+        Assert.All(five, author => Assert.Contains($">{author}</a>", dialog));
         // Three authors fit on the card: no "... more".
-        Assert.Equal(1, page.Split("class=\"link-button authors-more\"").Length - 1);
+        Assert.Equal(1, page.Split("class=\"authors-more\"").Length - 1);
         Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers</span>", page);
     }
 
