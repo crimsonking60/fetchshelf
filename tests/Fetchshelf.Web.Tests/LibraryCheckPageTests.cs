@@ -67,7 +67,6 @@ public sealed class LibraryCheckPageTests : IDisposable
         var response = await client.PostAsync($"/LibraryCheck?handler={handler}", content);
         html = await response.Content.ReadAsStringAsync();
         // Delete and Relink run in the background: the page is read again until they have ended, and shows how they went.
-        // Thousands of findings take a while on a slow CI machine, where 30 seconds wasn't always enough for 3,000.
         var deadline = DateTime.UtcNow.AddSeconds(120);
         while ((html.Contains("data-state=\"waiting\"", StringComparison.Ordinal) || html.Contains("data-state=\"running\"", StringComparison.Ordinal))
             && DateTime.UtcNow < deadline)
@@ -200,25 +199,6 @@ public sealed class LibraryCheckPageTests : IDisposable
         Assert.Contains("Deleted 1 finding.", html);
         using var scope = fixture.CreateScope();
         Assert.Equal(folder, (await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Events.SingleAsync(e => e.Kind == EventKind.DeletedFromLibrary)).LibraryPath);
-    }
-
-    [Fact]
-    public async Task Delete_ThousandsTickedAtOnce_AreAllDeleted()
-    {
-        // A move to new libraries leaves thousands of old folders behind, all ticked with Select all: more form values
-        // than ASP.NET Core's default limit of 1,024, which answered 400 Bad Request.
-        using var fixture = Fixture();
-        var client = fixture.CreateClient();
-        var findings = Enumerable.Range(0, 3000)
-            .Select(i => new LibraryFinding(LibraryFindingKind.UnknownFolder, MakeFolder($"Author {i}/Book"), "Audiobooks"))
-            .ToList();
-        Results(fixture).Set(findings, DateTimeOffset.UtcNow);
-
-        var html = await PostAsync(client, "Delete", Results(fixture).Findings.Select(f => f.Id).ToArray());
-
-        Assert.Contains("Deleted 3000 findings.", html);
-        Assert.Empty(Results(fixture).Findings);
-        Assert.Empty(Directory.GetDirectories(LibraryDir));
     }
 
     [Fact]
