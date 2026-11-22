@@ -114,6 +114,8 @@ public sealed class FollowRunner(
             _logger.LogInformation("Follow: dry run, nothing will be selected or written");
         }
 
+        await RetireForFollowsNotDueAsync(due, cancellationToken);
+
         if (due.Count == 0)
         {
             _logger.LogInformation("Follow: no series or author on the Following page is due for a search");
@@ -170,6 +172,36 @@ public sealed class FollowRunner(
             run.Searched, run.Selected, _dryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
             run.Failed == 0 ? string.Empty : $", {run.Failed} failed");
         return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, _dryRun, added);
+    }
+
+    /// <summary>
+    /// Takes off the To look at lists of the follows not searched in this run what has reached the library or the selection
+    /// queue since their last search, by any route: another follow, an autograb, a list or the Search page. The follows
+    /// searched in this run do the same as part of their search. Only the database is read; nothing is asked of MAM.
+    /// </summary>
+    private async Task RetireForFollowsNotDueAsync(IReadOnlyList<FollowEntity> due, CancellationToken cancellationToken)
+    {
+        var dueIds = due.Select(f => f.Id).ToHashSet();
+        var waiting = await dbContext.FollowFinds
+            .Where(f => f.Status == FollowFindStatus.New || f.Status == FollowFindStatus.Wanted)
+            .Join(dbContext.Follows.Where(f => f.Mode != FollowMode.Ignore), find => find.FollowId, follow => follow.Id, (find, follow) => find)
+            .ToListAsync(cancellationToken);
+        var byFollow = waiting.Where(f => !dueIds.Contains(f.FollowId)).GroupBy(f => f.FollowId).ToList();
+        if (byFollow.Count == 0)
+        {
+            return;
+        }
+
+        var follows = await dbContext.Follows.Where(f => byFollow.Select(g => g.Key).Contains(f.Id)).ToDictionaryAsync(f => f.Id, cancellationToken);
+        foreach (var finds in byFollow)
+        {
+            await RetireCoveredFindsAsync(follows[finds.Key], finds.ToDictionary(f => f.MamId), cancellationToken);
+        }
+
+        if (!_dryRun)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 
     /// <summary>
