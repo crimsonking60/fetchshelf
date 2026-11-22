@@ -450,6 +450,11 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.StartsWith("Could not download T by Some Author: ", Assert.Single(logger.Messages(LogLevel.Error)), StringComparison.Ordinal);
         var selections = await context.SelectedTorrents.AsNoTracking().OrderBy(s => s.MamId).ToListAsync();
         Assert.Null(selections[0].StartedAt);
+        // On the Errors page, under its MAM id, as staying queued: no retry is offered, as it is still in the queue.
+        var error = Assert.Single(context.ErroredTorrents);
+        Assert.Equal((ErrorStage.Grabber, "1", "T by Some Author"), (error.Stage, error.Key, error.Title));
+        Assert.EndsWith("It stays queued for the next run.", error.ErrorText, StringComparison.Ordinal);
+        Assert.Null(error.DisplayMetadataJson);
         Assert.NotNull(selections[1].StartedAt);
         Assert.Equal(TorrentHash2, Assert.Single(context.Torrents).Id);
     }
@@ -568,7 +573,8 @@ public sealed class DownloadRunnerTests : IDisposable
         Assert.Null(queued.RemovedAt);
         Assert.Null(queued.StartedAt);
         Assert.Equal("dl1", queued.DownloadLink);
-        Assert.Empty(context.ErroredTorrents);
+        // Still queued, so no retry is offered; the Errors page says what happened, and a later start clears it.
+        Assert.Null(Assert.Single(context.ErroredTorrents).DisplayMetadataJson);
         Assert.NotNull(context.SelectedTorrents.Single(s => s.MamId == 2).StartedAt);
     }
 
@@ -584,7 +590,8 @@ public sealed class DownloadRunnerTests : IDisposable
         await RunnerFor(context, mam).RunAsync();
 
         Assert.Null(context.SelectedTorrents.Single().RemovedAt);
-        Assert.Empty(context.ErroredTorrents);
+        // Still queued, so no retry is offered; the Errors page says what happened, and a later start clears it.
+        Assert.Null(Assert.Single(context.ErroredTorrents).DisplayMetadataJson);
     }
 
     [Fact]
@@ -720,7 +727,8 @@ public sealed class DownloadRunnerTests : IDisposable
         var selected = context.SelectedTorrents.Single();
         Assert.Null(selected.RemovedAt);
         Assert.Equal("fresh-link", selected.DownloadLink);
-        Assert.Empty(context.ErroredTorrents);
+        // Still queued, so no retry is offered; the Errors page says what happened, and a later start clears it.
+        Assert.Null(Assert.Single(context.ErroredTorrents).DisplayMetadataJson);
     }
 
     [Fact]
