@@ -29,4 +29,23 @@ public class PersonNameKeyTests
     {
         Assert.Equal("левтолстой", PersonNameKey.Of("Лев Толстой"));
     }
+
+    [Theory]
+    [InlineData("Steve J McHugh", "Steve McHugh")]
+    [InlineData("Ursula K. Le Guin", "Ursula Le Guin")]
+    [InlineData("George R. R. Martin", "George Martin")]
+    [InlineData("J. R. R. Tolkien", "J.R.R. Tolkien")]
+    public void WithoutMiddleInitials_LeavesOutTheInitialsBetweenFirstAndLastName(string a, string b)
+    {
+        Assert.Equal(PersonNameKey.WithoutMiddleInitials(a), PersonNameKey.WithoutMiddleInitials(b));
+    }
+
+    [Theory]
+    [InlineData("J. Smith", "K. Smith")]
+    [InlineData("Steve J McHugh", "Steve Jones McHugh")]
+    [InlineData("Steve McHugh", "Steve McHughes")]
+    public void WithoutMiddleInitials_KeepsFirstInitialsAndWholeNames(string a, string b)
+    {
+        Assert.NotEqual(PersonNameKey.WithoutMiddleInitials(a), PersonNameKey.WithoutMiddleInitials(b));
+    }
 }

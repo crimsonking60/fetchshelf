@@ -1716,7 +1716,7 @@ cover put there by you, by Audiobookshelf or by an earlier run is never replaced
 2. **Hardcover**, when the files have none and a [`[hardcover]`](configuration.md#hardcover) token is set: first the
    edition with the book's ISBN (or an audiobook's ASIN), then a search by title and first author. A search hit is
    only taken when its title and one of its authors are the book's, so a book of the same name by someone else, or a
-   box set, isn't. The image comes from Hardcover's image host only, and the token is never sent there.
+   box set, isn't. Middle initials don't count: "Steve J McHugh" on MAM is "Steve McHugh" on Hardcover. The image comes from Hardcover's image host only, and the token is never sent there.
 3. **Open Library**, for a book with an ISBN: only the ISBN is sent. No account or key is needed.
 4. **Audnexus**, which serves Audible's details, for an audiobook with an ASIN: only the ASIN is sent, and the image
    is fetched from Amazon's image host, never from anywhere else Audnexus names.
