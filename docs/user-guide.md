@@ -1703,13 +1703,17 @@ A torrent's cover is whatever image the upload has, and Fetchshelf links only a 
 images. Audiobookshelf then uses a cover embedded in the files, or finds one itself; file browsers and some readers
 show none.
 
-With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes MAM's cover image into the
+> **No covers are fetched in this version.** Since 2026-11-22, MAM's image server refuses Fetchshelf's requests, so
+> `covers_from_mam` fetches nothing and the Search page shows no covers, until other cover sources are in place. What
+> follows describes how covers are written once there is a source.
+
+With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes a cover image into the
 folder of every linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for
 those types. A cover put there by you, by Audiobookshelf or by an earlier run is never replaced. Each run fetches at
 most that many covers, so turning it on for a large library fills the covers in over the following runs; the Link
 job's result says how many are left. A book is
-looked at once: again only after **Refresh** or a relink. A book whose cover MAM doesn't have, or couldn't send, is
-logged and left without one.
+looked at once: again only after **Refresh** or a relink. A book no source has a cover for is logged and left without
+one.
 
 Series libraries are left out: comics and manga carry their cover inside the file, and one series folder holds many
 books. The cover is removed with the book's metadata files.
@@ -1717,9 +1721,8 @@ books. The cover is removed with the book's metadata files.
 The [OPDS catalog](#reading-on-an-e-reader-opds) and the [Books page](#browsing-your-books) show a book folder's cover
 too, whoever put it there, so PDFs and audiobooks get one in both.
 
-The covers come from MAM's image server, as the Search page's covers do. It isn't among the parts of MAM that its API
-documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at
-most 100 covers per run.
+The covers used to come from MAM's image server, which isn't among the parts of MAM that its API documentation
+authorizes automating; since 2026-11-22 it refuses Fetchshelf. Fetchshelf no longer asks it for anything.
 
 ### Collections
 
@@ -1776,7 +1779,7 @@ Whether a collection is split is decided, first that applies:
   **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
   it. Relinking a split collection that is no longer to be split links it as one book again.
-- Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.
+- Covers (`covers_from_mam`) are left out for books of a collection: a cover found for it is the collection's.
 
 **Splitting is a best effort.** How the books of a collection are named, numbered and laid out in folders varies
 widely from one uploader to the next, and Fetchshelf goes by what it can read from MAM's details and the file and
@@ -2562,11 +2565,10 @@ fix the ownership of the copied files.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
   in its own file instead; protect that file the same way.
-- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state, and covers
-  from MAM's image server), qBittorrent and Audiobookshelf (on your network), Hardcover with your token when
-  a `[[hardcover_list]]` is set, and the services your `[[notify]]` blocks name, which receive book titles and
-  job names in the messages. Requests to MAM and Hardcover say they come from `Fetchshelf/<version>`. It
-  sends no usage data anywhere else.
+- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads and your account state), qBittorrent
+  and Audiobookshelf (on your network), Hardcover with your token when a `[[hardcover_list]]` is set, and the services
+  your `[[notify]]` blocks name, which receive book titles and job names in the messages. Requests to MAM and
+  Hardcover say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's

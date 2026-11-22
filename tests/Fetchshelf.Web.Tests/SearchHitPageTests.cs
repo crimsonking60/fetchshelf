@@ -45,21 +45,21 @@ public class SearchHitPageTests
     };
 
     [Fact]
-    public async Task Get_ShowsEverythingMamReturns_WithCoverAndMediaInfo()
+    public async Task Get_ShowsEverythingMamReturns_WithMediaInfo_ButNoCoverFromMam()
     {
         var bodies = new List<string>();
         using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson, bodies));
 
         var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/search/1?Q=kings"));
 
-        Assert.Contains("\"thumbnail\":true", bodies.Single());
+        // MAM's cover server refuses Fetchshelf since 2026-11-22: no cover is asked for, and none is shown.
+        Assert.Contains("\"thumbnail\":false", bodies.Single());
+        Assert.DoesNotContain("hit-cover", html);
         Assert.Contains("\"mediaInfo\":true", bodies.Single());
         Assert.Contains("<h2>The Way of Kings</h2>", html);
         Assert.Contains("Michael Kramer", html);
         Assert.Contains(">The Stormlight Archive</a> #1", html);
         Assert.Contains("ASIN:B003P2WO5E", html);
-        // 2026-01-01 00:00:00 UTC, the upload time, is 1767225600.
-        Assert.Contains("class=\"hit-cover\" src=\"/search/1?url=https%3A%2F%2Fcdn.myanonamouse.net%2Ft%2Fp%2F1767225600%2Flarge%2F1.jpeg&handler=Cover\"", html);
         Assert.Contains("<h4>Audio1</h4>", html);
         Assert.Contains("45h 37m", html);
         Assert.Contains("<th>lang_code</th>", html);
@@ -88,34 +88,6 @@ public class SearchHitPageTests
 
         Assert.Contains("<dialog id=\"hit-dialog\"", html);
         Assert.Contains("id=\"hit-dialog-body\"", html);
-    }
-
-    [Fact]
-    public async Task GetCover_FetchesTheImageFromMam()
-    {
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: Mam(HitJson));
-
-        var response = await fixture.CreateClient().GetAsync("/search/1?handler=Cover&url=" + Uri.EscapeDataString("https://cdn.myanonamouse.net/t/p/1767225600/large/1.jpeg"));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("image/png", response.Content.Headers.ContentType!.MediaType);
-        Assert.Equal([7, 7, 7], await response.Content.ReadAsByteArrayAsync());
-    }
-
-    [Fact]
-    public async Task GetCover_AddressOutsideMam_IsNotFetched()
-    {
-        var requested = new List<string>();
-        using var fixture = new FetchshelfWebAppFixture(mamHandler: request =>
-        {
-            requested.Add(request.RequestUri!.ToString());
-            return new HttpResponseMessage(HttpStatusCode.OK);
-        });
-
-        var response = await fixture.CreateClient().GetAsync("/search/1?handler=Cover&url=" + Uri.EscapeDataString("http://192.168.1.1/admin"));
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Empty(requested);
     }
 
     [Fact]

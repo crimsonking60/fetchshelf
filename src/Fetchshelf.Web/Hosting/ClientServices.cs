@@ -32,7 +32,6 @@ public static class ClientServices
             sp.GetRequiredService<MamClientOptions>(),
             logger: sp.GetRequiredService<ILogger<MamClient>>()));
         services.AddSingleton<IMetadataLookup, MamMetadataLookup>();
-        services.AddSingleton<IMamCoverSource, MamCoverSource>();
         services.AddSingleton<MamAccessGate>();
         services.AddSingleton<MamPageGate>();
         // Every call made to MAM, for the MAM API page.
