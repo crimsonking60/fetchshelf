@@ -647,6 +647,7 @@ public sealed class LinkRunnerTests : IDisposable
     [Theory]
     [InlineData("missing", RelinkBlocker.NotInQBittorrent, null)]
     [InlineData("downloading", RelinkBlocker.NotFinished, "audiobooks")]
+    [InlineData("missing-files", RelinkBlocker.MissingFiles, "DOWNLOADS")]
     [InlineData("other-category", RelinkBlocker.NoLibraryAccepts, "books-elsewhere")]
     [InlineData("no-author", RelinkBlocker.NoAuthor, "audiobooks")]
     [InlineData("fine", RelinkBlocker.None, "audiobooks")]
@@ -664,6 +665,7 @@ public sealed class LinkRunnerTests : IDisposable
         {
             "missing" => [],
             "downloading" => [FinishedTorrent("hash1", DownloadsDir) with { State = "downloading", Progress = 0.5 }],
+            "missing-files" => [FinishedTorrent("hash1", DownloadsDir) with { State = "missingFiles", Progress = 0 }],
             "other-category" => [FinishedTorrent("hash1", DownloadsDir, category: "books-elsewhere")],
             _ => new List<QBittorrentTorrent> { FinishedTorrent("hash1", DownloadsDir) },
         };
@@ -672,7 +674,24 @@ public sealed class LinkRunnerTests : IDisposable
 
         var (blocker, foundCategory) = await runner.RelinkBlockerAsync("hash1", [(new QBittorrentConnection(), client)]);
 
-        Assert.Equal((expected, category), (blocker, foundCategory));
+        Assert.Equal((expected, category == "DOWNLOADS" ? DownloadsDir : category), (blocker, foundCategory));
+    }
+
+    [Fact]
+    public async Task RelinkAsync_FilesMissingInQBittorrent_SaysSo_AndWhereItLooks()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        await OrganizerTestSupport.SeedTorrentAsync(context, "hash1", 1);
+        var client = OrganizerTestSupport.CreateQBittorrentClient(
+            [FinishedTorrent("hash1", "/data/seeds") with { State = "missingFiles", Progress = 0 }], new Dictionary<string, List<QBittorrentFile>>());
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(), libraries).RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(
+            "Not relinked: qBittorrent can't find its files in /data/seeds (Missing files): move them back there, or use Set location in qBittorrent, then Force recheck. Nothing was changed.",
+            result.Message);
     }
 
     [Fact]

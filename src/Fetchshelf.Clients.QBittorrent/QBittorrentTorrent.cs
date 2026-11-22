@@ -54,6 +54,16 @@ public sealed partial record QBittorrentTorrent
     /// <summary>A torrent is finished when, and only when, its progress is 100%.</summary>
     public bool IsFinished => Progress >= 1.0;
 
+    /// <summary>
+    /// qBittorrent can't find the torrent's files where it keeps them (state <c>missingFiles</c>): moved or deleted outside
+    /// it. Its progress then reads 0, though it may have finished long ago.
+    /// </summary>
+    public bool HasMissingFiles => State == "missingFiles";
+
+    /// <summary>What to do about <see cref="HasMissingFiles"/>, naming where qBittorrent looks for them.</summary>
+    public string MissingFilesAdvice =>
+        $"qBittorrent can't find its files in {SavePath} (Missing files): move them back there, or use Set location in qBittorrent, then Force recheck.";
+
     [GeneratedRegex(@"\bMID=(\d+)")]
     private static partial Regex MamIdPattern();
 }

@@ -598,6 +598,12 @@ public class IndexModel(
 
         await dbContext.SaveChangesAsync();
         logger.LogInformation("Imported {Torrent} from qBittorrent (category {Category})", metadata.DisplayName(), category.Length == 0 ? "none" : category);
+        if (clientStatus == "missingFiles")
+        {
+            return $"Imported {title}, but qBittorrent can't find its files (Missing files), so it can't be linked until they are back: "
+                + "move them back, or use Set location in qBittorrent, then Force recheck.";
+        }
+
         return LibraryCategories.IsLibraryCategory(settings, category)
             ? $"Imported {title}; the next Link run links it."
             : $"Imported {title}. None of your libraries uses its qBittorrent category ({(category.Length == 0 ? "none" : category)}). "
