@@ -44,7 +44,7 @@ for paired names such as *Business/Money*. Configuration that names genres needs
 2. **Libraries by genre:** a library can take only books of certain genres and/or of fiction or nonfiction, so books
    arriving in one qBittorrent category or download folder are split between libraries.
 3. **Search page:** filter the results by genre and by fiction/nonfiction.
-4. **Torrents page:** filter the list by genre and by fiction/nonfiction.
+4. **Torrents and Books pages:** filter the list by genre and by fiction/nonfiction.
 5. **All of it optional,** behind one top-level setting. With it off, Fetchshelf behaves, looks and writes files
    exactly as now.
 
@@ -61,7 +61,8 @@ With `genres = false` (or unset):
 - no genre or fiction filter appears on any page, and nothing shows the fiction dimension;
 - a `[[library]]` using `allow_genres`, `deny_genres` or `fiction` is a configuration error that names the missing
   `genres = true` ("… needs genres = true"), so a library split isn't silently ignored;
-- genre names in `metadata.json`, `metadata.opf`, Audiobookshelf and OPDS stay as they are now (open question 2).
+- genre names in `metadata.json`, `metadata.opf`, Audiobookshelf and OPDS stay as they are now (with it on, see
+  step 6).
 
 What is kept regardless of the switch: the derived genre data in the database (step 1). It is cheap, written on save
 like the existing derived tables, and having it always there means turning `genres` on needs no rebuild or upgrade
@@ -179,6 +180,10 @@ Both keep the page's existing behaviour: in the address, in the filter summary, 
 with the other filters and the search, and kept by the export links.
 A torrent's own page shows its main category and genres (MAM's labels) with the other metadata.
 
+The **Books** page gets the same two filters, beside **All / Audiobooks / Ebooks**, from the catalog it already builds
+(`CatalogBook`), so no database query is needed. They combine with the search and the Recently added, Authors, Series
+and Libraries views, and are kept in the address like the format filter.
+
 ### 5. Search page
 
 With `genres = true`, a **Genre** and a **Fiction** filter in the search form, applied to the results MAM returns,
@@ -187,7 +192,7 @@ since MAM can't filter by them:
 - A page of results is fetched as now, then filtered; the page says how many of its results the genre filters hid
   ("12 of 100 results on this page hidden by the genre filters"), so a short page isn't mistaken for the end.
 - Paging stays MAM's: the next page is MAM's next page, filtered the same way. No extra MAM requests are made to fill
-  a page (open question 3).
+  a page (decided: see Decisions).
 - The filters are in the address with the rest of the search, so the result page's **Back to the search** keeps them.
 - The result's details already list its genres (as *Categories*); they get MAM's labels and the main category.
 
@@ -197,14 +202,18 @@ since MAM can't filter by them:
   checkboxes in MAM's labels), so a book entered by hand, or one MAM classified oddly, can be placed. An edited book
   counts as edited by hand, as now, so a bulk **Refresh** leaves it alone.
 - Shown names use MAM's labels wherever genres appear in the UI.
+- **Genre names in files:** `metadata.json`, `metadata.opf`, Audiobookshelf and the OPDS catalog get MAM's labels,
+  and *Fiction* or *Nonfiction* as one more genre (`LibraryMetadataJsonBuilder.BuildGenres` and its OPF and OPDS
+  counterparts, given the switch). With the switch off they are unchanged. Files already written keep the old names
+  until they are written again: a **Refresh and relink**, or the next change to the book. The release notes say so.
 
 ### 7. Documentation
 
 - `docs/configuration.md`: `genres` among the top-level settings; `allow_genres`, `deny_genres` and `fiction` in the
   `[[library]]` table and its rules; the list of genre names as MAM labels them.
 - `docs/user-guide.md`: a section "Sorting books by genre" (the two dimensions, an example split, what happens to a
-  book no library takes, moving books after changing the split), the new filters under Torrents and Search, and the
-  Errors page's new reason.
+  book no library takes, moving books after changing the split), the new filters under Torrents, Books and Search, the
+  genre names in written files and how to refresh them, and the Errors page's new reason.
 - `RELEASES.md` at release time: the database upgrade under **Upgrading**.
 
 ## Order of work
@@ -212,26 +221,26 @@ since MAM can't filter by them:
 1. Step 1 and the Core part of step 2 (`GenreLabels`, `GenreCondition`), with the database upgrade. No visible change.
 2. The `genres` switch, the library settings and their validation, and the Link job (steps 2 and 3), with the docs for
    them.
-3. The Torrents page filters and the torrent page's genre lines (step 4).
+3. The Torrents and Books page filters and the torrent page's genre lines (step 4).
 4. The Search page filters (step 5).
-5. The Edit page and the labels in the UI (step 6), then the rest of the docs.
+5. The Edit page, the labels in the UI and the genre names in written files (step 6), then the rest of the docs.
 
 One feature branch and PR per step.
 
-## Open questions
+## Decisions
 
-1. **The shared torrent filter.** `[[autograb]]` blocks, `[[tag]]` rules and the list and follow searches use the shared
-   torrent filter (`TorrentFilter`). Adding `genres`, `not_genres` and `fiction` to it would let automatic downloads
-   skip or pick genres, and let `[[tag]]` rules send genres to different qBittorrent categories. Not asked for, so left
-   out; *proposed:* a later step on the same switch if wanted.
-2. **Genre names in files and Audiobookshelf.** `metadata.json`, `metadata.opf`, Audiobookshelf and OPDS get the
-   shortened names today. *Proposed:* with `genres = true` they get MAM's labels and *Fiction* or *Nonfiction* as one
-   more genre; with it off, unchanged. Files already written keep the old names until they're written again (a
-   **Refresh and relink**, or the next change to the book).
-3. **Search paging.** Filtering one MAM page can leave few results. *Proposed:* filter only the page fetched, and say
-   how many were hidden. The alternative, fetching more pages to fill one, costs MAM requests the user didn't ask for.
-4. **The Books page.** A genre and fiction filter there too, from the catalog (no database query needed)? Not asked
-   for; *proposed:* in step 3, as it is small once the labels exist.
+The open questions, settled on 2026-11-22 as proposed:
+
+1. **The shared torrent filter.** `genres`, `not_genres` and `fiction` are not added to `TorrentFilter` in this plan,
+   so autograbs, `[[tag]]` rules, list, Follow and Upgrade grab blocks don't select by genre. If wanted, it becomes a
+   later step on the same switch, in a plan of its own. As MAM's search can't filter by genre (tested, see Context),
+   such a filter would act on the results only.
+2. **Genre names in files and Audiobookshelf.** With `genres = true`, MAM's labels plus *Fiction* or *Nonfiction* as
+   one more genre; with it off, unchanged. Files already written change at their next write. Part of step 6.
+3. **Search paging.** Only the page fetched is filtered, and the page says how many results the genre filters hid. No
+   extra MAM requests are made to fill a page. Part of step 5.
+4. **The Books page.** Gets the genre and fiction filters, from the catalog. Part of step 4, and of the third step in
+   the order of work.
 
 ## Risks
 
@@ -253,6 +262,8 @@ One feature branch and PR per step.
   genre change, split-collection books following the collection.
 - Config tests: the switch, each setting, unknown names, a genre in both lists, settings without `genres = true`;
   `ExampleConfigTests`.
-- Web tests: the Torrents filters (with search, other filters and export), the Search filters and
-  the hidden count, the Edit page, everything absent with the switch off.
+- Web tests: the Torrents filters (with search, other filters and export), the Books page filters (with the search
+  and each view), the Search filters and the hidden count, the Edit page, everything absent with the switch off.
+- Data tests for written files: MAM's labels and *Fiction*/*Nonfiction* in `metadata.json`, `metadata.opf` and OPDS
+  with the switch on, today's names with it off.
 - `PageScaleTests`: the Torrents page's genre and fiction filters at 10,000 torrents.
