@@ -1725,8 +1725,12 @@ The Link job's result says how many covers were written, from where, and how man
 looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
 is logged and left without one.
 
-Series libraries are left out: one series folder holds many books, and comics and manga carry their cover inside the
-file. The cover is removed with the book's metadata files.
+Series libraries are left out. There, every book of a series is a file in one shared series folder, and a `cover.jpg`
+in it would be taken as the cover of them all: the first book's cover would show for the whole series, and the folder
+would then count as having one. Comics and manga, which series libraries are mostly for, carry their cover inside the
+file anyway, and readers show it per file.
+
+The cover is removed with the book's metadata files.
 
 The [OPDS catalog](#reading-on-an-e-reader-opds) and the [Books page](#browsing-your-books) show a book folder's cover
 too, whoever put it there, so PDFs and audiobooks get one in both.
