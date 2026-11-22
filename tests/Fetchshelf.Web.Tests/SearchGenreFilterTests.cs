@@ -65,6 +65,8 @@ public sealed partial class SearchGenreFilterTests
         var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=history&Genre=none");
 
         Assert.Contains("No results. All 3 on this page were hidden by the genre filters; the next page may have some.", html);
+        // The filters stay, to be changed.
+        Assert.Contains("<option value=\"none\" selected=\"selected\">No genre</option>", html);
         Assert.Contains("id=\"next-page\"", html);
     }
 
@@ -75,7 +77,12 @@ public sealed partial class SearchGenreFilterTests
 
         var page = await fixture.CreateClient().GetStringAsync("/?Q=history&Genre=63");
 
-        var filters = page[page.IndexOf("id=\"search-genre-filters\"", StringComparison.Ordinal)..page.IndexOf("</form>", StringComparison.Ordinal)];
+        // In the results' filter box, above Hide downloaded torrents, and part of the search form.
+        var start = page.IndexOf("id=\"search-genre-filters\"", StringComparison.Ordinal);
+        var filters = page[start..page.IndexOf("</div>", start, StringComparison.Ordinal)];
+        Assert.True(page.IndexOf("id=\"search-filters\"", StringComparison.Ordinal) < start);
+        Assert.True(start < page.IndexOf("id=\"hide-downloaded\"", StringComparison.Ordinal));
+        Assert.Contains("<select name=\"Fiction\" form=\"search-form\"", filters);
         Assert.True(filters.IndexOf("name=\"Fiction\"", StringComparison.Ordinal) < filters.IndexOf("name=\"Genre\"", StringComparison.Ordinal));
         Assert.Contains("<option value=\"63\" selected=\"selected\">Military/War</option>", filters);
         Assert.Contains("<option value=\"26\">Erotica/Sexual Content</option>", filters);

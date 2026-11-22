@@ -422,6 +422,7 @@ tr[data-status="linked"] > td:first-child { box-shadow: inset 3px 0 0 var(--c-ok
     background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
 }
 #search-filters > label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+#search-genre-filters { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 #media-filter { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 #media-filter > label {
     display: inline-block; cursor: pointer;

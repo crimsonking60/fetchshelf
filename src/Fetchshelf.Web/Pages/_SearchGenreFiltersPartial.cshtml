@@ -1,0 +1,24 @@
+@model Fetchshelf.Web.Pages.IndexModel
+@* The Fiction and Genre filters, at the top of the results' filter box. They belong to the search form (form="search-form"),
+   so a change searches again from the first page with them; MAM can't be asked for them, so the page's results are
+   filtered and the count below says how many went. *@
+@if (Model.GenresOn)
+{
+    <div id="search-genre-filters">
+        <span>Show only:</span>
+        <select name="Fiction" form="search-form" aria-label="Fiction" onchange="this.form.requestSubmit()">
+            <option value="">Fiction or not</option>
+            @foreach (var (value, label) in Model.FictionOptions)
+            {
+                <option value="@value" selected="@(Model.Fiction == value)">@label</option>
+            }
+        </select>
+        <select name="Genre" form="search-form" aria-label="Genre" onchange="this.form.requestSubmit()">
+            <option value="">Any genre</option>
+            @foreach (var (value, label) in Model.GenreOptions)
+            {
+                <option value="@value" selected="@(Model.Genre == value)">@label</option>
+            }
+        </select>
+    </div>
+}
