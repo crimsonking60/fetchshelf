@@ -898,7 +898,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
   its own. With `covers = true` in `[search]`, the details also show a cover, from the same sources as the
   [Link job's covers](#covers) (Hardcover, Open Library, Audnexus) by the result's ISBN, ASIN, title and author;
-  never from MAM.
+  never from MAM. When none of them has one, the details show no cover.
 - **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
   to a new search for more of the same: the name as a phrase, in that field only (`"Brandon Sanderson"` in
   **Author**), in the language you have chosen. Open it in a new tab to keep your results.
