@@ -13,6 +13,7 @@ public class GenreCategoryTests
     [InlineData(GenreCategory.DramaPlays, 60)]
     [InlineData(GenreCategory.Occult, 61)]
     [InlineData(GenreCategory.SliceOfLife, 62)]
+    [InlineData(GenreCategory.Military, 63)]
     public void NumericValue_EachCategory_MatchesRealTrackerId(GenreCategory category, int expectedId)
     {
         Assert.Equal(expectedId, (int)category);
@@ -21,6 +22,6 @@ public class GenreCategoryTests
     [Fact]
     public void DisplayName_UnknownId_ShowsUnknownCategoryWithId()
     {
-        Assert.Equal("Unknown Category (id: 63)", GenreCategoryDisplay.DisplayName((GenreCategory)63));
+        Assert.Equal("Unknown Category (id: 64)", GenreCategoryDisplay.DisplayName((GenreCategory)64));
     }
 }

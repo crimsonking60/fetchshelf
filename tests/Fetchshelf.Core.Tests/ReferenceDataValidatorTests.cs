@@ -36,7 +36,7 @@ public class ReferenceDataValidatorTests
     [Fact]
     public void EnsureRecognized_UnknownGenreCategory_DoesNotThrow()
     {
-        var metadata = Build(genreCategories: new HashSet<GenreCategory> { (GenreCategory)63 });
+        var metadata = Build(genreCategories: new HashSet<GenreCategory> { (GenreCategory)64 });
 
         ReferenceDataValidator.EnsureRecognized(metadata);
     }

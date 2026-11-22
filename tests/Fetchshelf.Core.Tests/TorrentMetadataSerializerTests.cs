@@ -55,7 +55,7 @@ public class TorrentMetadataSerializerTests
             VipStatus = VipStatus.NotVip,
             MediaType = MediaType.Ebook,
             LegacyCategory = LegacyCategory.EbookGeneralFiction,
-            GenreCategories = new HashSet<GenreCategory> { GenreCategory.Fantasy, (GenreCategory)63 },
+            GenreCategories = new HashSet<GenreCategory> { GenreCategory.Fantasy, (GenreCategory)64 },
             Language = Language.English,
             Title = "T",
             Authors = ["A"],
@@ -65,7 +65,7 @@ public class TorrentMetadataSerializerTests
 
         var roundTripped = TorrentMetadataSerializer.Deserialize(TorrentMetadataSerializer.Serialize(metadata));
 
-        Assert.Contains((GenreCategory)63, roundTripped.GenreCategories);
+        Assert.Contains((GenreCategory)64, roundTripped.GenreCategories);
         Assert.Contains(GenreCategory.Fantasy, roundTripped.GenreCategories);
     }
 }

@@ -1,7 +1,8 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// MAM's own name for each genre (<see cref="GenreCategory"/>), as its search form shows it, and the key a name in the
+/// MAM's own name for each genre (<see cref="GenreCategory"/>), as its search form shows it (checked against the form
+/// on 2026-11-22), and the key a name in the
 /// configuration is matched on: lower case, letters and digits only, so <c>"Action/Adventure"</c>,
 /// <c>"action / adventure"</c> and <c>"actionadventure"</c> are the same genre. The enum's member names stay as they
 /// are, since stored metadata holds them.
@@ -35,8 +36,8 @@ public static class GenreLabels
         [GenreCategory.Juvenile] = "Juvenile",
         [GenreCategory.Language] = "Language",
         [GenreCategory.Lgbt] = "LGBTQIA+",
-        [GenreCategory.LickLibraryLtp] = "Lick Library - LTP/Jam With",
-        [GenreCategory.LickLibraryTechniques] = "Lick Library - Techniques/QL",
+        [GenreCategory.LickLibraryLtp] = "Erotica/Sexual Content",
+        [GenreCategory.LickLibraryTechniques] = "Lick Library - Techniques/QL", // no longer on MAM's search form
         [GenreCategory.LiteraryClassics] = "Literary Classics",
         [GenreCategory.LitRpg] = "LitRPG",
         [GenreCategory.Math] = "Math",
@@ -57,7 +58,7 @@ public static class GenreLabels
         [GenreCategory.ScienceFiction] = "Science Fiction",
         [GenreCategory.SelfHelp] = "Self-Help",
         [GenreCategory.SheetCollection] = "Sheet Collection",
-        [GenreCategory.SheetCollectionMp3] = "Sheet Collection MP3",
+        [GenreCategory.SheetCollectionMp3] = "Accompanying music",
         [GenreCategory.Sports] = "Sports/Hobbies",
         [GenreCategory.Technology] = "Technology",
         [GenreCategory.Thriller] = "Thriller/Suspense",
@@ -69,9 +70,10 @@ public static class GenreLabels
         [GenreCategory.LiteraryFiction] = "Literary Fiction",
         [GenreCategory.ProgressionFantasy] = "Progression Fantasy",
         [GenreCategory.ContemporaryFiction] = "Contemporary Fiction",
-        [GenreCategory.DramaPlays] = "Drama/Plays",
+        [GenreCategory.DramaPlays] = "Plays/Drama",
         [GenreCategory.Occult] = "Occult / Metaphysical Practices",
         [GenreCategory.SliceOfLife] = "Slice of Life",
+        [GenreCategory.Military] = "Military/War",
     };
 
     private static readonly Dictionary<string, GenreCategory> ByKey =

@@ -1,9 +1,9 @@
 namespace Fetchshelf.Core.Metadata;
 
 /// <summary>
-/// Tracker genre categories (newer taxonomy). Numeric ids match the tracker's
-/// real category ids, which include "Sheet Collection MP3" (48, between Sheet Collection and
-/// Sports) and "Occult / Metaphysical Practices"/"Slice of Life" (61/62).
+/// Tracker genre categories (newer taxonomy). Numeric ids match the tracker's real category ids. Some member names
+/// are not MAM's genres: 26 is <i>Erotica/Sexual Content</i> and 48 <i>Accompanying music</i> on MAM, and 27 is no
+/// longer offered. The names stay, as stored metadata holds them; <see cref="GenreLabels"/> has MAM's names.
 /// </summary>
 public enum GenreCategory
 {
@@ -69,6 +69,7 @@ public enum GenreCategory
     DramaPlays = 60,
     Occult = 61,
     SliceOfLife = 62,
+    Military = 63,
 }
 
 /// <summary>Display-name exceptions for genre categories. Ids the tracker added after our list was written display as "Unknown Category (id: N)".</summary>

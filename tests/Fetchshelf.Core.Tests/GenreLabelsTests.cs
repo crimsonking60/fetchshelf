@@ -21,7 +21,10 @@ public class GenreLabelsTests
     [InlineData("lgbtqia", GenreCategory.Lgbt)]
     [InlineData("Politics/Sociology", GenreCategory.Politics)]
     [InlineData("Sheet Collection", GenreCategory.SheetCollection)]
-    [InlineData("Sheet Collection MP3", GenreCategory.SheetCollectionMp3)]
+    [InlineData("Accompanying music", GenreCategory.SheetCollectionMp3)]
+    [InlineData("Erotica/Sexual Content", GenreCategory.LickLibraryLtp)]
+    [InlineData("Plays/Drama", GenreCategory.DramaPlays)]
+    [InlineData("Military/War", GenreCategory.Military)]
     [InlineData("Occult / Metaphysical Practices", GenreCategory.Occult)]
     [InlineData("Self-Help", GenreCategory.SelfHelp)]
     public void TryParse_MamsLabel_InAnyCaseSpacingOrPunctuation(string name, GenreCategory expected)
@@ -33,6 +36,7 @@ public class GenreLabelsTests
     [Theory]
     [InlineData("Politics")]
     [InlineData("Lgbt")]
+    [InlineData("Sheet Collection MP3")]
     [InlineData("")]
     [InlineData(null)]
     public void TryParse_ANameThatIsNotMamsLabel_IsNoGenre(string? name) => Assert.False(GenreLabels.TryParse(name, out _));
