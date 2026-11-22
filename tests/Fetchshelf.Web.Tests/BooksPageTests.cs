@@ -43,7 +43,8 @@ public sealed class BooksPageTests : IDisposable
     /// <summary>Puts a book's files in its library folder and records the torrent the way the Link job would.</summary>
     private async Task SeedAsync(
         FetchshelfWebAppFixture fixture, string hash, string title, MediaType mediaType, string[] files, string author = "Ann Leckie",
-        Series? series = null, string? absId = null, DateTimeOffset? createdAt = null, string? description = null, string[]? narrators = null)
+        Series? series = null, string? absId = null, DateTimeOffset? createdAt = null, string? description = null, string[]? narrators = null,
+        string[]? authors = null)
     {
         var library = mediaType == MediaType.Audiobook ? Audiobooks : Ebooks;
         var folder = Path.Combine(library, author, title);
@@ -56,7 +57,7 @@ public sealed class BooksPageTests : IDisposable
 
         string? Chosen(params string[] extensions) =>
             files.Select(file => Path.GetExtension(file).TrimStart('.')).FirstOrDefault(extensions.Contains);
-        var metadata = OrganizerTestSupport.BuildMetadata(title, [author]) with
+        var metadata = OrganizerTestSupport.BuildMetadata(title, authors ?? [author]) with
         {
             MediaType = mediaType,
             Series = series is null ? [] : [series],
@@ -159,6 +160,34 @@ public sealed class BooksPageTests : IDisposable
         Assert.Contains("Audiobooks</a> <span class=\"muted\">2 books", libraries);
         Assert.Contains("Dune", audiobookLibrary);
         Assert.DoesNotContain("Ancillary Justice", audiobookLibrary);
+    }
+
+    [Fact]
+    public async Task ABookWithMoreThanThreeAuthors_ShowsThreeOnItsCard_AndMoreOpensTheBookLikeItsCover()
+    {
+        using var fixture = new FetchshelfWebAppFixture(Config());
+        string[] five = ["Ann Leckie", "Martha Wells", "Becky Chambers", "Yoon Ha Lee", "Aliette de Bodard"];
+        await SeedAsync(fixture, "anthology", "Starships", MediaType.Ebook, ["Starships.epub"], authors: five);
+        await SeedAsync(fixture, "trio", "Three Hands", MediaType.Ebook, ["Three Hands.epub"], authors: five[..3]);
+        var client = fixture.CreateClient();
+
+        var page = await client.GetStringAsync("/books");
+        var dialog = await client.GetStringAsync("/books/anthology?handler=Partial");
+
+        var start = IndexOf(page, "hx-get=\"/books/anthology?handler=Partial\"");
+        var card = page[start..page.IndexOf("</li>", start, StringComparison.Ordinal)];
+        Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers <a class=\"authors-more\"", card);
+        Assert.DoesNotContain("Yoon Ha Lee", card[..IndexOf(card, "authors-more")]);
+        // "... more" asks for the same book dialog as the cover, and that lists every author.
+        Assert.Equal(2, card.Split("hx-get=\"/books/anthology?handler=Partial\"").Length - 1);
+        Assert.Contains(">... more</a>", card);
+        Assert.All(five, author => Assert.Contains($">{author}</a>", dialog));
+        // A comma straight after each author, with no space before it.
+        Assert.Contains("Ann Leckie</a>, <a", dialog);
+        Assert.Contains("Yoon Ha Lee</a>, <a", dialog);
+        // Three authors fit on the card: no "... more".
+        Assert.Equal(1, page.Split("class=\"authors-more\"").Length - 1);
+        Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers</span>", page);
     }
 
     [Fact]

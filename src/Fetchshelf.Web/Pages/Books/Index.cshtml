@@ -84,7 +84,13 @@ else if (Model.Books is { } books)
                         </span>
                         <span class="book-title">@book.Title</span>
                     </a>
-                    <span class="book-author muted">@book.Authors</span>
+                    <span class="book-author muted">@book.ShownAuthors@if (book.HasMoreAuthors)
+                    {
+                        @* Opens the same book dialog as the cover, which lists every author. *@
+                        <text> </text><a class="authors-more" href="@Url.Page("/Books/Detail", new { id = book.Id })"
+                           hx-get="@Url.Page("/Books/Detail", "Partial", new { id = book.Id })" hx-target="#book-dialog-body" hx-swap="innerHTML"
+                           aria-label="All @book.Authors.Count authors of @book.Title">... more</a>
+                    }</span>
                     @if (book.SeriesLine is { } seriesLine)
                     {
                         <span class="book-series muted">@seriesLine</span>

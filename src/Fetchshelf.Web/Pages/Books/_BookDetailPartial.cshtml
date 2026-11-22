@@ -18,7 +18,8 @@
         {
             <p><span class="label">Authors</span><span class="value">@for (var i = 0; i < book.Authors.Count; i++)
                 {
-                    @(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Author="@book.Authors[i]">@book.Authors[i]</a>
+                    @* In <text>, so the line break after the link isn't written: it showed as a space before the comma. *@
+                    <text>@(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Author="@book.Authors[i]">@book.Authors[i]</a></text>
                 }</span></p>
         }
         @if (book.Narrators.Count > 0)
@@ -30,7 +31,7 @@
             <p><span class="label">Series</span><span class="value">@for (var i = 0; i < book.Series.Count; i++)
                 {
                     var series = book.Series[i];
-                    @(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Series="@series.Name">@BookCardViewModel.SeriesText(series)</a>
+                    <text>@(i > 0 ? ", " : "")<a asp-page="/Books/Index" asp-route-Series="@series.Name">@BookCardViewModel.SeriesText(series)</a></text>
                 }</span></p>
         }
         <p><span class="label">Media type</span><span class="value">@BookCardViewModel.MediaTypeLabel(book.MediaType)</span></p>
