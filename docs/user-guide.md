@@ -2691,7 +2691,8 @@ the first, unless a `client` setting or the Search page chooses another. Linking
 ## Getting help
 
 - **Questions and ideas:** ask in [Discussions](https://github.com/crimsonking60/fetchshelf/discussions):
-  **Q&A** for questions about using Fetchshelf, **Ideas** for suggestions you'd like feedback on.
+  **Q&A** for questions about using Fetchshelf, **Ideas** for suggestions you'd like feedback on. Or ask in the
+  Fetchshelf thread in the MAM forums.
 - **Bugs and feature requests:** [open an issue](https://github.com/crimsonking60/fetchshelf/issues/new/choose)
   with the **Bug report** or **Feature request** form. Search the existing issues first, including closed
   ones.
