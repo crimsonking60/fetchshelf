@@ -11,7 +11,8 @@ A new **MAM API** page, under **Insight**, records every call Fetchshelf makes t
 pattern behind a 429 (too many requests). What it showed led to the next change: `.torrent` downloads are now at
 least two seconds apart, as MAM refused the eleventh of a run of downloads one second apart. Follow finds that reach
 the library another way, such as through another follow, now leave **To look at** on the next Follow run, and the
-Link job's count of books still waiting for a cover from MAM is exact.
+Link job's count of books still waiting for a cover from MAM is exact. The user guide shows screenshots of the pages it
+describes.
 
 ### Upgrading
 
@@ -46,6 +47,12 @@ Link job's count of books still waiting for a cover from MAM is exact.
 - **Covers**: with `covers_from_mam`, the Link job's log said every linked book not looked at yet would get a cover in
   later runs, counting books in series-layout libraries and books that already have an image. The count now holds
   only the books without an image, and a run that reaches its limit still marks the rest as looked at (#171).
+
+### Documentation
+
+- The [user guide](https://fetchshelf.readthedocs.io/en/v2026.11.21/user-guide/) has screenshots of twelve pages
+  where it describes them, among them Books, Search, Following, Account, MAM API and Jobs. The books, covers and
+  account in them are made up (#175).
 
 ## 2026.11.20 - 2026-11-21
 
