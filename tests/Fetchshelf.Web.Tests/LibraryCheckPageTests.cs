@@ -192,6 +192,25 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
+    public async Task Delete_ThousandsTickedAtOnce_AreAllDeleted()
+    {
+        // A move to new libraries leaves thousands of old folders behind, all ticked with Select all: more form values
+        // than ASP.NET Core's default limit of 1,024, which answered 400 Bad Request.
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        var findings = Enumerable.Range(0, 3000)
+            .Select(i => new LibraryFinding(LibraryFindingKind.UnknownFolder, MakeFolder($"Author {i}/Book"), "Audiobooks"))
+            .ToList();
+        Results(fixture).Set(findings, DateTimeOffset.UtcNow);
+
+        var html = await PostAsync(client, "Delete", Results(fixture).Findings.Select(f => f.Id).ToArray());
+
+        Assert.Contains("Deleted 3000.", html);
+        Assert.Empty(Results(fixture).Findings);
+        Assert.Empty(Directory.GetDirectories(LibraryDir));
+    }
+
+    [Fact]
     public async Task Delete_AFolderABookUsesNow_IsRefusedAndKept()
     {
         using var fixture = Fixture();
