@@ -29,9 +29,11 @@ else if (Model.Record is { } record)
     <p><a id="open-on-mam" href="@Model.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
 
     <div class="hit-summary">
+        @* The cover is looked up only when the browser asks for it; with none found, the handler answers 404, and the
+           image is taken away rather than left as a broken one. *@
         @if (Model.ThumbnailUrl is { } thumbnail)
         {
-            <img class="hit-cover" src="@thumbnail" alt="Cover" loading="lazy" referrerpolicy="no-referrer" />
+            <img class="hit-cover" src="@thumbnail" alt="Cover" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />
         }
         <div class="meta-block">
             @* Each name leads to a search for more by that author or narrator, or in that series. *@

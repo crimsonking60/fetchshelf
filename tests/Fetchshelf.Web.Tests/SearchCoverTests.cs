@@ -51,6 +51,8 @@ public sealed class SearchCoverTests
         var second = await client.GetAsync(address);
 
         Assert.Contains("handler=Cover", address);
+        // A book no source has a cover for gets a 404, and the image goes rather than showing as broken.
+        Assert.Contains("onerror=\"this.remove()\"", page);
         Assert.Contains("isbn=9780765326355", address);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal("image/jpeg", first.Content.Headers.ContentType!.MediaType);
