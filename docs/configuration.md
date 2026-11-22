@@ -465,9 +465,12 @@ category = "unlinked"
 
 ## The shared torrent filter
 
-`[[autograb]]` and `[[tag]]` share one
-set of optional filter fields. A torrent matches only if it satisfies **every** field that is set. A field
-that is not set imposes no restriction (except `categories`, which always has defaults).
+`[[autograb]]`, `[[tag]]` and every `grab` block (`[[hardcover_list.grab]]`, `[[file_list.grab]]`,
+`[[bookmarks_list.grab]]`, `[[follow.grab]]` and `[[upgrade.grab]]`) share one set of optional filter fields; a
+`grab` block adds only its [`cost`](#cost). A torrent matches only if it satisfies **every** field that is set. A
+field that is not set imposes no restriction (except `categories`, which always has defaults). In a `grab` block,
+`name` is accepted but not used, and `[[upgrade.grab]]` ignores the top-level `languages`, as a book is searched for
+in its own language.
 
 | Field | Description |
 |---|---|
@@ -659,10 +662,11 @@ prefer_format = "audio"
 cost = "free"
 languages = ["English"]
 
-[[hardcover_list.grab]]            # then audiobooks worth a wedge
+[[hardcover_list.grab]]            # then well-seeded audiobooks worth a wedge
 cost = "wedge"
 languages = ["English"]
 categories = { ebook = false }
+min_seeders = 5
 ```
 
 What each run does:
