@@ -57,7 +57,7 @@
             <tr><th>link_method</th><td>@settings.LinkMethod</td></tr>
             <tr><th>metadata_json</th><td>@settings.MetadataJson</td></tr>
             <tr><th>metadata_opf</th><td>@settings.MetadataOpf</td></tr>
-            <tr><th>covers_from_mam</th><td>@settings.CoversFromMam@(settings.CoversFromMam > 0 ? " (no covers are fetched in this version: MAM refuses them)" : "")</td></tr>
+            <tr><th>@settings.CoversSettingName</th><td>@settings.CoversPerRun@(settings.CoversSettingName == "covers_from_mam" ? " (its old name: rename it to covers)" : "")</td></tr>
             <tr><th>metrics</th><td>@settings.Metrics</td></tr>
             <tr><th>split_collections</th><td>@settings.SplitCollections</td></tr>
             <tr><th>genres</th><td>@settings.Genres</td></tr>

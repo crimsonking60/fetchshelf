@@ -225,7 +225,7 @@ These go at the top of the file, before any section.
 | `metrics` | `false` | Serve Prometheus metrics at `/metrics`. See [Prometheus metrics](#prometheus-metrics). |
 | `split_collections` | `false` | Whether every `[[library]]` that does not set its own [`split_collections`](#library) splits a collection into one library book each. See [Collections](user-guide.md#collections). |
 | `genres` | `false` | Use MAM's genres and its fiction/nonfiction: libraries can take books by genre ([`allow_genres`, `deny_genres`, `fiction`](#libraries-by-genre)), the Torrents, Books and Search pages filter by them, a torrent's **Edit** page sets them, and `metadata.json`, `metadata.opf`, Audiobookshelf and OPDS get MAM's genre names with *Fiction* or *Nonfiction*. Off, Fetchshelf behaves as it did without them, and those library settings stop startup. |
-| `covers_from_mam` | `0` | How many covers each Link run fetches for book folders that have no image, `0` to `100`. **This version fetches none**: MAM's image server refuses Fetchshelf's requests since 2026-11-22, and other cover sources are not in place yet. The setting is accepted and kept for them. See [Covers](user-guide.md#covers). |
+| `covers` | `0` | Write a cover into every linked book's folder that has no image, from the book's own files (each Link run spends at most about 10 seconds reading them) or, at most this many per run, fetched from a cover source; `0` to `100`. `0` writes none. Series libraries are left out. Never from MAM, whose image server refuses Fetchshelf. Its old name, `covers_from_mam`, still works, with a warning to rename it; both set is an error. See [Covers](user-guide.md#covers). |
 | `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
 | `ignore_torrents` | `[]` | MAM torrent ids that must never be selected, as strings of digits, such as `["123456"]`. |
@@ -315,7 +315,7 @@ Optional. Settings for the web UI's manual Search page.
 | Setting | Default | Description |
 |---|---|---|
 | `wedge_over` | unset | A [size](#value-types-used-below). Search results larger than this get the "download with wedge" button highlighted. |
-| `covers` | `false` | Show a cover in a search result's details. Not from MAM, whose image server refuses Fetchshelf, but from the cover sources `covers_from_mam` uses; this version has none, so nothing is shown yet. |
+| `covers` | `false` | Show a cover in a search result's details. Not from MAM, whose image server refuses Fetchshelf, but from the cover sources the top-level `covers` fetches from; this version has none, so nothing is shown yet. |
 
 ## `[audiobookshelf]`
 

@@ -61,6 +61,11 @@ public static class FetchshelfApp
             .AddFetchshelfWeb(settings, paths);
 
         var app = builder.Build();
+        foreach (var warning in settings.Warnings)
+        {
+            app.Logger.LogWarning("Configuration: {Warning}", warning);
+        }
+
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");

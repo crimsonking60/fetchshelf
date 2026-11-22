@@ -782,7 +782,7 @@ The catalog offers:
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
   split into several files offers each part.
 - **Covers:** the image in the book's own folder, such as the `cover.jpg` that
-  [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB file or the first page of a
+  [`covers`](configuration.md#top-level-settings) writes, else the cover inside an EPUB file or the first page of a
   CBZ or CBR comic. A PDF or another format has one only from its folder. In a series-layout library a series' books
   share a folder, so only covers inside the files are used. Covers are kept in a `covers` folder next to the
   database, so each book is only opened once; one added to or removed from a folder is noticed. Once a week the
@@ -1703,26 +1703,30 @@ A torrent's cover is whatever image the upload has, and Fetchshelf links only a 
 images. Audiobookshelf then uses a cover embedded in the files, or finds one itself; file browsers and some readers
 show none.
 
-> **No covers are fetched in this version.** Since 2026-11-22, MAM's image server refuses Fetchshelf's requests, so
-> `covers_from_mam` fetches nothing and the Search page shows no covers, until other cover sources are in place. What
-> follows describes how covers are written once there is a source.
+With `covers` set to a number, such as `covers = 20`, the Link job writes a cover image into the folder of every
+linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for those types. A
+cover put there by you, by Audiobookshelf or by an earlier run is never replaced. The cover comes from:
 
-With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes a cover image into the
-folder of every linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for
-those types. A cover put there by you, by Audiobookshelf or by an earlier run is never replaced. Each run fetches at
-most that many covers, so turning it on for a large library fills the covers in over the following runs; the Link
-job's result says how many are left. A book is
-looked at once: again only after **Refresh** or a relink. A book no source has a cover for is logged and left without
-one.
+1. **The book's own files**, first: the cover inside an EPUB, the first page of a CBZ or CBR comic, or the picture
+   embedded in an m4b, m4a or mp3 audiobook. This costs no request, so it isn't limited by the number, but each Link
+   run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
+   takes much longer than it did.
+2. **A cover source**, when the files have none: at most `covers` of them are fetched per run. (This version has no
+   cover source yet; Open Library, Audnexus and Hardcover are planned.)
 
-Series libraries are left out: comics and manga carry their cover inside the file, and one series folder holds many
-books. The cover is removed with the book's metadata files.
+The Link job's result says how many covers were written, from where, and how many are left for the next runs. A book is
+looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
+is logged and left without one.
+
+Series libraries are left out: one series folder holds many books, and comics and manga carry their cover inside the
+file. The cover is removed with the book's metadata files.
 
 The [OPDS catalog](#reading-on-an-e-reader-opds) and the [Books page](#browsing-your-books) show a book folder's cover
 too, whoever put it there, so PDFs and audiobooks get one in both.
 
+`covers` used to be called `covers_from_mam`, and the old name still works, with a warning in the log to rename it.
 The covers used to come from MAM's image server, which isn't among the parts of MAM that its API documentation
-authorizes automating; since 2026-11-22 it refuses Fetchshelf. Fetchshelf no longer asks it for anything.
+authorizes automating; since 2026-11-22 it refuses Fetchshelf, and Fetchshelf no longer asks it for anything.
 
 ### Collections
 
@@ -1779,7 +1783,8 @@ Whether a collection is split is decided, first that applies:
   **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
   it. Relinking a split collection that is no longer to be split links it as one book again.
-- Covers (`covers_from_mam`) are left out for books of a collection: a cover found for it is the collection's.
+- A book of a collection gets the cover inside its own file, but none is fetched for it: a cover found by its details
+  would be the collection's.
 
 **Splitting is a best effort.** How the books of a collection are named, numbered and laid out in folders varies
 widely from one uploader to the next, and Fetchshelf goes by what it can read from MAM's details and the file and

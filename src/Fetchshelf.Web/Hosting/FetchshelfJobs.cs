@@ -41,10 +41,7 @@ public static class FetchshelfJobs
                     total.WaitingForLookup + summary.WaitingForLookup, total.WaitingForMam + summary.WaitingForMam);
             }
 
-            // Only with a cover source to fetch from: MAM's cover server refuses Fetchshelf since 2026-11-22 (ICoverSource).
-            var covers = settings.CoversFromMam > 0 && scope.ServiceProvider.GetService<CoverWriter>() is { } coverWriter
-                ? await coverWriter.RunAsync(ct)
-                : null;
+            var covers = settings.CoversPerRun > 0 ? await scope.ServiceProvider.GetRequiredService<CoverWriter>().RunAsync(ct) : null;
 
             // Clean is a run of its own, so cancelling this one doesn't cancel it; this run only stops waiting for it.
             await jobRegistry.TriggerAsync(JobNames.Clean, JobTrigger.Chained).WaitAsync(ct);

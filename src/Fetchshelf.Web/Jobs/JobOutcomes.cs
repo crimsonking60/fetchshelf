@@ -34,7 +34,12 @@ public static class JobOutcomes
 
         if (covers is { Written: > 0 } or { Waiting: > 0 })
         {
-            line += $"; {Count(covers.Written, "cover", "covers")} written" + (covers.Waiting > 0 ? $", up to {covers.Waiting} more in the next runs" : "");
+            var written = Count(covers.Written, "cover", "covers");
+            line += covers.Written == 0 ? "; no covers written"
+                : covers.Fetched == 0 ? $"; {written} written from the books' files"
+                : covers.FromFiles == 0 ? $"; {written} fetched"
+                : $"; {written} written ({covers.FromFiles} from the books' files, {covers.Fetched} fetched)";
+            line += covers.Waiting > 0 ? $", up to {covers.Waiting} more in the next runs" : "";
         }
 
         var counts = new Dictionary<string, long>
@@ -47,6 +52,8 @@ public static class JobOutcomes
         if (covers is not null)
         {
             counts["covers_written"] = covers.Written;
+            counts["covers_from_files"] = covers.FromFiles;
+            counts["covers_fetched"] = covers.Fetched;
             counts["covers_waiting"] = covers.Waiting;
         }
 
