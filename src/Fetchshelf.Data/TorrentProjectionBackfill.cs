@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data;
 
 /// <summary>
-/// Makes the people and series rows, language and media type of every stored torrent, for a database written before
-/// they existed. Only the two columns and the new rows are written; the metadata JSON is read, not rewritten. Batches
+/// Makes the people, series and genre rows, language, media type and main category of every stored torrent, for a
+/// database written before they existed. Only the two columns and the new rows are written; the metadata JSON is read, not rewritten. Batches
 /// with the change tracker cleared between them, like <see cref="TitleKeys"/>.
 /// </summary>
 public static class TorrentProjectionBackfill
@@ -17,6 +17,7 @@ public static class TorrentProjectionBackfill
         // Whatever rows there are get made again, so running this twice gives the same rows.
         dbContext.TorrentPeople.ExecuteDelete();
         dbContext.TorrentSeries.ExecuteDelete();
+        dbContext.TorrentGenres.ExecuteDelete();
 
         var logger = TorrentProjectionSync.Logger(dbContext);
         var projected = 0;
@@ -25,9 +26,7 @@ public static class TorrentProjectionBackfill
             var batch = dbContext.Torrents.OrderBy(t => t.Id).Skip(skip).Take(BatchSize).ToList();
             foreach (var torrent in batch)
             {
-                var (people, series) = TorrentProjectionSync.Project(dbContext.Entry(torrent), logger);
-                dbContext.TorrentPeople.AddRange(people);
-                dbContext.TorrentSeries.AddRange(series);
+                TorrentProjectionSync.Project(dbContext.Entry(torrent), logger).AddTo(dbContext);
             }
 
             dbContext.SaveChanges();

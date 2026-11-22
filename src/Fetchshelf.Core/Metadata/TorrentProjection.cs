@@ -18,11 +18,14 @@ public sealed record ProjectedSeriesEntry(
     int Position, string Name, string NameKey, SeriesEntryKind? Kind, decimal? FirstNumber, decimal? LastNumber, string? Display);
 
 /// <summary>
-/// What of a torrent's metadata is stored as rows and columns next to the metadata JSON, so authors, series, language
-/// and media type can be queried without reading every torrent's JSON.
+/// What of a torrent's metadata is stored as rows and columns next to the metadata JSON, so authors, series, genres,
+/// language, media type and main category can be queried without reading every torrent's JSON.
 /// </summary>
+/// <param name="Genres">The genres, each once, by MAM id.</param>
+/// <param name="FictionCategory">The main category's name (<c>Fiction</c>, <c>Nonfiction</c>), or null when MAM gave neither.</param>
 public sealed record TorrentProjection(
-    IReadOnlyList<ProjectedPerson> People, IReadOnlyList<ProjectedSeriesEntry> Series, string Language, string MediaType)
+    IReadOnlyList<ProjectedPerson> People, IReadOnlyList<ProjectedSeriesEntry> Series, string Language, string MediaType,
+    IReadOnlyList<GenreCategory> Genres, string? FictionCategory)
 {
     /// <summary>
     /// Authors and narrators each keep their order, and a name listed twice in one role (by its
@@ -73,7 +76,9 @@ public sealed record TorrentProjection(
             }
         }
 
-        return new TorrentProjection(people, series, metadata.Language.ToString(), metadata.MediaType.ToString());
+        var genres = (metadata.GenreCategories ?? new HashSet<GenreCategory>()).Distinct().Order().ToList();
+        return new TorrentProjection(
+            people, series, metadata.Language.ToString(), metadata.MediaType.ToString(), genres, metadata.FictionCategory?.ToString());
     }
 
     private static void AddPeople(List<ProjectedPerson> people, PersonRole role, IReadOnlyList<string> names)

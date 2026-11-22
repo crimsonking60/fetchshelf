@@ -53,3 +53,14 @@ public sealed class TorrentSeriesEntity
     /// <summary>The entry as shown: "3", "1-3", "2p1".</summary>
     public string? Display { get; set; }
 }
+
+/// <summary>One of a torrent's genres, derived like <see cref="TorrentPersonEntity"/>.</summary>
+public sealed class TorrentGenreEntity
+{
+    public long Id { get; set; }
+
+    public required string TorrentId { get; set; }
+
+    /// <summary>Stored as MAM's id for the genre.</summary>
+    public required GenreCategory Genre { get; set; }
+}

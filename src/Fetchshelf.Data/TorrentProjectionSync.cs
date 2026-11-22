@@ -9,8 +9,8 @@ using Microsoft.Extensions.Logging;
 namespace Fetchshelf.Data;
 
 /// <summary>
-/// Keeps each torrent's people and series rows and its <see cref="TorrentEntity.Language"/> and
-/// <see cref="TorrentEntity.MediaType"/> in step with its metadata JSON. <see cref="FetchshelfDbContext"/> runs it in
+/// Keeps each torrent's people, series and genre rows and its <see cref="TorrentEntity.Language"/>,
+/// <see cref="TorrentEntity.MediaType"/> and <see cref="TorrentEntity.FictionCategory"/> in step with its metadata JSON. <see cref="FetchshelfDbContext"/> runs it in
 /// every save, on the torrents that save adds or whose <see cref="TorrentEntity.MetadataJson"/> it changes, so no code
 /// that writes metadata has to remember it.
 /// </summary>
@@ -50,22 +50,22 @@ internal static class TorrentProjectionSync
         var logger = Logger(dbContext);
         foreach (var entry in changed)
         {
-            var (people, series) = Project(entry, logger);
-            dbContext.TorrentPeople.AddRange(people);
-            dbContext.TorrentSeries.AddRange(series);
-            dbContext.PendingProjectionRows.AddRange(people);
-            dbContext.PendingProjectionRows.AddRange(series);
+            var rows = Project(entry, logger);
+            rows.AddTo(dbContext);
+            dbContext.PendingProjectionRows.AddRange(rows.People);
+            dbContext.PendingProjectionRows.AddRange(rows.Series);
+            dbContext.PendingProjectionRows.AddRange(rows.Genres);
         }
 
         return replaced;
     }
 
     /// <summary>
-    /// Sets one tracked torrent's language and media type from its metadata JSON and makes its people and series rows,
-    /// without adding them. Metadata that can't be read, or projected, gives no rows and null columns, and a warning:
-    /// these rows must never be what stops a save, or the startup upgrade.
+    /// Sets one tracked torrent's language, media type and main category from its metadata JSON and makes its people,
+    /// series and genre rows, without adding them. Metadata that can't be read, or projected, gives no rows and null
+    /// columns, and a warning: these rows must never be what stops a save, or the startup upgrade.
     /// </summary>
-    public static (List<TorrentPersonEntity> People, List<TorrentSeriesEntity> Series) Project(EntityEntry<TorrentEntity> entry, ILogger logger)
+    public static ProjectedRows Project(EntityEntry<TorrentEntity> entry, ILogger logger)
     {
         var torrent = entry.Entity;
         TorrentProjection projection;
@@ -76,11 +76,11 @@ internal static class TorrentProjectionSync
         catch (Exception ex)
         {
             logger.LogWarning("The metadata of torrent {TorrentId} could not be read, so it has no author or series rows: {Error}", torrent.Id, ex.Message);
-            Set(entry, null, null);
-            return ([], []);
+            Set(entry, null, null, null);
+            return new ProjectedRows([], [], []);
         }
 
-        Set(entry, projection.Language, projection.MediaType);
+        Set(entry, projection.Language, projection.MediaType, projection.FictionCategory);
         var people = projection.People.Select(p => new TorrentPersonEntity
         {
             TorrentId = torrent.Id,
@@ -100,17 +100,19 @@ internal static class TorrentProjectionSync
             LastNumber = s.LastNumber is { } last ? (double)last : null,
             Display = s.Display,
         }).ToList();
-        return (people, series);
+        var genres = projection.Genres.Select(g => new TorrentGenreEntity { TorrentId = torrent.Id, Genre = g }).ToList();
+        return new ProjectedRows(people, series, genres);
     }
 
     public static ILogger Logger(FetchshelfDbContext dbContext) =>
         dbContext.GetService<ILoggerFactory>().CreateLogger(typeof(TorrentProjectionSync));
 
     /// <summary>Through the entry, so the change is seen even when the save has stopped detecting changes itself.</summary>
-    private static void Set(EntityEntry<TorrentEntity> entry, string? language, string? mediaType)
+    private static void Set(EntityEntry<TorrentEntity> entry, string? language, string? mediaType, string? fictionCategory)
     {
         entry.Property(t => t.Language).CurrentValue = language;
         entry.Property(t => t.MediaType).CurrentValue = mediaType;
+        entry.Property(t => t.FictionCategory).CurrentValue = fictionCategory;
     }
 
     /// <summary>Old rows of these torrents loaded into this context are deleted by the save without it, so they are let go.</summary>
@@ -130,5 +132,21 @@ internal static class TorrentProjectionSync
         {
             row.State = EntityState.Detached;
         }
+
+        foreach (var row in dbContext.ChangeTracker.Entries<TorrentGenreEntity>().Where(e => torrentIds.Contains(e.Entity.TorrentId)).ToList())
+        {
+            row.State = EntityState.Detached;
+        }
+    }
+}
+
+/// <summary>The rows one torrent's metadata gives (<see cref="TorrentProjectionSync.Project"/>).</summary>
+internal sealed record ProjectedRows(List<TorrentPersonEntity> People, List<TorrentSeriesEntity> Series, List<TorrentGenreEntity> Genres)
+{
+    public void AddTo(FetchshelfDbContext dbContext)
+    {
+        dbContext.TorrentPeople.AddRange(People);
+        dbContext.TorrentSeries.AddRange(Series);
+        dbContext.TorrentGenres.AddRange(Genres);
     }
 }

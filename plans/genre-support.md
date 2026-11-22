@@ -35,8 +35,11 @@ in this plan uses data already in the search results.
 
 The genre names Fetchshelf shows come from the enum's member names (`GenreCategoryDisplay`): *Action* for MAM's
 *Action/Adventure*, *Lgbt* for *LGBTQIA+*, *Drama Plays* for *Plays/Drama*, *Occult* for *Occult / Metaphysical
-Practices*, *General Fiction* for *Literary Fiction*, *Contemporary* for *Contemporary Fiction*, and the first word only
-for paired names such as *Business/Money*. Configuration that names genres needs names people can copy from MAM.
+Practices*, *General Fiction* for *Literary Fiction*, *Contemporary* for *Contemporary Fiction*, and the first word
+only for paired names such as *Business/Money*. Two member names are wrong, taken for old categories of the same name:
+*LickLibraryLtp* is MAM's *Erotica/Sexual Content* (26) and *SheetCollectionMp3* its *Accompanying music* (48); since
+step 1 their display names are *Erotica* and *Accompanying Music*, whatever the switch. Configuration that names
+genres needs names people can copy from MAM.
 
 ## Goals
 

@@ -22,6 +22,22 @@ public class TorrentProjectionTests
         };
 
     [Fact]
+    public void From_GenresAndMainCategory_GenresInIdOrder_AndNoMainCategoryAsNull()
+    {
+        var withBoth = TorrentProjection.From(Metadata() with
+        {
+            FictionCategory = FictionCategory.Nonfiction,
+            GenreCategories = new HashSet<GenreCategory> { GenreCategory.Politics, GenreCategory.Historical },
+        });
+        var withNeither = TorrentProjection.From(Metadata());
+
+        Assert.Equal([GenreCategory.Historical, GenreCategory.Politics], withBoth.Genres);
+        Assert.Equal("Nonfiction", withBoth.FictionCategory);
+        Assert.Empty(withNeither.Genres);
+        Assert.Null(withNeither.FictionCategory);
+    }
+
+    [Fact]
     public void From_AuthorsAndNarrators_KeepTheirOrderAndKeys()
     {
         var projection = TorrentProjection.From(Metadata(["J. R. R. Tolkien", "Christopher Tolkien"], ["Andy Serkis"]));

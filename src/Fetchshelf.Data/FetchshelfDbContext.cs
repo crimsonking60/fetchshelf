@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data;
 
 /// <summary>
-/// EF Core context for Fetchshelf's persistent store. Every save keeps a torrent's people and series rows and its
-/// language and media type columns in step with its metadata JSON (<see cref="TorrentProjectionSync"/>), whichever
+/// EF Core context for Fetchshelf's persistent store. Every save keeps a torrent's people, series and genre rows and
+/// its language, media type and main category columns in step with its metadata JSON (<see cref="TorrentProjectionSync"/>), whichever
 /// page or job changed it.
 /// </summary>
 public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> options) : DbContext(options)
@@ -38,6 +38,8 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<TorrentSeriesEntity> TorrentSeries => Set<TorrentSeriesEntity>();
 
+    public DbSet<TorrentGenreEntity> TorrentGenres => Set<TorrentGenreEntity>();
+
     public DbSet<FollowEntity> Follows => Set<FollowEntity>();
 
     public DbSet<FollowFindEntity> FollowFinds => Set<FollowFindEntity>();
@@ -46,7 +48,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
 
     public DbSet<StoppedSeriesEntity> StoppedSeries => Set<StoppedSeriesEntity>();
 
-    /// <summary>The people and series rows the last save added for its torrents, dropped again if that save failed.</summary>
+    /// <summary>The people, series and genre rows the last save added for its torrents, dropped again if that save failed.</summary>
     internal List<object> PendingProjectionRows { get; } = [];
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -66,6 +68,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             using var transaction = Database.CurrentTransaction is null ? Database.BeginTransaction() : null;
             TorrentPeople.Where(p => replaced.Contains(p.TorrentId)).ExecuteDelete();
             TorrentSeries.Where(s => replaced.Contains(s.TorrentId)).ExecuteDelete();
+            TorrentGenres.Where(g => replaced.Contains(g.TorrentId)).ExecuteDelete();
             var saved = base.SaveChanges(acceptAllChangesOnSuccess);
             transaction?.Commit();
             return saved;
@@ -92,6 +95,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             await using var transaction = Database.CurrentTransaction is null ? await Database.BeginTransactionAsync(cancellationToken) : null;
             await TorrentPeople.Where(p => replaced.Contains(p.TorrentId)).ExecuteDeleteAsync(cancellationToken);
             await TorrentSeries.Where(s => replaced.Contains(s.TorrentId)).ExecuteDeleteAsync(cancellationToken);
+            await TorrentGenres.Where(g => replaced.Contains(g.TorrentId)).ExecuteDeleteAsync(cancellationToken);
             var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
             if (transaction is not null)
             {
@@ -115,6 +119,7 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasIndex(t => t.NormalizedTitleKey);
             entity.HasIndex(t => t.Language);
             entity.HasIndex(t => t.MediaType);
+            entity.HasIndex(t => t.FictionCategory);
             entity.HasIndex(t => t.SeedingState);
             entity.HasIndex(t => t.CollectionTorrentId);
             // The Link job asks, for every linked torrent, whether another one is in the same folder: without an index
@@ -160,6 +165,14 @@ public sealed class FetchshelfDbContext(DbContextOptions<FetchshelfDbContext> op
             entity.HasOne<TorrentEntity>().WithMany().HasForeignKey(s => s.TorrentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(s => s.TorrentId);
             entity.HasIndex(s => s.NameKey);
+        });
+
+        modelBuilder.Entity<TorrentGenreEntity>(entity =>
+        {
+            entity.ToTable("TorrentGenres");
+            entity.HasOne<TorrentEntity>().WithMany().HasForeignKey(g => g.TorrentId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(g => g.TorrentId);
+            entity.HasIndex(g => g.Genre);
         });
 
         modelBuilder.Entity<SelectedTorrentEntity>(entity =>
