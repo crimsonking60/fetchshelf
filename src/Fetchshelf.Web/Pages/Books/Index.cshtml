@@ -84,7 +84,19 @@ else if (Model.Books is { } books)
                         </span>
                         <span class="book-title">@book.Title</span>
                     </a>
-                    <span class="book-author muted">@book.Authors</span>
+                    <span class="book-author muted">@book.ShownAuthors@if (book.HasMoreAuthors)
+                    {
+                        <text> </text><button type="button" class="link-button authors-more" aria-label="All @book.Authors.Count authors of @book.Title">... more</button>
+                        <template class="authors-all">
+                            <h3>@book.Title</h3>
+                            <ul class="authors-list">
+                                @foreach (var author in book.Authors)
+                                {
+                                    <li><a asp-page="/Books/Index" asp-route-Author="@author">@author</a></li>
+                                }
+                            </ul>
+                        </template>
+                    }</span>
                     @if (book.SeriesLine is { } seriesLine)
                     {
                         <span class="book-series muted">@seriesLine</span>
@@ -99,6 +111,14 @@ else if (Model.Books is { } books)
         @await Html.PartialAsync("_Pager", Model.Pager)
     }
 }
+
+@* A book with more authors than its card shows lists them all here: "... more" copies its card's template in. *@
+<dialog id="authors-dialog" class="hit-dialog" aria-label="Authors">
+    <div class="hit-dialog-bar">
+        <button type="button" id="authors-dialog-close">Close</button>
+    </div>
+    <div id="authors-dialog-body"></div>
+</dialog>
 
 <dialog id="book-dialog" class="hit-dialog" aria-label="Book details">
     <div class="hit-dialog-bar">
@@ -128,6 +148,24 @@ else if (Model.Books is { } books)
         dialog.addEventListener('click', function (event) {
             if (event.target === dialog) {
                 dialog.close();
+            }
+        });
+        const authorsDialog = document.getElementById('authors-dialog');
+        const authorsBody = document.getElementById('authors-dialog-body');
+        document.addEventListener('click', function (event) {
+            const more = event.target instanceof Element ? event.target.closest('.authors-more') : null;
+            if (more) {
+                const template = more.parentElement.querySelector('template.authors-all');
+                authorsBody.replaceChildren(template.content.cloneNode(true));
+                authorsDialog.showModal();
+            }
+        });
+        document.getElementById('authors-dialog-close').addEventListener('click', function () {
+            authorsDialog.close();
+        });
+        authorsDialog.addEventListener('click', function (event) {
+            if (event.target === authorsDialog) {
+                authorsDialog.close();
             }
         });
         // A book without a cover after all shows its initial instead of a broken image.
