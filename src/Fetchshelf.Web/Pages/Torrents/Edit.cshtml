@@ -21,10 +21,25 @@
     <label>Category
         <select asp-for="Input.Category" asp-items="Html.GetEnumSelectList<Fetchshelf.Core.Metadata.LegacyCategory>()"></select>
     </label>
+    <p class="edit-note muted" id="category-note">
+        MAM's older classification: one per torrent, a media type and a subject together, such as Audiobooks - Fantasy.
+        The media type comes from it, and decides which of the torrent's files are linked (the audio or the ebook format
+        list) and how the book is shown and filtered, as an audiobook, an ebook and so on. It is also the first genre
+        written to metadata.json, metadata.opf and Audiobookshelf, and what <code>categories</code> in <code>[[tag]]</code>
+        rules and grab blocks match. It doesn't choose the library or the qBittorrent category. A change reaches the files
+        in the library at the next relink.
+    </p>
 
     @if (Model.GenresOn)
     {
         <input type="hidden" name="Input.GenresShown" value="true" />
+        <p class="edit-note muted" id="genres-note">
+            MAM's newer classification, kept apart from the category above, which it needn't agree with: a main category,
+            fiction or nonfiction, and any number of genres. They decide which library takes the book when libraries ask
+            for genres (<code>allow_genres</code>, <code>deny_genres</code>, <code>fiction</code>), they are what the Fiction
+            and Genre filters look at, and they are written as genres to metadata.json, metadata.opf and Audiobookshelf. A
+            change that picks another library shows as Different library on the Torrents page until the book is relinked.
+        </p>
         <label>Main category
             <select name="Input.Fiction" id="edit-fiction">
                 <option value="" selected="@(string.IsNullOrEmpty(Model.Input.Fiction))">Neither</option>
