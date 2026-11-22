@@ -45,6 +45,9 @@ public enum RelinkBlocker
     /// <summary>qBittorrent has the torrent, but it hasn't finished downloading.</summary>
     NotFinished,
 
+    /// <summary>qBittorrent has the torrent, but can't find its files (moved or deleted outside it); the detail is where it looks.</summary>
+    MissingFiles,
+
     /// <summary>No library accepts the torrent's qBittorrent category, save path and tags.</summary>
     NoLibraryAccepts,
 

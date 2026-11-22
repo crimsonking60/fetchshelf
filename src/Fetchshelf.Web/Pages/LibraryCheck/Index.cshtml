@@ -166,6 +166,9 @@
                                 case RelinkBlocker.NotFinished:
                                     <text>The torrent is still downloading in qBittorrent. Check again once it has finished.</text>
                                     break;
+                                case RelinkBlocker.MissingFiles:
+                                    <text>qBittorrent can't find the torrent's files in @finding.BlockerDetail (Missing files). Move them back there, or use Set location in qBittorrent, then Force recheck, and <strong>Relink</strong>.</text>
+                                    break;
                                 case RelinkBlocker.NoLibraryAccepts:
                                     <text>No library accepts its qBittorrent category (@(string.IsNullOrEmpty(finding.BlockerDetail) ? "none" : finding.BlockerDetail)), save path or tags. Give it a library's category on its <a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">torrent page</a>, then <strong>Relink</strong>.</text>
                                     break;

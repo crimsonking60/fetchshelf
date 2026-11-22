@@ -2268,7 +2268,10 @@ back with its findings straight away. With more than one library, a dropdown abo
     save path or tags;
   - add an author on its Edit page, then Relink, when the book has no author;
   - **Remove record**, when qBittorrent no longer has the torrent (unless you add it to qBittorrent again);
-  - check again later, when the torrent is still downloading.
+  - check again later, when the torrent is still downloading;
+  - move its files back to where qBittorrent keeps them, or use **Set location** in qBittorrent, then **Force
+    recheck** and Relink, when qBittorrent can't find the torrent's files (its state *Missing files*: moved or deleted
+    outside qBittorrent). Relink and the Search page's **Import** say the same for such a torrent.
 - **Relink selected** relinks each ticked book as on its torrent page. A book it relinks leaves the list; one it can't
   stays, with *What to do* brought up to date. **Remove record** makes Fetchshelf forget the book, as on its torrent
   page.
