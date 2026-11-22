@@ -21,7 +21,8 @@ This plan adds the sources. Nothing in it calls MAM.
    1. **its own files**: the cover embedded in an EPUB, CBZ/CBR, m4b, m4a or mp3, written out as `cover.jpg` (or
       `.png`, `.webp`), at no request cost;
    2. **Hardcover**, with the `[hardcover]` token when one is configured: by ISBN, then by title and author;
-   3. **Open Library**, without a key: by ISBN.
+   3. **Open Library**, without a key: by ISBN;
+   4. **Audnexus** (Audible's data), without a key, for audiobooks with an ASIN.
 2. The Search page's details show a cover with `[search] covers = true`, from Hardcover and Open Library (a search
    result has no files yet).
 3. The same limits as before: at most `covers_from_mam` covers fetched per Link run (0 to 100), a book looked at once,
@@ -30,9 +31,9 @@ This plan adds the sources. Nothing in it calls MAM.
 
 ## The setting's name
 
-`covers_from_mam` no longer says what it does. *Proposed:* a top-level `covers` (0 to 100, default 0) with the same
+`covers_from_mam` no longer says what it does. Decided: a top-level `covers` (0 to 100, default 0) with the same
 meaning, and `covers_from_mam` still accepted as its old name, with a warning at start-up to rename it, so released
-configurations keep working. Both set is a configuration error. (Open question 1.)
+configurations keep working. Both set is a configuration error.
 
 ## Approach
 
@@ -51,17 +52,28 @@ configurations keep working. Both set is a configuration error. (Open question 1
   which answers 404 when it has none. Only for books with an ISBN.
   - Rate: Open Library limits ISBN lookups to about 100 per 5 minutes per IP; the client keeps three seconds between
     requests, and stops the run on 429 (`CoverSourceRefusedException`).
+- **`AudnexusCoverSource`** (new `Fetchshelf.Clients.Audnexus`, small): `https://api.audnex.us/books/<asin>`, whose
+  `image` is the cover's address on Audible's image host (checked); for audiobooks with an ASIN only. One second between
+  requests; 429 ends it for the run.
 - **`ChainedCoverSource`**: tries them in order, the first cover wins. A source that throws `CoverSourceRefusedException`
   is skipped for the rest of the run, not the whole chain: the embedded covers still get written.
 - Each image is checked (JPEG, PNG or WebP by its first bytes, at most 5 MB), as before.
 
 ### 2. Registration and the Link job
 
-- `CoverWriter` is registered with the chain whenever `covers` (or `covers_from_mam`) is above 0. Embedded covers always
-  count towards the per-run limit too, so a large library fills in over several runs as before; *or* (open question 2)
-  embedded covers don't count, as they cost no request.
+- `CoverWriter` is registered with the chain whenever `covers` (or `covers_from_mam`) is above 0.
+- **Two budgets per Link run** (proposed for open question 2):
+  - **Embedded covers** don't count towards `covers`, as they cost no request; instead each run spends at most about
+    10 seconds on them (a time budget, as reading a cover takes milliseconds on a local disk and many times that on a
+    NAS, so a count would be wrong on one of them), then stops, and the next run goes on. A large library fills in
+    within a few runs, and a Link run never takes more than about 10 seconds longer than now.
+  - **Downloaded covers** (Hardcover, Open Library, Audnexus) count towards `covers`, as now: their limits are requests
+    per minute.
+  - The folders are read without the library write gate, which is taken only for the moment each cover is written, so
+    Link, Clean and bulk actions aren't held up by the reading.
 - The Link job's result says how many covers were written, and from where: "12 covers written (8 from the files, 3 from
   Hardcover, 1 from Open Library); 40 more waiting".
+- Audnexus comes after Open Library for audiobooks; for ebooks it isn't asked.
 
 ### 3. The Search page
 
@@ -80,23 +92,25 @@ configurations keep working. Both set is a configuration error. (Open question 1
 
 ## Order of work
 
-1. Embedded covers and the chain, with the setting's new name (no requests at all). One PR.
-2. Open Library. One PR.
+1. Embedded covers and the chain, with the setting's new name and the time budget (no requests at all). One PR.
+2. Open Library and Audnexus. One PR.
 3. Hardcover, and the Search page's covers. One PR.
 
-## Open questions
+## Decisions
 
-1. **The setting's name**: `covers` with `covers_from_mam` as an old name, as proposed, or keep `covers_from_mam`?
-2. **Embedded covers and the limit**: count towards the per-run limit (simple, as proposed), or not (faster fill-in)?
-3. **Audiobooks**: Audnexus (Audible data, by ASIN) gives good audiobook covers; many MAM uploads have no ASIN. Add it
-   as a fourth source later, or not at all?
+Settled on 2026-11-22:
+
+1. **The setting's name**: `covers`, with `covers_from_mam` accepted as its old name (see above).
+2. **Embedded covers and the limit**: open; proposed, a time budget of about 10 seconds per Link run instead of a count
+   (see Registration and the Link job).
+3. **Audnexus**: yes, for audiobooks with an ASIN, after Open Library.
 
 ## Risks
 
 - **Wrong covers** from a title-and-author match: only exact key matches are taken; an ISBN match is preferred.
 - **Rate limits**: both services are asked slowly and at most `covers` times per run; a refusal ends that source for
   the run.
-- **Privacy**: titles, authors and ISBNs of the user's books go to Hardcover and Open Library. Documented, and only with
+- **Privacy**: titles, authors, ISBNs and ASINs of the user's books go to Hardcover, Open Library and Audnexus. Documented, and only with
   `covers` above 0 (and the token, for Hardcover).
 
 ## Verification
