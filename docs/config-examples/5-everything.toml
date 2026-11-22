@@ -44,6 +44,7 @@ link_method = "hardlink_or_copy" # how files are placed in every library without
 split_collections = false        # split a collection into one library book each, in every library without its own setting
 covers_from_mam = 20  # covers fetched from MAM per Link run for book folders without an image, 0 to 100; default 0
 metrics = false       # serve Prometheus metrics at /metrics
+genres = true         # MAM's genres and fiction/nonfiction: libraries by genre, and genre filters on the pages; default false
 
 database_wal = true # SQLite write-ahead log, for a responsive UI during long jobs. Default false;
                     # only turn it on if the database is on a local disk, not a network share (NFS/SMB)
@@ -420,7 +421,8 @@ client = "Seedbox"       # the first matching rule that sets a client decides it
 save_path = "/downloads/large" # the same for the save path, as qBittorrent sees it
 
 # =====================================================================================================
-# [[library]]: repeatable. First matching library in file order wins.
+# [[library]]: repeatable. First matching library in file order wins; with genres = true, its genre
+# conditions must hold too.
 # Exactly one of 'category' or 'download_dir' per library.
 # =====================================================================================================
 [[library]]
@@ -431,6 +433,15 @@ method = "hardlink"                      # hardlink, hardlink_or_copy (default),
                                          # copy, symlink, no_link (record metadata only)
 deny_tags = ["large"]                    # reject torrents with ANY of these tags
 audio_types = ["m4b", "mp3"]             # override the global list for this library
+
+[[library]]
+name = "Military history"                # a library by genre: tried before "Ebooks", which takes the rest
+category = "ebooks"
+library_dir = "/data/library/military-history"
+allow_tags = ["fetchshelf"]
+fiction = "nonfiction"                   # "fiction" or "nonfiction": MAM's main category; needs genres = true
+allow_genres = ["Military/War", "Historical"] # MAM's genre names; the book needs at least one of them
+deny_genres = ["Juvenile"]               # a book with any of these is left to the next library
 
 [[library]]
 name = "Ebooks"

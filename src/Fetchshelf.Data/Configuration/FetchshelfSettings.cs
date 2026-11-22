@@ -68,6 +68,12 @@ public sealed class FetchshelfSettings
     /// <summary>The `split_collections` of every `[[library]]` that does not set its own: whether collections are split into one book each.</summary>
     public bool SplitCollections { get; set; }
 
+    /// <summary>
+    /// `genres`: MAM's genres and its fiction/nonfiction, used by libraries (`allow_genres`, `deny_genres`, `fiction`) and
+    /// shown and filtered on the pages. Off by default, when Fetchshelf behaves as it did without them.
+    /// </summary>
+    public bool Genres { get; set; }
+
     /// <summary>`metrics`: serve Prometheus's `/metrics`.</summary>
     public bool Metrics { get; set; }
 

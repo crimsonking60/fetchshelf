@@ -207,7 +207,7 @@ public sealed class LinkRunner(
 
         // The library match needs only the client's category, save path and tags, so it comes before
         // the MAM lookup: a torrent no library claims must cost no request.
-        var (mappedSavePath, matchedIndex) = MatchLibrary(connection, torrent);
+        var (mappedSavePath, candidates) = MatchLibrary(connection, torrent);
 
         TorrentMetadata metadata;
 
@@ -246,7 +246,7 @@ public sealed class LinkRunner(
         }
         else
         {
-            if (matchedIndex is null)
+            if (candidates.Count == 0)
             {
                 return; // no library matches; ignored
             }
@@ -286,12 +286,21 @@ public sealed class LinkRunner(
             metadata = looked;
         }
 
+        // Of the libraries its category, folder and tags give it, the first whose genre condition takes the book.
+        var matchedIndex = ChooseLibrary(candidates, metadata);
+
         // The series layout names nothing after the author, so it links books without one.
         if (metadata.Authors.Count == 0 && !(matchedIndex is { } index && libraries[index].IsSeriesLayout))
         {
             // Without a record, the Errors page's Edit needs what MAM said to start from: it becomes the record when saved.
             var lookedUpMetadata = existing is null ? TorrentMetadataSerializer.Serialize(metadata) : null;
             await RecordLinkerErrorAsync(torrent, NoAuthorError, cancellationToken, lookedUpMetadata);
+            return;
+        }
+
+        if (matchedIndex is null && candidates.Count > 0)
+        {
+            await RecordNoLibraryForGenresAsync(existing, torrent, metadata, cancellationToken);
             return;
         }
 
@@ -566,12 +575,60 @@ public sealed class LinkRunner(
     private static List<QBittorrentFile> ChosenFiles(IReadOnlyList<QBittorrentFile> files, string? audio, string? ebook) =>
         files.Where(f => LinkedFormats.IsChosen(f.Name, audio, ebook)).ToList();
 
-    /// <summary>The torrent's save path as seen from here, and the index of the first library that accepts it, if any.</summary>
-    private (string MappedSavePath, int? LibraryIndex) MatchLibrary(QBittorrentConnection connection, QBittorrentTorrent torrent)
+    /// <summary>
+    /// The torrent's save path as seen from here, and the libraries its category, save path and tags give it, in the
+    /// order of the configuration. Which of them takes the book depends on its genres (<see cref="ChooseLibrary"/>).
+    /// </summary>
+    private (string MappedSavePath, IReadOnlyList<int> Candidates) MatchLibrary(QBittorrentConnection connection, QBittorrentTorrent torrent)
     {
         var mappedSavePath = PathMapper.Translate(connection.PathMapping, torrent.SavePath);
-        return (mappedSavePath, LibraryMatcher.FindMatchingLibraryIndex(
-            libraries.Select(ToMatchRule).ToList(), torrent.Category, mappedSavePath, torrent.TagList));
+        return (mappedSavePath, LibraryMatcher.CandidateIndexes(MatchRules, torrent.Category, mappedSavePath, torrent.TagList));
+    }
+
+    private IReadOnlyList<LibraryMatchRule> MatchRules => _matchRules ??= libraries.Select(ToMatchRule).ToList();
+
+    private IReadOnlyList<LibraryMatchRule>? _matchRules;
+
+    /// <summary>The first of <paramref name="candidates"/> whose genre condition takes the book; null when none does.</summary>
+    private int? ChooseLibrary(IReadOnlyList<int> candidates, TorrentMetadata metadata) =>
+        LibraryMatcher.ChooseForBook(MatchRules, candidates, metadata);
+
+    /// <summary>Why no library takes a book its category gives libraries: its main category and genres, by MAM's names.</summary>
+    public static string NoLibraryForGenres(TorrentMetadata metadata)
+    {
+        var fiction = metadata.FictionCategory is { } main ? GenreLabels.FictionLabel(main) : "neither fiction nor nonfiction";
+        var genres = metadata.GenreCategories is { Count: > 0 } list
+            ? string.Join(", ", list.Order().Select(GenreLabels.Label))
+            : "no genres";
+        return $"No library takes its genres: {fiction}; {genres}.";
+    }
+
+    /// <summary>
+    /// A book whose category gives it libraries, none of which takes its genres: not linked, said on the Errors page and
+    /// as the record's "no library" problem. A torrent seen for the first time gets its record here, so the next runs
+    /// read its metadata from it instead of asking MAM again; a change to the configuration or the metadata links it.
+    /// </summary>
+    private async Task RecordNoLibraryForGenresAsync(
+        TorrentEntity? existing, QBittorrentTorrent torrent, TorrentMetadata metadata, CancellationToken cancellationToken)
+    {
+        if (existing is null)
+        {
+            existing = new TorrentEntity
+            {
+                Id = torrent.Hash,
+                MamId = metadata.MamId,
+                NormalizedTitleKey = TitleNormalizer.Normalize(metadata.Title),
+                Title = metadata.Title,
+                MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
+                CreatedAt = DateTimeOffset.UtcNow,
+                QBittorrentCategory = torrent.Category,
+            };
+            ClientStatuses.Update(existing, torrent.State);
+            dbContext.Torrents.Add(existing);
+        }
+
+        existing.LibraryMismatchState = nameof(LibraryMismatchState.NoLibrary);
+        await RecordLinkerErrorAsync(torrent, NoLibraryForGenres(metadata), cancellationToken);
     }
 
     /// <summary>
@@ -730,7 +787,7 @@ public sealed class LinkRunner(
     private async Task SyncMismatchAsync(
         TorrentEntity existing, QBittorrentConnection connection, QBittorrentTorrent torrent, TorrentMetadata metadata, CancellationToken cancellationToken)
     {
-        var (_, matchedIndex) = MatchLibrary(connection, torrent);
+        var matchedIndex = ChooseLibrary(MatchLibrary(connection, torrent).Candidates, metadata);
 
         // The library it is linked into, from where its folder is: the library its category points to now can be
         // another one, which the mismatch below reports. This also repairs names an earlier version set that way.
@@ -864,13 +921,11 @@ public sealed class LinkRunner(
             return Refuse(existing, "It has not finished downloading.");
         }
 
-        var (mappedSavePath, matchedIndex) = MatchLibrary(connection, torrent);
-        if (matchedIndex is null)
+        var (mappedSavePath, candidates) = MatchLibrary(connection, torrent);
+        if (candidates.Count == 0)
         {
             return Refuse(existing, "No library accepts its qBittorrent category, save path and tags.");
         }
-
-        var library = libraries[matchedIndex.Value];
 
         // Metadata edited by hand is what the book is linked by; only its VIP status follows MAM.
         var stored = TorrentMetadataSerializer.Deserialize(existing.MetadataJson);
@@ -886,6 +941,13 @@ public sealed class LinkRunner(
             metadata = looked is null ? stored : HandEdits.KeepOver(stored, looked);
         }
 
+        // By the metadata it is linked with, refreshed or not: its genres pick among the libraries.
+        if (ChooseLibrary(candidates, metadata) is not { } matchedIndex)
+        {
+            return Refuse(existing, NoLibraryForGenres(metadata));
+        }
+
+        var library = libraries[matchedIndex];
         if (metadata.Authors.Count == 0 && !library.IsSeriesLayout)
         {
             return Refuse(existing, "It has no author.");
@@ -957,9 +1019,10 @@ public sealed class LinkRunner(
     /// <summary>
     /// What would stop <see cref="RelinkAsync"/> placing the torrent's files again, found the way it finds it, without
     /// changing anything: whether qBittorrent has it and has finished it, whether a library accepts it, and whether it
-    /// has the author a book-layout library needs. With the torrent's category, for a library to be given.
+    /// has the author a book-layout library needs. With the torrent's category, for a library to be given, or for
+    /// <see cref="RelinkBlocker.NoLibraryTakesGenres"/> why no library takes its genres.
     /// </summary>
-    public async Task<(RelinkBlocker Blocker, string? Category)> RelinkBlockerAsync(
+    public async Task<(RelinkBlocker Blocker, string? Detail)> RelinkBlockerAsync(
         string torrentId, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
         CancellationToken cancellationToken = default)
     {
@@ -973,13 +1036,20 @@ public sealed class LinkRunner(
             return (RelinkBlocker.NotFinished, torrent.Category);
         }
 
-        if (MatchLibrary(connection, torrent).LibraryIndex is not { } index)
+        var candidates = MatchLibrary(connection, torrent).Candidates;
+        if (candidates.Count == 0)
         {
             return (RelinkBlocker.NoLibraryAccepts, torrent.Category);
         }
 
         var metadataJson = await dbContext.Torrents.AsNoTracking().Where(t => t.Id == torrentId).Select(t => t.MetadataJson).SingleAsync(cancellationToken);
-        return TorrentMetadataSerializer.Deserialize(metadataJson).Authors.Count == 0 && !libraries[index].IsSeriesLayout
+        var metadata = TorrentMetadataSerializer.Deserialize(metadataJson);
+        if (ChooseLibrary(candidates, metadata) is not { } index)
+        {
+            return (RelinkBlocker.NoLibraryTakesGenres, NoLibraryForGenres(metadata));
+        }
+
+        return metadata.Authors.Count == 0 && !libraries[index].IsSeriesLayout
             ? (RelinkBlocker.NoAuthor, torrent.Category)
             : (RelinkBlocker.None, torrent.Category);
     }
@@ -1197,6 +1267,7 @@ public sealed class LinkRunner(
         DownloadDir = library.DownloadDir,
         AllowTags = library.AllowTags,
         DenyTags = library.DenyTags,
+        Genres = library.Genres,
     };
 
     /// <param name="lookedUpMetadataJson">The torrent's metadata from MAM, kept on the error for a torrent without a record.</param>

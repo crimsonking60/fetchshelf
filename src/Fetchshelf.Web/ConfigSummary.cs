@@ -109,7 +109,8 @@ public static class ConfigSummary
                 library.IsSeriesLayout && library.SeriesJson ? "series.json" : null,
             }.OfType<string>();
             var layout = library.IsSeriesLayout ? $"series layout (one-shots in {library.OneshotsDir})" : null;
-            var details = string.Join(", ", new[] { Underscored(library.Method.ToString()), layout }.OfType<string>().Concat(metadataFiles));
+            var genres = library.Genres.Describe() is { } condition ? $"genres: {condition}" : null;
+            var details = string.Join(", ", new[] { Underscored(library.Method.ToString()), layout, genres }.OfType<string>().Concat(metadataFiles));
             return (Name: library.Name ?? $"library {index + 1}", Match: match, Target: $"-> {library.LibraryDir}  {details}");
         }).ToList();
         var matchWidth = libraries.Max(library => library.Match.Length);

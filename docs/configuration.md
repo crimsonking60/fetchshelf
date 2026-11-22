@@ -224,6 +224,7 @@ These go at the top of the file, before any section.
 | `metadata_opf` | `false` | Whether every `[[library]]` that does not set its own `metadata_opf` writes a `metadata.opf`. See [`[[library]]`](#library). |
 | `metrics` | `false` | Serve Prometheus metrics at `/metrics`. See [Prometheus metrics](#prometheus-metrics). |
 | `split_collections` | `false` | Whether every `[[library]]` that does not set its own [`split_collections`](#library) splits a collection into one library book each. See [Collections](user-guide.md#collections). |
+| `genres` | `false` | Use MAM's genres and its fiction/nonfiction: libraries can take books by genre ([`allow_genres`, `deny_genres`, `fiction`](#libraries-by-genre)). Off, Fetchshelf behaves as it did without them, and those library settings stop startup. |
 | `covers_from_mam` | `0` | How many covers each Link run fetches from MAM for book folders that have no image, `0` to `100`. They are written as `cover.jpg` (or `cover.png`, `cover.webp`); books already in the library get theirs over the following runs. `0` fetches none. Series libraries are left out. The covers come from MAM's image server, which isn't among the parts of MAM its API documentation authorizes automating. See [Covers](user-guide.md#covers). |
 | `search_interval` | `30` | Minutes between runs of each autograb block, and of the Download job. Overridable per block. `0` means the jobs only run from the **Jobs** page; at most 43200 (30 days). After a restart, a job's first run follows its last run, or comes within a few minutes of start for a job that is due. |
 | `link_interval` | `10` | Minutes between scans for finished torrents to link into libraries. `0` to 43200, and the first run after a restart, as for `search_interval`. |
@@ -1127,6 +1128,9 @@ library, in file order, that accepts it is used.
 | `method` | global `link_method` | How files are placed. See below. |
 | `allow_tags` | `[]` | If not empty, the torrent must have at least one of these tags. |
 | `deny_tags` | `[]` | A torrent with any of these tags is rejected. |
+| `allow_genres` | `[]` | If not empty, the book must have at least one of these [genres](#genres). Needs `genres = true`. See [libraries by genre](#libraries-by-genre). |
+| `deny_genres` | `[]` | A book with any of these genres is not taken. Needs `genres = true`. |
+| `fiction` | unset | `"fiction"` or `"nonfiction"`: the book's main category on MAM must be this one. Unset takes both, and books MAM gave neither. Needs `genres = true`. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
@@ -1137,13 +1141,15 @@ library, in file order, that accepts it is used.
 | `layout` | `"book"` | `"book"`: one folder per book, as `folder_template` says. `"series"`: one folder per series holding every book of the series, one file each, for comic servers such as Komga. See [series layout](#series-layout). |
 | `oneshots_dir` | `"_oneshots"` | Series layout only: the folder under `library_dir` that books without a series go into. A single folder name, without `/` or `\`. Komga's One-Shots directory setting must name the same folder. |
 | `series_json` | `true` | Series layout only: write a Mylar `series.json` into each series folder. |
+| `language_in_folder` | `"on_clash"` | When a book's folder name ends with its language, such as `Gamma (Greek)`. `"on_clash"`: only when its plain folder already holds the same title in another language, so two editions don't share a folder. `"other"`: every book not in the first of the top-level `languages`, which needs `languages` set. See [languages in folder names](#languages-in-folder-names). |
 
 `oneshots_dir` or `series_json` on a library with the book layout stops startup.
-| `language_in_folder` | `"on_clash"` | When a book's folder name ends with its language, such as `Gamma (Greek)`. `"on_clash"`: only when its plain folder already holds the same title in another language, so two editions don't share a folder. `"other"`: every book not in the first of the top-level `languages`, which needs `languages` set. See [languages in folder names](#languages-in-folder-names). |
 
 - **Exactly one of `category` or `download_dir`** must be set. Setting both or neither is an error.
 - **Tags.** A torrent with any `deny_tags` tag is rejected. If `allow_tags` is not empty, the torrent
   must also have at least one of them.
+- **Genres.** With `genres = true`, a library can also ask for genres and a main category; see
+  [libraries by genre](#libraries-by-genre).
 - **`method`:**
 
 | Value | Behaviour |
@@ -1175,6 +1181,55 @@ library, in file order, that accepts it is used.
 - Changing either setting affects books linked from then on. To apply it to books already in the library,
   relink them: tick them on the **Torrents** page and use **Relink selected**.
 - A torrent without any author cannot be linked and is reported on the Errors page, except into a series library.
+
+### Libraries by genre
+
+With `genres = true`, `allow_genres`, `deny_genres` and `fiction` split the books arriving in one qBittorrent category
+or download folder between libraries. MAM gives each torrent two separate classifications: a main category, fiction
+or nonfiction, and genres, such as *Historical*. A *Historical* book can be either, so a library can ask for both:
+
+```toml
+genres = true
+
+[[library]]
+name = "History"
+category = "ebooks"
+library_dir = "/books/history"
+fiction = "nonfiction"
+allow_genres = ["Historical", "Politics/Sociology"]
+
+[[library]]
+name = "Historical fiction"
+category = "ebooks"
+library_dir = "/books/historical-fiction"
+fiction = "fiction"
+allow_genres = ["Historical"]
+deny_genres = ["Romance"]
+
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/books/ebooks"
+```
+
+- **Every condition of a library must hold:** its `category` or `download_dir`, its tags, its genres and its
+  `fiction`. Libraries are tried in the order of the file, and the first that takes the book gets it. A nonfiction
+  *Historical* book goes to History, a fiction one to Historical fiction, and a fiction *Historical* *Romance* to
+  Ebooks.
+- **A library without genre conditions after the genre libraries takes the rest.** Without one, a book none of them
+  takes isn't linked: the Errors page says *No library takes its genres* and names the book's main category and
+  genres, and the Torrents page shows it with the *No library* problem. It is linked by the next Link run after the
+  configuration changes so that a library takes it.
+- **A book without genres** (metadata entered by hand, or MAM gave none) matches no `allow_genres` and is never refused
+  by `deny_genres`; **a book without a main category** matches no `fiction`.
+- **Names** are MAM's, as on its search form (see [genres](#genres)), compared ignoring case, spaces and punctuation:
+  `"Politics/Sociology"`, `"politics / sociology"` and `"politicssociology"` are the same genre. An unknown name, a genre
+  in both lists of one library, or a `fiction` other than `"fiction"` or `"nonfiction"` stops startup, saying which.
+- **Only the library choice changes.** The qBittorrent category is chosen as before, and a torrent whose category,
+  folder and tags give it no library still costs no request to MAM.
+- **Books already linked** are compared with the libraries on every Link run, like a changed category: a book whose
+  genres now pick another library shows as *Different library* on the Torrents page, and **Relink** moves it. See
+  [When the folder no longer matches](user-guide.md#when-the-folder-no-longer-matches).
 
 ### Folder naming
 
@@ -1489,6 +1544,22 @@ Used inside `categories`. Names are case-insensitive, and obvious simplified spe
 - **Radio:** Comedy, Drama, Factual/Documentary, Reading.
 
 An unrecognized category name is a configuration error.
+
+### Genres
+
+Used in `allow_genres` and `deny_genres` of a [`[[library]]`](#libraries-by-genre), with `genres = true`. MAM's names,
+as on its search form, compared ignoring case, spaces and punctuation:
+
+Accompanying music, Action/Adventure, Art/Photography, Biographical, Business/Money, Comedy, Complete Editions - Music,
+Computer/Internet, Contemporary Fiction, Crafts, Crime, Dramatization/Full Cast, Education/Textbook, Erotica/Sexual
+Content, Factual News/Current Events, Fantasy, Food/Wine, Guitar/Bass Tabs, Health/Fitness/Diet, Historical,
+Home/Garden, Horror, Humor, Individual Sheet, Instructional, Juvenile, Language, LGBTQIA+, Literary Classics, Literary
+Fiction, LitRPG, Math, Medicine/Psychology, Military/War, Music, Music Book, Mystery, Nature, Occult / Metaphysical
+Practices, Paranormal, Philosophy, Plays/Drama, Poetry, Politics/Sociology, Progression Fantasy, Reference,
+Religion/Spirituality, Romance, RPG, Science, Science Fiction, Self-Help, Sheet Collection, Slice of Life,
+Sports/Hobbies, Superheroes, Technology, Thriller/Suspense, Travel, Urban Fantasy, Western, Young Adult.
+
+These are not the [categories](#categories) above, which are MAM's older classification; some names appear in both.
 
 ### Flags
 

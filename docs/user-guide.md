@@ -570,6 +570,42 @@ You can narrow a library with `allow_tags` (the torrent needs at least one) and 
 is rejected if it has any), and give it its own `audio_types` / `ebook_types` to control which files are
 linked into it.
 
+### Sorting books by genre
+
+MAM classifies every torrent twice: by a **main category**, fiction or nonfiction, and by **genres**, such as
+*Historical*, *Romance* or *Military/War*. The two are separate: a *Historical* book can be a novel or a history. With
+`genres = true` at the top of the configuration, a library can take only books of certain genres, of fiction or of
+nonfiction, so books arriving in one qBittorrent category are split between libraries:
+
+```toml
+genres = true
+
+[[library]]
+name = "History"
+category = "ebooks"
+library_dir = "/media/library/history"
+fiction = "nonfiction"
+allow_genres = ["Historical", "Military/War"]
+
+[[library]]
+name = "Ebooks"
+category = "ebooks"
+library_dir = "/media/library/ebooks"
+```
+
+A nonfiction *Historical* book goes to History; every other ebook goes to Ebooks, the first library in the file that
+takes it. `deny_genres` keeps books with a genre out, and names are MAM's, as on its search form; see
+[libraries by genre](configuration.md#libraries-by-genre) for every rule and [the list of genres](configuration.md#genres).
+
+- **Keep a library without genre conditions last.** A book none of the genre libraries takes goes there. Without one,
+  the book isn't linked: the **Errors** page says *No library takes its genres* and names its main category and
+  genres, and once the configuration changes so that a library takes it, the next Link run links it.
+- **Changing the split later** doesn't move anything by itself. Books whose genres now pick another library show as
+  *Different library* on the **Torrents** page (see [When the folder no longer matches](#when-the-folder-no-longer-matches));
+  tick them and choose **Relink selected** to move them.
+- **Books without genres**, such as ones entered by hand, are taken only by a library without `allow_genres` or
+  `fiction`.
+
 ### Link methods
 
 `method` controls how a file gets from the download folder to the library:
@@ -1830,14 +1866,15 @@ from where it is. The torrent is then flagged with a badge in the *Status* colum
 - **No library:** no library accepts the torrent any more. A torrent Fetchshelf knows but has never linked,
   such as one that was already in qBittorrent under another category, gets this flag too, and the log says
   which category it has. Give it a library's category with **Set category** and the next Link run links it.
-- **Different library:** it now belongs in another library.
+- **Different library:** it now belongs in another library, for example after a category change, or, with
+  [libraries by genre](#sorting-books-by-genre), after its genres or the libraries' genre settings changed.
 - **Different folder:** it belongs in the same library, but in a different folder.
 
 Open it and choose **Refresh and relink**, or tick several on the **Torrents** page and choose **Relink
 selected**.
 
 **Refresh and relink** links a book again from the download in qBittorrent. It picks the library from the
-torrent's current category, save path and tags, removes the files Fetchshelf placed before, and places the
+torrent's current category, save path and tags, and its genres when libraries ask for them, removes the files Fetchshelf placed before, and places the
 wanted files in the folder the book's details now call for. It also puts back files that went missing from
 the library, for example a folder deleted by hand. Details you edited by hand are kept; only their VIP
 status follows MAM. Before touching any file it checks that the torrent is in qBittorrent, that a library

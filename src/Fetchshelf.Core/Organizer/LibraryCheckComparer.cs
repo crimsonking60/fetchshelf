@@ -48,6 +48,9 @@ public enum RelinkBlocker
     /// <summary>No library accepts the torrent's qBittorrent category, save path and tags.</summary>
     NoLibraryAccepts,
 
+    /// <summary>Libraries take the torrent by its category, but none of them takes the book's genres.</summary>
+    NoLibraryTakesGenres,
+
     /// <summary>The book has no author, which a book-layout library's folder names need.</summary>
     NoAuthor,
 
@@ -86,7 +89,8 @@ public sealed record LibraryFinding(LibraryFindingKind Kind, string Path, string
 
     /// <summary>
     /// What goes with <see cref="Blocker"/>: the torrent's qBittorrent category for
-    /// <see cref="RelinkBlocker.NoLibraryAccepts"/>, why qBittorrent couldn't be asked for <see cref="RelinkBlocker.Unknown"/>.
+    /// <see cref="RelinkBlocker.NoLibraryAccepts"/>, the book's genres for <see cref="RelinkBlocker.NoLibraryTakesGenres"/>, why
+    /// qBittorrent couldn't be asked for <see cref="RelinkBlocker.Unknown"/>.
     /// </summary>
     public string? BlockerDetail { get; init; }
 }

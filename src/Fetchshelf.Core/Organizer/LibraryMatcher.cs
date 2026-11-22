@@ -1,3 +1,5 @@
+using Fetchshelf.Core.Metadata;
+
 namespace Fetchshelf.Core.Organizer;
 
 /// <summary>The matching-relevant fields of a configured `[[library]]` entry.</summary>
@@ -10,23 +12,36 @@ public sealed record LibraryMatchRule
     public IReadOnlyList<string> AllowTags { get; init; } = [];
 
     public IReadOnlyList<string> DenyTags { get; init; } = [];
+
+    /// <summary>What the library asks of a book's genres and main category; <see cref="GenreCondition.None"/> takes every book.</summary>
+    public GenreCondition Genres { get; init; } = GenreCondition.None;
 }
 
 /// <summary>Matches a finished torrent to a configured library.</summary>
 public static class LibraryMatcher
 {
     /// <summary>
-    /// Returns the index, in <paramref name="libraries"/>, of the first library that matches, or null
-    /// if none does. A library matches if its `category` equals the torrent's qBittorrent category (or
-    /// the torrent's save path is in its `download_dir`, by whole folder names), it has no deny-tag present on the
-    /// torrent, and - if it declares allow-tags - at least one is present on the torrent.
+    /// The first library that takes the torrent by its qBittorrent category, save path and tags, whatever its genre
+    /// condition; null when none does.
     /// </summary>
     public static int? FindMatchingLibraryIndex(
         IReadOnlyList<LibraryMatchRule> libraries,
         string? qbittorrentCategory,
         string savePath,
+        IReadOnlyList<string> torrentTags) =>
+        CandidateIndexes(libraries, qbittorrentCategory, savePath, torrentTags) is [var first, ..] ? first : null;
+
+    /// <summary>
+    /// Every library that could take the torrent, in the order of the configuration: its category or download folder
+    /// matches, and its tags pass. Needs no metadata, so a torrent with no candidate costs no MAM request.
+    /// </summary>
+    public static IReadOnlyList<int> CandidateIndexes(
+        IReadOnlyList<LibraryMatchRule> libraries,
+        string? qbittorrentCategory,
+        string savePath,
         IReadOnlyList<string> torrentTags)
     {
+        var candidates = new List<int>();
         for (var i = 0; i < libraries.Count; i++)
         {
             var library = libraries[i];
@@ -49,7 +64,21 @@ public static class LibraryMatcher
 
             if (categoryMatches || downloadDirMatches)
             {
-                return i;
+                candidates.Add(i);
+            }
+        }
+
+        return candidates;
+    }
+
+    /// <summary>The first of <paramref name="candidates"/> whose genre condition takes the book; null when none does.</summary>
+    public static int? ChooseForBook(IReadOnlyList<LibraryMatchRule> libraries, IReadOnlyList<int> candidates, TorrentMetadata metadata)
+    {
+        foreach (var index in candidates)
+        {
+            if (libraries[index].Genres.Matches(metadata))
+            {
+                return index;
             }
         }
 

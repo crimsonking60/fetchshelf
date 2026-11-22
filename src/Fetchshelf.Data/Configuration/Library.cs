@@ -88,6 +88,19 @@ public sealed class Library
 
     public List<string> DenyTags { get; set; } = [];
 
+    /// <summary>`allow_genres`: if not empty, the book must have at least one of these genres (MAM's names). Needs `genres = true`.</summary>
+    public List<string> AllowGenres { get; set; } = [];
+
+    /// <summary>`deny_genres`: a book with any of these genres is not taken. Needs `genres = true`.</summary>
+    public List<string> DenyGenres { get; set; } = [];
+
+    /// <summary>`fiction`: <c>"fiction"</c> or <c>"nonfiction"</c>, the main category a book must have. Needs `genres = true`.</summary>
+    public string? Fiction { get; set; }
+
+    /// <summary><see cref="AllowGenres"/>, <see cref="DenyGenres"/> and <see cref="Fiction"/> parsed, read once when the configuration is loaded.</summary>
+    [YamlIgnore]
+    public GenreCondition Genres { get; set; } = GenreCondition.None;
+
     /// <summary>Overrides the global `audio_types` preference list for this library when non-null.</summary>
     public List<string>? AudioTypes { get; set; }
 

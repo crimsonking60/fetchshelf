@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Tomlyn;
 using Tomlyn.Parsing;
@@ -553,6 +554,8 @@ public static partial class ConfigLoader
                     + "'languages', but no 'languages' is set.");
             }
 
+            library.Genres = ParseGenreCondition(library, settings.Genres);
+
             if (library.FolderTemplate is { } template)
             {
                 try
@@ -566,6 +569,66 @@ public static partial class ConfigLoader
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// A library's `allow_genres`, `deny_genres` and `fiction`, which need `genres = true`: every name must be one of MAM's
+    /// genres, no genre may be in both lists, and `fiction` is "fiction" or "nonfiction".
+    /// </summary>
+    private static GenreCondition ParseGenreCondition(Library library, bool genresOn)
+    {
+        var which = library.Name is { } name ? $"the [[library]] '{name}'" : $"the [[library]] for '{library.LibraryDir}'";
+        var hasAny = library.AllowGenres.Count > 0 || library.DenyGenres.Count > 0 || library.Fiction is not null;
+        if (!hasAny)
+        {
+            return GenreCondition.None;
+        }
+
+        if (!genresOn)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {which} uses 'allow_genres', 'deny_genres' or 'fiction', which need genres = true at the top of the file.");
+        }
+
+        HashSet<GenreCategory> Parse(List<string> names, string setting)
+        {
+            var genres = new HashSet<GenreCategory>();
+            foreach (var genreName in names)
+            {
+                if (!GenreLabels.TryParse(genreName, out var genre))
+                {
+                    throw new ConfigurationException(
+                        $"Invalid configuration: {which} has '{genreName}' in '{setting}', which is not one of MAM's genres. The genres are: "
+                        + string.Join(", ", GenreLabels.All.Select(GenreLabels.Label)) + ".");
+                }
+
+                genres.Add(genre);
+            }
+
+            return genres;
+        }
+
+        var allow = Parse(library.AllowGenres, "allow_genres");
+        var deny = Parse(library.DenyGenres, "deny_genres");
+        if (allow.Intersect(deny).Select(genre => (GenreCategory?)genre).FirstOrDefault() is { } both)
+        {
+            throw new ConfigurationException(
+                $"Invalid configuration: {which} has '{GenreLabels.Label(both)}' in both 'allow_genres' and 'deny_genres'.");
+        }
+
+        FictionCategory? fiction = null;
+        if (library.Fiction is { } fictionName)
+        {
+            if (!GenreLabels.TryParseFiction(fictionName, out var parsed))
+            {
+                throw new ConfigurationException(
+                    $"Invalid configuration: {which} has fiction = \"{fictionName}\"; it takes \"fiction\" or \"nonfiction\".");
+            }
+
+            fiction = parsed;
+        }
+
+        return new GenreCondition(allow, deny, fiction);
     }
 
     /// <summary>
