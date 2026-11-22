@@ -51,6 +51,18 @@ public class JobOutcomesTests
         Assert.Equal(expected, JobOutcomes.Link(new LinkRunSummary(Linked: 1, Failed: 0), new CoverRunSummary(fromFiles, fetched, 0)).Summary);
 
     [Fact]
+    public void Link_WithCovers_NamesTheSourcesTheyWereFetchedFrom()
+    {
+        var both = new CoverRunSummary(8, 4, 40) { FetchedFrom = new Dictionary<string, int> { ["Audnexus"] = 1, ["Open Library"] = 3 } };
+        var one = new CoverRunSummary(0, 3, 0) { FetchedFrom = new Dictionary<string, int> { ["Open Library"] = 3 } };
+
+        Assert.Equal(
+            "1 torrent linked; 12 covers written (8 from the books' files, 3 from Open Library, 1 from Audnexus), up to 40 more in the next runs",
+            JobOutcomes.Link(new LinkRunSummary(Linked: 1, Failed: 0), both).Summary);
+        Assert.Equal("1 torrent linked; 3 covers written from Open Library", JobOutcomes.Link(new LinkRunSummary(Linked: 1, Failed: 0), one).Summary);
+    }
+
+    [Fact]
     public void Link_WithoutCovers_SaysNothingOfThem()
     {
         Assert.Equal("Nothing new to link", JobOutcomes.Link(new LinkRunSummary(0, 0), new CoverRunSummary(0, 0, 0)).Summary);

@@ -1711,8 +1711,15 @@ cover put there by you, by Audiobookshelf or by an earlier run is never replaced
    embedded in an m4b, m4a or mp3 audiobook. This costs no request, so it isn't limited by the number, but each Link
    run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
    takes much longer than it did.
-2. **A cover source**, when the files have none: at most `covers` of them are fetched per run. (This version has no
-   cover source yet; Open Library, Audnexus and Hardcover are planned.)
+2. **Open Library**, when the files have none, for a book with an ISBN: only the ISBN is sent. No account or key is
+   needed.
+3. **Audnexus**, which serves Audible's details, for an audiobook with an ASIN that Open Library had no cover for:
+   only the ASIN is sent, and the image is fetched from Amazon's image host, never from anywhere else Audnexus names.
+
+At most `covers` books per run get a cover fetched, and the requests are spaced as the services ask (Open Library
+allows about 100 lookups in 5 minutes, so one every 3 seconds), so a run with `covers = 100` can take about five
+minutes longer. A service that refuses or asks to slow down is left alone for the rest of the run; the books only it
+could find wait for the next one. A book with neither an ISBN nor an audiobook's ASIN gets no cover fetched.
 
 The Link job's result says how many covers were written, from where, and how many are left for the next runs. A book is
 looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
@@ -2572,8 +2579,10 @@ fix the ownership of the copied files.
   in its own file instead; protect that file the same way.
 - **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads and your account state), qBittorrent
   and Audiobookshelf (on your network), Hardcover with your token when a `[[hardcover_list]]` is set, and the services
-  your `[[notify]]` blocks name, which receive book titles and job names in the messages. Requests to MAM and
-  Hardcover say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
+  your `[[notify]]` blocks name, which receive book titles and job names in the messages. With `covers` above 0, the
+  ISBNs of linked books whose files have no cover go to Open Library, and the ASINs of such audiobooks to Audnexus,
+  with the cover then fetched from Amazon's image host ([Covers](#covers)). Requests to MAM, Hardcover, Open Library
+  and Audnexus say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's

@@ -55,6 +55,7 @@ public static class FetchshelfApp
             .AddMam(settings)
             .AddAudiobookshelf(settings)
             .AddHardcover(settings)
+            .AddCoverSources(settings)
             .AddOrganizer(settings)
             .AddAutoDownloader(settings)
             .AddFetchshelfJobs(settings)

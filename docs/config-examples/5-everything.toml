@@ -42,8 +42,9 @@ metadata_json = true  # write metadata.json (Audiobookshelf's format) in every l
 metadata_opf = false  # write metadata.opf (Calibre's format) in every library without its own setting
 link_method = "hardlink_or_copy" # how files are placed in every library without its own 'method' (default)
 split_collections = false        # split a collection into one library book each, in every library without its own setting
-covers = 20           # covers per Link run, 0 to 100 (0, the default, writes none): from the books' files, then fetched;
-                      # never from MAM. Its old name, covers_from_mam, still works, with a warning to rename it
+covers = 20           # covers per Link run, 0 to 100 (0, the default, writes none): from the books' files, then fetched
+                      # from Open Library (ISBN) or Audnexus (audiobook ASIN); never from MAM.
+                      # Its old name, covers_from_mam, still works, with a warning to rename it
 metrics = false       # serve Prometheus metrics at /metrics
 genres = true         # MAM's genres and fiction/nonfiction: libraries by genre, and genre filters on the pages; default false
 
