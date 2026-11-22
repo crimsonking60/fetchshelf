@@ -1,5 +1,6 @@
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Organizer;
@@ -34,8 +35,11 @@ public static class RunnerServices
             MamGenreNames: settings.Genres));
         services.AddScoped<ClientStatusChecker>();
         services.AddScoped<LinkRunner>();
-        services.AddSingleton(new CoverWriterOptions(settings.CoversFromMam));
-        services.AddScoped<CoverWriter>();
+        services.AddSingleton(new CoverWriterOptions(settings.CoversPerRun));
+        // Covers come from the books' files, then from a cover source when one is registered; never from MAM.
+        services.AddScoped(sp => new CoverWriter(
+            sp.GetRequiredService<FetchshelfDbContext>(), sp.GetRequiredService<IReadOnlyList<Library>>(), sp.GetRequiredService<CoverWriterOptions>(),
+            sp.GetService<ICoverSource>(), sp.GetRequiredService<LibraryWriteGate>(), sp.GetRequiredService<ILogger<CoverWriter>>()));
         services.AddSingleton<LibraryCheckResults>();
         services.AddScoped<LibraryChecker>();
         services.AddScoped<DownloadProgressChecker>();

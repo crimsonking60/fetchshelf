@@ -16,6 +16,11 @@ public static class ConfigSummary
     {
         var text = new StringBuilder();
         text.AppendLine(CultureInfo.InvariantCulture, $"Configuration OK: {configFilePath}");
+        foreach (var warning in settings.Warnings)
+        {
+            text.AppendLine(CultureInfo.InvariantCulture, $"Warning: {warning}");
+        }
+
         text.AppendLine();
 
         var mamIdSource = settings.MamIdFile is not null ? " (from mam_id_file)" : mamIdFromEnvironment ? " (from FETCHSHELF_CONF_mam_id)" : "";

@@ -16,6 +16,35 @@ public static class JobOutcomes
     /// know, which wait a day. A run with only a backlog isn't "Nothing new to link". With `covers_from_mam`, the covers
     /// written and those left for later runs.
     /// </summary>
+    /// <summary>
+    /// "; 12 covers written (8 from the books' files, 3 from Open Library, 1 from Audnexus)", or with one place only "; 12
+    /// covers written from Open Library".
+    /// </summary>
+    private static string CoversWritten(CoverRunSummary covers)
+    {
+        var written = Count(covers.Written, "cover", "covers");
+        var parts = new List<(int Count, string From)>();
+        if (covers.FromFiles > 0)
+        {
+            parts.Add((covers.FromFiles, "from the books' files"));
+        }
+
+        parts.AddRange(covers.FetchedFrom.Where(source => source.Value > 0).OrderByDescending(source => source.Value).ThenBy(source => source.Key, StringComparer.Ordinal)
+            .Select(source => (source.Value, $"from {source.Key}")));
+        if (covers.Fetched - covers.FetchedFrom.Values.Sum() is var unnamed and > 0)
+        {
+            parts.Add((unnamed, "fetched"));
+        }
+
+        return parts switch
+        {
+            [] => "; no covers written",
+            [(_, "fetched")] => $"; {written} fetched",
+            [var only] => $"; {written} written {only.From}",
+            _ => $"; {written} written ({string.Join(", ", parts.Select(part => $"{part.Count} {part.From}"))})",
+        };
+    }
+
     public static JobOutcome Link(LinkRunSummary summary, CoverRunSummary? covers = null)
     {
         var backlog = summary.WaitingForLookup > 0 || summary.WaitingForMam > 0;
@@ -34,7 +63,8 @@ public static class JobOutcomes
 
         if (covers is { Written: > 0 } or { Waiting: > 0 })
         {
-            line += $"; {Count(covers.Written, "cover", "covers")} written" + (covers.Waiting > 0 ? $", up to {covers.Waiting} more in the next runs" : "");
+            line += CoversWritten(covers);
+            line += covers.Waiting > 0 ? $", up to {covers.Waiting} more in the next runs" : "";
         }
 
         var counts = new Dictionary<string, long>
@@ -47,6 +77,8 @@ public static class JobOutcomes
         if (covers is not null)
         {
             counts["covers_written"] = covers.Written;
+            counts["covers_from_files"] = covers.FromFiles;
+            counts["covers_fetched"] = covers.Fetched;
             counts["covers_waiting"] = covers.Waiting;
         }
 

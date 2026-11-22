@@ -135,6 +135,33 @@ public sealed class DataUpgradeTests : IDisposable
     }
 
     [Fact]
+    public void Migrate_DatabaseAtDataVersion3_LooksAgainForCoversOfLinkedBooks()
+    {
+        SeedOldDatabase();
+        var checkedAt = DateTimeOffset.UtcNow;
+        using (var old = CreateContext())
+        {
+            DatabaseMigrator.Migrate(old);
+            foreach (var torrent in old.Torrents)
+            {
+                torrent.CoverCheckedAt = checkedAt;
+                torrent.LibraryPath = torrent.Id == "hash1" ? "/library/Author/Book" : null;
+            }
+
+            old.SaveChanges();
+            old.Database.ExecuteSqlRaw("PRAGMA user_version = 3;");
+        }
+
+        using var context = CreateContext();
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Null(context.Torrents.Single(t => t.Id == "hash1").CoverCheckedAt);
+        // Not linked: left as it was.
+        Assert.NotNull(context.Torrents.Single(t => t.Id == "hash2").CoverCheckedAt);
+        Assert.Equal(DatabaseMigrator.CurrentDataVersion, DatabaseMigrator.ReadDataVersion(context));
+    }
+
+    [Fact]
     public void Migrate_DatabaseAtDataVersion1_ReadsTheMetadataJson_WithoutWritingItBack()
     {
         SeedVersion1Database();

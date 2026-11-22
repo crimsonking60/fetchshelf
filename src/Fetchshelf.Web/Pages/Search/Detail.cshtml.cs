@@ -3,6 +3,7 @@ using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
+using Fetchshelf.Data.Organizer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +11,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Search;
 
 /// <summary>
-/// Everything MAM returns for one torrent, looked up by its MAM id with the cover image and media info, plus where it
-/// stands in Fetchshelf and qBittorrent. Opened from a title on the Search page.
+/// Everything MAM returns for one torrent, looked up by its MAM id with its media info, plus where it stands in Fetchshelf
+/// and qBittorrent, and with `[search] covers` a cover from the cover sources. Opened from a title on the Search page.
 /// </summary>
 public class DetailModel(
     MamClient mamClient, MamClientOptions mamOptions, FetchshelfDbContext dbContext, QBittorrentPresenceCache qbittorrentPresence,
-    MamPageGate pageGate, FetchshelfSettings settings, ILogger<DetailModel> logger) : PageModel
+    MamPageGate pageGate, FetchshelfSettings settings, ILogger<DetailModel> logger, SearchCoverLookup? coverLookup = null) : PageModel
 {
     /// <summary>The search to go back to.</summary>
     [BindProperty(SupportsGet = true)]
@@ -89,7 +90,7 @@ public class DetailModel(
                 return;
             }
 
-            Record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnThumbnail = true, ReturnMediaInfo = true })).Data
+            Record = (await mamClient.SearchAsync(new MamSearchQuery { Id = mamId, ReturnMediaInfo = true })).Data
                 .FirstOrDefault();
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
@@ -115,9 +116,21 @@ public class DetailModel(
         }
 
         Description = DescriptionText.From(Record.Description);
-        // Fetched by Fetchshelf with the session, not by the browser, which may not be logged in to MAM.
-        var cover = MamCoverAddress.For(Record, mamOptions);
-        ThumbnailUrl = mamClient.IsMamAddress(cover) ? Url.Page("/Search/Detail", "Cover", new { mamId, url = cover }) : null;
+        // Never a cover from MAM, whose image server refuses Fetchshelf: with `[search] covers`, one from the cover sources,
+        // which the browser asks for through the Cover handler, by what they find a book by.
+        if (settings.Search.Covers && coverLookup is not null && Metadata is not null
+            && CoverQuery.For(mamId, Metadata) is var book && coverLookup.CanFind(book))
+        {
+            ThumbnailUrl = Url.Page("/Search/Detail", "Cover", new
+            {
+                mamId,
+                title = book.Title,
+                authors = string.Join('|', book.Authors.Take(3)),
+                isbn = book.Isbn,
+                asin = book.AudiobookAsin,
+            });
+        }
+
         MediaInfo = MamHitDetails.MediaInfoSections(Record.MediaInfoJson);
         RawFields = MamHitDetails.RawFields(Record.RawJson);
 
@@ -138,32 +151,24 @@ public class DetailModel(
     }
 
     /// <summary>
-    /// The cover image, fetched from MAM. Only MAM's own addresses are fetched; see <see cref="MamClient.IsMamAddress"/>.
-    /// It doesn't take the MAM gate: it is an image from MAM's image host, not a call to its API, which the browser would
-    /// make itself if it were logged in to MAM.
+    /// The result's cover, from the cover sources (Hardcover, Open Library, Audnexus) by the title, authors, ISBN and ASIN
+    /// in the address, with `[search] covers` on. Doesn't take the MAM gate: nothing is asked of MAM.
     /// </summary>
-    public async Task<IActionResult> OnGetCoverAsync(long mamId, string? url)
+    public async Task<IActionResult> OnGetCoverAsync(long mamId, string? title, string? authors, string? isbn, string? asin)
     {
-        if (!mamClient.IsMamAddress(url))
+        if (!settings.Search.Covers || coverLookup is null)
         {
             return NotFound();
         }
 
-        try
+        var book = CoverQuery.Of(mamId, title ?? string.Empty, (authors ?? string.Empty).Split('|'), isbn, asin, audiobook: asin is not null);
+        if (!coverLookup.CanFind(book) || await coverLookup.GetAsync(book, HttpContext.RequestAborted) is not { } cover)
         {
-            if (await mamClient.DownloadImageAsync(url!, HttpContext.RequestAborted) is { } image)
-            {
-                Response.Headers.CacheControl = "private, max-age=86400";
-                return File(image.Bytes, image.ContentType);
-            }
-        }
-        catch (Exception ex) when (!(ex is OperationCanceledException && HttpContext.RequestAborted.IsCancellationRequested))
-        {
-            // The torrent's id, not the address: the address comes from the request as typed, the id is a number.
-            logger.LogInformation("Could not fetch the cover of MAM torrent {MamId}: {Error}", mamId, ex.Message);
+            return NotFound();
         }
 
-        return NotFound();
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(cover.Bytes, cover.ContentType);
     }
 
     /// <summary>Whether `genres = true`, which shows the hit's main category and genres by MAM's names.</summary>

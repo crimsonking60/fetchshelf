@@ -782,7 +782,7 @@ The catalog offers:
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
   split into several files offers each part.
 - **Covers:** the image in the book's own folder, such as the `cover.jpg` that
-  [`covers_from_mam`](configuration.md#library) writes, else the cover inside an EPUB file or the first page of a
+  [`covers`](configuration.md#top-level-settings) writes, else the cover inside an EPUB file or the first page of a
   CBZ or CBR comic. A PDF or another format has one only from its folder. In a series-layout library a series' books
   share a folder, so only covers inside the files are used. Covers are kept in a `covers` folder next to the
   database, so each book is only opened once; one added to or removed from a folder is noticed. Once a week the
@@ -891,12 +891,14 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   fiction or nonfiction, and only the results with one of MAM's genres, or with none. Like the two filters below them,
   they hide rows of the page already shown, without asking MAM again, are counted in the same line below the results,
   and are reset the same way. A result's details show its main category and genres by MAM's names.
-- Click a result's title for everything MAM returns for it: cover, narrators, series, language,
+- Click a result's title for everything MAM returns for it: narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
-  its own.
+  its own. With `covers = true` in `[search]`, the details also show a cover, from the same sources as the
+  [Link job's covers](#covers) (Hardcover, Open Library, Audnexus) by the result's ISBN, ASIN, title and author;
+  never from MAM. When none of them has one, the details show no cover.
 - **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
   to a new search for more of the same: the name as a phrase, in that field only (`"Brandon Sanderson"` in
   **Author**), in the language you have chosen. Open it in a new tab to keep your results.
@@ -1703,23 +1705,49 @@ A torrent's cover is whatever image the upload has, and Fetchshelf links only a 
 images. Audiobookshelf then uses a cover embedded in the files, or finds one itself; file browsers and some readers
 show none.
 
-With `covers_from_mam` set to a number, such as `covers_from_mam = 20`, the Link job writes MAM's cover image into the
-folder of every linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for
-those types. A cover put there by you, by Audiobookshelf or by an earlier run is never replaced. Each run fetches at
-most that many covers, so turning it on for a large library fills the covers in over the following runs; the Link
-job's result says how many are left. A book is
-looked at once: again only after **Refresh** or a relink. A book whose cover MAM doesn't have, or couldn't send, is
-logged and left without one.
+With `covers` set to a number, such as `covers = 20`, the Link job writes a cover image into the folder of every
+linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for those types. A
+cover put there by you, by Audiobookshelf or by an earlier run is never replaced. The cover comes from:
 
-Series libraries are left out: comics and manga carry their cover inside the file, and one series folder holds many
-books. The cover is removed with the book's metadata files.
+1. **The book's own files**, first: the cover inside an EPUB, the first page of a CBZ or CBR comic, or the picture
+   embedded in an m4b, m4a or mp3 audiobook. This costs no request, so it isn't limited by the number, but each Link
+   run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
+   takes much longer than it did.
+2. **Hardcover**, when the files have none and a [`[hardcover]`](configuration.md#hardcover) token is set: first the
+   edition with the book's ISBN (or an audiobook's ASIN), then a search by title and first author. A search hit is
+   only taken when its title and one of its authors are the book's, so a book of the same name by someone else, or a
+   box set, isn't. Middle initials don't count: "Steve J McHugh" on MAM is "Steve McHugh" on Hardcover. The image comes from Hardcover's image host only, and the token is never sent there.
+3. **Open Library**, for a book with an ISBN: only the ISBN is sent. No account or key is needed.
+4. **Audnexus**, which serves Audible's details, for an audiobook with an ASIN: only the ASIN is sent, and the image
+   is fetched from Amazon's image host, never from anywhere else Audnexus names.
+
+At most `covers` books per run get a cover fetched, and the requests are spaced as the services ask (Open Library
+allows about 100 lookups in 5 minutes, so one every 3 seconds), so a run with `covers = 100` can take about five
+minutes longer. A service that refuses or asks to slow down is left alone for the rest of the run; the books only it
+could find wait for the next one. Without Hardcover, a book with neither an ISBN nor an audiobook's ASIN gets no cover
+fetched.
+
+With `covers = true` in `[search]`, a search result's details show a cover from the same sources, as the Search page has
+no files to read: see [Finding and downloading books](#finding-and-downloading-books). A cover, or the lack of one,
+is remembered for an hour, so opening the same result again asks nothing.
+
+The Link job's result says how many covers were written, from where, and how many are left for the next runs. A book is
+looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
+is logged and left without one.
+
+Series libraries are left out. There, every book of a series is a file in one shared series folder, and a `cover.jpg`
+in it would be taken as the cover of them all: the first book's cover would show for the whole series, and the folder
+would then count as having one. Comics and manga, which series libraries are mostly for, carry their cover inside the
+file anyway, and readers show it per file.
+
+The cover is removed with the book's metadata files.
 
 The [OPDS catalog](#reading-on-an-e-reader-opds) and the [Books page](#browsing-your-books) show a book folder's cover
 too, whoever put it there, so PDFs and audiobooks get one in both.
 
-The covers come from MAM's image server, as the Search page's covers do. It isn't among the parts of MAM that its API
-documentation authorizes automating, which is why this is off unless turned on (`0`, the default), and limited to at
-most 100 covers per run.
+`covers` used to be called `covers_from_mam`, and the old name still works, with a warning in the log to rename it.
+The covers used to come from MAM's image server, which isn't among the parts of MAM that its API documentation
+authorizes automating; since 2026-11-22 it refuses Fetchshelf, and Fetchshelf no longer asks it for anything.
 
 ### Collections
 
@@ -1776,7 +1804,8 @@ Whether a collection is split is decided, first that applies:
   **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
   it. Relinking a split collection that is no longer to be split links it as one book again.
-- Covers from MAM (`covers_from_mam`) are left out for books of a collection: MAM's cover is the collection's.
+- A book of a collection gets the cover inside its own file, but none is fetched for it: a cover found by its details
+  would be the collection's.
 
 **Splitting is a best effort.** How the books of a collection are named, numbered and laid out in folders varies
 widely from one uploader to the next, and Fetchshelf goes by what it can read from MAM's details and the file and
@@ -2567,11 +2596,14 @@ fix the ownership of the copied files.
   Keep the file readable only by you, never post it unredacted, and never commit it to a public repository.
   The **Config** page hides secrets, but the file itself does not. With `mam_id_file`, the session id lives
   in its own file instead; protect that file the same way.
-- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads, your account state, and covers
-  from MAM's image server), qBittorrent and Audiobookshelf (on your network), Hardcover with your token when
-  a `[[hardcover_list]]` is set, and the services your `[[notify]]` blocks name, which receive book titles and
-  job names in the messages. Requests to MAM and Hardcover say they come from `Fetchshelf/<version>`. It
-  sends no usage data anywhere else.
+- **What leaves your machine.** Fetchshelf talks to MAM (searches, downloads and your account state), qBittorrent
+  and Audiobookshelf (on your network), Hardcover with your token when a `[[hardcover_list]]` is set, and the services
+  your `[[notify]]` blocks name, which receive book titles and job names in the messages. With `covers` above 0, the
+  ISBNs of linked books whose files have no cover go to Open Library, and the ASINs of such audiobooks to Audnexus,
+  with the cover then fetched from Amazon's image host; with a `[hardcover]` token, their ISBNs, ASINs, titles and
+  authors go to Hardcover too. `covers = true` in `[search]` sends the same of a search result you open
+  ([Covers](#covers)). Requests to MAM, Hardcover, Open Library
+  and Audnexus say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the
   names of your autograbs and lists, MAM torrent ids, and, when MAM refuses a request, the start of MAM's

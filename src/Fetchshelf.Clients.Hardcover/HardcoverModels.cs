@@ -40,3 +40,6 @@ public enum HardcoverReadingStatus
     Paused = 4,
     DidNotFinish = 5,
 }
+
+/// <summary>One hit of Hardcover's book search: its title, authors and cover address, if any.</summary>
+public sealed record HardcoverSearchHit(string Title, IReadOnlyList<string> Authors, string? ImageUrl);

@@ -250,4 +250,60 @@ public sealed class HardcoverClientTests
         Assert.Contains("503", ex.Message);
         Assert.Contains("Service temporarily unavailable", ex.Message);
     }
+
+    [Fact]
+    public async Task GetEditionCoverAsync_AsksByEveryIdentifierGiven_TakingTheEditionsImageElseItsBooks()
+    {
+        JsonElement variables = default;
+        var client = CreateClient(request =>
+        {
+            variables = ReadBody(request).Variables;
+            return Json("""
+                {"data":{"editions":[
+                  {"image":null,"book":{"image":{"url":"https://assets.hardcover.app/book.jpg"}}},
+                  {"image":{"url":"https://assets.hardcover.app/edition.jpg"},"book":{"image":null}}
+                ]}}
+                """);
+        });
+
+        var address = await client.GetEditionCoverAsync("9780765326355", "0765326353", null);
+
+        Assert.Equal("https://assets.hardcover.app/book.jpg", address);
+        Assert.Equal(
+            """{"_or":[{"isbn_13":{"_eq":"9780765326355"}},{"isbn_10":{"_eq":"0765326353"}}]}""",
+            variables.GetProperty("where").GetRawText());
+    }
+
+    [Fact]
+    public async Task GetEditionCoverAsync_NoEdition_IsNull()
+    {
+        var client = CreateClient(_ => Json("""{"data":{"editions":[]}}"""));
+
+        Assert.Null(await client.GetEditionCoverAsync(null, null, "B00ABCDEFG"));
+    }
+
+    [Fact]
+    public async Task SearchBooksAsync_ReadsEachHitsTitleAuthorsAndImage_InOrder()
+    {
+        JsonElement variables = default;
+        var client = CreateClient(request =>
+        {
+            variables = ReadBody(request).Variables;
+            return Json("""
+                {"data":{"search":{"results":{"hits":[
+                  {"document":{"title":"Sampler","author_names":["Brandon Sanderson"],"image":{"url":"https://assets.hardcover.app/a.jpg"}}},
+                  {"document":{"title":"The Way of Kings","author_names":["Brandon Sanderson"],"image":{}}}
+                ]}}}}
+                """);
+        });
+
+        var hits = await client.SearchBooksAsync("The Way of Kings Brandon Sanderson");
+
+        Assert.Equal(("The Way of Kings Brandon Sanderson", 10), (variables.GetProperty("query").GetString(), variables.GetProperty("perPage").GetInt32()));
+        Assert.Equal(2, hits.Count);
+        Assert.Equal(new HardcoverSearchHit("Sampler", ["Brandon Sanderson"], "https://assets.hardcover.app/a.jpg").Title, hits[0].Title);
+        Assert.Equal("https://assets.hardcover.app/a.jpg", hits[0].ImageUrl);
+        Assert.Equal(["Brandon Sanderson"], hits[1].Authors);
+        Assert.Null(hits[1].ImageUrl);
+    }
 }

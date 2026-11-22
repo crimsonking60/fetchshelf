@@ -55,12 +55,18 @@ public static class FetchshelfApp
             .AddMam(settings)
             .AddAudiobookshelf(settings)
             .AddHardcover(settings)
+            .AddCoverSources(settings)
             .AddOrganizer(settings)
             .AddAutoDownloader(settings)
             .AddFetchshelfJobs(settings)
             .AddFetchshelfWeb(settings, paths);
 
         var app = builder.Build();
+        foreach (var warning in settings.Warnings)
+        {
+            app.Logger.LogWarning("Configuration: {Warning}", warning);
+        }
+
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");

@@ -78,6 +78,7 @@ public sealed class ExampleConfigTests
         "notify.url_file",         // excludes url
         "file_list.shelf",         // only for an export holding every shelf, not the example's text list
         "bookmarks_list",          // can't be configured beside a type = "bookmarks" autograb
+        "covers_from_mam",         // the old name of covers, which excludes it
     ];
 
     /// <summary>Classes read from a single value by their own YAML converter rather than as a table.</summary>

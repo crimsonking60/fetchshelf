@@ -60,10 +60,26 @@ public sealed class FetchshelfSettings
     public bool MetadataOpf { get; set; }
 
     /// <summary>
-    /// `covers_from_mam`: how many covers each Link run fetches from MAM for book folders that have no image; 0 fetches
-    /// none. At most <see cref="MaxCoversFromMam"/>.
+    /// `covers`: write a cover into every linked book's folder that has no image, from the book's own files or, at most
+    /// this many per Link run, fetched from a cover source; 0 writes none. At most <see cref="MaxCoversFromMam"/>. Read
+    /// through <see cref="CoversPerRun"/>, which also takes the old name.
     /// </summary>
-    public int CoversFromMam { get; set; }
+    public int? Covers { get; set; }
+
+    /// <summary>`covers_from_mam`: the old name of <see cref="Covers"/>, still accepted, with a warning to rename it.</summary>
+    public int? CoversFromMam { get; set; }
+
+    /// <summary>`covers`, or `covers_from_mam` when only the old name is set; 0 when neither is. Set when the configuration is loaded.</summary>
+    [YamlIgnore]
+    public int CoversPerRun { get; set; }
+
+    /// <summary>Which of the two names set it, for messages.</summary>
+    [YamlIgnore]
+    public string CoversSettingName => CoversFromMam is not null && Covers is null ? "covers_from_mam" : "covers";
+
+    /// <summary>What the configuration should change but still works with, such as an old setting name. Logged at start-up and shown by --check-config.</summary>
+    [YamlIgnore]
+    public List<string> Warnings { get; } = [];
 
     /// <summary>The `split_collections` of every `[[library]]` that does not set its own: whether collections are split into one book each.</summary>
     public bool SplitCollections { get; set; }
