@@ -79,6 +79,9 @@ public static class GenreCategoryDisplay
     {
         GenreCategory.LiteraryFiction => "General Fiction",
         GenreCategory.ContemporaryFiction => "Contemporary",
+        // Not what the member names say: MAM's genres 26 and 48 (see GenreLabels).
+        GenreCategory.LickLibraryLtp => "Erotica",
+        GenreCategory.SheetCollectionMp3 => "Accompanying Music",
         _ when !Enum.IsDefined(category) => $"Unknown Category (id: {(int)category})",
         _ => SplitPascalCase(category.ToString()),
     };

@@ -19,6 +19,15 @@ public class GenreCategoryTests
         Assert.Equal(expectedId, (int)category);
     }
 
+    // 26 and 48 are MAM's Erotica/Sexual Content and Accompanying music, whatever their member names say.
+    [Theory]
+    [InlineData(GenreCategory.LickLibraryLtp, "Erotica")]
+    [InlineData(GenreCategory.SheetCollectionMp3, "Accompanying Music")]
+    [InlineData(GenreCategory.Military, "Military")]
+    [InlineData(GenreCategory.ScienceFiction, "Science Fiction")]
+    public void DisplayName_ShortName_AsWrittenToMetadataFiles(GenreCategory category, string expected) =>
+        Assert.Equal(expected, GenreCategoryDisplay.DisplayName(category));
+
     [Fact]
     public void DisplayName_UnknownId_ShowsUnknownCategoryWithId()
     {
