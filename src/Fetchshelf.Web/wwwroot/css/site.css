@@ -269,7 +269,7 @@ fieldset label { display: inline-flex; align-items: center; gap: 0.3rem; margin:
 
 .edit-form { display: grid; gap: 0.85rem; max-width: 40rem; }
 .edit-form > label { display: grid; gap: 0.25rem; font-weight: 500; }
-.edit-form > .edit-note { margin: -0.5rem 0 0; font-size: 0.9em; }
+.edit-form > .edit-note { margin: 0 0 -0.5rem; font-size: 0.9em; }
 .edit-form > button[type="submit"] { justify-self: start; padding: 0.4rem 1.4rem; }
 
 /* ---- tables -------------------------------------------------------------- */
