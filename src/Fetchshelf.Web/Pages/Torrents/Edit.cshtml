@@ -22,6 +22,29 @@
         <select asp-for="Input.Category" asp-items="Html.GetEnumSelectList<Fetchshelf.Core.Metadata.LegacyCategory>()"></select>
     </label>
 
+    @if (Model.GenresOn)
+    {
+        <input type="hidden" name="Input.GenresShown" value="true" />
+        <label>Main category
+            <select name="Input.Fiction" id="edit-fiction">
+                <option value="" selected="@(string.IsNullOrEmpty(Model.Input.Fiction))">Neither</option>
+                <option value="Fiction" selected="@(Model.Input.Fiction == "Fiction")">Fiction</option>
+                <option value="Nonfiction" selected="@(Model.Input.Fiction == "Nonfiction")">Nonfiction</option>
+            </select>
+        </label>
+
+        <fieldset id="edit-genres">
+            <legend>Genres</legend>
+            @foreach (var genre in Model.AllGenres)
+            {
+                <label>
+                    <input type="checkbox" name="Input.Genres" value="@((int)genre)" checked="@Model.Input.Genres.Contains((int)genre)" />
+                    @Fetchshelf.Core.Metadata.GenreLabels.Label(genre)
+                </label>
+            }
+        </fieldset>
+    }
+
     <fieldset>
         <legend>Flags</legend>
         @foreach (var flag in Model.AllFlags)

@@ -44,7 +44,7 @@ public sealed class BookCatalogCache(IServiceScopeFactory scopeFactory, Fetchshe
             }
 
             using var scope = scopeFactory.CreateScope();
-            var reader = new BookCatalogReader(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.Library);
+            var reader = new BookCatalogReader(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), settings.Library, settings.Genres);
             var catalog = await reader.ReadAsync(cancellationToken);
             var served = (settings.Opds ?? new OpdsSettings()).ServedLibraryIndexes(settings.Library);
             var read = new Snapshot(catalog, new Lazy<BookCatalog>(() => OpdsCatalog.From(catalog, served)), _time.GetUtcNow());

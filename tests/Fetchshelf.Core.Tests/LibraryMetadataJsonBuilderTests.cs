@@ -67,4 +67,23 @@ public class LibraryMetadataJsonBuilderTests
         Assert.Equal("Vol: The Beginning", document.RootElement.GetProperty("title").GetString());
         Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty("subtitle").ValueKind);
     }
+
+    [Fact]
+    public void BuildGenres_WithMamGenreNames_UsesMamsNames_AndAddsTheMainCategory()
+    {
+        var metadata = Build() with
+        {
+            FictionCategory = FictionCategory.Nonfiction,
+            GenreCategories = new HashSet<GenreCategory> { GenreCategory.Politics, GenreCategory.LickLibraryLtp },
+        };
+
+        // Without: the short names, as always, and no main category.
+        Assert.Equal(["Erotica", "General Fiction", "Politics"], LibraryMetadataJsonBuilder.BuildGenres(metadata).Order());
+        // With: the old category first, then the main category, then MAM's names.
+        var named = LibraryMetadataJsonBuilder.BuildGenres(metadata, mamGenreNames: true);
+        Assert.Equal(["General Fiction", "Nonfiction"], named.Take(2));
+        Assert.Equal(["Erotica/Sexual Content", "Politics/Sociology"], named.Skip(2).Order());
+        using var document = JsonDocument.Parse(LibraryMetadataJsonBuilder.Build(metadata, mamGenreNames: true));
+        Assert.Contains("Politics/Sociology", document.RootElement.GetProperty("genres").EnumerateArray().Select(e => e.GetString()));
+    }
 }

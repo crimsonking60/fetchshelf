@@ -77,7 +77,7 @@ public static class ClientServices
             return services;
         }
 
-        services.AddSingleton(new AbsClientOptions { BaseUrl = absSettings.Url, Token = absSettings.Token });
+        services.AddSingleton(new AbsClientOptions { BaseUrl = absSettings.Url, Token = absSettings.Token, MamGenreNames = settings.Genres });
         services.AddHttpClient("abs");
         services.AddSingleton(sp => new AbsClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("abs"), sp.GetRequiredService<AbsClientOptions>()));

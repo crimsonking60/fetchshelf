@@ -257,6 +257,7 @@ form.inline { display: inline-block; margin: 0 0.3rem 0 0; }
 /* On a narrow screen the form may get narrower than that width, so the box shrinks rather than pushing Search off. */
 .toolbar-stack:has(> .search-line) { min-width: 0; max-width: 100%; }
 #books-search { margin: 0.6rem 0 1rem; }
+#edit-genres { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.2rem 1rem; }
 .toolbar-bar > .push { margin: 0 0 0 auto; }
 /* The actions beside a search form, kept together: Check qBittorrent, the export links and Per page. */
 .list-actions { column-gap: 1.5rem; justify-content: flex-end; }

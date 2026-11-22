@@ -94,7 +94,7 @@ public sealed class AbsClient
         response.EnsureSuccessStatusCode();
     }
 
-    private static AbsMetadata ToAbsMetadata(TorrentMetadata metadata)
+    private AbsMetadata ToAbsMetadata(TorrentMetadata metadata)
     {
         var (title, subtitle) = LibraryMetadataJsonBuilder.SplitTitle(metadata.Title);
 
@@ -110,7 +110,7 @@ public sealed class AbsClient
             Description = metadata.Description,
             Isbn = metadata.Isbn,
             Asin = metadata.Asin,
-            Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata),
+            Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata, _options.MamGenreNames),
             Language = LanguageNameResolver.DisplayName(metadata.Language),
             Explicit = metadata.Flags.HasFlag(BookFlags.Explicit),
             Abridged = metadata.Flags.HasFlag(BookFlags.Abridged),

@@ -134,6 +134,68 @@ public partial class TorrentEditPageTests
     [GeneratedRegex(@"name=""__RequestVerificationToken""[^>]*value=""([^""]*)""|value=""([^""]*)""[^>]*name=""__RequestVerificationToken""")]
     private static partial Regex AntiforgeryTokenPattern();
 
+    private static async Task<HttpResponseMessage> PostEditAsync(HttpClient client, string id, params (string Key, string Value)[] extra)
+    {
+        var token = ExtractAntiforgeryToken(await (await client.GetAsync($"/torrents/{id}/edit")).Content.ReadAsStringAsync());
+        List<KeyValuePair<string, string>> fields =
+        [
+            new("Input.Title", "Genre Book"), new("Input.Authors", "Jane Doe"), new("Input.Narrators", ""), new("Input.Series", ""),
+            new("Input.Language", "English"), new("Input.Category", "EbookHistory"), new("__RequestVerificationToken", token),
+        ];
+        fields.AddRange(extra.Select(pair => new KeyValuePair<string, string>(pair.Key, pair.Value)));
+        using var form = new FormUrlEncodedContent(fields);
+        return await client.PostAsync($"/torrents/{id}/edit", form);
+    }
+
+    private static TorrentMetadata GenreBook() => OrganizerTestSupport.BuildMetadata("Genre Book") with
+    {
+        FictionCategory = FictionCategory.Fiction,
+        GenreCategories = new HashSet<GenreCategory> { GenreCategory.Historical },
+    };
+
+    private static async Task<TorrentMetadata> StoredAsync(FetchshelfWebAppFixture fixture, string id)
+    {
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        return TorrentMetadataSerializer.Deserialize((await dbContext.Torrents.AsNoTracking().SingleAsync(t => t.Id == id)).MetadataJson);
+    }
+
+    [Fact]
+    public async Task GenresOn_TheMainCategoryAndGenresCanBeEdited_ByMamsNames()
+    {
+        using var fixture = new FetchshelfWebAppFixture("mam_id = \"\"\ngenres = true\n");
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", GenreBook());
+        var client = fixture.CreateClient();
+
+        var editHtml = await client.GetStringAsync("/torrents/hash1/edit");
+        var response = await PostEditAsync(client, "hash1",
+            ("Input.GenresShown", "true"), ("Input.Fiction", "Nonfiction"), ("Input.Genres", "17"), ("Input.Genres", "63"));
+
+        Assert.Contains("<option value=\"Fiction\" selected=\"selected\">Fiction</option>", editHtml);
+        Assert.Matches("value=\"17\" checked=\"checked\" />\\s*Historical", editHtml);
+        Assert.Contains("Erotica/Sexual Content", editHtml);
+        response.EnsureSuccessStatusCode();
+        var stored = await StoredAsync(fixture, "hash1");
+        Assert.Equal(FictionCategory.Nonfiction, stored.FictionCategory);
+        Assert.Equal([GenreCategory.Historical, GenreCategory.Military], stored.GenreCategories.Order());
+    }
+
+    [Fact]
+    public async Task GenresOff_TheFormHasNoGenres_AndSavingKeepsThem()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", GenreBook());
+        var client = fixture.CreateClient();
+
+        var editHtml = await client.GetStringAsync("/torrents/hash1/edit");
+        (await PostEditAsync(client, "hash1")).EnsureSuccessStatusCode();
+
+        Assert.DoesNotContain("edit-genres", editHtml);
+        var stored = await StoredAsync(fixture, "hash1");
+        Assert.Equal(FictionCategory.Fiction, stored.FictionCategory);
+        Assert.Equal([GenreCategory.Historical], stored.GenreCategories);
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = AntiforgeryTokenPattern().Match(html);

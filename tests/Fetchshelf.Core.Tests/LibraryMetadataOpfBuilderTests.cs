@@ -129,4 +129,12 @@ public class LibraryMetadataOpfBuilderTests
         Assert.Equal("Salt & <Pepper>", (string?)metadata.Element(Dc + "title"));
         Assert.Equal("\"Quoted\" & more", (string?)metadata.Element(Dc + "description"));
     }
+
+    [Fact]
+    public void Build_WithMamGenreNames_TheSubjectsAreMamsNames_WithTheMainCategory()
+    {
+        var opf = XDocument.Parse(LibraryMetadataOpfBuilder.Build(Build() with { FictionCategory = FictionCategory.Fiction }, mamGenreNames: true));
+
+        Assert.Equal(["General Fiction", "Fiction", "Fantasy"], opf.Root!.Element(Opf + "metadata")!.Elements(Dc + "subject").Select(s => s.Value));
+    }
 }

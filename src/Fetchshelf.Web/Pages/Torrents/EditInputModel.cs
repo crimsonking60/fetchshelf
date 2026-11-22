@@ -19,6 +19,18 @@ public sealed class EditInputModel
 
     public List<string> Flags { get; set; } = [];
 
+    /// <summary>
+    /// Whether the form had the main category and genres (`genres = true`). Without them the stored ones are kept, so
+    /// saving the form with the switch off never clears what MAM gave.
+    /// </summary>
+    public bool GenresShown { get; set; }
+
+    /// <summary>"Fiction", "Nonfiction", or empty for neither.</summary>
+    public string? Fiction { get; set; }
+
+    /// <summary>The genres ticked, by MAM's ids.</summary>
+    public List<int> Genres { get; set; } = [];
+
     public static EditInputModel From(TorrentMetadata metadata) => new()
     {
         Title = metadata.Title,
@@ -28,6 +40,8 @@ public sealed class EditInputModel
         Language = metadata.Language,
         Category = metadata.LegacyCategory,
         Flags = Enum.GetValues<BookFlags>().Where(f => f != BookFlags.None && metadata.Flags.HasFlag(f)).Select(f => f.ToString()).ToList(),
+        Fiction = metadata.FictionCategory?.ToString(),
+        Genres = (metadata.GenreCategories ?? new HashSet<GenreCategory>()).Select(genre => (int)genre).ToList(),
     };
 
     /// <summary>
@@ -50,7 +64,7 @@ public sealed class EditInputModel
             UploadTime = DateTimeOffset.UtcNow,
         };
 
-        return baseline with
+        var edited = baseline with
         {
             MediaType = LegacyCategoryGroups.MediaTypeOf(Category),
             LegacyCategory = Category,
@@ -62,6 +76,14 @@ public sealed class EditInputModel
             Series = SplitLines(Series).Select(SeriesParser.ParseLine).ToList(),
             MetadataSource = MetadataSource.Manual,
         };
+
+        return GenresShown
+            ? edited with
+            {
+                FictionCategory = Enum.TryParse<FictionCategory>(Fiction, out var fiction) ? fiction : null,
+                GenreCategories = Genres.Select(id => (GenreCategory)id).ToHashSet(),
+            }
+            : edited;
     }
 
     private static List<string> SplitLines(string? text) => (text ?? string.Empty)

@@ -91,7 +91,8 @@ public static class CatalogBooks
     /// <returns>The book, or null when none of its files is of a linked format.</returns>
     public static CatalogBook? From(
         string id, TorrentMetadata metadata, string folder, DateTimeOffset addedAt, int libraryIndex,
-        string? audioExtension, string? ebookExtension, IEnumerable<(string RelativePath, long SizeBytes)> linkedFiles)
+        string? audioExtension, string? ebookExtension, IEnumerable<(string RelativePath, long SizeBytes)> linkedFiles,
+        bool mamGenreNames = false)
     {
         var files = linkedFiles.ToList();
         var audio = FilesOf(files, audioExtension);
@@ -116,7 +117,7 @@ public static class CatalogBooks
             Description = string.IsNullOrWhiteSpace(metadata.Description) ? null : metadata.Description,
             MediaType = metadata.MediaType,
             Language = metadata.Language,
-            Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata),
+            Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata, mamGenreNames),
             GenreCategories = metadata.GenreCategories ?? new HashSet<GenreCategory>(),
             FictionCategory = metadata.FictionCategory,
             AddedAt = addedAt,

@@ -213,4 +213,24 @@ public sealed class GenreLibraryLinkTests : IDisposable
         Assert.Equal(0, lookup.Lookups);
         Assert.Empty(context.Torrents);
     }
+
+    [Fact]
+    public async Task WithMamGenreNames_MetadataJson_HasMamsNames_AndTheMainCategory()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var lookup = new CountingLookup(new() { ["history"] = Book("SPQR", FictionCategory.Nonfiction, GenreCategory.Historical, GenreCategory.Politics) });
+        var library = Library(EbooksDir, GenreCondition.None);
+        library.MetadataJson = true;
+        var runner = new LinkRunner(context, new EventStore(context), lookup, [library], Formats,
+            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false, MamGenreNames: true));
+
+        await runner.RunAsync(new QBittorrentConnection(), Client(Torrent("history")));
+
+        var folder = (await TorrentsAsync(context))["history"].LibraryPath!;
+        using var json = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(folder, "metadata.json")));
+        var genres = json.RootElement.GetProperty("genres").EnumerateArray().Select(g => g.GetString()).ToList();
+        Assert.Contains("Nonfiction", genres);
+        Assert.Contains("Politics/Sociology", genres);
+        Assert.DoesNotContain("Politics", genres);
+    }
 }

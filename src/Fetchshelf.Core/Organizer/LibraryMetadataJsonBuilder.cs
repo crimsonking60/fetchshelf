@@ -12,7 +12,8 @@ public static class LibraryMetadataJsonBuilder
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public static string Build(TorrentMetadata metadata)
+    /// <param name="mamGenreNames">`genres = true`: the genres by MAM's names, with Fiction or Nonfiction (<see cref="BuildGenres"/>).</param>
+    public static string Build(TorrentMetadata metadata, bool mamGenreNames = false)
     {
         var (title, subtitle) = SplitTitle(metadata.Title);
 
@@ -27,7 +28,7 @@ public static class LibraryMetadataJsonBuilder
             Isbn = metadata.Isbn,
             Asin = metadata.Asin,
             Tags = metadata.Flags.HasFlag(BookFlags.Lgbt) ? ["LGBT"] : [],
-            Genres = BuildGenres(metadata),
+            Genres = BuildGenres(metadata, mamGenreNames),
             Language = LanguageNameResolver.DisplayName(metadata.Language),
             Explicit = metadata.Flags.HasFlag(BookFlags.Explicit),
             Abridged = metadata.Flags.HasFlag(BookFlags.Abridged),
@@ -38,10 +39,29 @@ public static class LibraryMetadataJsonBuilder
 
     /// <summary>Legacy category plus genre categories, de-duplicated - shared with
     /// the Audiobookshelf client's metadata push, which sends the same derived genre list.</summary>
-    public static IReadOnlyList<string> BuildGenres(TorrentMetadata metadata)
+    /// <remarks>
+    /// With <paramref name="mamGenreNames"/> (`genres = true`) the genres have MAM's names (<see cref="GenreLabels"/>), such
+    /// as "Politics/Sociology", and the main category is one more genre, "Fiction" or "Nonfiction"; without it they keep
+    /// the short names they always had, such as "Politics", and the main category is left out.
+    /// </remarks>
+    public static IReadOnlyList<string> BuildGenres(TorrentMetadata metadata, bool mamGenreNames = false)
     {
         var genres = new List<string> { LegacyCategoryDisplay.DisplayName(metadata.LegacyCategory) };
-        genres.AddRange(metadata.GenreCategories.Select(GenreCategoryDisplay.DisplayName));
+        var genreCategories = metadata.GenreCategories ?? new HashSet<GenreCategory>();
+        if (mamGenreNames)
+        {
+            if (metadata.FictionCategory is { } main)
+            {
+                genres.Add(GenreLabels.FictionLabel(main));
+            }
+
+            genres.AddRange(genreCategories.Select(GenreLabels.Label));
+        }
+        else
+        {
+            genres.AddRange(genreCategories.Select(GenreCategoryDisplay.DisplayName));
+        }
+
         return genres.Distinct(StringComparer.Ordinal).ToList();
     }
 
