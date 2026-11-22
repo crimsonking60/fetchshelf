@@ -896,7 +896,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
-  its own. With `[search] covers = true`, the details also show a cover, from the same sources as the
+  its own. With `covers = true` in `[search]`, the details also show a cover, from the same sources as the
   [Link job's covers](#covers) (Hardcover, Open Library, Audnexus) by the result's ISBN, ASIN, title and author;
   never from MAM.
 - **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
@@ -1727,7 +1727,7 @@ minutes longer. A service that refuses or asks to slow down is left alone for th
 could find wait for the next one. Without Hardcover, a book with neither an ISBN nor an audiobook's ASIN gets no cover
 fetched.
 
-With `[search] covers = true`, a search result's details show a cover from the same sources, as the Search page has
+With `covers = true` in `[search]`, a search result's details show a cover from the same sources, as the Search page has
 no files to read: see [Finding and downloading books](#finding-and-downloading-books). A cover, or the lack of one,
 is remembered for an hour, so opening the same result again asks nothing.
 
@@ -2596,7 +2596,7 @@ fix the ownership of the copied files.
   your `[[notify]]` blocks name, which receive book titles and job names in the messages. With `covers` above 0, the
   ISBNs of linked books whose files have no cover go to Open Library, and the ASINs of such audiobooks to Audnexus,
   with the cover then fetched from Amazon's image host; with a `[hardcover]` token, their ISBNs, ASINs, titles and
-  authors go to Hardcover too. `[search] covers = true` sends the same of a search result you open
+  authors go to Hardcover too. `covers = true` in `[search]` sends the same of a search result you open
   ([Covers](#covers)). Requests to MAM, Hardcover, Open Library
   and Audnexus say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
