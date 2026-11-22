@@ -64,6 +64,7 @@ public sealed partial class SearchGenreFilterTests
 
         var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=history&Genre=none");
 
+        // MAM found 250, so there is a next page to try.
         Assert.Contains("No results. All 3 on this page were hidden by the genre filters; the next page may have some.", html);
         // The filters stay, to be changed.
         Assert.Contains("<option value=\"none\" selected=\"selected\">No genre</option>", html);
