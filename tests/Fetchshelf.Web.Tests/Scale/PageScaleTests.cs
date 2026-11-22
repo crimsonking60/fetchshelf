@@ -58,6 +58,28 @@ public sealed class PageScaleTests(ITestOutputHelper output)
     }
 
     [ScaleFact]
+    public async Task TorrentsPage_GenreAndFictionFilters()
+    {
+        var fixture = new FetchshelfWebAppFixture("mam_id = \"\"\ngenres = true\n");
+        var data = ScaleSeeder.Build(ScaleFactAttribute.TorrentCount!.Value, "/downloads", "/library/audiobooks", "/library/ebooks");
+        using (var scope = fixture.CreateScope())
+        {
+            await ScaleSeeder.SaveAsync(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>(), data);
+        }
+
+        using var _ = fixture;
+        using var client = fixture.CreateClient();
+
+        var genre = await TimeAsync(client, "Torrents, genre filter", "/torrents?PageSize=50&Genre=17");
+        var fiction = await TimeAsync(client, "Torrents, fiction filter", "/torrents?PageSize=50&Fiction=Nonfiction");
+        var both = await TimeAsync(client, "Torrents, genre and fiction filters", "/torrents?PageSize=50&Genre=63&Fiction=Fiction");
+
+        Assert.Contains("Genre: Historical", genre);
+        Assert.Contains("Fiction: Nonfiction", fiction);
+        Assert.Contains("Genre: Military/War", both);
+    }
+
+    [ScaleFact]
     public async Task OpdsFeeds()
     {
         const string config = """

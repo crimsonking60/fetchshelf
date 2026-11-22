@@ -1,5 +1,6 @@
 using System.Globalization;
 using Fetchshelf.Core.Catalog;
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Web.Catalog;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,7 +11,7 @@ namespace Fetchshelf.Web.Pages.Books;
 /// The Books page: every linked book, audiobooks included, to find one and open it in the app that plays or shows it
 /// best. Browses by recently added, author, series or library, or searches; filters by format.
 /// </summary>
-public class IndexModel(BookCatalogCache catalogCache) : PageModel
+public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settings) : PageModel
 {
     public const string ViewAuthors = "authors";
     public const string ViewSeries = "series";
@@ -44,6 +45,23 @@ public class IndexModel(BookCatalogCache catalogCache) : PageModel
     /// <summary>Empty for all, "audiobooks" or "ebooks".</summary>
     [BindProperty(SupportsGet = true)]
     public string? Format { get; set; }
+
+    /// <summary>A genre by MAM's id, or <see cref="GenreFilters.NoGenre"/>. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Genre { get; set; }
+
+    /// <summary><c>Fiction</c>, <c>Nonfiction</c> or <see cref="GenreFilters.Neither"/>. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Fiction { get; set; }
+
+    /// <summary>Whether `genres = true`, which shows the Genre and Fiction filters.</summary>
+    public bool GenresOn => settings.Genres;
+
+    /// <summary>The Genre filter's choices: the genres among the library's books, by MAM's names, and No genre.</summary>
+    public IReadOnlyList<(string Value, string Label)> GenreOptions { get; private set; } = [];
+
+    /// <summary>The Fiction filter's choices: Neither only when a book has neither main category.</summary>
+    public IReadOnlyList<(string Value, string Label)> FictionOptions { get; private set; } = GenreFilters.FictionOptions;
 
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
@@ -89,18 +107,42 @@ public class IndexModel(BookCatalogCache catalogCache) : PageModel
             [nameof(Series)] = Series ?? string.Empty,
             [nameof(Library)] = Library?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             [nameof(Format)] = Format ?? string.Empty,
+            [nameof(Genre)] = GenresOn ? Genre ?? string.Empty : string.Empty,
+            [nameof(Fiction)] = GenresOn ? Fiction ?? string.Empty : string.Empty,
             [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture),
         }
             .Where(pair => pair.Value.Length > 0)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-    /// <summary>The route values for another view or list, keeping the format filter and page size.</summary>
+    /// <summary>Whether the format, fiction or genre filter is in use.</summary>
+    public bool HasFilters =>
+        !string.IsNullOrEmpty(Format) || (GenresOn && (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction)));
+
+    /// <summary>The address without the format, fiction and genre filters: what is shown and the search stay.</summary>
+    public Dictionary<string, string> WithoutFilters =>
+        RouteValues.Where(pair => pair.Key is not (nameof(Format) or nameof(Genre) or nameof(Fiction))).ToDictionary(pair => pair.Key, pair => pair.Value);
+
+    /// <summary>What is shown (a view, an author, a series or a library), for the filter form to keep when a filter changes.</summary>
+    public IEnumerable<(string Name, string Value)> ShownRouteValues =>
+        RouteValues.Where(pair => pair.Key is nameof(View) or nameof(Author) or nameof(Series) or nameof(Library)).Select(pair => (pair.Key, pair.Value));
+
+    /// <summary>The route values for another view or list, keeping the format, genre and fiction filters and the page size.</summary>
     public Dictionary<string, string> RouteFor(string key, string value)
     {
         var route = new Dictionary<string, string> { [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture) };
         if (!string.IsNullOrEmpty(Format))
         {
             route[nameof(Format)] = Format;
+        }
+
+        if (GenresOn && !string.IsNullOrEmpty(Genre))
+        {
+            route[nameof(Genre)] = Genre;
+        }
+
+        if (GenresOn && !string.IsNullOrEmpty(Fiction))
+        {
+            route[nameof(Fiction)] = Fiction;
         }
 
         if (value.Length > 0)
@@ -120,6 +162,15 @@ public class IndexModel(BookCatalogCache catalogCache) : PageModel
         LibraryEmpty = all.Books.Count == 0;
         var format = CatalogFormat;
         var catalog = format == CatalogFormat.All ? all : all.Narrow(book => CatalogFiles.Matches(book, format));
+        if (GenresOn)
+        {
+            GenreOptions = GenreFilters.Options(all.Books.SelectMany(book => book.GenreCategories).Distinct(), Genre);
+            FictionOptions = GenreFilters.FictionChoices(all.Books.Any(book => book.FictionCategory is null), Fiction);
+            if (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction))
+            {
+                catalog = catalog.Narrow(book => GenreFilters.Matches(book.GenreCategories, book.FictionCategory, Genre, Fiction));
+            }
+        }
 
         var query = Q?.Trim() ?? string.Empty;
         if (query.Length > 0)

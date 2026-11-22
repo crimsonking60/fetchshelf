@@ -81,6 +81,27 @@
         }
         <p><span class="label">Language</span><span class="value">@torrent.Metadata.Language</span></p>
         <p><span class="label">Media type</span><span class="value">@torrent.Metadata.MediaType</span></p>
+        @if (Model.GenresOn)
+        {
+            var fiction = torrent.Metadata.FictionCategory;
+            var genres = torrent.Metadata.GenreCategories.OrderBy(Fetchshelf.Core.Metadata.GenreLabels.Label, StringComparer.OrdinalIgnoreCase).ToList();
+            <p id="main-category"><span class="label">Main category</span><span class="value">@if (fiction is { } main)
+                {
+                    <a asp-page="/Torrents/Index" asp-route-Fiction="@main.ToString()">@Fetchshelf.Core.Metadata.GenreLabels.FictionLabel(main)</a>
+                }
+                else
+                {
+                    <text>-</text>
+                }</span></p>
+            <p id="genres"><span class="label">Genres</span><span class="value">@if (genres.Count == 0)
+                {
+                    <text>-</text>
+                }
+                @for (var i = 0; i < genres.Count; i++)
+                {
+                    <text>@(i > 0 ? ", " : "")<a asp-page="/Torrents/Index" asp-route-Genre="@GenreFilters.ValueOf(genres[i])">@Fetchshelf.Core.Metadata.GenreLabels.Label(genres[i])</a></text>
+                }</span></p>
+        }
         <p><span class="label">Metadata source</span><span class="value">@torrent.Metadata.MetadataSource</span></p>
         <p><span class="label">Library path</span><span class="value mono">@(torrent.LibraryPath ?? "-")</span></p>
     </div>
