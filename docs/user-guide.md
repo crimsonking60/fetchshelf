@@ -816,7 +816,7 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
   of them.
 - **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), show only fiction or nonfiction (or
   neither, when there are such books), and only the books of one of MAM's genres, or of none. Like the format, they
-  apply to every view.
+  apply as soon as one is chosen, to every view, and **Clear filters** drops all three, keeping the search and the view.
 - **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
   companion PDF doesn't count as an ebook.
 - **Covers** come from the book's folder or its file, as in the OPDS catalog, and for audiobooks also from the

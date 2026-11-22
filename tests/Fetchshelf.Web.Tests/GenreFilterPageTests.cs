@@ -142,6 +142,28 @@ public sealed class GenreFilterPageTests : IDisposable
     }
 
     [Fact]
+    public async Task BooksPage_TheFiltersOnTheirOwnLine_KeepWhatIsShown_AndClearFiltersKeepsTheSearchAndView()
+    {
+        using var fixture = await FixtureAsync(genres: true);
+        var client = fixture.CreateClient();
+
+        var authors = await client.GetStringAsync("/books?View=authors&Format=ebooks&Fiction=Fiction");
+        var plain = await client.GetStringAsync("/books?View=authors");
+        var search = await client.GetStringAsync("/books?Q=history&Genre=17");
+
+        var filters = authors[authors.IndexOf("id=\"books-filters\"", StringComparison.Ordinal)..authors.IndexOf("</form>", StringComparison.Ordinal)];
+        Assert.Contains("name=\"Format\"", filters);
+        Assert.Contains("name=\"Fiction\"", filters);
+        Assert.Contains("name=\"Genre\"", filters);
+        Assert.DoesNotContain("name=\"Q\"", filters);
+        // Changing a filter in the Authors view stays in it.
+        Assert.Contains("<input type=\"hidden\" name=\"View\" value=\"authors\" />", filters);
+        Assert.Contains("id=\"clear-filters\" href=\"/Books?View=authors&amp;PageSize=25\"", authors);
+        Assert.Contains("id=\"clear-filters\" href=\"/Books?Q=history&amp;PageSize=25\"", search);
+        Assert.DoesNotContain("id=\"clear-filters\"", plain);
+    }
+
+    [Fact]
     public async Task GenresOff_NoFilterOrGenreLine_AndTheFiltersInTheAddressAreIgnored()
     {
         using var fixture = await FixtureAsync(genres: false);

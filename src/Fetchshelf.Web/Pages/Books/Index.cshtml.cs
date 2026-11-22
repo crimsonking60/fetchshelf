@@ -114,6 +114,18 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
             .Where(pair => pair.Value.Length > 0)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
+    /// <summary>Whether the format, fiction or genre filter is in use.</summary>
+    public bool HasFilters =>
+        !string.IsNullOrEmpty(Format) || (GenresOn && (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction)));
+
+    /// <summary>The address without the format, fiction and genre filters: what is shown and the search stay.</summary>
+    public Dictionary<string, string> WithoutFilters =>
+        RouteValues.Where(pair => pair.Key is not (nameof(Format) or nameof(Genre) or nameof(Fiction))).ToDictionary(pair => pair.Key, pair => pair.Value);
+
+    /// <summary>What is shown (a view, an author, a series or a library), for the filter form to keep when a filter changes.</summary>
+    public IEnumerable<(string Name, string Value)> ShownRouteValues =>
+        RouteValues.Where(pair => pair.Key is nameof(View) or nameof(Author) or nameof(Series) or nameof(Library)).Select(pair => (pair.Key, pair.Value));
+
     /// <summary>The route values for another view or list, keeping the format, genre and fiction filters and the page size.</summary>
     public Dictionary<string, string> RouteFor(string key, string value)
     {

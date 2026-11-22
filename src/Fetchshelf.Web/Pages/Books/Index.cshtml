@@ -8,33 +8,47 @@
 <h2>Books</h2>
 @await Html.PartialAsync("_PageExplanation", "This page lists every book Fetchshelf has linked, audiobooks included, to find one and open it in the app that plays or shows it best: Audiobookshelf, or an OPDS reader for ebooks. The Torrents page is for managing the same books, and the Series page for completing series.")
 
-<form method="get" class="toolbar" id="books-search">
-    <input type="text" name="Q" value="@Model.Q" placeholder="Search titles, authors and series" aria-label="Search" />
-    <select name="Format" aria-label="Format" onchange="this.form.requestSubmit()">
-        @foreach (var (value, label) in Fetchshelf.Web.Pages.Books.IndexModel.Formats)
+@* The search runs on the button; the format, fiction and genre filters apply as soon as one is chosen, to whatever is shown. *@
+<form method="get" class="toolbar-stack" id="books-search">
+    <div class="toolbar search-line">
+        <input type="text" name="Q" value="@Model.Q" placeholder="Search titles, authors and series" aria-label="Search" />
+        <button type="submit" class="primary">Search</button>
+    </div>
+    <div class="toolbar" id="books-filters">
+        <select name="Format" aria-label="Format" onchange="this.form.requestSubmit()">
+            @foreach (var (value, label) in Fetchshelf.Web.Pages.Books.IndexModel.Formats)
+            {
+                <option value="@value" selected="@((Model.Format ?? string.Empty) == value)">@label</option>
+            }
+        </select>
+        @if (Model.GenresOn)
         {
-            <option value="@value" selected="@((Model.Format ?? string.Empty) == value)">@label</option>
+            <select name="Fiction" aria-label="Fiction" onchange="this.form.requestSubmit()">
+                <option value="">Fiction or not</option>
+                @foreach (var (value, label) in Model.FictionOptions)
+                {
+                    <option value="@value" selected="@(Model.Fiction == value)">@label</option>
+                }
+            </select>
+            <select name="Genre" aria-label="Genre" onchange="this.form.requestSubmit()">
+                <option value="">Any genre</option>
+                @foreach (var (value, label) in Model.GenreOptions)
+                {
+                    <option value="@value" selected="@(Model.Genre == value)">@label</option>
+                }
+            </select>
         }
-    </select>
-    @if (Model.GenresOn)
+        @if (Model.HasFilters)
+        {
+            <a id="clear-filters" asp-page="/Books/Index" asp-all-route-data="Model.WithoutFilters">Clear filters</a>
+        }
+    </div>
+    @* What is shown stays shown when a filter changes. *@
+    @foreach (var (name, value) in Model.ShownRouteValues)
     {
-        <select name="Fiction" aria-label="Fiction" onchange="this.form.requestSubmit()">
-            <option value="">Fiction or not</option>
-            @foreach (var (value, label) in Model.FictionOptions)
-            {
-                <option value="@value" selected="@(Model.Fiction == value)">@label</option>
-            }
-        </select>
-        <select name="Genre" aria-label="Genre" onchange="this.form.requestSubmit()">
-            <option value="">Any genre</option>
-            @foreach (var (value, label) in Model.GenreOptions)
-            {
-                <option value="@value" selected="@(Model.Genre == value)">@label</option>
-            }
-        </select>
+        <input type="hidden" name="@name" value="@value" />
     }
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
-    <button type="submit" class="primary">Search</button>
 </form>
 
 <nav class="book-views" aria-label="Views">
