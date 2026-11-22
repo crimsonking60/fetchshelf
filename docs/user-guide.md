@@ -891,12 +891,14 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   fiction or nonfiction, and only the results with one of MAM's genres, or with none. Like the two filters below them,
   they hide rows of the page already shown, without asking MAM again, are counted in the same line below the results,
   and are reset the same way. A result's details show its main category and genres by MAM's names.
-- Click a result's title for everything MAM returns for it: cover, narrators, series, language,
+- Click a result's title for everything MAM returns for it: narrators, series, language,
   categories, flags, tags, ISBN or ASIN, files, uploader, seeders and leechers, the description, the media
   info (duration, format, bitrate and more, where MAM has it) and every raw field, plus whether Fetchshelf
   and qBittorrent have it. The details open over your results, which stay as they were, filters and all:
   **Close**, Escape or a click beside the details takes you back. Open the title in a new tab for a page of
-  its own.
+  its own. With `[search] covers = true`, the details also show a cover, from the same sources as the
+  [Link job's covers](#covers) (Hardcover, Open Library, Audnexus) by the result's ISBN, ASIN, title and author;
+  never from MAM.
 - **More like this.** An author's name in a result, and every author, narrator and series in the details, is a link
   to a new search for more of the same: the name as a phrase, in that field only (`"Brandon Sanderson"` in
   **Author**), in the language you have chosen. Open it in a new tab to keep your results.
@@ -1711,15 +1713,23 @@ cover put there by you, by Audiobookshelf or by an earlier run is never replaced
    embedded in an m4b, m4a or mp3 audiobook. This costs no request, so it isn't limited by the number, but each Link
    run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
    takes much longer than it did.
-2. **Open Library**, when the files have none, for a book with an ISBN: only the ISBN is sent. No account or key is
-   needed.
-3. **Audnexus**, which serves Audible's details, for an audiobook with an ASIN that Open Library had no cover for:
-   only the ASIN is sent, and the image is fetched from Amazon's image host, never from anywhere else Audnexus names.
+2. **Hardcover**, when the files have none and a [`[hardcover]`](configuration.md#hardcover) token is set: first the
+   edition with the book's ISBN (or an audiobook's ASIN), then a search by title and first author. A search hit is
+   only taken when its title and one of its authors are the book's, so a book of the same name by someone else, or a
+   box set, isn't. The image comes from Hardcover's image host only, and the token is never sent there.
+3. **Open Library**, for a book with an ISBN: only the ISBN is sent. No account or key is needed.
+4. **Audnexus**, which serves Audible's details, for an audiobook with an ASIN: only the ASIN is sent, and the image
+   is fetched from Amazon's image host, never from anywhere else Audnexus names.
 
 At most `covers` books per run get a cover fetched, and the requests are spaced as the services ask (Open Library
 allows about 100 lookups in 5 minutes, so one every 3 seconds), so a run with `covers = 100` can take about five
 minutes longer. A service that refuses or asks to slow down is left alone for the rest of the run; the books only it
-could find wait for the next one. A book with neither an ISBN nor an audiobook's ASIN gets no cover fetched.
+could find wait for the next one. Without Hardcover, a book with neither an ISBN nor an audiobook's ASIN gets no cover
+fetched.
+
+With `[search] covers = true`, a search result's details show a cover from the same sources, as the Search page has
+no files to read: see [Finding and downloading books](#finding-and-downloading-books). A cover, or the lack of one,
+is remembered for an hour, so opening the same result again asks nothing.
 
 The Link job's result says how many covers were written, from where, and how many are left for the next runs. A book is
 looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
@@ -2585,7 +2595,9 @@ fix the ownership of the copied files.
   and Audiobookshelf (on your network), Hardcover with your token when a `[[hardcover_list]]` is set, and the services
   your `[[notify]]` blocks name, which receive book titles and job names in the messages. With `covers` above 0, the
   ISBNs of linked books whose files have no cover go to Open Library, and the ASINs of such audiobooks to Audnexus,
-  with the cover then fetched from Amazon's image host ([Covers](#covers)). Requests to MAM, Hardcover, Open Library
+  with the cover then fetched from Amazon's image host; with a `[hardcover]` token, their ISBNs, ASINs, titles and
+  authors go to Hardcover too. `[search] covers = true` sends the same of a search result you open
+  ([Covers](#covers)). Requests to MAM, Hardcover, Open Library
   and Audnexus say they come from `Fetchshelf/<version>`. It sends no usage data anywhere else.
 - **Logs.** At every level, logs leave out your `mam_id`, passwords, API tokens, session cookies and the
   full web addresses Fetchshelf requests. They do contain each job's start, finish and error message, the

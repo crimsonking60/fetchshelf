@@ -115,7 +115,7 @@ public sealed class CoverWriter(
                     continue;
                 }
 
-                if (coverSource is null || !MayFetch(torrent) || !coverSource.CanFind(torrent))
+                if (coverSource is null || !MayFetch(torrent) || !coverSource.CanFind(CoverQuery.For(torrent)))
                 {
                     // Nothing more to try: settled without a cover.
                     torrent.CoverCheckedAt = DateTimeOffset.UtcNow;
@@ -232,7 +232,7 @@ public sealed class CoverWriter(
         CoverImage? image;
         try
         {
-            image = await coverSource!.FetchAsync(torrent, cancellationToken);
+            image = await coverSource!.FetchAsync(CoverQuery.For(torrent), cancellationToken);
         }
         catch (CoverSourceRefusedException ex)
         {

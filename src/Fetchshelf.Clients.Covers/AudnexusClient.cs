@@ -55,10 +55,7 @@ public sealed class AudnexusClient
     }
 
     /// <summary>Whether the address is on Amazon's image host, over HTTPS.</summary>
-    public static bool IsImageHost(Uri address) =>
-        address.Scheme == Uri.UriSchemeHttps
-        && ImageHosts.Any(host => address.Host.Equals(host, StringComparison.OrdinalIgnoreCase)
-            || address.Host.EndsWith("." + host, StringComparison.OrdinalIgnoreCase));
+    public static bool IsImageHost(Uri address) => ImageClient.IsOnHost(address, ImageHosts);
 
     private sealed record AudnexusBook([property: JsonPropertyName("image")] string? Image);
 }
