@@ -185,6 +185,15 @@ public sealed class CoverSourceTests
     }
 
     [Fact]
+    public async Task Hardcover_AnAuthorWithAMiddleInitial_MatchesTheNameWithout()
+    {
+        var (source, _) = Hardcover(_ => Hits(("The Way of Kings", "Brandon Sanderson", "https://assets.hardcover.app/right.jpg")));
+        var book = CoverQuery.Of(1, "The Way of Kings", ["Brandon W. Sanderson"], null, null, audiobook: false);
+
+        Assert.NotNull(await source.FetchAsync(book));
+    }
+
+    [Fact]
     public async Task Hardcover_NoMatch_OrAnImageElsewhere_IsNoCover()
     {
         var (noMatch, _) = Hardcover(_ => Hits(("Words of Radiance", "Brandon Sanderson", "https://assets.hardcover.app/w.jpg")));

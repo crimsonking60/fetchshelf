@@ -64,7 +64,10 @@ public sealed class HardcoverCoverSource(HardcoverClient client, ImageClient ima
         }
     }
 
-    /// <summary>Whether a search hit is the book: the same title key, and an author in common by name key.</summary>
+    /// <summary>
+    /// Whether a search hit is the book: the same title key, and an author in common by name key, or by name key without
+    /// middle initials ("Steve J McHugh" on MAM is "Steve McHugh" on Hardcover).
+    /// </summary>
     public static bool Matches(HardcoverSearchHit hit, CoverQuery book)
     {
         if (TitleNormalizer.Normalize(hit.Title) != TitleNormalizer.Normalize(book.Title))
@@ -73,7 +76,9 @@ public sealed class HardcoverCoverSource(HardcoverClient client, ImageClient ima
         }
 
         var authors = book.Authors.Select(PersonNameKey.Of).ToHashSet(StringComparer.Ordinal);
-        return hit.Authors.Any(author => authors.Contains(PersonNameKey.Of(author)));
+        var withoutInitials = book.Authors.Select(PersonNameKey.WithoutMiddleInitials).ToHashSet(StringComparer.Ordinal);
+        return hit.Authors.Any(author =>
+            authors.Contains(PersonNameKey.Of(author)) || withoutInitials.Contains(PersonNameKey.WithoutMiddleInitials(author)));
     }
 }
 
