@@ -37,7 +37,9 @@ public sealed class FetchshelfWebAppFixture : IDisposable
         Func<HttpRequestMessage, HttpResponseMessage>? notifyHandler = null,
         bool realJobRegistry = false,
         Action<IServiceCollection>? configureServices = null,
-        bool readAccountAtStartup = false)
+        bool readAccountAtStartup = false,
+        Func<HttpRequestMessage, HttpResponseMessage>? coversHandler = null,
+        Func<HttpRequestMessage, HttpResponseMessage>? hardcoverHandler = null)
     {
         var configPath = Path.Combine(_tempDir, "config.toml");
         File.WriteAllText(configPath, configToml);
@@ -100,6 +102,16 @@ public sealed class FetchshelfWebAppFixture : IDisposable
                     services.AddHttpClient("abs")
                         .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(absHandler));
                 }
+
+                // Nor the real cover services or Hardcover: tests that expect requests there pass their own handlers.
+                services.AddHttpClient("covers")
+                    .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(coversHandler ?? (request =>
+                        throw new InvalidOperationException(
+                            $"Test sent a real cover request ({request.Method} {request.RequestUri?.Host}). Pass coversHandler to FetchshelfWebAppFixture."))));
+                services.AddHttpClient("hardcover")
+                    .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(hardcoverHandler ?? (request =>
+                        throw new InvalidOperationException(
+                            $"Test sent a real Hardcover request ({request.Method} {request.RequestUri?.Host}). Pass hardcoverHandler to FetchshelfWebAppFixture."))));
             }));
     }
 

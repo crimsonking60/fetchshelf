@@ -21,7 +21,7 @@ public sealed class CoverWriterTests : IDisposable
     {
         public List<long> Asked { get; } = [];
 
-        public Task<CoverImage?> FetchAsync(Fetchshelf.Data.Entities.TorrentEntity torrent, CancellationToken cancellationToken = default)
+        public Task<CoverImage?> FetchAsync(CoverQuery torrent, CancellationToken cancellationToken = default)
         {
             Asked.Add(torrent.MamId);
             return Task.FromResult(cover(torrent.MamId));
@@ -48,6 +48,8 @@ public sealed class CoverWriterTests : IDisposable
         return folder;
     }
 
+    private static (int FromFiles, int Fetched, int Waiting) Counts(CoverRunSummary summary) => (summary.FromFiles, summary.Fetched, summary.Waiting);
+
     private static DateTimeOffset? CheckedAt(FetchshelfDbContext context, long mamId) =>
         context.Torrents.AsNoTracking().Single(t => t.MamId == mamId).CoverCheckedAt;
 
@@ -60,7 +62,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 1, 0), summary);
+        Assert.Equal((0, 1, 0), Counts(summary));
         Assert.Equal([0xFF, 0xD8, 0xFF], await File.ReadAllBytesAsync(Path.Combine(folder, "cover.jpg")));
         Assert.Equal(["01.mp3", "cover.jpg"], Directory.GetFiles(folder).Select(Path.GetFileName).Order());
         Assert.NotNull(CheckedAt(context, 1));
@@ -89,7 +91,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 0, 0), summary);
+        Assert.Equal((0, 0, 0), Counts(summary));
         Assert.Empty(source.Asked);
         Assert.False(File.Exists(Path.Combine(folder, "cover.jpg")));
         Assert.NotNull(CheckedAt(context, 1));
@@ -102,7 +104,7 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1);
         var source = new FakeCoverSource(_ => null);
 
-        Assert.Equal(new CoverRunSummary(0, 0, 0), await new CoverWriter(context, [BookLibrary], Options, source).RunAsync());
+        Assert.Equal((0, 0, 0), Counts(await new CoverWriter(context, [BookLibrary], Options, source).RunAsync()));
         await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
         Assert.Equal(["01.mp3"], Directory.GetFiles(folder).Select(Path.GetFileName));
@@ -124,8 +126,8 @@ public sealed class CoverWriterTests : IDisposable
         var first = await new CoverWriter(context, [BookLibrary], three, source).RunAsync();
         var second = await new CoverWriter(context, [BookLibrary], three, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 3, 2), first);
-        Assert.Equal(new CoverRunSummary(0, 2, 0), second);
+        Assert.Equal((0, 3, 2), Counts(first));
+        Assert.Equal((0, 2, 0), Counts(second));
         Assert.Equal([1L, 2, 3, 4, 5], source.Asked);
     }
 
@@ -146,9 +148,9 @@ public sealed class CoverWriterTests : IDisposable
         var waitingIds = await context.Torrents.AsNoTracking().Where(t => t.CoverCheckedAt == null).Select(t => t.MamId).OrderBy(id => id).ToListAsync();
         var second = await new CoverWriter(context, [BookLibrary], one, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 1, 3), first);
+        Assert.Equal((0, 1, 3), Counts(first));
         Assert.Equal([2L, 3, 502], waitingIds);
-        Assert.Equal(new CoverRunSummary(0, 1, 2), second);
+        Assert.Equal((0, 1, 2), Counts(second));
         Assert.Equal([1L, 2], source.Asked);
     }
 
@@ -162,7 +164,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 0, 2), summary);
+        Assert.Equal((0, 0, 2), Counts(summary));
         Assert.Equal([1L], source.Asked);
         Assert.Null(CheckedAt(context, 1));
     }
@@ -177,7 +179,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 1, 0), summary);
+        Assert.Equal((0, 1, 0), Counts(summary));
         Assert.True(File.Exists(Path.Combine(second, "cover.jpg")));
         Assert.NotNull(CheckedAt(context, 1));
     }
@@ -248,7 +250,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(1, 0, 0), summary);
+        Assert.Equal((1, 0, 0), Counts(summary));
         Assert.True(File.Exists(Path.Combine(folder, "cover.jpg")));
         Assert.Empty(source.Asked);
         Assert.NotNull(CheckedAt(context, 1));
@@ -263,7 +265,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(1, 0, 0), summary);
+        Assert.Equal((1, 0, 0), Counts(summary));
         Assert.False(File.Exists(Path.Combine(plain, "cover.jpg")));
         Assert.True(File.Exists(Path.Combine(epub, "cover.jpg")));
         Assert.NotNull(CheckedAt(context, 1));
@@ -278,7 +280,7 @@ public sealed class CoverWriterTests : IDisposable
 
         var summary = await new CoverWriter(context, [BookLibrary], Options with { FileBudget = TimeSpan.Zero }, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 0, 1), summary);
+        Assert.Equal((0, 0, 1), Counts(summary));
         Assert.False(File.Exists(Path.Combine(folder, "cover.jpg")));
         Assert.Empty(source.Asked);
         Assert.Null(CheckedAt(context, 1));
@@ -300,5 +302,53 @@ public sealed class CoverWriterTests : IDisposable
         Assert.True(File.Exists(Path.Combine(withCover, "cover.jpg")));
         Assert.False(File.Exists(Path.Combine(without, "cover.jpg")));
         Assert.Empty(source.Asked);
+    }
+
+    /// <summary>A source that can find only some books, defers some, and names itself on the covers it gives.</summary>
+    private sealed class PickySource(Func<long, bool> canFind, Func<long, bool> defer) : ICoverSource
+    {
+        public List<long> Asked { get; } = [];
+
+        public bool CanFind(CoverQuery torrent) => canFind(torrent.MamId);
+
+        public Task<CoverImage?> FetchAsync(CoverQuery torrent, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(torrent.MamId);
+            return defer(torrent.MamId)
+                ? throw new CoverSourceDeferredException("Its source refused.")
+                : Task.FromResult<CoverImage?>(new CoverImage([0xFF, 0xD8, 0xFF], "image/jpeg", "Open Library"));
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ABookNoSourceCanFind_IsSettledWithoutAsking_AndDoesntCountTowardsTheLimit()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedLinkedAsync(context, 1);
+        await SeedLinkedAsync(context, 2);
+        var source = new PickySource(canFind: mamId => mamId == 2, defer: _ => false);
+
+        var summary = await new CoverWriter(context, [BookLibrary], new CoverWriterOptions(MaxFetchesPerRun: 1), source).RunAsync();
+
+        Assert.Equal([2L], source.Asked);
+        Assert.Equal((0, 1, 0), (summary.FromFiles, summary.Fetched, summary.Waiting));
+        Assert.Equal(1, summary.FetchedFrom["Open Library"]);
+        Assert.NotNull(CheckedAt(context, 1));
+    }
+
+    [Fact]
+    public async Task RunAsync_ADeferredBook_Waits_WhileTheOthersAreStillFetched()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        await SeedLinkedAsync(context, 1);
+        await SeedLinkedAsync(context, 2);
+        var source = new PickySource(canFind: _ => true, defer: mamId => mamId == 1);
+
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
+
+        Assert.Equal([1L, 2L], source.Asked);
+        Assert.Equal((0, 1, 1), (summary.FromFiles, summary.Fetched, summary.Waiting));
+        Assert.Null(CheckedAt(context, 1));
+        Assert.NotNull(CheckedAt(context, 2));
     }
 }
