@@ -2,7 +2,7 @@
 @* Which results these are out of how many MAM found, and the pages either side as arrows and numbers, keeping the search. *@
 @{
     var pageNumber = Model.Choices.PageNumber;
-    var shown = Model.Results.Count + Model.SnatchedLeftOut;
+    var shown = Model.Results.Count + Model.SnatchedLeftOut + Model.GenreHidden;
     // MAM gives the number of results found, so the page count follows from it; results left out as snatched don't change it.
     var totalPages = Model.Found is { } found ? Math.Max(1, (int)Math.Ceiling(found / (double)SearchQueryBuilder.PageSize)) : 1;
 }
@@ -15,6 +15,10 @@
         @if (Model.SnatchedLeftOut > 0 && Model.Results.Count > 0)
         {
             @: @Model.SnatchedLeftOut left out as snatched before.
+        }
+        @if (Model.GenreHidden > 0 && Model.Results.Count > 0)
+        {
+            <span id="genre-hidden">@Model.GenreHidden of the @shown results on this page hidden by the genre filters.</span>
         }
         <span id="results-hidden"></span>
     </span>

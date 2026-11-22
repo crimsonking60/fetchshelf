@@ -1,3 +1,4 @@
+using Fetchshelf.Data.Configuration;
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
@@ -14,7 +15,7 @@ namespace Fetchshelf.Web.Pages.Search;
 /// </summary>
 public class DetailModel(
     MamClient mamClient, MamClientOptions mamOptions, FetchshelfDbContext dbContext, QBittorrentPresenceCache qbittorrentPresence,
-    MamPageGate pageGate, ILogger<DetailModel> logger) : PageModel
+    MamPageGate pageGate, FetchshelfSettings settings, ILogger<DetailModel> logger) : PageModel
 {
     /// <summary>The search to go back to.</summary>
     [BindProperty(SupportsGet = true)]
@@ -164,6 +165,13 @@ public class DetailModel(
 
         return NotFound();
     }
+
+    /// <summary>Whether `genres = true`, which shows the hit's main category and genres by MAM's names.</summary>
+    public bool GenresOn => settings.Genres;
+
+    /// <summary>The hit's genres by MAM's names, A-Z, for <see cref="GenresOn"/>.</summary>
+    public IReadOnlyList<string> GenreLabelList =>
+        Metadata is null ? [] : Metadata.GenreCategories.Select(GenreLabels.Label).Order(StringComparer.OrdinalIgnoreCase).ToList();
 
     /// <summary>MAM's genres for the hit, as names: its category first, then the newer genre categories.</summary>
     public IReadOnlyList<string> Genres => Metadata is null ? [] : LibraryMetadataJsonBuilder.BuildGenres(Metadata);

@@ -63,7 +63,15 @@ else if (Model.Record is { } record)
                 }</span></p>
             <p><span class="label">Media type</span><span class="value">@(Model.Metadata?.MediaType.ToString() ?? record.MediaTypeId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
             <p><span class="label">Language</span><span class="value">@(Model.Metadata?.Language.ToString() ?? record.LanguageId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
-            <p><span class="label">Categories</span><span class="value">@(Model.Genres.Count == 0 ? "-" : string.Join(", ", Model.Genres))</span></p>
+            @if (Model.GenresOn)
+            {
+                <p id="hit-main-category"><span class="label">Main category</span><span class="value">@(Model.Metadata?.FictionCategory is { } main ? GenreLabels.FictionLabel(main) : "-")</span></p>
+                <p id="hit-genres"><span class="label">Genres</span><span class="value">@(Model.GenreLabelList.Count == 0 ? "-" : string.Join(", ", Model.GenreLabelList))</span></p>
+            }
+            else
+            {
+                <p><span class="label">Categories</span><span class="value">@(Model.Genres.Count == 0 ? "-" : string.Join(", ", Model.Genres))</span></p>
+            }
             <p><span class="label">Flags</span><span class="value">@(Model.Metadata is { Flags: not BookFlags.None } flagged ? flagged.Flags.ToString() : "-")</span></p>
             <p><span class="label">Tags</span><span class="value">@(string.IsNullOrWhiteSpace(record.TagsRaw) ? "-" : record.TagsRaw)</span></p>
             <p><span class="label">ISBN / ASIN</span><span class="value">@(record.Isbn ?? "-")</span></p>
