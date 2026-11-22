@@ -62,7 +62,7 @@ configurations keep working. Both set is a configuration error.
 ### 2. Registration and the Link job
 
 - `CoverWriter` is registered with the chain whenever `covers` (or `covers_from_mam`) is above 0.
-- **Two budgets per Link run** (proposed for open question 2):
+- **Two budgets per Link run**:
   - **Embedded covers** don't count towards `covers`, as they cost no request; instead each run spends at most about
     10 seconds on them (a time budget, as reading a cover takes milliseconds on a local disk and many times that on a
     NAS, so a count would be wrong on one of them), then stops, and the next run goes on. A large library fills in
@@ -101,7 +101,7 @@ configurations keep working. Both set is a configuration error.
 Settled on 2026-11-22:
 
 1. **The setting's name**: `covers`, with `covers_from_mam` accepted as its old name (see above).
-2. **Embedded covers and the limit**: open; proposed, a time budget of about 10 seconds per Link run instead of a count
+2. **Embedded covers and the limit**: a time budget of about 10 seconds per Link run instead of a count
    (see Registration and the Link job).
 3. **Audnexus**: yes, for audiobooks with an ASIN, after Open Library.
 
