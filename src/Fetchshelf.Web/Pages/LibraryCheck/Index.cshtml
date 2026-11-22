@@ -18,6 +18,8 @@
     <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
 }
 
+@await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
+
 <form method="post" asp-page-handler="Run" class="actions">
     @Html.AntiForgeryToken()
     <input type="hidden" name="Library" value="@Model.Library" />

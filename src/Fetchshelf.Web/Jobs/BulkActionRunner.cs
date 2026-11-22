@@ -30,7 +30,7 @@ public sealed class BulkActionRunner(
     public async Task RunAsync(BulkOperation operation, CancellationToken cancellationToken)
     {
         var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
-        var ids = operation.TorrentIds;
+        var ids = operation.ItemIds;
         var titles = await dbContext.Torrents.AsNoTracking()
             .Where(t => ids.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id, t => t.Title, cancellationToken);
@@ -87,7 +87,7 @@ public sealed class BulkActionRunner(
         var state = !cancellationToken.IsCancellationRequested ? BulkOperationState.Finished
             : operation.Cancellation.IsCancellationRequested ? BulkOperationState.Cancelled
             : BulkOperationState.Interrupted;
-        operation.End(state, Summary(verbs, titles.Count, handled, done, problems.Count, state), problems);
+        operation.End(state, Summary(operation, verbs, titles.Count, handled, done, problems.Count, state), problems);
         logger.LogInformation("Bulk action from the Torrents page: {Summary}", operation.Summary);
     }
 
@@ -142,12 +142,11 @@ public sealed class BulkActionRunner(
     public const string EditedByHandSkipped = "skipped, as its details were edited by hand; Refresh on its own page replaces them.";
 
     /// <summary>"Relinked 18 of 23 torrents.", and, when it stopped early, how far it got. The problems are listed apart.</summary>
-    public static string Summary(BulkOperation.Verbs verbs, int total, int handled, int done, int problems, BulkOperationState state)
+    public static string Summary(BulkOperation operation, BulkOperation.Verbs verbs, int total, int handled, int done, int problems, BulkOperationState state)
     {
-        string Torrents(int count) => count == 1 ? "1 torrent" : $"{count} torrents";
         var line = state == BulkOperationState.Finished && problems == 0
-            ? $"{verbs.Done} {Torrents(total)}."
-            : $"{verbs.Done} {done} of {Torrents(total)}.";
+            ? $"{verbs.Done} {operation.Count(total)}."
+            : $"{verbs.Done} {done} of {operation.Count(total)}.";
         if (state != BulkOperationState.Finished)
         {
             line += $" {(state == BulkOperationState.Cancelled ? "Cancelled" : "Fetchshelf stopped")} after {handled}; the other {total - handled} were left as they were.";

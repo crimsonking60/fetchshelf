@@ -2275,6 +2275,11 @@ back with its findings straight away. With more than one library, a dropdown abo
 - **Relink selected** relinks each ticked book as on its torrent page. A book it relinks leaves the list; one it can't
   stays, with *What to do* brought up to date. **Remove record** makes Fetchshelf forget the book, as on its torrent
   page.
+- **Delete selected** and **Relink selected** run in the background, like the bulk actions on the Torrents page: the page
+  comes back at once and shows their progress at the top, with **Cancel**, which stops after the folder or book it is
+  on, and when they end, how they went and what wasn't done, until **Dismiss**. They handle one finding at a time, so
+  the Link and Clean jobs can run in between. **Run the check** waits until they have ended, as a new check would
+  replace the findings they work through.
 - Folders and files whose name starts with `.` or `@`, such as a NAS's `@eaDir`, are left out, and folder links aren't
   followed. A relative path, in the configuration or on record from an older configuration, is taken from Fetchshelf's
   working folder, as its file operations take it, and shown in full. Books in a `no_link` library have no folder of their own, so they are never missing.

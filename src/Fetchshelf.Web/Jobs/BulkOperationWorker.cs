@@ -22,7 +22,14 @@ public sealed class BulkOperationWorker(BulkOperationQueue queue, IServiceScopeF
                 try
                 {
                     using var scope = scopeFactory.CreateScope();
-                    await scope.ServiceProvider.GetRequiredService<BulkActionRunner>().RunAsync(operation, stop.Token);
+                    if (operation.OnLibraryCheck)
+                    {
+                        await scope.ServiceProvider.GetRequiredService<LibraryCheckBulkRunner>().RunAsync(operation, stop.Token);
+                    }
+                    else
+                    {
+                        await scope.ServiceProvider.GetRequiredService<BulkActionRunner>().RunAsync(operation, stop.Token);
+                    }
                 }
                 catch (Exception ex)
                 {

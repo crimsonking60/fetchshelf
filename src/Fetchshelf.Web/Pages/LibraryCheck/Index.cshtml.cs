@@ -19,8 +19,7 @@ namespace Fetchshelf.Web.Pages.LibraryCheck;
 /// </summary>
 public class IndexModel(
     LibraryCheckResults results, IJobRegistry jobRegistry, IReadOnlyList<Library> libraries, FetchshelfDbContext dbContext,
-    EventStore eventStore, LibraryWriteGate writeGate, LinkRunner linkRunner, FetchshelfSettings settings,
-    QBittorrentClientFactory qbittorrentFactory, ILogger<IndexModel> logger) : PageModel
+    BulkOperationQueue bulkOperations) : PageModel
 {
     public DateTimeOffset? CheckedAt => results.CheckedAt;
 
@@ -99,102 +98,68 @@ public class IndexModel(
     /// </summary>
     public async Task<IActionResult> OnPostRunAsync()
     {
+        // A new check would replace the findings a Delete or Relink selected is still working through.
+        if (bulkOperations.Active().Any(o => o.OnLibraryCheck))
+        {
+            return Refuse("A Delete or Relink selected is still running or waiting. Run the check once it has ended, or cancel it.");
+        }
+
         var run = jobRegistry.TriggerAsync(JobNames.LibraryCheck, JobTrigger.Manual, CancellationToken.None);
         await Task.WhenAny(run, Task.Delay(RunWait, HttpContext.RequestAborted));
         return BackToPage();
     }
 
     /// <summary><b>Delete selected</b>: each folder or file is checked again first, so one a book uses now is left alone.</summary>
-    public async Task<IActionResult> OnPostDeleteAsync(List<int> selectedIds)
-    {
-        if (Refusal(selectedIds) is { } notNow)
-        {
-            return Refuse(notNow);
-        }
-
-        var (deleted, refusals) = (new List<int>(), new List<string>());
-        using (await writeGate.AcquireAsync(HttpContext.RequestAborted))
-        {
-            // A check that started after the page was shown held the gate until it ended, and replaced the findings.
-            if (selectedIds.Any(id => results.Get(id) is null))
-            {
-                return Refuse(Refusal(selectedIds)!);
-            }
-
-            foreach (var numbered in selectedIds.Select(results.Get).OfType<NumberedFinding>())
-            {
-                try
-                {
-                    if (await LibraryCheckDeleter.DeleteAsync(numbered.Finding, libraries, dbContext, eventStore, HttpContext.RequestAborted) is { } refusal)
-                    {
-                        refusals.Add(refusal);
-                        continue;
-                    }
-
-                    logger.LogInformation("Library check: deleted {Path}", numbered.Finding.Path);
-                    deleted.Add(numbered.Id);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    logger.LogWarning("Library check: could not delete {Path}: {Error}", numbered.Finding.Path, ex.Message);
-                    refusals.Add($"{numbered.Finding.Path} could not be deleted: {ex.Message}");
-                }
-            }
-        }
-
-        results.Remove(deleted);
-        ActionMessage = string.Join(" ", new[] { $"Deleted {deleted.Count}." }.Concat(refusals));
-        ActionFailed = refusals.Count > 0;
-        return BackToPage();
-    }
+    public IActionResult OnPostDelete(List<int> selectedIds) => Queue(BulkAction.DeleteFindings, selectedIds);
 
     /// <summary>
     /// <b>Relink selected</b>, as on the torrent page, one book after the other. A book relinked leaves the list; one that
     /// couldn't be stays, with why noted on it, so <b>Remove record</b> or a fix by hand can follow.
     /// </summary>
-    public async Task<IActionResult> OnPostRelinkAsync(List<int> selectedIds)
+    public IActionResult OnPostRelink(List<int> selectedIds) => Queue(BulkAction.RelinkFindings, BookFindings(selectedIds).Select(f => f.Id).ToList(), selectedIds);
+
+    /// <summary>
+    /// Queues <b>Delete selected</b> or <b>Relink selected</b> for <see cref="BulkOperationWorker"/>, whose progress the
+    /// page shows at the top, and comes back at once: thousands of folders take a while, and the Link and Clean jobs run
+    /// between them.
+    /// </summary>
+    /// <param name="ticked">What was ticked, checked for findings a newer check replaced; the items by default.</param>
+    private IActionResult Queue(BulkAction action, List<int> items, List<int>? ticked = null)
     {
-        if (Refusal(selectedIds) is { } refusal)
+        if (Refusal(ticked ?? items) is { } refusal)
         {
             return Refuse(refusal);
         }
 
-        var books = BookFindings(selectedIds);
-        var (relinked, notRelinked) = (new List<int>(), new Dictionary<int, (LibraryFinding, string?)>());
-        var connections = QBittorrentConnections.Build(settings, qbittorrentFactory);
-        using (await writeGate.AcquireAsync(HttpContext.RequestAborted))
+        if (items.Count > 0)
         {
-            foreach (var (id, finding, _) in books)
-            {
-                try
-                {
-                    var result = await linkRunner.RelinkAsync(finding.TorrentId!, connections, HttpContext.RequestAborted);
-                    if (result.Succeeded)
-                    {
-                        relinked.Add(id);
-                    }
-                    else
-                    {
-                        // What stops it now, which may have changed since the check; the message only when that isn't it.
-                        var (blocker, category) = await linkRunner.RelinkBlockerAsync(finding.TorrentId!, connections, HttpContext.RequestAborted);
-                        notRelinked[id] = (finding with { Blocker = blocker, BlockerDetail = category }, blocker == RelinkBlocker.None ? result.Message : null);
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    logger.LogWarning("Library check: relinking {Title} failed: {Error}", finding.Title, ex.Message);
-                    notRelinked[id] = (finding, $"Not relinked: {MamErrorDescriber.DescribeAmong(ex, "qBittorrent")}");
-                }
-            }
+            bulkOperations.Enqueue(action, items.Distinct().Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList());
         }
 
-        results.Remove(relinked);
-        results.Update(notRelinked);
-        ActionMessage = $"Relinked {relinked.Count} of {books.Count}."
-            + (notRelinked.Count > 0 ? $" {notRelinked.Count} could not be; the What to do column says why, and what to do about it." : "");
-        ActionFailed = notRelinked.Count > 0;
         return BackToPage();
     }
+
+    /// <summary>This page's bulk operations, shown at the top while they run and until dismissed.</summary>
+    public BulkOperationsViewModel BulkOperations => new(bulkOperations.Shown(libraryCheck: true), "/LibraryCheck/Index");
+
+    /// <summary>The panel of bulk operations, which polls itself here while one runs or waits.</summary>
+    public PartialViewResult OnGetBulkOperations() => Partial("_BulkOperationsPartial", BulkOperations);
+
+    /// <summary>Cancels a bulk operation: it stops after the finding it is on.</summary>
+    public IActionResult OnPostCancelBulk(int operationId)
+    {
+        bulkOperations.Cancel(operationId);
+        return BulkPanelOrPage();
+    }
+
+    /// <summary>Hides an ended bulk operation.</summary>
+    public IActionResult OnPostDismissBulk(int operationId)
+    {
+        bulkOperations.Dismiss(operationId);
+        return BulkPanelOrPage();
+    }
+
+    private IActionResult BulkPanelOrPage() => Request.Headers.ContainsKey("HX-Request") ? OnGetBulkOperations() : BackToPage();
 
     /// <summary><b>Remove record</b>: forgets the selected books, as the torrent page's Remove record does.</summary>
     public async Task<IActionResult> OnPostRemoveRecordAsync(List<int> selectedIds)

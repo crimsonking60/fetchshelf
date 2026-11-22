@@ -1,6 +1,9 @@
 namespace Fetchshelf.Web.Jobs;
 
-/// <summary>What a bulk action from the Torrents page does to each torrent selected.</summary>
+/// <summary>
+/// What a bulk action does to each item selected: the torrents of the Torrents page, or, for
+/// <see cref="DeleteFindings"/> and <see cref="RelinkFindings"/>, the findings of the Library check page.
+/// </summary>
 public enum BulkAction
 {
     Relink,
@@ -8,6 +11,12 @@ public enum BulkAction
     Refresh,
     Clean,
     SetCategory,
+
+    /// <summary>The Library check's Delete selected: unknown folders and files deleted, missing books' records forgotten.</summary>
+    DeleteFindings,
+
+    /// <summary>The Library check's Relink selected, for books whose folder or files are gone.</summary>
+    RelinkFindings,
 }
 
 /// <summary>Where a bulk operation is: waiting behind another, running, or ended one of three ways.</summary>
@@ -21,9 +30,9 @@ public enum BulkOperationState
 }
 
 /// <summary>
-/// One bulk action on the torrents selected on the Torrents page, run in the background by
-/// <see cref="BulkOperationWorker"/>, one operation at a time. Kept in memory only: a restart forgets it, and each
-/// torrent's own result is recorded where it always is (events, the Errors page).
+/// One bulk action on the torrents selected on the Torrents page, or the findings selected on the Library check page, run
+/// in the background by <see cref="BulkOperationWorker"/>, one operation at a time. Kept in memory only: a restart forgets
+/// it, and each item's own result is recorded where it always is (events, the Errors page, the Library check's findings).
 /// </summary>
 public sealed class BulkOperation
 {
@@ -31,11 +40,11 @@ public sealed class BulkOperation
     private int _handled;
     private string? _current;
 
-    public BulkOperation(int id, BulkAction action, IReadOnlyList<string> torrentIds, string? category, DateTimeOffset createdAt)
+    public BulkOperation(int id, BulkAction action, IReadOnlyList<string> itemIds, string? category, DateTimeOffset createdAt)
     {
         Id = id;
         Action = action;
-        TorrentIds = torrentIds;
+        ItemIds = itemIds;
         Category = category;
         CreatedAt = createdAt;
     }
@@ -44,7 +53,7 @@ public sealed class BulkOperation
 
     public BulkAction Action { get; }
 
-    public IReadOnlyList<string> TorrentIds { get; }
+    public IReadOnlyList<string> ItemIds { get; }
 
     /// <summary>The category <see cref="BulkAction.SetCategory"/> sets; null for the other actions.</summary>
     public string? Category { get; }
@@ -131,24 +140,35 @@ public sealed class BulkOperation
     public void Dismiss() => Dismissed = true;
 
     /// <summary>The action as a noun, with what it is about: "Relink of 23 torrents".</summary>
-    public string Describe()
+    public string Describe() => Action switch
     {
-        var torrents = TorrentIds.Count == 1 ? "1 torrent" : $"{TorrentIds.Count} torrents";
-        return Action switch
+        BulkAction.SetCategory => $"Setting the category to {Category} for {Count(ItemIds.Count)}",
+        BulkAction.DeleteFindings or BulkAction.RelinkFindings => $"{Verbs.For(Action, Category).Doing} {Count(ItemIds.Count)}",
+        _ => $"{Action} of {Count(ItemIds.Count)}",
+    };
+
+    /// <summary>Whether it acts on Library check findings, so the Library check page shows it rather than the Torrents page.</summary>
+    public bool OnLibraryCheck => Action is BulkAction.DeleteFindings or BulkAction.RelinkFindings;
+
+    /// <summary>A number of the items it acts on: "1 torrent", "23 findings", "4 books".</summary>
+    public string Count(int count)
+    {
+        var (one, many) = Action switch
         {
-            BulkAction.SetCategory => $"Setting the category to {Category} for {torrents}",
-            _ => $"{Action} of {torrents}",
+            BulkAction.DeleteFindings => ("finding", "findings"),
+            BulkAction.RelinkFindings => ("book", "books"),
+            _ => ("torrent", "torrents"),
         };
+        return count == 1 ? $"1 {one}" : $"{count} {many}";
     }
 
-    /// <summary>What the operation is doing now, as the progress panel says it.</summary>
     public string Status()
     {
         var (handled, current) = Progress;
         return State switch
         {
             BulkOperationState.Waiting => $"{Describe()}: waits for the bulk action before it.",
-            BulkOperationState.Running => $"{Verbs.For(Action, Category).Doing} {Math.Min(handled + 1, TorrentIds.Count)} of {TorrentIds.Count}"
+            BulkOperationState.Running => $"{Verbs.For(Action, Category).Doing} {Math.Min(handled + 1, ItemIds.Count)} of {ItemIds.Count}"
                 + (current is null ? "" : $": {current}"),
             _ => Summary ?? string.Empty,
         };
@@ -163,6 +183,8 @@ public sealed class BulkOperation
             BulkAction.Unlink => new("Unlinking", "Unlinked", "Unlinking"),
             BulkAction.Refresh => new("Refreshing", "Refreshed", "Refreshing"),
             BulkAction.Clean => new("Cleaning", "Cleaned", "Cleaning"),
+            BulkAction.DeleteFindings => new("Deleting", "Deleted", "Deleting"),
+            BulkAction.RelinkFindings => new("Relinking", "Relinked", "Relinking"),
             _ => new($"Setting the category to {category} for", $"Set the category to {category} for", "Setting the category"),
         };
     }

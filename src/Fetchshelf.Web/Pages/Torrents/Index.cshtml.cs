@@ -306,7 +306,7 @@ public class IndexModel(
     }
 
     /// <summary>The bulk actions running, waiting or ended, for the panel above the list.</summary>
-    public IReadOnlyList<BulkOperation> BulkOperations => bulkOperations.Shown();
+    public BulkOperationsViewModel BulkOperations => new(bulkOperations.Shown(libraryCheck: false), "/Torrents/Index");
 
     /// <summary>The panel above the list, which polls itself while an operation runs or waits.</summary>
     public PartialViewResult OnGetBulkOperations() => Partial("_BulkOperationsPartial", BulkOperations);
