@@ -54,6 +54,7 @@ public static class RunnerServices
         // The Torrents page's bulk actions, run in the background one at a time.
         services.AddSingleton<BulkOperationQueue>();
         services.AddScoped<BulkActionRunner>();
+        services.AddScoped<LibraryCheckBulkRunner>();
         services.AddHostedService<BulkOperationWorker>();
         return services;
     }

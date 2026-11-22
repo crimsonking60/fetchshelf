@@ -63,9 +63,19 @@ public sealed class LibraryCheckPageTests : IDisposable
         var form = ids.Select(id => new KeyValuePair<string, string>("selectedIds", id.ToString(System.Globalization.CultureInfo.InvariantCulture)))
             .Append(new("__RequestVerificationToken", Token(html)));
         using var content = new FormUrlEncodedContent(form);
-        // The redirect after the post is followed: the page it comes back to carries the message once.
+        // The redirect after the post is followed: the page it comes back to carries a refusal's message once.
         var response = await client.PostAsync($"/LibraryCheck?handler={handler}", content);
-        return System.Net.WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        html = await response.Content.ReadAsStringAsync();
+        // Delete and Relink run in the background: the page is read again until they have ended, and shows how they went.
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while ((html.Contains("data-state=\"waiting\"", StringComparison.Ordinal) || html.Contains("data-state=\"running\"", StringComparison.Ordinal))
+            && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+            html = await client.GetStringAsync("/LibraryCheck");
+        }
+
+        return System.Net.WebUtility.HtmlDecode(html);
     }
 
     private string MakeFolder(string relative)
@@ -186,7 +196,7 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         Assert.False(Directory.Exists(Path.Combine(LibraryDir, "Author")));
         Assert.Empty(Results(fixture).Findings);
-        Assert.Contains("Deleted 1.", html);
+        Assert.Contains("Deleted 1 finding.", html);
         using var scope = fixture.CreateScope();
         Assert.Equal(folder, (await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().Events.SingleAsync(e => e.Kind == EventKind.DeletedFromLibrary)).LibraryPath);
     }
@@ -205,7 +215,7 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         var html = await PostAsync(client, "Delete", Results(fixture).Findings.Select(f => f.Id).ToArray());
 
-        Assert.Contains("Deleted 3000.", html);
+        Assert.Contains("Deleted 3000 findings.", html);
         Assert.Empty(Results(fixture).Findings);
         Assert.Empty(Directory.GetDirectories(LibraryDir));
     }
@@ -344,7 +354,8 @@ public sealed class LibraryCheckPageTests : IDisposable
 
         var html = await PostAsync(client, "Relink", Results(fixture).Findings[0].Id);
 
-        Assert.Contains("Relinked 0 of 1. 1 could not be; the What to do column says why", html);
+        Assert.Contains("Relinked 0 of 1 book.", html);
+        Assert.Contains("not relinked; the What to do column says why.", html);
         Assert.Contains("qBittorrent no longer has the torrent, so Relink has nothing to link from.", html);
         Assert.DoesNotContain("finding-note", html); // the reason is the What to do, not repeated as a note
         Assert.Equal(RelinkBlocker.NotInQBittorrent, Assert.Single(Results(fixture).Findings).Finding.Blocker);

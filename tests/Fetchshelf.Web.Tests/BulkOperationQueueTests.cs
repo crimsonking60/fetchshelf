@@ -94,6 +94,32 @@ public sealed class BulkOperationQueueTests
     [InlineData(BulkOperationState.Interrupted, 5, 1, 0, "Relinked 1 of 5 torrents. Fetchshelf stopped after 1; the other 4 were left as they were.")]
     public void Summary_SaysHowItWent(BulkOperationState state, int total, int handled, int problems, string expected)
     {
-        Assert.Equal(expected, BulkActionRunner.Summary(BulkOperation.Verbs.For(BulkAction.Relink, null), total, handled, handled - problems, problems, state));
+        var operation = new BulkOperation(1, BulkAction.Relink, [], null, DateTimeOffset.UnixEpoch);
+        Assert.Equal(expected, BulkActionRunner.Summary(operation, BulkOperation.Verbs.For(BulkAction.Relink, null), total, handled, handled - problems, problems, state));
+    }
+
+    [Theory]
+    [InlineData(BulkAction.DeleteFindings, 1, "Deleting 1 finding", "Deleted 1 finding.")]
+    [InlineData(BulkAction.DeleteFindings, 2800, "Deleting 2800 findings", "Deleted 2800 findings.")]
+    [InlineData(BulkAction.RelinkFindings, 4, "Relinking 4 books", "Relinked 4 books.")]
+    public void LibraryCheckActions_SpeakOfFindingsAndBooks(BulkAction action, int count, string described, string summary)
+    {
+        var operation = new BulkOperation(1, action, Enumerable.Range(0, count).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList(), null, DateTimeOffset.UnixEpoch);
+
+        Assert.True(operation.OnLibraryCheck);
+        Assert.Equal(described, operation.Describe());
+        Assert.Equal(summary, BulkActionRunner.Summary(operation, BulkOperation.Verbs.For(action, null), count, count, count, 0, BulkOperationState.Finished));
+    }
+
+    [Fact]
+    public void Shown_ByPage_KeepsTheTorrentsPagesAndTheLibraryChecksApart()
+    {
+        var queue = new BulkOperationQueue(TimeProvider.System);
+        var relink = queue.Enqueue(BulkAction.Relink, ["hash1"]);
+        var delete = queue.Enqueue(BulkAction.DeleteFindings, ["7"]);
+
+        Assert.Equal([relink], queue.Shown(libraryCheck: false));
+        Assert.Equal([delete], queue.Shown(libraryCheck: true));
+        Assert.Equal([relink, delete], queue.Active());
     }
 }

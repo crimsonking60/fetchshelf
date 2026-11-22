@@ -1,20 +1,22 @@
-@model IReadOnlyList<Fetchshelf.Web.Jobs.BulkOperation>
+@model Fetchshelf.Web.Jobs.BulkOperationsViewModel
 @using Fetchshelf.Web.Jobs
-@* The bulk actions running, waiting or ended. It polls itself every 2 seconds while one runs or waits, and stops once
-   they have all ended; an ended one stays until dismissed. *@
+@* The bulk actions running, waiting or ended, of the page that started them (the Torrents page or the Library check).
+   It polls that page every 2 seconds while one runs or waits, and stops once they have all ended; an ended one stays
+   until dismissed. The page has the BulkOperations, CancelBulk and DismissBulk handlers. *@
 @{
+    var bulkPage = Model.Page;
     // Taken once: an operation can end while the page renders, and the polling and the strip must agree.
-    var unended = Model.Where(o => !o.HasEnded).ToList();
+    var unended = Model.Operations.Where(o => !o.HasEnded).ToList();
     var active = unended.Count > 0;
 }
-<div id="bulk-operations" hx-get="@(active ? Url.Page("/Torrents/Index", "BulkOperations") : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
-    @foreach (var operation in Model)
+<div id="bulk-operations" hx-get="@(active ? Url.Page(bulkPage, "BulkOperations") : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
+    @foreach (var operation in Model.Operations)
     {
         var (handled, _) = operation.Progress;
         <div class="notice bulk-operation@(operation.HadProblems ? " error" : "")" role="status" data-state="@operation.State.ToString().ToLowerInvariant()">
             @if (operation.State == BulkOperationState.Running)
             {
-                <progress max="@operation.TorrentIds.Count" value="@handled"></progress>
+                <progress max="@operation.ItemIds.Count" value="@handled"></progress>
             }
             <span>
                 @operation.Status()
@@ -30,8 +32,8 @@
             </span>
             @if (!operation.HasEnded)
             {
-                <form method="post" asp-page="/Torrents/Index" asp-page-handler="CancelBulk"
-                      hx-post="@Url.Page("/Torrents/Index", "CancelBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk"
+                      hx-post="@Url.Page(bulkPage, "CancelBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="operationId" value="@operation.Id" />
                     <button type="submit">Cancel</button>
@@ -40,8 +42,8 @@
             else
             {
                 <a href="">Reload the list</a>
-                <form method="post" asp-page="/Torrents/Index" asp-page-handler="DismissBulk"
-                      hx-post="@Url.Page("/Torrents/Index", "DismissBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                <form method="post" asp-page="@bulkPage" asp-page-handler="DismissBulk"
+                      hx-post="@Url.Page(bulkPage, "DismissBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="operationId" value="@operation.Id" />
                     <button type="submit">Dismiss</button>
@@ -59,7 +61,7 @@
         <a class="bulk-progress" href="#bulk-operations" data-bulk-progress title="Show the bulk actions at the top of the page, with Cancel">
             @if (shown.State == BulkOperationState.Running)
             {
-                <progress max="@shown.TorrentIds.Count" value="@shownHandled"></progress>
+                <progress max="@shown.ItemIds.Count" value="@shownHandled"></progress>
             }
             <span class="bulk-progress-text">@shown.Status()@(more > 0 ? $" ({more} more waiting)" : "")</span>
             <span class="bulk-progress-link">Details</span>

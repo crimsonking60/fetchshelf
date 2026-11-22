@@ -23,12 +23,13 @@
 @if (Model.BulkOperations.Count > 0)
 {
     <div id="bulk-operations-running">
-        <h3>Bulk actions from the Torrents page</h3>
+        <h3>Bulk actions from the Torrents and Library check pages</h3>
         @foreach (var operation in Model.BulkOperations)
         {
+            var bulkPage = operation.OnLibraryCheck ? "/LibraryCheck/Index" : "/Torrents/Index";
             <div class="notice bulk-operation" role="status">
-                <span>@operation.Status() <a asp-page="/Torrents/Index">Torrents page</a></span>
-                <form method="post" asp-page="/Torrents/Index" asp-page-handler="CancelBulk">
+                <span>@operation.Status() <a asp-page="@bulkPage">@(operation.OnLibraryCheck ? "Library check page" : "Torrents page")</a></span>
+                <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="operationId" value="@operation.Id" />
                     <button type="submit">Cancel</button>
