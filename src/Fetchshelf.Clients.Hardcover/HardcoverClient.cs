@@ -62,6 +62,18 @@ public sealed class HardcoverClient
         }
         """;
 
+    private const string EditionCoverQuery = """
+        query EditionCover($where: editions_bool_exp!) {
+          editions(where: $where, limit: 5) { image { url } book { image { url } } }
+        }
+        """;
+
+    private const string SearchBooksQuery = """
+        query SearchBooks($query: String!, $perPage: Int!) {
+          search(query: $query, query_type: "Book", per_page: $perPage, page: 1) { results }
+        }
+        """;
+
     private readonly HttpClient _httpClient;
     private readonly HardcoverClientOptions _options;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
@@ -129,6 +141,62 @@ public sealed class HardcoverClient
             }
         }
     }
+
+    /// <summary>
+    /// The cover address of the first edition with one of these identifiers (the edition's own image, else its book's), or
+    /// null when Hardcover has no such edition or no image. At least one identifier must be given.
+    /// </summary>
+    public async Task<string?> GetEditionCoverAsync(string? isbn13, string? isbn10, string? asin, CancellationToken cancellationToken = default)
+    {
+        var conditions = new List<object>();
+        if (isbn13 is not null)
+        {
+            conditions.Add(new Dictionary<string, object> { ["isbn_13"] = new Dictionary<string, string> { ["_eq"] = isbn13 } });
+        }
+
+        if (isbn10 is not null)
+        {
+            conditions.Add(new Dictionary<string, object> { ["isbn_10"] = new Dictionary<string, string> { ["_eq"] = isbn10 } });
+        }
+
+        if (asin is not null)
+        {
+            conditions.Add(new Dictionary<string, object> { ["asin"] = new Dictionary<string, string> { ["_eq"] = asin } });
+        }
+
+        if (conditions.Count == 0)
+        {
+            throw new ArgumentException("No identifier to look an edition up by.");
+        }
+
+        var data = await QueryAsync(EditionCoverQuery, new { where = new Dictionary<string, object> { ["_or"] = conditions } }, cancellationToken);
+        return Array(data, "editions")
+            .Select(edition => ImageUrl(edition) ?? (edition.TryGetProperty("book", out var book) ? ImageUrl(book) : null))
+            .FirstOrDefault(url => url is not null);
+    }
+
+    /// <summary>Hardcover's search for books, in its order: each hit's title, authors and cover address.</summary>
+    public async Task<IReadOnlyList<HardcoverSearchHit>> SearchBooksAsync(string query, int perPage = 10, CancellationToken cancellationToken = default)
+    {
+        var data = await QueryAsync(SearchBooksQuery, new { query, perPage }, cancellationToken);
+        if (!data.TryGetProperty("search", out var search) || !search.TryGetProperty("results", out var results)
+            || results.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        return Array(results, "hits")
+            .Select(hit => hit.TryGetProperty("document", out var document) ? document : default)
+            .Where(document => document.ValueKind == JsonValueKind.Object)
+            .Select(document => new HardcoverSearchHit(
+                StringOrNull(document, "title") ?? string.Empty,
+                Array(document, "author_names").Where(name => name.ValueKind == JsonValueKind.String).Select(name => name.GetString()!).ToList(),
+                ImageUrl(document)))
+            .ToList();
+    }
+
+    private static string? ImageUrl(JsonElement element) =>
+        element.TryGetProperty("image", out var image) && image.ValueKind == JsonValueKind.Object ? StringOrNull(image, "url") : null;
 
     private static (List<HardcoverBook> Books, int Rows) ReadBooks(JsonElement rows)
     {

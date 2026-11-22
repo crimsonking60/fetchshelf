@@ -21,7 +21,7 @@ public sealed class CoverWriterTests : IDisposable
     {
         public List<long> Asked { get; } = [];
 
-        public Task<CoverImage?> FetchAsync(Fetchshelf.Data.Entities.TorrentEntity torrent, CancellationToken cancellationToken = default)
+        public Task<CoverImage?> FetchAsync(CoverQuery torrent, CancellationToken cancellationToken = default)
         {
             Asked.Add(torrent.MamId);
             return Task.FromResult(cover(torrent.MamId));
@@ -309,9 +309,9 @@ public sealed class CoverWriterTests : IDisposable
     {
         public List<long> Asked { get; } = [];
 
-        public bool CanFind(Fetchshelf.Data.Entities.TorrentEntity torrent) => canFind(torrent.MamId);
+        public bool CanFind(CoverQuery torrent) => canFind(torrent.MamId);
 
-        public Task<CoverImage?> FetchAsync(Fetchshelf.Data.Entities.TorrentEntity torrent, CancellationToken cancellationToken = default)
+        public Task<CoverImage?> FetchAsync(CoverQuery torrent, CancellationToken cancellationToken = default)
         {
             Asked.Add(torrent.MamId);
             return defer(torrent.MamId)

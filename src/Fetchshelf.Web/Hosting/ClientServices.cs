@@ -104,13 +104,14 @@ public static class ClientServices
     }
 
     /// <summary>
-    /// The cover sources the Link job fetches covers from when a book's files have none (Open Library, then Audnexus for
-    /// audiobooks), when `covers` is above 0. A chain per scope, so a source that refuses is left out for the rest of one
-    /// Link run only; the clients are singletons, so their spacing between requests holds across runs.
+    /// The cover sources, when `covers` is above 0 or `[search] covers` is on: Hardcover (with the `[hardcover]` token),
+    /// then Open Library, then Audnexus for audiobooks. The Link job's chain is one per scope, so a source that refuses is
+    /// left out for the rest of one Link run only; the clients and sources are singletons, so their spacing between
+    /// requests holds across runs and pages.
     /// </summary>
     public static IServiceCollection AddCoverSources(this IServiceCollection services, FetchshelfSettings settings)
     {
-        if (settings.CoversPerRun <= 0)
+        if (settings.CoversPerRun <= 0 && !settings.Search.Covers)
         {
             return services;
         }
@@ -121,9 +122,26 @@ public static class ClientServices
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("covers"), sp.GetRequiredService<CoverClientOptions>()));
         services.AddSingleton(sp => new AudnexusClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("covers"), sp.GetRequiredService<CoverClientOptions>()));
-        services.AddScoped<ICoverSource>(sp => new ChainedCoverSource(
-            [new OpenLibraryCoverSource(sp.GetRequiredService<OpenLibraryClient>()), new AudnexusCoverSource(sp.GetRequiredService<AudnexusClient>())],
-            sp.GetRequiredService<ILogger<ChainedCoverSource>>()));
+        services.AddSingleton(sp => new ImageClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("covers"), sp.GetRequiredService<CoverClientOptions>()));
+        var withHardcover = settings.Hardcover is not null;
+        services.AddSingleton(sp => new CoverSourceList(
+        [
+            .. withHardcover ? [new HardcoverCoverSource(sp.GetRequiredService<HardcoverClient>(), sp.GetRequiredService<ImageClient>())] : Array.Empty<ICoverSource>(),
+            new OpenLibraryCoverSource(sp.GetRequiredService<OpenLibraryClient>()),
+            new AudnexusCoverSource(sp.GetRequiredService<AudnexusClient>()),
+        ]));
+        if (settings.CoversPerRun > 0)
+        {
+            services.AddScoped<ICoverSource>(sp => new ChainedCoverSource(
+                sp.GetRequiredService<CoverSourceList>().Sources, sp.GetRequiredService<ILogger<ChainedCoverSource>>()));
+        }
+
+        if (settings.Search.Covers)
+        {
+            services.AddSingleton<SearchCoverLookup>();
+        }
+
         return services;
     }
 }

@@ -73,6 +73,9 @@ public sealed class ContainerResolutionTests
         url = "http://notify.test/topic"
         format = "ntfy"
         events = ["all"]
+
+        [search]
+        covers = true
         """;
 
     private static readonly Type[] Runners =
@@ -116,6 +119,10 @@ public sealed class ContainerResolutionTests
         Assert.Single(scope.ServiceProvider.GetRequiredService<IReadOnlyList<Fetchshelf.Clients.QBittorrent.QBittorrentClient>>());
         Assert.IsType<Fetchshelf.Data.Organizer.ChainedCoverSource>(scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.ICoverSource>());
         Assert.Equal(20, scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.CoverWriterOptions>().MaxFetchesPerRun);
+        Assert.Equal(
+            ["Hardcover", "Open Library", "Audnexus"],
+            scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.Organizer.CoverSourceList>().Sources.Select(source => source.GetType().GetField("Name")!.GetValue(null)));
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<SearchCoverLookup>());
     }
 
     [Fact]

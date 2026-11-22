@@ -29,7 +29,7 @@ public static class DatabaseMigrator
     /// its own table and leaves <c>user_version</c> alone, so it numbers the changes to stored values that a schema
     /// migration can't make, because they need application code (such as recomputing title keys).
     /// </summary>
-    public const int CurrentDataVersion = 4;
+    public const int CurrentDataVersion = 5;
 
     private static void ApplyDataUpgrades(FetchshelfDbContext dbContext, Action<string> log)
     {
@@ -62,10 +62,11 @@ public static class DatabaseMigrator
             }
         }
 
-        if (version < 4)
+        if (version < 5)
         {
             // Version 4: books looked at for a cover while there was no cover source to fetch from are looked at again,
-            // now that there are. Those with an image are settled again at a glance.
+            // now that there are. Version 5: again, as Hardcover also finds books by title and author. Those with an image
+            // are settled again at a glance. One pass does for a database at either version.
             var reopened = dbContext.Database.ExecuteSqlRaw("UPDATE Torrents SET CoverCheckedAt = NULL WHERE LibraryPath IS NOT NULL AND CoverCheckedAt IS NOT NULL;");
             if (reopened > 0)
             {

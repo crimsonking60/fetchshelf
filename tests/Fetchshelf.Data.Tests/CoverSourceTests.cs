@@ -1,5 +1,6 @@
 using System.Net;
 using Fetchshelf.Clients.Covers;
+using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
@@ -25,18 +26,10 @@ public sealed class CoverSourceTests
         }
     }
 
-    private static TorrentEntity Book(MediaType mediaType, string? isbn = null, string? asin = null)
+    private static CoverQuery Book(MediaType mediaType, string? isbn = null, string? asin = null)
     {
         var metadata = OrganizerTestSupport.BuildMetadata() with { MediaType = mediaType, Isbn = isbn, Asin = asin };
-        return new TorrentEntity
-        {
-            Id = "hash",
-            MamId = 1,
-            Title = metadata.Title,
-            NormalizedTitleKey = "way of kings",
-            MetadataJson = TorrentMetadataSerializer.Serialize(metadata),
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
+        return CoverQuery.For(1, metadata);
     }
 
     [Fact]
@@ -84,13 +77,13 @@ public sealed class CoverSourceTests
         await Assert.ThrowsAsync<CoverSourceRefusedException>(() => source.FetchAsync(Book(MediaType.Audiobook, asin: "B00ABCDEFG")));
     }
 
-    private sealed class Fake(string name, Func<TorrentEntity, bool> canFind, Func<CoverImage?> fetch) : ICoverSource
+    private sealed class Fake(string name, Func<CoverQuery, bool> canFind, Func<CoverImage?> fetch) : ICoverSource
     {
         public int Asked { get; private set; }
 
-        public bool CanFind(TorrentEntity torrent) => canFind(torrent);
+        public bool CanFind(CoverQuery book) => canFind(book);
 
-        public Task<CoverImage?> FetchAsync(TorrentEntity torrent, CancellationToken cancellationToken = default)
+        public Task<CoverImage?> FetchAsync(CoverQuery book, CancellationToken cancellationToken = default)
         {
             Asked++;
             return Task.FromResult(fetch());
@@ -122,8 +115,7 @@ public sealed class CoverSourceTests
         var other = new Fake("other", torrent => torrent.MamId == 2, () => Cover("other"));
         var chain = new ChainedCoverSource([refusing, other]);
         var onlyRefusing = Book(MediaType.Ebook);
-        var both = Book(MediaType.Ebook);
-        both.MamId = 2;
+        var both = Book(MediaType.Ebook) with { MamId = 2 };
 
         await Assert.ThrowsAsync<CoverSourceDeferredException>(() => chain.FetchAsync(onlyRefusing));
         var cover = await chain.FetchAsync(both);
@@ -139,5 +131,86 @@ public sealed class CoverSourceTests
         var refusing = new Fake("refusing", _ => true, () => throw new CoverSourceRefusedException("Slow down."));
 
         await Assert.ThrowsAsync<CoverSourceRefusedException>(() => new ChainedCoverSource([refusing]).FetchAsync(Book(MediaType.Ebook)));
+    }
+
+    /// <summary>A Hardcover source against fake Hardcover and image servers, which records what was asked.</summary>
+    private static (HardcoverCoverSource Source, List<string> Asked) Hardcover(Func<string, string> graphql, Func<Uri, HttpResponseMessage>? image = null)
+    {
+        var asked = new List<string>();
+        var api = new Handler(request =>
+        {
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            asked.Add(body.Contains("EditionCover", StringComparison.Ordinal) ? "edition" : "search");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(graphql(body)) };
+        });
+        var images = new Handler(request =>
+        {
+            asked.Add(request.RequestUri!.ToString());
+            return image?.Invoke(request.RequestUri) ?? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Jpeg) };
+        });
+        var client = new HardcoverClient(new HttpClient(api), new HardcoverClientOptions { Token = "token", UserAgent = "Fetchshelf/test" });
+        return (new HardcoverCoverSource(client, new ImageClient(new HttpClient(images), Options), new RequestSpacer(TimeSpan.Zero)), asked);
+    }
+
+    private const string NoEdition = """{"data":{"editions":[]}}""";
+
+    private static string Hits(params (string Title, string Author, string Image)[] hits) =>
+        "{\"data\":{\"search\":{\"results\":{\"hits\":["
+        + string.Join(",", hits.Select(h => $"{{\"document\":{{\"title\":\"{h.Title}\",\"author_names\":[\"{h.Author}\"],\"image\":{{\"url\":\"{h.Image}\"}}}}}}"))
+        + "]}}}}";
+
+    [Fact]
+    public async Task Hardcover_ByIsbn_TakesTheEditionsCover_WithoutSearching()
+    {
+        var (source, asked) = Hardcover(_ => """{"data":{"editions":[{"image":{"url":"https://assets.hardcover.app/e.jpg"}}]}}""");
+
+        var cover = await source.FetchAsync(Book(MediaType.Ebook, isbn: "9780765326355"));
+
+        Assert.Equal(("Hardcover", "image/jpeg"), (cover!.Source, cover.ContentType));
+        Assert.Equal(["edition", "https://assets.hardcover.app/e.jpg"], asked);
+    }
+
+    [Fact]
+    public async Task Hardcover_NoEdition_SearchesByTitleAndAuthor_TakingOnlyAnExactMatch()
+    {
+        var (source, asked) = Hardcover(body => body.Contains("EditionCover", StringComparison.Ordinal) ? NoEdition : Hits(
+            ("Brandon Sanderson Sampler: The Way of Kings and Mistborn", "Brandon Sanderson", "https://assets.hardcover.app/sampler.jpg"),
+            ("The Way of Kings", "Someone Else", "https://assets.hardcover.app/namesake.jpg"),
+            ("The Way of Kings", "Brandon Sanderson", "https://assets.hardcover.app/right.jpg")));
+
+        var cover = await source.FetchAsync(Book(MediaType.Ebook, isbn: "9780765326355"));
+
+        Assert.NotNull(cover);
+        Assert.Equal(["edition", "search", "https://assets.hardcover.app/right.jpg"], asked);
+    }
+
+    [Fact]
+    public async Task Hardcover_NoMatch_OrAnImageElsewhere_IsNoCover()
+    {
+        var (noMatch, _) = Hardcover(_ => Hits(("Words of Radiance", "Brandon Sanderson", "https://assets.hardcover.app/w.jpg")));
+        var (elsewhere, asked) = Hardcover(_ => Hits(("The Way of Kings", "Brandon Sanderson", "https://example.com/w.jpg")));
+
+        Assert.Null(await noMatch.FetchAsync(Book(MediaType.Ebook)));
+        Assert.Null(await elsewhere.FetchAsync(Book(MediaType.Ebook)));
+        Assert.Equal(["search"], asked);
+    }
+
+    [Fact]
+    public async Task Hardcover_AnError_RefusesForTheRun()
+    {
+        var (source, _) = Hardcover(_ => """{"errors":[{"message":"invalid token"}]}""");
+
+        await Assert.ThrowsAsync<CoverSourceRefusedException>(() => source.FetchAsync(Book(MediaType.Ebook)));
+    }
+
+    [Fact]
+    public void CoverQuery_FromAnAddress_KeepsOnlyAValidIsbn_AndAnAsinOnlyForAnAudiobook()
+    {
+        var ebook = CoverQuery.Of(1, " The Way of Kings ", ["Brandon Sanderson", " "], "0-7653-2635-3", "B00ABCDEFG", audiobook: false);
+        var audiobook = CoverQuery.Of(1, "The Way of Kings", ["Brandon Sanderson"], "not an isbn", "B00ABCDEFG", audiobook: true);
+
+        Assert.Equal(("The Way of Kings", "9780765326355", (string?)null), (ebook.Title, ebook.Isbn, ebook.AudiobookAsin));
+        Assert.Equal(["Brandon Sanderson"], ebook.Authors);
+        Assert.Equal(((string?)null, "B00ABCDEFG"), (audiobook.Isbn, audiobook.AudiobookAsin));
     }
 }
