@@ -60,6 +60,9 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
     /// <summary>The Genre filter's choices: the genres among the library's books, by MAM's names, and No genre.</summary>
     public IReadOnlyList<(string Value, string Label)> GenreOptions { get; private set; } = [];
 
+    /// <summary>The Fiction filter's choices: Neither only when a book has neither main category.</summary>
+    public IReadOnlyList<(string Value, string Label)> FictionOptions { get; private set; } = GenreFilters.FictionOptions;
+
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
@@ -150,6 +153,7 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
         if (GenresOn)
         {
             GenreOptions = GenreFilters.Options(all.Books.SelectMany(book => book.GenreCategories).Distinct(), Genre);
+            FictionOptions = GenreFilters.FictionChoices(all.Books.Any(book => book.FictionCategory is null), Fiction);
             if (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction))
             {
                 catalog = catalog.Narrow(book => GenreFilters.Matches(book.GenreCategories, book.FictionCategory, Genre, Fiction));

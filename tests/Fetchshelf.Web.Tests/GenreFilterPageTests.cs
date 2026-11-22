@@ -75,6 +75,9 @@ public sealed class GenreFilterPageTests : IDisposable
 
         Assert.Contains("<option value=\"63\">Military/War</option>", page);
         Assert.Contains("<option value=\"none\">No genre</option>", page);
+        // A book with neither main category is tracked, so Neither is offered; the Fiction filter comes first.
+        Assert.Contains("<option value=\"Neither\">Neither</option>", page);
+        Assert.True(page.IndexOf("name=\"Fiction\"", StringComparison.Ordinal) < page.IndexOf("name=\"Genre\"", StringComparison.Ordinal));
         Assert.Contains("Nonfiction History", historical);
         Assert.Contains("Historical Novel", historical);
         Assert.DoesNotContain("Space Romance", historical);
@@ -154,5 +157,13 @@ public sealed class GenreFilterPageTests : IDisposable
         Assert.Contains("Historical Novel", books);
         Assert.DoesNotContain("id=\"genres\"", torrent);
         Assert.DoesNotContain("Main category", torrent);
+    }
+
+    [Fact]
+    public void FictionChoices_Neither_OnlyWhenABookHasNeither_OrItIsInUse()
+    {
+        Assert.Equal(["Fiction", "Nonfiction"], Pages.GenreFilters.FictionChoices(false, null).Select(o => o.Value));
+        Assert.Equal(["Fiction", "Nonfiction", "Neither"], Pages.GenreFilters.FictionChoices(true, null).Select(o => o.Value));
+        Assert.Equal(["Fiction", "Nonfiction", "Neither"], Pages.GenreFilters.FictionChoices(false, "Neither").Select(o => o.Value));
     }
 }

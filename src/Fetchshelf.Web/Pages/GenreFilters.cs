@@ -17,13 +17,20 @@ public static class GenreFilters
     /// <summary>The Fiction filter's value for torrents MAM gave neither main category.</summary>
     public const string Neither = "Neither";
 
-    /// <summary>The Fiction filter's choices.</summary>
+    /// <summary>The Fiction filter's choices, <see cref="Neither"/> included; see <see cref="FictionChoices"/>.</summary>
     public static readonly IReadOnlyList<(string Value, string Label)> FictionOptions =
     [
         (nameof(FictionCategory.Fiction), "Fiction"),
         (nameof(FictionCategory.Nonfiction), "Nonfiction"),
         (Neither, "Neither"),
     ];
+
+    /// <summary>
+    /// The Fiction filter's choices shown: <see cref="Neither"/> only when some book has neither main category, or it is
+    /// the value in use. MAM gives nearly every torrent one, so the choice would usually find nothing.
+    /// </summary>
+    public static IReadOnlyList<(string Value, string Label)> FictionChoices(bool anyWithNeither, string? inUse) =>
+        anyWithNeither || inUse == Neither ? FictionOptions : FictionOptions.Where(option => option.Value != Neither).ToList();
 
     /// <summary>A genre's filter value: its MAM id.</summary>
     public static string ValueOf(GenreCategory genre) => ((int)genre).ToString(System.Globalization.CultureInfo.InvariantCulture);

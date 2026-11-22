@@ -119,6 +119,9 @@ public class IndexModel(
     /// <summary>The Genre filter's choices: the genres among the tracked torrents, by MAM's names, and No genre.</summary>
     public IReadOnlyList<(string Value, string Label)> GenreOptions { get; private set; } = [];
 
+    /// <summary>The Fiction filter's choices: Neither only when a tracked torrent has neither main category.</summary>
+    public IReadOnlyList<(string Value, string Label)> FictionOptions { get; private set; } = GenreFilters.FictionOptions;
+
     /// <summary>The dropdown filters in use, each with the query that drops it, shown as chips under the filters.</summary>
     public IReadOnlyList<FilterChip> FilterChips
     {
@@ -147,8 +150,8 @@ public class IndexModel(
             Add("Language", Language, q => q with { Language = null });
             if (GenresOn)
             {
-                Add("Genre", GenreFilters.LabelOf(Genre), q => q with { Genre = null });
                 Add("Fiction", GenreFilters.FictionLabelOf(Fiction), q => q with { Fiction = null });
+                Add("Genre", GenreFilters.LabelOf(Genre), q => q with { Genre = null });
             }
 
             return chips;
@@ -447,6 +450,7 @@ public class IndexModel(
         if (GenresOn)
         {
             GenreOptions = GenreFilters.Options(await dbContext.TorrentGenres.Select(g => g.Genre).Distinct().ToListAsync(), Genre);
+            FictionOptions = GenreFilters.FictionChoices(await dbContext.Torrents.AnyAsync(t => t.FictionCategory == null), Fiction);
             torrents = GenreFilters.Apply(torrents, dbContext.TorrentGenres, Genre, Fiction);
         }
 
