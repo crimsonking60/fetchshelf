@@ -182,6 +182,9 @@ public sealed class BooksPageTests : IDisposable
         Assert.Equal(2, card.Split("hx-get=\"/books/anthology?handler=Partial\"").Length - 1);
         Assert.Contains(">... more</a>", card);
         Assert.All(five, author => Assert.Contains($">{author}</a>", dialog));
+        // A comma straight after each author, with no space before it.
+        Assert.Contains("Ann Leckie</a>, <a", dialog);
+        Assert.Contains("Yoon Ha Lee</a>, <a", dialog);
         // Three authors fit on the card: no "... more".
         Assert.Equal(1, page.Split("class=\"authors-more\"").Length - 1);
         Assert.Contains("Ann Leckie, Martha Wells, Becky Chambers</span>", page);
