@@ -5,6 +5,74 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.22 - 2026-11-22
+
+Libraries can now be chosen by **genre**: with `genres = true`, a `[[library]]` takes `allow_genres`, `deny_genres` and
+`fiction`, and the Torrents, Books and Search pages get Fiction and Genre filters. **Covers** no longer come from MAM,
+whose image server started refusing Fetchshelf: they come from the books' own files, then from Hardcover, Open Library
+and Audnexus, and `covers_from_mam` is renamed `covers`. The Library check's **Delete selected** and **Relink
+selected** run in the background, and Relink says when qBittorrent can't find a torrent's files.
+
+### Upgrading
+
+- The database is upgraded when the new version starts (a table for each torrent's genres is added and filled, about
+  6 seconds for 12,000 torrents), and going back to an older version is not possible. With a
+  [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.22/configuration/#backup) section, a backup is taken first, named
+  `data-<time>-2026.11.21-before-2026.11.22.db`; without one, back up the data folder first.
+- **`covers_from_mam` is now `covers`.** The old name still works, with a warning at start-up to rename it; setting both
+  is an error. Every linked book is looked at again for a cover once, so the first Link runs after the upgrade write
+  more covers than usual, and the Link job's line says how many are left.
+- With a large `covers` and many books without a cover, a Link run can take up to about 5 minutes longer, as Open
+  Library allows one request every 3 seconds.
+- Nothing else is needed: `genres` and `[search] covers` are off by default.
+
+### Added
+
+- **Libraries by genre**: `genres = true` (default `false`) and, in a `[[library]]`, `allow_genres`, `deny_genres` and
+  `fiction` (`"fiction"` or `"nonfiction"`), by MAM's genre names. The Link job puts a book in the first library its
+  category, folder and tags give it whose genre settings take it; a book no library takes is left unlinked, with the
+  reason on the Errors page, and linked once the configuration takes it. **Relink** and the Library check use the same
+  choice, and a linked book whose genres now pick another library shows *Different library*. See
+  [Sorting books by genre](https://fetchshelf.readthedocs.io/en/v2026.11.22/user-guide/#sorting-books-by-genre) and
+  [Libraries by genre](https://fetchshelf.readthedocs.io/en/v2026.11.22/configuration/#libraries-by-genre) (#178, #179).
+- **Genre filters** (with `genres = true`): **Fiction** and **Genre** on the Torrents and Books pages, and on the Search
+  page, where they hide results of the page MAM sent, as MAM's search can't filter by genre. A torrent's page and a
+  search result's details show its main category and genres by MAM's names (#180, #181).
+- **Editing genres** (with `genres = true`): the Edit page sets a book's main category and genres. `metadata.json`,
+  `metadata.opf`, Audiobookshelf, the OPDS catalog and the Books page get MAM's genre names, such as
+  *Politics/Sociology*, plus *Fiction* or *Nonfiction*; files already written change at their next write (#182).
+- **Covers from the books' own files**: the Link job reads the cover inside a book's EPUB, comic, m4b, m4a or mp3 and
+  writes it into the folder, spending at most about 10 seconds a run on reading (#186).
+- **Covers from Hardcover, Open Library and Audnexus**, at most `covers` a run, for books whose files have none:
+  Hardcover (with the `[hardcover]` token) by ISBN, ASIN, or title and author; Open Library by ISBN; Audnexus by an
+  audiobook's ASIN. Only those details are sent. A service that refuses is skipped for the rest of the run. The Link
+  job's line says where the covers came from, such as "12 covers written (8 from the books' files, 3 from Open
+  Library, 1 from Audnexus)". See [Covers](https://fetchshelf.readthedocs.io/en/v2026.11.22/user-guide/#covers) (#187, #189, #191).
+- **`[search] covers`** (default `false`): a cover in a search result's details, from the same sources, remembered for
+  an hour (#185, #189, #190).
+
+### Changed
+
+- **No covers from MAM.** MAM's image server answers Fetchshelf with 403 "Agent Miss-Match" since 2026-11-22, and was
+  never among the parts of MAM its API documentation allows automating. Nothing asks it any more, on the Link job or
+  the Search page (#185).
+- **Library check**: **Delete selected** and **Relink selected** run in the background like the Torrents page's bulk
+  actions, with progress and **Cancel**, one finding at a time, so the Link and Clean jobs no longer wait for the
+  whole run. **Run the check** waits until they are done (#184).
+- **Books page**: a card shows at most three authors, with **... more** opening the book (#177).
+
+### Fixed
+
+- **Relink** of a torrent whose files were moved or deleted outside qBittorrent said "It has not finished
+  downloading". It now says that qBittorrent can't find its files, names the folder it looks in, and how to bring
+  them back; the Library check and the Search page's Import say the same (#188).
+- **Delete selected** on the Library check with more than about 1,000 findings ticked answered HTTP 400. Forms now
+  take up to 100,000 values (#183).
+- Genres 26 and 48 were written to files as *Lick Library Ltp* and *Sheet Collection Mp3*; they are now *Erotica* and
+  *Accompanying Music*, and genre 63 is *Military*, at each book's next write (#178).
+- The Event log records a change of a book's main category or genres (#182).
+- The book dialog on the Books page no longer shows a space before the comma between authors or series (#177).
+
 ## 2026.11.21 - 2026-11-22
 
 A new **MAM API** page, under **Insight**, records every call Fetchshelf makes to MAM and charts them, to see the
