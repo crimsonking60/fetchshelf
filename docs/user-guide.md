@@ -772,6 +772,8 @@ a grid of covers with title, authors and series. It is for finding a book and op
 heard; it doesn't play or show books itself. The **Torrents** page is for managing the same books, and the
 **Series** page for completing series.
 
+![The Books page, showing recently added books as a grid of covers with their titles, authors and series](images/books-recently-added.png)
+
 - **Recently added**, **Authors**, **Series** (each series' books in order, with a link to the series on the
   **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
 - **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
@@ -799,6 +801,8 @@ a book has several.
 ## Finding and downloading books
 
 The **Search** page is also the home page. Use it to search MAM yourself and download a book by hand.
+
+![The Search page with the results of a search for an author: each torrent's format, its status in Fetchshelf and qBittorrent, its size and its cost, with Download buttons for the one not downloaded yet](images/search-results-for-an-author.png)
 
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
   page shows the newest torrents on MAM instead.
@@ -1277,6 +1281,8 @@ books, are shown when owned but never counted as missing. It can be limited to s
 series on *Auto* or followed, or ignored ones, and searched by series or author name. Each series name leads to its books
 on the **Torrents** page.
 
+![The Series page: each series with its authors, the books in the library and those missing, its media types, and the Follow, Auto and Ignore buttons](images/series.png)
+
 Following needs a [`[follow]`](configuration.md#follow) section in the configuration. Without one, the
 **Series** page only lists series, without its **Follow**, **Auto** and **Ignore** buttons; there are no
 **Follow** buttons for a series or author on a torrent's page or next to a filter on the **Torrents** page;
@@ -1322,6 +1328,8 @@ searched and will be searched again at the earliest. It can be searched by name,
 to those on *Auto* or followed, or to those with books to look at, sorted by name, by what is to look at or by
 when they were searched (click a column heading, as on the **Torrents** page), and paged like it. Each row has the **Change to Auto** or **Change to
 Followed**, **Search now** and **Stop following** buttons.
+
+![The Following page: what the grab blocks download by themselves, then one row per followed series or author with its counts, when it was searched and its buttons](images/following.png)
 
 A series' or author's name opens its own page, with the same buttons and what was found for it: each torrent's
 format and size, and, for a series, its book number. It lists all of it to begin with; the counts at the top, or the
@@ -1876,6 +1884,8 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 The numbers every safety rule works from, and what Fetchshelf works out from them. When nothing is being
 downloaded, the answer is usually here.
 
+![The Account page: the account's numbers as MAM last gave them, and its snatches by kind](images/account.png)
+
 The page shows what MAM said at its last read, with the time of that read. Fetchshelf reads the account once when it
 starts, and the autograb, list and Download jobs read it on every run, so the page itself doesn't call MAM. **Refresh
 from MAM** reads it again. Only one job talks to MAM at a time; if one is busy, Refresh waits a few seconds
@@ -1941,6 +1951,8 @@ Totals from what Fetchshelf has recorded, worked out at most once a minute:
 - **Jobs:** each job's runs in the last 30 days, with how many failed and how many ended with some items failed.
   Each job's name opens its history.
 
+![The Statistics page: the library's books by media type, language, library and format, and the books added each month](images/statistics.png)
+
 Months are calendar months in UTC. The ratio, upload and bonus points over time are on the **Account** page. For a
 monitoring system such as Prometheus and Grafana, see [`metrics`](configuration.md#prometheus-metrics).
 
@@ -1949,6 +1961,8 @@ monitoring system such as Prometheus and Grafana, see [`metrics`](configuration.
 Every request Fetchshelf sends to MAM is recorded: when it started, how long it took, what MAM answered (the HTTP
 status, or why there was no answer) and which job made it. A request sent again after a 502, 503 or 504, or after no
 answer, counts as two calls. The calls are kept for 30 days.
+
+![The MAM API page showing 24 hours in half-hour bars, with red lines for answers that were errors, and below it the statistics of the window](images/mam-api-day-by-half-hour.png)
 
 - **The chart** counts the calls in each interval of 1, 10 or 30 minutes (**Group by**) over 1, 6 or 24 hours
   (**Show**). Each call MAM answered with a 4xx or 5xx is a red line, and each call without an answer a dashed red line.
@@ -1969,6 +1983,8 @@ category and tags before it starts. The cost can be changed to `Ratio`, `TryWedg
 reported, so they cannot be chosen by hand.
 
 ### Torrents
+
+![The Torrents page: every torrent with its title, author and series, format, category, status and when it was added](images/torrents-list.png)
 
 - **Search, sort and filter.** Search by title, author or series. Case and accents do not matter, and with
   several words each must appear somewhere in those, in any order. The newest torrents come first; click
@@ -2084,6 +2100,8 @@ pages.
 
 ### Errors
 
+![The Errors page with two torrents the Link job couldn't handle, as MAM has no torrent with their info-hash](images/errors.png)
+
 **Jobs that are failing** come first: every job whose latest run failed, with that run's error, since when it
 has been failing and how many runs in a row, a link to its history, and **Run now**. A run that was cancelled,
 or that Fetchshelf stopped during, doesn't count either way. A job leaves the list as soon as a run succeeds or
@@ -2135,6 +2153,8 @@ check runs, the page shows the previous check's findings with their buttons turn
 them when it ends; the page reloads itself then. A check that ends within two seconds, as on a small library, comes
 back with its findings straight away. With more than one library, a dropdown above the findings shows
 **All libraries** or one library's findings only, by its `name`, or by its `library_dir` when it has none.
+
+![The Library check page with one folder no book points at, and the Delete selected button](images/library-check.png)
 
 | Finding | Means | Actions |
 |---|---|---|
@@ -2194,6 +2214,8 @@ that back. A book still missing a format also has **Search again**, which has th
 whenever it was last searched. Show only the books missing a format with the dropdown, and tick **Include books no
 longer on the list** to see those too.
 
+![A list file's page: each book with what was found for its audiobook and its ebook, and the Mark done and Search again buttons](images/list-details.png)
+
 The bookmarks list's page shows the bookmarks newest first. Each has one format, the torrent's own, and a
 **Torrent details** link to it on the **Search** page instead of **Search MAM**. A bookmark can also show *On MAM,
 but none of the list's grab blocks' filters takes it*. A bookmark has no search schedule, as it is looked at again
@@ -2217,6 +2239,8 @@ category on a linked book can move it to another library, which the list points 
 ## Background jobs
 
 Fetchshelf does its work in jobs, listed on the **Jobs** page.
+
+![The Jobs page: the account's main numbers, then each job with its last run, its result and when it runs next, and a Run now button](images/jobs.png)
 
 | Job | What it does | Runs |
 |---|---|---|
