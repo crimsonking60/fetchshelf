@@ -8,8 +8,8 @@ namespace Fetchshelf.Data.Opds;
 public sealed record BookCover(byte[] Bytes, string ContentType);
 
 /// <summary>
-/// Reads the cover image out of a book file: an EPUB's declared cover, a CBZ or CBR's first image, or the cover embedded in an
-/// m4b, m4a or mp3 (<see cref="AudioCoverReader"/>).
+/// Reads the cover image out of a book file: an EPUB's declared cover, a CBZ or CBR's first image, the cover embedded in an
+/// m4b, m4a or mp3 (<see cref="AudioCoverReader"/>), or the picture filling a PDF's first page.
 /// </summary>
 public static class BookCoverExtractor
 {
@@ -34,6 +34,11 @@ public static class BookCoverExtractor
             return bytes is not null && SniffImageType(bytes) is { } contentType ? new BookCover(bytes, contentType) : null;
         }
 
+        if (extension == ".pdf")
+        {
+            return PdfCover(path);
+        }
+
         if (extension is not (".epub" or ".cbz" or ".cbr"))
         {
             return null;
@@ -53,6 +58,45 @@ public static class BookCoverExtractor
         }
         catch (Exception ex) when (ex is InvalidDataException or System.Xml.XmlException)
         {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The largest image on a PDF's first page, when it covers at least half the page: a scanned or retail cover is one
+    /// picture, while a title page of text with a small logo has none that large. The page is not drawn, so text printed
+    /// over the picture isn't in the cover, and a cover drawn as vector graphics isn't found. A JPEG is taken as it is;
+    /// other images only when PdfPig can turn them into a PNG. Null for a PDF that can't be read, such as an encrypted one.
+    /// </summary>
+    private static BookCover? PdfCover(string path)
+    {
+        try
+        {
+            using var document = UglyToad.PdfPig.PdfDocument.Open(path);
+            if (document.NumberOfPages == 0)
+            {
+                return null;
+            }
+
+            var page = document.GetPage(1);
+            var pageArea = page.Width * page.Height;
+            var image = page.GetImages().MaxBy(i => i.BoundingBox.Area);
+            if (image is null || pageArea <= 0 || image.BoundingBox.Area < pageArea / 2)
+            {
+                return null;
+            }
+
+            var bytes = image.RawMemory.ToArray();
+            if (SniffImageType(bytes) is not "image/jpeg")
+            {
+                bytes = image.TryGetPng(out var png) ? png : null;
+            }
+
+            return bytes is { Length: > 0 and <= MaxCoverBytes } && SniffImageType(bytes) is { } contentType ? new BookCover(bytes, contentType) : null;
+        }
+        catch (Exception ex) when (ex is not (IOException or UnauthorizedAccessException or OperationCanceledException))
+        {
+            // PdfPig throws its own exceptions, and others, for damaged, encrypted or unusual files.
             return null;
         }
     }

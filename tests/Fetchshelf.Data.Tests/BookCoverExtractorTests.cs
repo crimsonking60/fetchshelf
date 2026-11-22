@@ -426,10 +426,85 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.Null(cache.PruneIfDue([], now.AddDays(6)));
         Assert.Equal(2, cache.PruneIfDue([], now.AddDays(8)));
     }
+    /// <summary>
+    /// Writes a one-page A4 PDF (595 by 842 points) whose page draws one DCT (JPEG) image at the given size, and returns its
+    /// path. The image's bytes aren't decoded, so the test JPEG's few bytes do.
+    /// </summary>
+    private static string WritePdf(string folder, string fileName, byte[] image, int width, int height)
+    {
+        var content = $"q {width} 0 0 {height} 0 0 cm /Im1 Do Q";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
+            $"<< /Length {content.Length} >>\nstream\n{content}\nendstream",
+            null,
+        };
+        using var pdf = new MemoryStream();
+        var offsets = new List<long>();
+        void Write(string text) => pdf.Write(Encoding.ASCII.GetBytes(text));
+        Write("%PDF-1.4\n");
+        for (var i = 0; i < objects.Length; i++)
+        {
+            offsets.Add(pdf.Position);
+            if (objects[i] is { } text)
+            {
+                Write($"{i + 1} 0 obj\n{text}\nendobj\n");
+            }
+            else
+            {
+                Write($"{i + 1} 0 obj\n<< /Type /XObject /Subtype /Image /Width 100 /Height 140 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {image.Length} >>\nstream\n");
+                pdf.Write(image);
+                Write("\nendstream\nendobj\n");
+            }
+        }
+
+        var xref = pdf.Position;
+        Write($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (var offset in offsets)
+        {
+            Write($"{offset:D10} 00000 n \n");
+        }
+
+        Write($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        var path = Path.Combine(folder, fileName);
+        File.WriteAllBytes(path, pdf.ToArray());
+        return path;
+    }
+
+    [Fact]
+    public void Pdf_ThePictureFillingTheFirstPage_IsTheCover()
+    {
+        var path = WritePdf(_root, "book.pdf", Jpeg, 595, 842);
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal("image/jpeg", cover!.ContentType);
+        Assert.Equal(Jpeg, cover.Bytes);
+    }
+
+    [Fact]
+    public void Pdf_ASmallPictureOnTheFirstPage_LikeAPublishersLogo_IsNoCover()
+    {
+        var path = WritePdf(_root, "book.pdf", Jpeg, 200, 100);
+
+        Assert.Null(BookCoverExtractor.Extract(path));
+    }
+
+    [Fact]
+    public void Pdf_ThatIsNoPdf_IsNoCover()
+    {
+        var path = Path.Combine(_root, "book.pdf");
+        File.WriteAllText(path, "not a pdf");
+
+        Assert.Null(BookCoverExtractor.Extract(path));
+    }
 }
 
 internal static class OpdsTestMetadata
 {
     public static Core.Metadata.TorrentMetadata Ebook(string title) =>
         OrganizerTestSupport.BuildMetadata(title: title) with { MediaType = Core.Metadata.MediaType.Ebook };
+
 }
