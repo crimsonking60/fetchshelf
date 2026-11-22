@@ -5,6 +5,55 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.21 - 2026-11-22
+
+A new **MAM API** page, under **Insight**, records every call Fetchshelf makes to MAM and charts them, to see the
+pattern behind a 429 (too many requests). What it showed led to the next change: `.torrent` downloads are now at
+least two seconds apart, as MAM refused the eleventh of a run of downloads one second apart. Follow finds that reach
+the library another way, such as through another follow, now leave **To look at** on the next Follow run, and the
+Link job's count of books still waiting for a cover from MAM is exact. The user guide shows screenshots of the pages it
+describes.
+
+### Upgrading
+
+- The database is upgraded when the new version starts (a table for the calls to MAM is added), and going back to an
+  older version is not possible. With a [`[backup]`](https://fetchshelf.readthedocs.io/en/v2026.11.21/configuration/#backup)
+  section, a backup is taken first, named `data-<time>-2026.11.20-before-2026.11.21.db`; without one, back up your
+  data folder yourself.
+- The calls to MAM are kept for 30 days, a few hundred to a few thousand rows a day.
+- Nothing else is needed: no setting is added or changed.
+
+### Added
+
+- **MAM API**: every request sent to MAM is recorded with when it started, how long it took, what MAM answered (or
+  why there was no answer) and the job that made it. The page charts the calls per 1, 10 or 30 minutes over 1, 6 or
+  24 hours, with each 4xx or 5xx answer as a red line and details on pointing at a bar or line; arrows move the
+  window back and forward. Below the chart are the window's statistics (429s, the most calls in any one and any ten
+  minutes, the shortest gap, the time to answer, and the calls by endpoint and by job) and the calls themselves,
+  newest first. The latest window refreshes itself. The page is in the menu only when `mam_id` is set. See
+  [MAM API](https://fetchshelf.readthedocs.io/en/v2026.11.21/user-guide/#mam-api) (#172).
+
+### Changed
+
+- **Downloads**: at least two seconds between two `.torrent` downloads from MAM, up from one. A Download run of 15
+  torrents takes about 15 seconds longer (#173).
+
+### Fixed
+
+- **Following**: a find whose book reached the library or the download queue by another route, such as another
+  follow on *Auto*, an autograb or the Search page, stayed under **To look at** until its own follow was searched
+  again, up to a day later, and was counted in the menu's badge meanwhile. Every Follow run now checks the waiting
+  finds of all follows, without calling MAM (#174).
+- **Covers**: with `covers_from_mam`, the Link job's log said every linked book not looked at yet would get a cover in
+  later runs, counting books in series-layout libraries and books that already have an image. The count now holds
+  only the books without an image, and a run that reaches its limit still marks the rest as looked at (#171).
+
+### Documentation
+
+- The [user guide](https://fetchshelf.readthedocs.io/en/v2026.11.21/user-guide/) has screenshots of twelve pages
+  where it describes them, among them Books, Search, Following, Account, MAM API and Jobs. The books, covers and
+  account in them are made up (#175).
+
 ## 2026.11.20 - 2026-11-21
 
 A new **Books** page, first in the **Library** menu, shows every book Fetchshelf has linked, audiobooks included, as
