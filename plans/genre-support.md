@@ -26,7 +26,9 @@ genre but Romance".
 
 MAM's search request (`/tor/js/loadSearchJSONbasic.php`, `SearchRequestDto`) filters by media type (`main_cat`), old
 category (`cat`), language and the rest, but **not by genre or by fiction/nonfiction**. Filtering search results by
-genre therefore happens on the results Fetchshelf receives. No other MAM endpoint is needed or may be used: everything
+genre therefore happens on the results Fetchshelf receives. Tested on 2026-11-22: `tor[categories]` (genre ids, as
+MAM's own search form sends them to another endpoint) is silently ignored, and `cat` filters by the old category, not
+the genre (`cat: [42]` gave Audiobooks - General Fiction, not Romance). No other MAM endpoint is needed or may be used: everything
 in this plan uses data already in the search results.
 
 ### Names
