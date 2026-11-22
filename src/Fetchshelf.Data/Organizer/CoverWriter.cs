@@ -60,7 +60,7 @@ public sealed class CoverWriter(
     private const int PageSize = 500;
 
     /// <summary>The file types a cover can be read out of, in the order they are tried.</summary>
-    private static readonly string[] CoverBearing = [".epub", ".cbz", ".cbr", ".m4b", ".m4a", ".mp3"];
+    private static readonly string[] CoverBearing = [".epub", ".cbz", ".cbr", ".m4b", ".m4a", ".mp3", ".pdf"];
 
     /// <summary>
     /// Looks at every book not looked at yet. A book that doesn't need a cover (it has an image, or is in a series

@@ -782,8 +782,9 @@ The catalog offers:
 - **Downloads** of the ebook file Fetchshelf linked for the book, named like `Title - Author.epub`. A book
   split into several files offers each part.
 - **Covers:** the image in the book's own folder, such as the `cover.jpg` that
-  [`covers`](configuration.md#top-level-settings) writes, else the cover inside an EPUB file or the first page of a
-  CBZ or CBR comic. A PDF or another format has one only from its folder. In a series-layout library a series' books
+  [`covers`](configuration.md#top-level-settings) writes, else the cover inside an EPUB file, the first page of a
+  CBZ or CBR comic, or the picture filling a PDF's first page. A PDF whose cover is drawn as text and shapes, or made
+  of several pictures, and other formats such as MOBI, have one only from their folder. In a series-layout library a series' books
   share a folder, so only covers inside the files are used. Covers are kept in a `covers` folder next to the
   database, so each book is only opened once; one added to or removed from a folder is noticed. Once a week the
   Clean job removes the cached covers of books no longer in the library.
@@ -1709,8 +1710,8 @@ With `covers` set to a number, such as `covers = 20`, the Link job writes a cove
 linked book that has no image file, under any name: `cover.jpg`, or `cover.png` or `cover.webp` for those types. A
 cover put there by you, by Audiobookshelf or by an earlier run is never replaced. The cover comes from:
 
-1. **The book's own files**, first: the cover inside an EPUB, the first page of a CBZ or CBR comic, or the picture
-   embedded in an m4b, m4a or mp3 audiobook. This costs no request, so it isn't limited by the number, but each Link
+1. **The book's own files**, first: the cover inside an EPUB, the first page of a CBZ or CBR comic, the picture
+   embedded in an m4b, m4a or mp3 audiobook, or the picture filling a PDF's first page. This costs no request, so it isn't limited by the number, but each Link
    run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
    takes much longer than it did.
 2. **Hardcover**, when the files have none and a [`[hardcover]`](configuration.md#hardcover) token is set: first the

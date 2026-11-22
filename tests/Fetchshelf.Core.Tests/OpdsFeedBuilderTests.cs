@@ -93,7 +93,7 @@ public class OpdsFeedBuilderTests
     }
 
     [Fact]
-    public void Acquisition_PdfInParts_HasALinkPerPart_AndACoverOnlyInItsOwnFolder()
+    public void Acquisition_PdfInParts_HasALinkPerPart_AndACoverEvenInASharedFolder()
     {
         XElement EntryOf(CatalogBook book) =>
             OpdsFeedBuilder.Acquisition("urn:x", "Recent", "/opds/recent", Now, [book], Page(1, 1)).Root!.Element(Atom + "entry")!;
@@ -104,9 +104,10 @@ public class OpdsFeedBuilderTests
         var acquisitions = entry.Elements(Atom + "link").Where(link => (string?)link.Attribute("rel") == "http://opds-spec.org/acquisition").ToList();
         Assert.Equal(["Part 1 of 2", "Part 2 of 2"], acquisitions.Select(link => (string)link.Attribute("title")!));
         Assert.All(acquisitions, link => Assert.Equal("application/pdf", (string?)link.Attribute("type")));
-        // A PDF has no cover of its own, but its folder may hold one; a shared series folder's image isn't its cover.
+        // A PDF's first page may hold its cover, so it may have one even where a shared series folder's image isn't its own.
         Assert.True(HasCover(entry));
-        Assert.False(HasCover(EntryOf(Book("pdf", files: 2) with { HasOwnFolder = false })));
+        Assert.True(HasCover(EntryOf(Book("pdf", files: 2) with { HasOwnFolder = false })));
+        Assert.False(HasCover(EntryOf(Book("mobi", files: 2) with { HasOwnFolder = false })));
     }
 
     [Fact]

@@ -67,11 +67,12 @@ public sealed class LibraryCheckPageTests : IDisposable
         var response = await client.PostAsync($"/LibraryCheck?handler={handler}", content);
         html = await response.Content.ReadAsStringAsync();
         // Delete and Relink run in the background: the page is read again until they have ended, and shows how they went.
-        var deadline = DateTime.UtcNow.AddSeconds(30);
+        // Thousands of findings take a while on a slow CI machine, where 30 seconds wasn't always enough for 3,000.
+        var deadline = DateTime.UtcNow.AddSeconds(120);
         while ((html.Contains("data-state=\"waiting\"", StringComparison.Ordinal) || html.Contains("data-state=\"running\"", StringComparison.Ordinal))
             && DateTime.UtcNow < deadline)
         {
-            await Task.Delay(50);
+            await Task.Delay(200);
             html = await client.GetStringAsync("/LibraryCheck");
         }
 
