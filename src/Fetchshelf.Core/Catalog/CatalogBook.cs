@@ -35,6 +35,12 @@ public sealed record CatalogBook
 
     public required IReadOnlyList<string> Genres { get; init; }
 
+    /// <summary>The genres by MAM's ids, for the Books page's Genre filter.</summary>
+    public IReadOnlySet<GenreCategory> GenreCategories { get; init; } = new HashSet<GenreCategory>();
+
+    /// <summary>The main category on MAM, fiction or nonfiction; null when MAM gave neither.</summary>
+    public FictionCategory? FictionCategory { get; init; }
+
     public required DateTimeOffset AddedAt { get; init; }
 
     /// <summary>The book's folder in its library.</summary>
@@ -111,6 +117,8 @@ public static class CatalogBooks
             MediaType = metadata.MediaType,
             Language = metadata.Language,
             Genres = LibraryMetadataJsonBuilder.BuildGenres(metadata),
+            GenreCategories = metadata.GenreCategories ?? new HashSet<GenreCategory>(),
+            FictionCategory = metadata.FictionCategory,
             AddedAt = addedAt,
             Folder = folder,
             LibraryIndex = libraryIndex,

@@ -7,7 +7,8 @@ namespace Fetchshelf.Web.Pages.Torrents;
 /// </summary>
 public sealed record TorrentListQuery(
     string? Q, string? Status, string? Library, string? QbCategory, string? Problem, string? Language, string? MediaType, string Sort, string Dir, int PageSize,
-    string? Author = null, string? Narrator = null, string? Series = null, string? Seeding = null, string? CollectionBooks = null)
+    string? Author = null, string? Narrator = null, string? Series = null, string? Seeding = null, string? CollectionBooks = null,
+    string? Genre = null, string? Fiction = null)
 {
     /// <summary>The query as route values for a link, leaving out empty values.</summary>
     public Dictionary<string, string> ToRouteValues()
@@ -26,6 +27,8 @@ public sealed record TorrentListQuery(
             [nameof(Series)] = Series ?? string.Empty,
             [nameof(Seeding)] = Seeding ?? string.Empty,
             [nameof(CollectionBooks)] = CollectionBooks ?? string.Empty,
+            [nameof(Genre)] = Genre ?? string.Empty,
+            [nameof(Fiction)] = Fiction ?? string.Empty,
             [nameof(Sort)] = Sort,
             [nameof(Dir)] = Dir,
             [nameof(PageSize)] = PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -38,7 +41,8 @@ public sealed record TorrentListQuery(
         !string.IsNullOrEmpty(Status) || !string.IsNullOrEmpty(Library) || !string.IsNullOrEmpty(QbCategory) || !string.IsNullOrEmpty(Problem)
         || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType)
         || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series)
-        || !string.IsNullOrEmpty(Seeding) || !string.IsNullOrEmpty(CollectionBooks);
+        || !string.IsNullOrEmpty(Seeding) || !string.IsNullOrEmpty(CollectionBooks)
+        || !string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction);
 
     /// <summary>The query with every filter cleared, keeping the search text, sort and page size.</summary>
     public TorrentListQuery WithoutFilters() =>
@@ -55,6 +59,8 @@ public sealed record TorrentListQuery(
             Series = null,
             Seeding = null,
             CollectionBooks = null,
+            Genre = null,
+            Fiction = null,
         };
 
     /// <summary>The sort as a state, for the column headings.</summary>

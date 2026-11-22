@@ -16,6 +16,23 @@
             <option value="@value" selected="@((Model.Format ?? string.Empty) == value)">@label</option>
         }
     </select>
+    @if (Model.GenresOn)
+    {
+        <select name="Genre" aria-label="Genre" onchange="this.form.requestSubmit()">
+            <option value="">Any genre</option>
+            @foreach (var (value, label) in Model.GenreOptions)
+            {
+                <option value="@value" selected="@(Model.Genre == value)">@label</option>
+            }
+        </select>
+        <select name="Fiction" aria-label="Fiction" onchange="this.form.requestSubmit()">
+            <option value="">Fiction or not</option>
+            @foreach (var (value, label) in Fetchshelf.Web.Pages.GenreFilters.FictionOptions)
+            {
+                <option value="@value" selected="@(Model.Fiction == value)">@label</option>
+            }
+        </select>
+    }
     <input type="hidden" name="PageSize" value="@Model.PageSize" />
     <button type="submit" class="primary">Search</button>
 </form>

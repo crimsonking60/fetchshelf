@@ -814,6 +814,8 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
   **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
 - **Authors** on a card stop at three; for a book with more, **... more** opens the book, like its cover, with all
   of them.
+- **Genre** and **Fiction**, with [`genres = true`](#sorting-books-by-genre), show only the books of one of MAM's
+  genres, or of none, and only fiction, nonfiction or neither. Like the format, they apply to every view.
 - **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
   companion PDF doesn't count as an ebook.
 - **Covers** come from the book's folder or its file, as in the OPDS catalog, and for audiobooks also from the
@@ -2042,6 +2044,9 @@ reported, so they cannot be chosen by hand.
     from qBittorrent, torrents removed from MAM (found by an autograb with
     [`mark_removed`](configuration.md#mark_removed)), or any of these.
   - *Media type* and *Language*. Clicking a media type or language in the list does the same.
+  - *Genre* and *Fiction*, with [`genres = true`](#sorting-books-by-genre): one of MAM's genres, or *No genre*, and
+    *Fiction*, *Nonfiction* or *Neither* (MAM gave the book neither). A torrent's page lists its main category and
+    genres, each a link to these filters.
   - *Books of collections*, once a collection has been [split into its books](#collections): *Collections as one
     row*, the default, lists each such collection once, marked *collection of 146 books*, with its books on its page;
     a book's own row shows only when the search, or an author, narrator or series, looks for it. *Books of collections

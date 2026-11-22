@@ -31,6 +31,9 @@ public class DetailModel(
 
     public SeedingRequirement? SeedingRequirement => settings.Seeding?.Requirement;
 
+    /// <summary>Whether `genres = true`, which shows the book's main category and genres.</summary>
+    public bool GenresOn => settings.Genres;
+
     /// <summary>
     /// The Unlink and Remove confirmations start with this when the torrent isn't satisfied yet and `warn_before_removal`
     /// is on: removing it from qBittorrent before then can make it a hit-and-run.

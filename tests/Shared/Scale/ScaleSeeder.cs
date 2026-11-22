@@ -42,6 +42,12 @@ internal static class ScaleSeeder
 
     private static readonly DateTimeOffset Start = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly Language[] OtherLanguages = [Language.German, Language.French, Language.Spanish, Language.Dutch];
+    private static readonly GenreCategory[] ScaleGenres =
+    [
+        GenreCategory.Fantasy, GenreCategory.ScienceFiction, GenreCategory.Historical, GenreCategory.Mystery, GenreCategory.Romance,
+        GenreCategory.Thriller, GenreCategory.Biographical, GenreCategory.Science, GenreCategory.Humor, GenreCategory.Military,
+    ];
+
     private static readonly LegacyCategory[] AudiobookCategories =
         [LegacyCategory.AudiobookFantasy, LegacyCategory.AudiobookScienceFiction, LegacyCategory.AudiobookHistory];
     private static readonly LegacyCategory[] EbookCategories =
@@ -89,6 +95,9 @@ internal static class ScaleSeeder
                 MetadataSource = MetadataSource.Mam,
                 UploadTime = Start.AddMinutes(book),
                 Description = string.Join(' ', Enumerable.Range(0, 60).Select(_ => Word(random))),
+                // From their own sequence, so the data the other fields get stays as it was before genres were added.
+                FictionCategory = (book % 20) switch { 0 => null, < 6 => FictionCategory.Nonfiction, _ => FictionCategory.Fiction },
+                GenreCategories = Enumerable.Range(0, 1 + (book % 3)).Select(i => ScaleGenres[(book * 7 + i * 13) % ScaleGenres.Length]).ToHashSet(),
             };
 
             var libraryDir = isAudiobook ? audiobookLibraryDir : ebookLibraryDir;

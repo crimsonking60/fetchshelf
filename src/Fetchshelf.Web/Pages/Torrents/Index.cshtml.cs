@@ -77,6 +77,14 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public string? MediaType { get; set; }
 
+    /// <summary>A genre by MAM's id, or <see cref="GenreFilters.NoGenre"/>. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Genre { get; set; }
+
+    /// <summary><c>Fiction</c>, <c>Nonfiction</c> or <see cref="GenreFilters.Neither"/>. Used only with `genres = true`.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Fiction { get; set; }
+
     /// <summary>An author's name key (<see cref="PersonNameKey"/>), set by following an author's name.</summary>
     [BindProperty(SupportsGet = true)]
     public string? Author { get; set; }
@@ -101,7 +109,15 @@ public class IndexModel(
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
-    public TorrentListQuery Query => new(Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding, CollectionBooks);
+    public TorrentListQuery Query => new(
+        Q, Status, Library, QbCategory, Problem, Language, MediaType, Sort, Dir, PageSize, Author, Narrator, Series, Seeding, CollectionBooks,
+        GenresOn ? Genre : null, GenresOn ? Fiction : null);
+
+    /// <summary>Whether `genres = true`, which shows the Genre and Fiction filters.</summary>
+    public bool GenresOn => settings.Genres;
+
+    /// <summary>The Genre filter's choices: the genres among the tracked torrents, by MAM's names, and No genre.</summary>
+    public IReadOnlyList<(string Value, string Label)> GenreOptions { get; private set; } = [];
 
     /// <summary>The dropdown filters in use, each with the query that drops it, shown as chips under the filters.</summary>
     public IReadOnlyList<FilterChip> FilterChips
@@ -129,6 +145,12 @@ public class IndexModel(
             Add("Collections", CollectionBooks == ShowCollectionBooks ? "books too" : CollectionBooks, q => q with { CollectionBooks = null });
             Add("Media type", MediaType, q => q with { MediaType = null });
             Add("Language", Language, q => q with { Language = null });
+            if (GenresOn)
+            {
+                Add("Genre", GenreFilters.LabelOf(Genre), q => q with { Genre = null });
+                Add("Fiction", GenreFilters.FictionLabelOf(Fiction), q => q with { Fiction = null });
+            }
+
             return chips;
         }
     }
@@ -420,6 +442,12 @@ public class IndexModel(
         if (!string.IsNullOrEmpty(MediaType))
         {
             torrents = torrents.Where(t => t.MediaType == MediaType);
+        }
+
+        if (GenresOn)
+        {
+            GenreOptions = GenreFilters.Options(await dbContext.TorrentGenres.Select(g => g.Genre).Distinct().ToListAsync(), Genre);
+            torrents = GenreFilters.Apply(torrents, dbContext.TorrentGenres, Genre, Fiction);
         }
 
         if (Seeding == TorrentListFilters.LooksUnsatisfied)
