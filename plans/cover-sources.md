@@ -93,7 +93,8 @@ configurations keep working. Both set is a configuration error.
 ## Order of work
 
 1. Embedded covers and the chain, with the setting's new name and the time budget (no requests at all). One PR.
-2. Open Library and Audnexus. One PR.
+2. Open Library and Audnexus. One PR. Books step 1 settled without a cover (no source then) are looked at again: a
+   data upgrade sets `CoverCheckedAt` back to null for linked books whose folder has no image.
 3. Hardcover, and the Search page's covers. One PR.
 
 ## Decisions
