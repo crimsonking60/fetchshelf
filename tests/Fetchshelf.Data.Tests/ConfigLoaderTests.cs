@@ -218,23 +218,47 @@ public sealed class ConfigLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_CoversFromMam_NoneUnlessSetInFileOrFromEnvironmentVariable()
+    public void Load_Covers_NoneUnlessSetInFileOrFromEnvironmentVariable()
     {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
-        Assert.Equal(0, ConfigLoader.Load(ConfigPath).CoversFromMam);
+        Assert.Equal(0, ConfigLoader.Load(ConfigPath).CoversPerRun);
 
-        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", "10");
+        Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers", "10");
         try
         {
-            Assert.Equal(10, ConfigLoader.Load(ConfigPath).CoversFromMam);
+            Assert.Equal(10, ConfigLoader.Load(ConfigPath).CoversPerRun);
         }
         finally
         {
-            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers_from_mam", null);
+            Environment.SetEnvironmentVariable("FETCHSHELF_CONF_covers", null);
         }
 
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ncovers = 20\n");
+        var settings = ConfigLoader.Load(ConfigPath);
+        Assert.Equal(20, settings.CoversPerRun);
+        Assert.Empty(settings.Warnings);
+    }
+
+    [Fact]
+    public void Load_CoversByItsOldName_StillWorks_WithAWarningToRenameIt()
+    {
         File.WriteAllText(ConfigPath, "mam_id = \"\"\ncovers_from_mam = 20\n");
-        Assert.Equal(20, ConfigLoader.Load(ConfigPath).CoversFromMam);
+
+        var settings = ConfigLoader.Load(ConfigPath);
+
+        Assert.Equal(20, settings.CoversPerRun);
+        Assert.Equal("covers_from_mam", settings.CoversSettingName);
+        Assert.Contains("'covers_from_mam' is now called 'covers'", Assert.Single(settings.Warnings));
+    }
+
+    [Fact]
+    public void Load_CoversByBothNames_Throws()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ncovers = 20\ncovers_from_mam = 10\n");
+
+        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
+
+        Assert.Contains("'covers' and 'covers_from_mam' are both set", exception.Message);
     }
 
     [Fact]
@@ -250,13 +274,13 @@ public sealed class ConfigLoaderTests : IDisposable
     [Theory]
     [InlineData(-1)]
     [InlineData(101)]
-    public void Load_CoversFromMamOutOfRange_Throws(int value)
+    public void Load_CoversOutOfRange_Throws_NamingTheSettingUsed(int value)
     {
+        File.WriteAllText(ConfigPath, $"mam_id = \"\"\ncovers = {value}\n");
+        Assert.Contains("'covers' must be between 0 and 100", Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath)).Message);
+
         File.WriteAllText(ConfigPath, $"mam_id = \"\"\ncovers_from_mam = {value}\n");
-
-        var exception = Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath));
-
-        Assert.Contains("'covers_from_mam' must be between 0 and 100", exception.Message);
+        Assert.Contains("'covers_from_mam' must be between 0 and 100", Assert.Throws<ConfigurationException>(() => ConfigLoader.Load(ConfigPath)).Message);
     }
 
     [Fact]

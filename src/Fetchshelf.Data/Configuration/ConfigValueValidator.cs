@@ -32,9 +32,20 @@ internal static partial class ConfigValueValidator
         CheckInterval("link_interval", settings.LinkInterval, label: null);
         CheckAtLeast("unsat_buffer", settings.UnsatBuffer, 0, label: null);
         CheckAtLeast("wedge_buffer", settings.WedgeBuffer, 0, label: null);
-        if (settings.CoversFromMam is < 0 or > FetchshelfSettings.MaxCoversFromMam)
+        if (settings.Covers is not null && settings.CoversFromMam is not null)
         {
-            throw Invalid($"'covers_from_mam' must be between 0 and {FetchshelfSettings.MaxCoversFromMam}; got {settings.CoversFromMam}.");
+            throw Invalid("'covers' and 'covers_from_mam' are both set; 'covers_from_mam' is its old name. Keep 'covers' only.");
+        }
+
+        settings.CoversPerRun = settings.Covers ?? settings.CoversFromMam ?? 0;
+        if (settings.CoversPerRun is < 0 or > FetchshelfSettings.MaxCoversFromMam)
+        {
+            throw Invalid($"'{settings.CoversSettingName}' must be between 0 and {FetchshelfSettings.MaxCoversFromMam}; got {settings.CoversPerRun}.");
+        }
+
+        if (settings.CoversFromMam is not null)
+        {
+            settings.Warnings.Add("'covers_from_mam' is now called 'covers'; rename it in the configuration. It works the same until then.");
         }
 
         if (settings.Audiobookshelf is { } abs)

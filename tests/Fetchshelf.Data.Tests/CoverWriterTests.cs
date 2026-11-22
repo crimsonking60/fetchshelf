@@ -58,14 +58,14 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1);
         var source = new FakeCoverSource(_ => Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(1, 0), summary);
+        Assert.Equal(new CoverRunSummary(0, 1, 0), summary);
         Assert.Equal([0xFF, 0xD8, 0xFF], await File.ReadAllBytesAsync(Path.Combine(folder, "cover.jpg")));
         Assert.Equal(["01.mp3", "cover.jpg"], Directory.GetFiles(folder).Select(Path.GetFileName).Order());
         Assert.NotNull(CheckedAt(context, 1));
 
-        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
         Assert.Equal([1L], source.Asked);
     }
 
@@ -75,7 +75,7 @@ public sealed class CoverWriterTests : IDisposable
         using var context = OrganizerTestSupport.CreateContext(DbPath);
         var folder = await SeedLinkedAsync(context, 1);
 
-        await new CoverWriter(context, new FakeCoverSource(_ => new CoverImage([1], "image/png")), [BookLibrary], Options).RunAsync();
+        await new CoverWriter(context, [BookLibrary], Options, new FakeCoverSource(_ => new CoverImage([1], "image/png"))).RunAsync();
 
         Assert.True(File.Exists(Path.Combine(folder, "cover.png")));
     }
@@ -87,9 +87,9 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1, "01.mp3", "folder.png");
         var source = new FakeCoverSource(_ => Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 0), summary);
+        Assert.Equal(new CoverRunSummary(0, 0, 0), summary);
         Assert.Empty(source.Asked);
         Assert.False(File.Exists(Path.Combine(folder, "cover.jpg")));
         Assert.NotNull(CheckedAt(context, 1));
@@ -102,8 +102,8 @@ public sealed class CoverWriterTests : IDisposable
         var folder = await SeedLinkedAsync(context, 1);
         var source = new FakeCoverSource(_ => null);
 
-        Assert.Equal(new CoverRunSummary(0, 0), await new CoverWriter(context, source, [BookLibrary], Options).RunAsync());
-        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        Assert.Equal(new CoverRunSummary(0, 0, 0), await new CoverWriter(context, [BookLibrary], Options, source).RunAsync());
+        await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
         Assert.Equal(["01.mp3"], Directory.GetFiles(folder).Select(Path.GetFileName));
         Assert.Equal([1L], source.Asked);
@@ -121,11 +121,11 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var three = new CoverWriterOptions(MaxFetchesPerRun: 3);
 
-        var first = await new CoverWriter(context, source, [BookLibrary], three).RunAsync();
-        var second = await new CoverWriter(context, source, [BookLibrary], three).RunAsync();
+        var first = await new CoverWriter(context, [BookLibrary], three, source).RunAsync();
+        var second = await new CoverWriter(context, [BookLibrary], three, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(3, 2), first);
-        Assert.Equal(new CoverRunSummary(2, 0), second);
+        Assert.Equal(new CoverRunSummary(0, 3, 2), first);
+        Assert.Equal(new CoverRunSummary(0, 2, 0), second);
         Assert.Equal([1L, 2, 3, 4, 5], source.Asked);
     }
 
@@ -142,13 +142,13 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var one = new CoverWriterOptions(MaxFetchesPerRun: 1);
 
-        var first = await new CoverWriter(context, source, [BookLibrary], one).RunAsync();
+        var first = await new CoverWriter(context, [BookLibrary], one, source).RunAsync();
         var waitingIds = await context.Torrents.AsNoTracking().Where(t => t.CoverCheckedAt == null).Select(t => t.MamId).OrderBy(id => id).ToListAsync();
-        var second = await new CoverWriter(context, source, [BookLibrary], one).RunAsync();
+        var second = await new CoverWriter(context, [BookLibrary], one, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(1, 3), first);
+        Assert.Equal(new CoverRunSummary(0, 1, 3), first);
         Assert.Equal([2L, 3, 502], waitingIds);
-        Assert.Equal(new CoverRunSummary(1, 2), second);
+        Assert.Equal(new CoverRunSummary(0, 1, 2), second);
         Assert.Equal([1L, 2], source.Asked);
     }
 
@@ -160,9 +160,9 @@ public sealed class CoverWriterTests : IDisposable
         await SeedLinkedAsync(context, 2);
         var source = new FakeCoverSource(_ => throw new CoverSourceRefusedException("The source says too many requests."));
 
-        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(0, 2), summary);
+        Assert.Equal(new CoverRunSummary(0, 0, 2), summary);
         Assert.Equal([1L], source.Asked);
         Assert.Null(CheckedAt(context, 1));
     }
@@ -175,9 +175,9 @@ public sealed class CoverWriterTests : IDisposable
         var second = await SeedLinkedAsync(context, 2);
         var source = new FakeCoverSource(mamId => mamId == 1 ? throw new HttpRequestException("timed out") : Jpeg);
 
-        var summary = await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
-        Assert.Equal(new CoverRunSummary(1, 0), summary);
+        Assert.Equal(new CoverRunSummary(0, 1, 0), summary);
         Assert.True(File.Exists(Path.Combine(second, "cover.jpg")));
         Assert.NotNull(CheckedAt(context, 1));
     }
@@ -192,7 +192,7 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var library = new Library { LibraryDir = LibraryDir, Category = "comics", Method = method, Layout = layout };
 
-        await new CoverWriter(context, source, [library], Options).RunAsync();
+        await new CoverWriter(context, [library], Options, source).RunAsync();
 
         Assert.Empty(source.Asked);
         Assert.NotNull(CheckedAt(context, 1));
@@ -207,7 +207,7 @@ public sealed class CoverWriterTests : IDisposable
         await context.SaveChangesAsync();
         var source = new FakeCoverSource(_ => Jpeg);
 
-        await new CoverWriter(context, source, [BookLibrary], Options).RunAsync();
+        await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
 
         Assert.Empty(source.Asked);
     }
@@ -220,8 +220,85 @@ public sealed class CoverWriterTests : IDisposable
         var source = new FakeCoverSource(_ => Jpeg);
         var other = new Library { LibraryDir = Path.Combine(_root, "other"), Category = "ebooks", Method = LibraryLinkMethod.Hardlink };
 
-        await new CoverWriter(context, source, [other], Options).RunAsync();
+        await new CoverWriter(context, [other], Options, source).RunAsync();
 
+        Assert.Empty(source.Asked);
+    }
+
+    /// <summary>A linked book whose folder holds an EPUB with a cover inside, recorded as its linked file.</summary>
+    private async Task<string> SeedWithEpubAsync(FetchshelfDbContext context, long mamId, string? collectionTorrentId = null)
+    {
+        var folder = Path.Combine(LibraryDir, "Author", $"Epub {mamId}");
+        Directory.CreateDirectory(folder);
+        BookCoverExtractorTests.WriteEpubWithCover(folder, "book.epub");
+        var torrent = await OrganizerTestSupport.SeedTorrentAsync(context, $"epub{mamId}", mamId);
+        torrent.LibraryPath = folder;
+        torrent.CollectionTorrentId = collectionTorrentId;
+        torrent.LinkedFilesJson = System.Text.Json.JsonSerializer.Serialize(new List<LinkedFileRecord> { new("book.epub", 10) });
+        await context.SaveChangesAsync();
+        return folder;
+    }
+
+    [Fact]
+    public async Task RunAsync_ACoverInTheBooksOwnFile_IsWritten_WithoutAskingTheSource()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var folder = await SeedWithEpubAsync(context, 1);
+        var source = new FakeCoverSource(_ => Jpeg);
+
+        var summary = await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
+
+        Assert.Equal(new CoverRunSummary(1, 0, 0), summary);
+        Assert.True(File.Exists(Path.Combine(folder, "cover.jpg")));
+        Assert.Empty(source.Asked);
+        Assert.NotNull(CheckedAt(context, 1));
+    }
+
+    [Fact]
+    public async Task RunAsync_WithoutASource_ABookWhoseFilesHaveNoCover_IsSettled_AndOneWithACoverGetsIt()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var plain = await SeedLinkedAsync(context, 1);
+        var epub = await SeedWithEpubAsync(context, 2);
+
+        var summary = await new CoverWriter(context, [BookLibrary], Options).RunAsync();
+
+        Assert.Equal(new CoverRunSummary(1, 0, 0), summary);
+        Assert.False(File.Exists(Path.Combine(plain, "cover.jpg")));
+        Assert.True(File.Exists(Path.Combine(epub, "cover.jpg")));
+        Assert.NotNull(CheckedAt(context, 1));
+    }
+
+    [Fact]
+    public async Task RunAsync_TheFileBudgetSpent_TheRestWait_UnreadAndUnfetched()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var folder = await SeedWithEpubAsync(context, 1);
+        var source = new FakeCoverSource(_ => Jpeg);
+
+        var summary = await new CoverWriter(context, [BookLibrary], Options with { FileBudget = TimeSpan.Zero }, source).RunAsync();
+
+        Assert.Equal(new CoverRunSummary(0, 0, 1), summary);
+        Assert.False(File.Exists(Path.Combine(folder, "cover.jpg")));
+        Assert.Empty(source.Asked);
+        Assert.Null(CheckedAt(context, 1));
+    }
+
+    [Fact]
+    public async Task RunAsync_ABookOfASplitCollection_GetsTheCoverOfItsOwnFile_ButNoneFetched()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var withCover = await SeedWithEpubAsync(context, 1, collectionTorrentId: "collection");
+        var without = await SeedLinkedAsync(context, 2);
+        var book = await context.Torrents.SingleAsync(t => t.MamId == 2);
+        book.CollectionTorrentId = "collection";
+        await context.SaveChangesAsync();
+        var source = new FakeCoverSource(_ => Jpeg);
+
+        await new CoverWriter(context, [BookLibrary], Options, source).RunAsync();
+
+        Assert.True(File.Exists(Path.Combine(withCover, "cover.jpg")));
+        Assert.False(File.Exists(Path.Combine(without, "cover.jpg")));
         Assert.Empty(source.Asked);
     }
 }
