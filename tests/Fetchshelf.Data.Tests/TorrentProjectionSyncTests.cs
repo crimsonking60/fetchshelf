@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Data.Tests;
 
 /// <summary>
-/// The author, narrator and series rows and the language and media type columns, kept in step with the metadata JSON
+/// The author, narrator, series and genre rows and the language, media type and main category columns, kept in step with the metadata JSON
 /// by every save, and <see cref="LibraryQueries"/> over them. Against SQLite, so the cascade and the transaction are real.
 /// </summary>
 public sealed class TorrentProjectionSyncTests : IDisposable
@@ -108,6 +108,32 @@ public sealed class TorrentProjectionSyncTests : IDisposable
         Assert.Equal(["Frank Herbert", "Brian Herbert"], reopened.TorrentPeople.OrderBy(p => p.Position).Select(p => p.Name));
         Assert.Equal("Dune Chronicles", reopened.TorrentSeries.Single().Name);
         Assert.Equal("Ebook", reopened.Torrents.Single().MediaType);
+    }
+
+    [Fact]
+    public async Task GenresAndMainCategory_AreWritten_AndReplacedWhenTheMetadataChanges()
+    {
+        await AddAsync(Torrent("h1", Metadata("Dune", ["Frank Herbert"]) with
+        {
+            FictionCategory = FictionCategory.Fiction,
+            GenreCategories = new HashSet<GenreCategory> { GenreCategory.ScienceFiction, GenreCategory.Action },
+        }));
+
+        await using (var context = CreateContext())
+        {
+            Assert.Equal([GenreCategory.Action, GenreCategory.ScienceFiction], context.TorrentGenres.Select(g => g.Genre).AsEnumerable().Order());
+            Assert.Equal("Fiction", context.Torrents.Single().FictionCategory);
+            var torrent = context.Torrents.Single();
+            torrent.MetadataJson = TorrentMetadataSerializer.Serialize(Metadata("Dune", ["Frank Herbert"]) with
+            {
+                GenreCategories = new HashSet<GenreCategory> { GenreCategory.Philosophy },
+            });
+            await context.SaveChangesAsync();
+        }
+
+        await using var reopened = CreateContext();
+        Assert.Equal(GenreCategory.Philosophy, reopened.TorrentGenres.Single().Genre);
+        Assert.Null(reopened.Torrents.Single().FictionCategory);
     }
 
     [Fact]

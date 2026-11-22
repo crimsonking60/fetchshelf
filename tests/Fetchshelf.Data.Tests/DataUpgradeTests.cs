@@ -26,6 +26,8 @@ public sealed class DataUpgradeTests : IDisposable
         MediaType = MediaType.Ebook,
         LegacyCategory = LegacyCategory.EbookGeneralFiction,
         Language = Language.Russian,
+        FictionCategory = FictionCategory.Fiction,
+        GenreCategories = new HashSet<GenreCategory> { GenreCategory.Historical, GenreCategory.LiteraryClassics },
         Title = title,
         Authors = ["Лев Толстой"],
         MetadataSource = MetadataSource.Mam,
@@ -107,7 +109,29 @@ public sealed class DataUpgradeTests : IDisposable
         Assert.All(people, p => Assert.Equal("Лев Толстой", p.Name));
         Assert.All(context.Torrents.ToList(), t => Assert.Equal(("Russian", "Ebook"), (t.Language, t.MediaType)));
         Assert.Equal(DatabaseMigrator.CurrentDataVersion, DatabaseMigrator.ReadDataVersion(context));
-        Assert.StartsWith("Filled in the authors, narrators and series of 2 torrents in ", Assert.Single(messages));
+        Assert.StartsWith("Filled in the authors, narrators, series and genres of 2 torrents in ", Assert.Single(messages));
+    }
+
+    [Fact]
+    public void Migrate_DatabaseAtDataVersion2_FillsInGenresAndMainCategory()
+    {
+        SeedOldDatabase();
+        using (var old = CreateContext())
+        {
+            old.Database.ExecuteSqlRaw("DELETE FROM TorrentGenres; UPDATE Torrents SET FictionCategory = NULL;");
+            old.Database.ExecuteSqlRaw("PRAGMA user_version = 2;");
+        }
+
+        using var context = CreateContext();
+        DatabaseMigrator.Migrate(context);
+
+        Assert.Equal(
+            [("hash1", GenreCategory.Historical), ("hash1", GenreCategory.LiteraryClassics), ("hash2", GenreCategory.Historical), ("hash2", GenreCategory.LiteraryClassics)],
+            context.TorrentGenres.AsEnumerable().Select(g => (g.TorrentId, g.Genre)).Order());
+        Assert.All(context.Torrents.ToList(), t => Assert.Equal("Fiction", t.FictionCategory));
+        // The authors are made again, not doubled.
+        Assert.Equal(2, context.TorrentPeople.Count());
+        Assert.Equal(DatabaseMigrator.CurrentDataVersion, DatabaseMigrator.ReadDataVersion(context));
     }
 
     [Fact]

@@ -62,6 +62,12 @@ public sealed class TorrentEntity
     /// <summary>The metadata's media type (<c>MediaType</c> enum name), kept in step like <see cref="Language"/>.</summary>
     public string? MediaType { get; set; }
 
+    /// <summary>
+    /// The metadata's main category (<c>FictionCategory</c> enum name: <c>Fiction</c> or <c>Nonfiction</c>), kept in step
+    /// like <see cref="Language"/>; null when MAM gave neither or the metadata can't be read.
+    /// </summary>
+    public string? FictionCategory { get; set; }
+
     /// <summary>When the Upgrade job last searched MAM for a better copy of this one; null when it never has.</summary>
     public DateTimeOffset? UpgradeSearchedAt { get; set; }
 

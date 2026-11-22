@@ -29,7 +29,7 @@ public static class DatabaseMigrator
     /// its own table and leaves <c>user_version</c> alone, so it numbers the changes to stored values that a schema
     /// migration can't make, because they need application code (such as recomputing title keys).
     /// </summary>
-    public const int CurrentDataVersion = 2;
+    public const int CurrentDataVersion = 3;
 
     private static void ApplyDataUpgrades(FetchshelfDbContext dbContext, Action<string> log)
     {
@@ -50,14 +50,15 @@ public static class DatabaseMigrator
             }
         }
 
-        if (version < 2)
+        if (version < 3)
         {
             // Version 2: every torrent's authors, narrators, series, language and media type as rows and columns.
+            // Version 3: its genres and main category too. One pass makes all of them, for a database at either version.
             var started = System.Diagnostics.Stopwatch.StartNew();
             var projected = TorrentProjectionBackfill.RunAll(dbContext);
             if (projected > 0)
             {
-                log($"Filled in the authors, narrators and series of {projected} torrents in {started.Elapsed.TotalSeconds:0.0} seconds");
+                log($"Filled in the authors, narrators, series and genres of {projected} torrents in {started.Elapsed.TotalSeconds:0.0} seconds");
             }
         }
 
