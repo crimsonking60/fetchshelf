@@ -48,11 +48,11 @@ configurations keep working. Both set is a configuration error.
   edition or namesake isn't taken. The image is then downloaded from the address Hardcover gives, which must be
   Hardcover's own image host (checked, as `IsMamAddress` did for MAM). Only with a `[hardcover]` token.
   - Rate: Hardcover allows about 60 requests a minute; the client keeps one second between queries.
-- **`OpenLibraryCoverSource`** (new `Fetchshelf.Clients.OpenLibrary`, small): `https://covers.openlibrary.org/b/isbn/<isbn>-L.jpg?default=false`,
+- **`OpenLibraryCoverSource`** (client in `Fetchshelf.Clients.Covers`, shared with Audnexus): `https://covers.openlibrary.org/b/isbn/<isbn>-L.jpg?default=false`,
   which answers 404 when it has none. Only for books with an ISBN.
   - Rate: Open Library limits ISBN lookups to about 100 per 5 minutes per IP; the client keeps three seconds between
     requests, and stops the run on 429 (`CoverSourceRefusedException`).
-- **`AudnexusCoverSource`** (new `Fetchshelf.Clients.Audnexus`, small): `https://api.audnex.us/books/<asin>`, whose
+- **`AudnexusCoverSource`** (client in `Fetchshelf.Clients.Covers`): `https://api.audnex.us/books/<asin>`, whose
   `image` is the cover's address on Audible's image host (checked); for audiobooks with an ASIN only. One second between
   requests; 429 ends it for the run.
 - **`ChainedCoverSource`**: tries them in order, the first cover wins. A source that throws `CoverSourceRefusedException`
@@ -95,7 +95,8 @@ configurations keep working. Both set is a configuration error.
 1. Embedded covers and the chain, with the setting's new name and the time budget (no requests at all). One PR.
 2. Open Library and Audnexus. One PR. Books step 1 settled without a cover (no source then) are looked at again: a
    data upgrade sets `CoverCheckedAt` back to null for linked books whose folder has no image.
-3. Hardcover, and the Search page's covers. One PR.
+3. Hardcover, and the Search page's covers. One PR. Books step 2 settled without a cover (no ISBN or ASIN, or none
+   found) are looked at again, as Hardcover also finds books by title and author: another data upgrade like step 2's.
 
 ## Decisions
 
