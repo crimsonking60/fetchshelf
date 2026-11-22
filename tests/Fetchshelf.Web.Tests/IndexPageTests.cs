@@ -340,6 +340,30 @@ public partial class IndexPageTests
     }
 
     [Fact]
+    public async Task Post_Import_FilesMissingInQBittorrent_ImportsIt_AndSaysItCantBeLinkedYet()
+    {
+        using var fixture = new FetchshelfWebAppFixture(
+            ConfigWithQBittorrent, mamHandler: MamHandler(SearchResponseJson(large: false)),
+            qbittorrentHandler: QBittorrentWith(InClient("hashx", "MID=1,UID=9", "mouse") with { State = "missingFiles", Progress = 0 }));
+        using var client = fixture.CreateNoRedirectClient();
+        var html = await client.GetStringAsync("/?handler=Results&Q=kings");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/?handler=Import")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["mamId"] = "1",
+                ["__RequestVerificationToken"] = ExtractAntiforgeryToken(html),
+            }),
+        };
+        request.Headers.Add("HX-Request", "true");
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.SendAsync(request)).Content.ReadAsStringAsync());
+
+        Assert.Contains("Imported \"The Way of Kings\", but qBittorrent can't find its files (Missing files)", body);
+        Assert.Contains("Force recheck", body);
+    }
+
+    [Fact]
     public async Task GetResults_QBittorrentUnreachable_StillShowsTheResults_WithoutAQBittorrentMark()
     {
         using var fixture = new FetchshelfWebAppFixture(

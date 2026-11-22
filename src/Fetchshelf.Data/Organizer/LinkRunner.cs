@@ -917,6 +917,11 @@ public sealed class LinkRunner(
         }
 
         var (connection, client, torrent) = inClient;
+        if (torrent.HasMissingFiles)
+        {
+            return Refuse(existing, torrent.MissingFilesAdvice);
+        }
+
         if (!torrent.IsFinished)
         {
             return Refuse(existing, "It has not finished downloading.");
@@ -1030,6 +1035,11 @@ public sealed class LinkRunner(
         if (await FindInQBittorrentAsync(CollectionBookId.HashOf(torrentId), connections, cancellationToken) is not var (connection, _, torrent))
         {
             return (RelinkBlocker.NotInQBittorrent, null);
+        }
+
+        if (torrent.HasMissingFiles)
+        {
+            return (RelinkBlocker.MissingFiles, torrent.SavePath);
         }
 
         if (!torrent.IsFinished)
