@@ -25,6 +25,12 @@ public sealed class JobRegistry(
 {
     private readonly IJobRunListener[] _listeners = listeners?.ToArray() ?? [];
 
+    /// <summary>
+    /// The log scope property that names the job a log line was written in: every run opens a scope with it, so a line any
+    /// class writes during the run carries it, and the log output puts it in front of the line (<c>[Link] …</c>).
+    /// </summary>
+    public const string JobLogProperty = "Job";
+
     /// <summary>The summary of a run cancelled with <see cref="Cancel"/>.</summary>
     public const string CancelledSummary = "Cancelled from the Jobs page";
 
@@ -283,6 +289,8 @@ public sealed class JobRegistry(
     private async Task RunOnceAsync(RegisteredJob job, JobTrigger trigger, CancellationTokenSource cancellation)
     {
         var name = job.Name;
+        // Flows into everything the run awaits or starts, whichever logger it writes with.
+        using var logScope = _logger.BeginScope(new Dictionary<string, object> { [JobLogProperty] = name });
         var startedAt = _timeProvider.GetUtcNow();
         lock (job.Gate)
         {

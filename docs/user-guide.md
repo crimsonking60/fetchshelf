@@ -2641,6 +2641,8 @@ fix the ownership of the copied files.
 
 First, look at the **Jobs**, **Errors** and **Events** pages and at `docker logs fetchshelf`. A count on the
 menu's **Errors** link means a job keeps failing or something failed in the last day.
+A log line written while a job runs starts with the job's name, as in `[Link] Wrote cover.jpg for …`, so
+`docker logs fetchshelf 2>&1 | grep '\[Link\]'` shows one job's lines.
 
 ### The container is unhealthy
 
