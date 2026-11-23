@@ -17,6 +17,7 @@ Referenced by the projects under `src/`, with the packages they bring in.
 
 | Package | Version | License | Used for |
 |---|---|---|---|
+| CoreJ2K | 2.4.1.108 | BSD-3-Clause, and the JJ2000 copyright notice (see below) | Decoding JPEG 2000 pictures in PDFs, for their covers |
 | FuzzySharp | 2.0.2 | MIT | Matching titles and names loosely |
 | Microsoft.EntityFrameworkCore.Sqlite (with Microsoft.EntityFrameworkCore, .Relational, .Abstractions, .Sqlite.Core and Microsoft.Data.Sqlite.Core) | 10.0.15 | MIT | The database |
 | Microsoft.Extensions.Http, Microsoft.Extensions.Logging.Abstractions (with the other Microsoft.Extensions packages they bring in) | 11.0.0 | MIT | HTTP clients and logging |
@@ -35,6 +36,12 @@ Native code inside these packages:
   Adobe DNG SDK, each under its own license; all allow free use and redistribution with their notices kept. Their
   notices are in `THIRD-PARTY-NOTICES.txt` in the `SkiaSharp.NativeAssets.Linux.NoDependencies` package, which every
   image carries as `/app/THIRD-PARTY-NOTICES-SkiaSharp.txt`.
+- **CoreJ2K** is based on JJ2000, the JPEG 2000 reference implementation, and carries its copyright notice
+  (`COPYRIGHT-JJ2000-5.1` in the package, `/app/COPYRIGHT-JJ2000.txt` in every image). It must be included in every
+  copy, grants use only in products that conform to the JPEG 2000 standard, which a JPEG 2000 decoder does, and
+  warns that using it may infringe patents: the core JPEG 2000 standard (Part 1), the only part a decoder of PDF
+  pictures needs, was published with its patent holders' agreement to license it royalty-free. CoreJ2K's own
+  license is in `/app/LICENSE-CoreJ2K.txt`.
 - **SQLitePCLRaw.lib.e_sqlite3** contains [SQLite](https://sqlite.org/copyright.html), which is in the public domain.
 
 ## Files in the web pages
@@ -48,8 +55,8 @@ Native code inside these packages:
 
 The images are built on Microsoft's [`mcr.microsoft.com/dotnet/aspnet`](https://hub.docker.com/r/microsoft/dotnet-aspnet)
 image: the .NET runtime (MIT) on Debian, whose packages are under their own licenses, listed in each package's
-`/usr/share/doc/*/copyright` inside the image. This file, Fetchshelf's `LICENSE` and SkiaSharp's notices are in
-`/app` in every image.
+`/usr/share/doc/*/copyright` inside the image. This file, Fetchshelf's `LICENSE`, SkiaSharp's notices and CoreJ2K's
+license and JJ2000 notice are in `/app` in every image.
 
 ## Choosing a new dependency
 

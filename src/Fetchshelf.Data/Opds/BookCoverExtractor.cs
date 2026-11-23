@@ -67,8 +67,8 @@ public static class BookCoverExtractor
     /// retail cover is one picture, while a title page of text with a small logo has none that large. Some scans cut the
     /// page into strips of the same width, one above the other (<see cref="PdfStripCover"/>); those are put together. The
     /// page is not drawn, so text printed over the picture isn't in the cover, and a cover drawn as vector graphics isn't
-    /// found. A JPEG is taken as it is; other images only when PdfPig can turn them into a PNG. Null for a PDF that can't
-    /// be read, such as an encrypted one.
+    /// found. A JPEG is taken as it is, a JPEG 2000 picture is turned into a JPEG, and other images are taken only when
+    /// PdfPig can turn them into a PNG. Null for a PDF that can't be read, such as an encrypted one.
     /// </summary>
     private static BookCover? PdfCover(string path)
     {
@@ -99,16 +99,21 @@ public static class BookCoverExtractor
         }
         catch (Exception ex) when (ex is not (IOException or UnauthorizedAccessException or OperationCanceledException))
         {
-            // PdfPig and SkiaSharp throw their own exceptions, and others, for damaged, encrypted or unusual files.
+            // PdfPig, CoreJ2K and SkiaSharp throw their own exceptions, and others, for damaged, encrypted or unusual files.
             return null;
         }
     }
 
-    /// <summary>A PDF image as a JPEG when it is one, else as a PNG when PdfPig can make one; null otherwise.</summary>
+    /// <summary>
+    /// A PDF image as a JPEG when it is one, or is a JPEG 2000 picture (<see cref="Jpeg2000Picture"/>), else as a PNG when
+    /// PdfPig can make one; null otherwise, such as for the black-and-white JBIG2 and CCITT fax pictures of some scans.
+    /// </summary>
     internal static byte[]? PdfImageBytes(UglyToad.PdfPig.Content.IPdfImage image)
     {
         var bytes = image.RawMemory.ToArray();
-        return SniffImageType(bytes) is "image/jpeg" ? bytes : image.TryGetPng(out var png) ? png : null;
+        return SniffImageType(bytes) is "image/jpeg" ? bytes
+            : Jpeg2000Picture.Is(bytes) ? Jpeg2000Picture.ToJpeg(bytes)
+            : image.TryGetPng(out var png) ? png : null;
     }
 
     /// <summary>The image type of <paramref name="bytes"/> from its first bytes, or null when it isn't a known image.</summary>

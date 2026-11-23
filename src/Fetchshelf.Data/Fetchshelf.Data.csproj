@@ -16,6 +16,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <!-- Decodes JPEG 2000 pictures in PDFs, for their covers. -->
+    <PackageReference Include="CoreJ2K" Version="2.4.1.108" />
     <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="SharpCompress" Version="0.50.11" />
     <!-- Joins PDF covers cut into strips. The NoDependencies native assets need no fontconfig in the image. -->

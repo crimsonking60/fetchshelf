@@ -427,7 +427,11 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.Equal(2, cache.PruneIfDue([], now.AddDays(8)));
     }
     /// <summary>One image drawn on a test PDF's page: its bytes and size in pixels, and where it is drawn, in points.</summary>
-    private sealed record PdfPicture(byte[] Bytes, int PixelWidth, int PixelHeight, double X, double Y, double Width, double Height);
+    private sealed record PdfPicture(byte[] Bytes, int PixelWidth, int PixelHeight, double X, double Y, double Width, double Height, string Filter = "DCTDecode");
+
+    /// <summary>A one-page A4 PDF whose page is filled by one picture with the given filter, such as JPXDecode.</summary>
+    private static string WritePdfWithFilter(string folder, string fileName, byte[] picture, int pixelWidth, int pixelHeight, string filter) =>
+        WritePdf(folder, fileName, new PdfPicture(picture, pixelWidth, pixelHeight, 0, 0, 595, 842, filter));
 
     /// <summary>
     /// Writes a one-page A4 PDF (595 by 842 points) whose page draws one DCT (JPEG) image at the given size, and returns its
@@ -450,7 +454,7 @@ public sealed class BookCoverExtractorTests : IDisposable
             ($"<< /Length {content.Length} >>", Encoding.ASCII.GetBytes(content)),
         };
         objects.AddRange(pictures.Select(p => (
-            $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {p.Bytes.Length} >>",
+            $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /{p.Filter} /Length {p.Bytes.Length} >>",
             (byte[]?)p.Bytes)));
         using var pdf = new MemoryStream();
         var offsets = new List<long>();
@@ -511,6 +515,35 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.True(bitmap.GetPixel(400, 250).Red > 200, "the red strip is on top");
         Assert.True(bitmap.GetPixel(400, 750).Green > 200, "the green strip is in the middle");
         Assert.True(bitmap.GetPixel(400, 1100).Blue > 200, "the blue strip is at the bottom");
+    }
+
+    /// <summary>A JPEG 2000 codestream of one colour, encoded by CoreJ2K from a PPM.</summary>
+    private static byte[] SolidJpeg2000(int width, int height, (byte R, byte G, byte B) colour)
+    {
+        var header = Encoding.ASCII.GetBytes($"P6\n{width} {height}\n255\n");
+        var ppm = new byte[header.Length + (width * height * 3)];
+        header.CopyTo(ppm, 0);
+        for (var i = header.Length; i < ppm.Length; i += 3)
+        {
+            (ppm[i], ppm[i + 1], ppm[i + 2]) = colour;
+        }
+
+        using var stream = new MemoryStream(ppm);
+        return CoreJ2K.J2kImage.ToBytes(CoreJ2K.J2kImage.CreateEncodableSource(stream)!, (CoreJ2K.j2k.util.ParameterList?)null);
+    }
+
+    [Fact]
+    public void Pdf_AJpeg2000Cover_IsTurnedIntoAJpeg()
+    {
+        var path = WritePdfWithFilter(_root, "scan.pdf", SolidJpeg2000(80, 112, (200, 30, 30)), 80, 112, "JPXDecode");
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal("image/jpeg", cover!.ContentType);
+        using var bitmap = SkiaSharp.SKBitmap.Decode(cover.Bytes);
+        Assert.Equal((80, 112), (bitmap.Width, bitmap.Height));
+        var pixel = bitmap.GetPixel(40, 56);
+        Assert.True(pixel.Red > 170 && pixel.Green < 70 && pixel.Blue < 70, $"red, not {pixel}");
     }
 
     [Fact]

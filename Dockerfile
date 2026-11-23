@@ -19,6 +19,8 @@ RUN case "$FETCHSHELF_VERSION" in \
     esac \
     && dotnet publish src/Fetchshelf.Web/Fetchshelf.Web.csproj -c Release -a "$TARGETARCH" -o /app "$@" \
     && cp /root/.nuget/packages/skiasharp.nativeassets.linux.nodependencies/*/THIRD-PARTY-NOTICES.txt /app/THIRD-PARTY-NOTICES-SkiaSharp.txt \
+    && cp /root/.nuget/packages/corej2k/*/LICENSE /app/LICENSE-CoreJ2K.txt \
+    && cp /root/.nuget/packages/corej2k/*/COPYRIGHT-JJ2000-5.1 /app/COPYRIGHT-JJ2000.txt \
     && mkdir -p /rootfs/config /rootfs/database
 
 # No RUN steps from here on: they would run as the target architecture, which needs emulation on other machines.
