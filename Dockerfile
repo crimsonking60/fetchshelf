@@ -18,6 +18,7 @@ RUN case "$FETCHSHELF_VERSION" in \
         *) set -- "-p:InformationalVersion=$FETCHSHELF_VERSION" ;; \
     esac \
     && dotnet publish src/Fetchshelf.Web/Fetchshelf.Web.csproj -c Release -a "$TARGETARCH" -o /app "$@" \
+    && cp /root/.nuget/packages/skiasharp.nativeassets.linux.nodependencies/*/THIRD-PARTY-NOTICES.txt /app/THIRD-PARTY-NOTICES-SkiaSharp.txt \
     && mkdir -p /rootfs/config /rootfs/database
 
 # No RUN steps from here on: they would run as the target architecture, which needs emulation on other machines.
@@ -32,6 +33,7 @@ ENV PGID=1000
 
 COPY --from=build /rootfs/ /
 COPY --from=build /app .
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3157

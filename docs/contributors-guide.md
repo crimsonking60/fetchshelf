@@ -437,7 +437,9 @@ A few things are useful to know before you change them:
   surprising rule. Don't describe what well-named code already says.
 - Keep changes focused. A bug fix doesn't need surrounding clean-up; send that separately.
 - Don't add new dependencies (NuGet packages, front-end libraries) without discussing them in the issue or
-  pull request first.
+  pull request first. A dependency needs a permissive license that lets anyone build and use Fetchshelf without a
+  key, account or fee, and goes into [`THIRD-PARTY-NOTICES.md`](https://github.com/crimsonking60/fetchshelf/blob/main/THIRD-PARTY-NOTICES.md)
+  in the same pull request; `ThirdPartyNoticesTests` fails for a package referenced under `src/` that isn't listed.
 - User-visible text should be plain and specific. Look at the existing page explanations in the UI for the
   tone.
 

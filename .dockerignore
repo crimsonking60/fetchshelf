@@ -8,3 +8,4 @@
 **/*.db-wal
 docs/
 *.md
+!THIRD-PARTY-NOTICES.md

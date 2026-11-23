@@ -18,6 +18,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
     <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="SharpCompress" Version="0.50.11" />
+    <!-- Joins PDF covers cut into strips. The NoDependencies native assets need no fontconfig in the image. -->
+    <PackageReference Include="SkiaSharp" Version="4.155.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.155.0" />
     <PackageReference Include="Tomlyn" Version="2.11.1" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>

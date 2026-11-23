@@ -73,7 +73,8 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and se
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Fetchshelf also contains other software under its own permissive licenses, listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md); keep that file in a fork.
 
 ## Oh, and, by the way:
 
