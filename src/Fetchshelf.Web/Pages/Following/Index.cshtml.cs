@@ -7,6 +7,7 @@ using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fetchshelf.Web.Pages.Following;
 
@@ -190,9 +191,19 @@ public class IndexModel(
             return Back(returnUrl);
         }
 
-        if (jobRegistry.Get(JobNames.Follow)?.LastRun is { Result: JobRunResult.Failure } failed)
+        var lastRun = jobRegistry.Get(JobNames.Follow)?.LastRun;
+        if (lastRun is { Result: JobRunResult.Failure })
         {
-            (Message, MessageIsError) = ($"The search for {name} failed: {failed.Summary}", true);
+            (Message, MessageIsError) = ($"The search for {name} failed: {lastRun.Summary}", true);
+            return Back(returnUrl);
+        }
+
+        // Search soon cleared its search time, so a run that searched it set it again. One that didn't, such as a run
+        // stopped at max_active_downloads or one that had already started, says so rather than claim a search.
+        var searchedAt = await dbContext.Follows.Where(f => f.Id == followId).Select(f => f.LastSearchedAt).FirstOrDefaultAsync();
+        if (searchedAt is null)
+        {
+            (Message, MessageIsError) = ($"{name} wasn't searched in that run ({lastRun?.Summary ?? "no run"}); it is searched first in the next one.", true);
             return Back(returnUrl);
         }
 

@@ -46,7 +46,7 @@ public sealed class FollowLanguageTests : IDisposable
 
     private sealed record Harness(FetchshelfDbContext Context, Func<FollowSettings, FollowRunner> Create)
     {
-        public Task<FollowRunSummary> RunAsync(FollowSettings settings) => Create(settings).RunAsync(unsatBuffer: 0, ignoreTorrents: []);
+        public Task<FollowRunSummary> RunAsync(FollowSettings settings) => Create(settings).RunAsync(ignoreTorrents: []);
 
         public List<FollowFindEntity> Finds() => Context.FollowFinds.AsNoTracking().OrderBy(f => f.MamId).ToList();
     }

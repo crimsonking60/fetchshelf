@@ -209,15 +209,23 @@ public sealed partial class AccountSummaryBuilder(
     private async Task<List<DerivedNumber>> DescribeSelectionSlotsAsync(MamAccountState account, CancellationToken cancellationToken)
     {
         var lines = new List<DerivedNumber> { SelectionSlots("Everything else", settings.UnsatBuffer, maxActive: null, active: 0) };
-        foreach (var block in BlocksWithOwnBudgets().Where(b => b.UnsatBuffer is not null || b.MaxActiveDownloads is not null))
+        foreach (var block in BlocksWithOwnBudgets().Where(b => b.UnsatBuffer is not null || b.MaxActiveDownloads is not null || b.GrabberName == FollowRunner.GrabberPrefix))
         {
             var active = block.MaxActiveDownloads is null
                 ? 0
                 : await SelectionQueue.ActiveForGrabberAsync(dbContext, block.GrabberName, block.IsPrefix, cancellationToken);
-            lines.Add(SelectionSlots(block.Label, block.UnsatBuffer ?? settings.UnsatBuffer, block.MaxActiveDownloads, active));
+            lines.Add(block.GrabberName == FollowRunner.GrabberPrefix
+                ? FollowSlots(block.MaxActiveDownloads, active)
+                : SelectionSlots(block.Label, block.UnsatBuffer ?? settings.UnsatBuffer, block.MaxActiveDownloads, active));
         }
 
         return lines;
+
+        // The Follow job selects whatever the free slots; only max_active_downloads caps it, and the Download job waits for a slot.
+        static DerivedNumber FollowSlots(int? maxActive, int active) => maxActive is { } cap
+            ? new("Follow", Math.Max(0, cap - active).ToString("N0", CultureInfo.InvariantCulture),
+                $"max_active_downloads {cap} - {active} already queued; free slots don't limit it, the Download job waits for one")
+            : new("Follow", "no limit", "free slots don't limit what it selects; the Download job waits for one");
 
         DerivedNumber SelectionSlots(string label, int unsatBuffer, int? maxActive, int active) => new(
             label,

@@ -1355,7 +1355,8 @@ categories = { ebook = false }
 - **Follow** a series on the **Series** page to have what is found listed, with **Download**, **Wedge
   download** and **Dismiss** buttons, and nothing downloaded by itself.
 - **Auto** instead has the Follow job download the series' missing books, and new ones as they are uploaded,
-  through the same rules as automatic downloads.
+  through the same rules as automatic downloads. They are selected even when no unsatisfied-snatch slot is free, and
+  wait on the **Selected** page until the Download job can start them.
 - **Ignore** a series to leave it out of the series with missing books.
 - **Follow** a series or an author with the button on a torrent's page, or next to an author or series filter
   on the **Torrents** page. It is followed to begin with: new books are listed, not downloaded. On the
@@ -1410,7 +1411,8 @@ Once a find is downloaded, its status moves on by itself as on the **Search** pa
 format no `[[follow.grab]]` block takes any more, such as an audiobook found before the blocks were limited to
 ebooks, is no longer listed or counted; it shows again if a block takes its format again. **Search now** puts a
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
-found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done.
+found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done. A run that
+didn't get to it, such as one stopped at `max_active_downloads`, says so, and it is searched first in the next one.
 
 What the library already has is never offered: the same torrent, another copy of the same book, or, for a
 series, an entry owned in that format and language. Such a book is listed once, as *Already owned* (or *Selected*
@@ -1468,7 +1470,9 @@ apply to torrents already waiting on the **Selected** page.
 How a run works out how much it may download:
 
 - **Slots:** your unsatisfied limit, minus the torrents already unsatisfied, minus the buffer. That is the
-  most torrents one run may select.
+  most torrents one run may select. The Follow job is the exception: a series or author on *Auto* is searched and
+  its missing books selected even with no slot free, and they wait on the **Selected** page until one is, while
+  `max_active_downloads` in `[follow]` caps how many may wait.
 - **Ratio:** free torrents cost nothing, and neither do `wedge` downloads, which use a wedge or wait for one. For
   the others, the size must fit within
   `uploaded / min_ratio − downloaded − data still being downloaded`: the most that can be downloaded while

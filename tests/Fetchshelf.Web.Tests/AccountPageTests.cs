@@ -76,6 +76,20 @@ public partial class AccountPageTests
         Assert.Contains("Connectable: yes", html);
     }
 
+    [Theory]
+    [InlineData("", "no limit")]
+    [InlineData("max_active_downloads = 3\n", "max_active_downloads 3 - 0 already queued; free slots don't limit it")]
+    public async Task AccountPage_FollowsSelectionSlots_AreNotTheFreeSlots(string followSettings, string expected)
+    {
+        var config = ConfigToml + "\n\n[follow]\nsearch_interval = 0\n" + followSettings + "\n[[follow.grab]]\ncost = \"free\"\n";
+        using var fixture = Fixture(MamAccountFixture.Json, configToml: config);
+        var client = await StartAndReadAccountAsync(fixture);
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Account"));
+
+        Assert.Contains(expected, html);
+    }
+
     [Fact]
     public async Task AccountPage_SnatchTable_UsesMamsLabelsWithSpacesCollapsedAndADashForNoSize()
     {

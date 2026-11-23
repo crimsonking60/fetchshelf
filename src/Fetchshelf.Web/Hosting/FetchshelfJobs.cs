@@ -147,7 +147,7 @@ public static class FetchshelfJobs
         {
             RegisterSelecting(jobRegistry, scopeFactory, settings, JobNames.Follow, follow.DryRun, async (scope, dryRun, ct) =>
             {
-                var summary = await scope.ServiceProvider.GetRequiredService<FollowRunner>().RunAsync(settings.UnsatBuffer, ignoreTorrents, ct, dryRun);
+                var summary = await scope.ServiceProvider.GetRequiredService<FollowRunner>().RunAsync(ignoreTorrents, ct, dryRun);
                 return (summary.SelectedForDownload, () => JobOutcomes.Follow(summary));
             }, "Searches MAM for the followed series and authors, and selects or lists the books the library is missing.");
         }

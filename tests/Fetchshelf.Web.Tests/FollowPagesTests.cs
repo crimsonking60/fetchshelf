@@ -600,6 +600,24 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowingPage_SearchNow_ARunThatDidntSearchIt_SaysSo()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        fixture.JobRegistry.Register("Follow", _ => Task.CompletedTask); // a run that searched nothing
+        using var client = fixture.CreateClient();
+        var followId = FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var page = FollowPage(fixture);
+
+        var response = await PostAsync(client, page, "/Following?handler=SearchNow",
+            new() { ["followId"] = followId, ["name"] = "James S. A. Corey", ["returnUrl"] = page });
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains("James S. A. Corey wasn't searched in that run", html);
+        Assert.DoesNotContain("Searched MAM for James S. A. Corey.", html);
+    }
+
+    [Fact]
     public async Task FollowingPage_SearchNow_ARunThatFails_SaysSo()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);

@@ -87,7 +87,7 @@ public sealed class AudiobookshelfSeriesSyncTests : IDisposable
         public List<string> Searches => searches;
 
         public Task<FollowRunSummary> RunAsync(FollowSettings settings, bool? dryRun = null) =>
-            create(settings).RunAsync(unsatBuffer: 0, ignoreTorrents: [], dryRun: dryRun);
+            create(settings).RunAsync(ignoreTorrents: [], dryRun: dryRun);
     }
 
     private Harness CreateHarness(Func<string, string>? searchResults = null)
