@@ -7,7 +7,8 @@ namespace Fetchshelf.Web;
 /// <summary>
 /// Builds Fetchshelf's Serilog configuration: console output goes to stderr only;
 /// a daily-rotating file sink is added when a log directory is configured; the minimum level
-/// defaults to Information and can be overridden by an environment-sourced level name.
+/// defaults to Information and can be overridden by an environment-sourced level name. Both put the job a line was
+/// written in first (<see cref="JobPrefixFormatter"/>).
 /// </summary>
 public static class FetchshelfLogging
 {
@@ -37,11 +38,14 @@ public static class FetchshelfLogging
             // The web interface's keys are stored unencrypted in the database folder on purpose: they only protect
             // form submissions. Data Protection warns about that each time it creates a key; other warnings stay.
             .Filter.ByExcluding(IsUnencryptedKeyWarning)
-            .WriteTo.Async(sink => sink.Console(standardErrorFromLevel: LogEventLevel.Verbose), bufferSize: 10_000, blockWhenFull: false);
+            .WriteTo.Async(
+                sink => sink.Console(new JobPrefixFormatter(JobPrefixFormatter.ConsoleTemplate), standardErrorFromLevel: LogEventLevel.Verbose),
+                bufferSize: 10_000, blockWhenFull: false);
 
         if (!string.IsNullOrEmpty(logDirEnv))
         {
             configuration = configuration.WriteTo.File(
+                new JobPrefixFormatter(JobPrefixFormatter.FileTemplate),
                 Path.Combine(logDirEnv, "fetchshelf.log"),
                 rollingInterval: RollingInterval.Day,
                 fileSizeLimitBytes: FileSizeLimitBytes,

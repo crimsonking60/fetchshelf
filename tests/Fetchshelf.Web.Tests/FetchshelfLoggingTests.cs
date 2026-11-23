@@ -144,6 +144,51 @@ public sealed class FetchshelfLoggingTests : IDisposable
         Assert.Contains("other-key-manager-warning", output);
     }
 
+    [Fact]
+    public async Task Build_ALineWrittenDuringAJob_StartsWithTheJobsName_OthersDont()
+    {
+        var originalError = Console.Error;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetError(writer);
+            var serilog = FetchshelfLogging.Build(null, null).CreateLogger();
+            using (var factory = new Serilog.Extensions.Logging.SerilogLoggerFactory(serilog, dispose: true))
+            {
+                var registry = new Fetchshelf.Core.Jobs.JobRegistry(new Microsoft.Extensions.Logging.Logger<Fetchshelf.Core.Jobs.JobRegistry>(factory));
+                // Another class's logger, as a runner has: the scope the run opens reaches it too, also after an await.
+                var runner = factory.CreateLogger("Fetchshelf.Data.Organizer.CoverWriter");
+                registry.Register("Link", async _ =>
+                {
+                    await Task.Yield();
+                    Microsoft.Extensions.Logging.LoggerExtensions.LogInformation(runner, "Wrote cover.jpg for {Title}", "I Am a Strange Loop");
+                });
+
+                await registry.TriggerAsync("Link");
+                Microsoft.Extensions.Logging.LoggerExtensions.LogInformation(runner, "outside any job");
+            }
+
+            var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Contains(lines, line => line.EndsWith("INF] [Link] Wrote cover.jpg for I Am a Strange Loop", StringComparison.Ordinal));
+            Assert.Contains(lines, line => line.EndsWith("INF] [Link] Job Link started", StringComparison.Ordinal));
+            Assert.Contains(lines, line => line.EndsWith("INF] outside any job", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
+    public void Build_TheLogFile_PutsTheJobFirstToo()
+    {
+        var serilog = FetchshelfLogging.Build(_tempDir, null).CreateLogger();
+
+        LogAndFlush(serilog, l => l.ForContext(Fetchshelf.Core.Jobs.JobRegistry.JobLogProperty, "Follow").Information("searched {Count} follows", 2));
+
+        Assert.Contains("[INF] [Follow] searched 2 follows", File.ReadAllText(Directory.GetFiles(_tempDir, "fetchshelf*.log")[0]));
+    }
+
     private static string CaptureStderr(string? logLevelEnv, Action<ILogger> act)
     {
         var originalError = Console.Error;
