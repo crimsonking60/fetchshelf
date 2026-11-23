@@ -58,7 +58,8 @@ public sealed class MainNavViewComponent(
             ErrorCount: errors.Total,
             ErrorDescription: errors.Description,
             FollowCount: followCount,
-            LibraryFindings: libraryCheck.Findings.Count));
+            LibraryFindings: libraryCheck.Findings.Count,
+            SeedingConfigured: settings.Seeding is not null));
         return View(model);
     }
 }

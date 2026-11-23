@@ -5,8 +5,8 @@ namespace Fetchshelf.Web.Tests;
 public class NavModelTests
 {
     private static NavInputs Inputs(
-        bool account = false, bool follow = false, bool lists = false, int errors = 0, int followCount = 0, int findings = 0) =>
-        new(account, follow, lists, errors, errors == 0 ? "" : $"{errors} new errors", followCount, findings);
+        bool account = false, bool follow = false, bool lists = false, int errors = 0, int followCount = 0, int findings = 0, bool seeding = false) =>
+        new(account, follow, lists, errors, errors == 0 ? "" : $"{errors} new errors", followCount, findings, seeding);
 
     private static string[] Labels(IEnumerable<NavEntry> entries) => entries.Select(e => e.Label).ToArray();
 
@@ -25,10 +25,10 @@ public class NavModelTests
     [Fact]
     public void Build_Everything_AddsTheConfiguredEntriesInTheirPlaces()
     {
-        var model = NavModel.Build(Inputs(account: true, follow: true, lists: true, findings: 4));
+        var model = NavModel.Build(Inputs(account: true, follow: true, lists: true, findings: 4, seeding: true));
 
         Assert.Equal(["Books", "Series", "Following", "Lists", "Duplicates", "Library check"], Labels(model.Groups[0].Entries));
-        Assert.Equal(["Events", "Statistics", "MAM API"], Labels(model.Groups[1].Entries));
+        Assert.Equal(["Events", "Statistics", "Unsatisfied burndown", "MAM API"], Labels(model.Groups[1].Entries));
         Assert.Equal(["Account", "Config"], Labels(model.Trailing));
     }
 

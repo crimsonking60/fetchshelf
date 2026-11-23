@@ -1,5 +1,6 @@
 // Shows every <time class="local-time"> in the browser's local time as YYYY-MM-DD HH:MM:SS, or only the date for
-// data-date, or the short form for data-short; those two keep the exact local time in the title.
+// data-date, or the short form for data-short; those two keep the exact local time in the title. data-minute leaves
+// out the seconds.
 // The server renders the instant in UTC (see LocalTimeTagHelper); this rewrites the text, on load and
 // whenever htmx brings in new content (job list polling, row swaps, refreshed lists).
 //
@@ -68,6 +69,8 @@
             } else if (element.hasAttribute('data-date')) {
                 element.textContent = formatDate(date);
                 element.title = format(date);
+            } else if (element.hasAttribute('data-minute')) {
+                element.textContent = format(date).slice(0, 16);
             } else {
                 element.textContent = format(date);
             }

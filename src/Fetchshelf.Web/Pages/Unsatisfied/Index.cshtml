@@ -1,0 +1,40 @@
+@page
+@model Fetchshelf.Web.Pages.Unsatisfied.IndexModel
+@using Fetchshelf.Core.Organizer
+@using Fetchshelf.Web.Pages.Unsatisfied
+@{
+    ViewData["Title"] = "Unsatisfied burndown";
+}
+
+<h2>Unsatisfied burndown</h2>
+@await Html.PartialAsync("_PageExplanation", $"How many torrents will look unsatisfied, now and each hour of the next {UnsatisfiedBurndown.Hours}. Fetchshelf unsatisfied counts Fetchshelf's own torrents, from the Seeding job's last estimates; MAM unsatisfied counts every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time right now, so it includes torrents added outside Fetchshelf. A torrent seeding now is taken to keep seeding until it is satisfied; one not seeding stays unsatisfied until its period ends, when MAM likely counts it as a hit-and-run. A highlighted count is lower than the hour before, mostly because seeding completed; pointing at it says how many. Both are estimates; MAM's own counts are what matter.")
+
+@await Html.PartialAsync("_SeedingEstimate", Model.Estimate)
+
+<p id="seeding-checked">Seeding job's last estimate: <local-time value="Model.CheckedAt" empty="none yet" /></p>
+
+@if (Model.QBittorrentError is { } error)
+{
+    <p id="qbittorrent-error" class="notice error" role="alert">qBittorrent could not be read, so MAM unsatisfied is left out: @error</p>
+}
+
+<table id="burndown" class="stat-table burndown">
+    <thead><tr><th>Timestamp</th><th class="num">Fetchshelf unsatisfied</th><th class="num">MAM unsatisfied</th></tr></thead>
+    <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td><local-time value="row.Fetchshelf.At" minute /></td>
+                <td class="num@(row.Fetchshelf.Fewer ? " fewer" : "")" title="@(row.Fetchshelf.Fewer ? IndexModel.Change(row.Fetchshelf) : null)">@row.Fetchshelf.Unsatisfied</td>
+                @if (row.Mam is { } mam)
+                {
+                    <td class="num@(mam.Fewer ? " fewer" : "")" title="@(mam.Fewer ? IndexModel.Change(mam) : null)">@mam.Unsatisfied</td>
+                }
+                else
+                {
+                    <td class="num">-</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>

@@ -41,6 +41,19 @@ public sealed partial record QBittorrentTorrent
     [JsonPropertyName("comment")]
     public string Comment { get; init; } = string.Empty;
 
+    /// <summary>The tracker qBittorrent last reached for it; empty when none answered.</summary>
+    [JsonPropertyName("tracker")]
+    public string Tracker { get; init; } = string.Empty;
+
+    /// <summary>
+    /// A MAM torrent: its tracker is MAM's, or, when no tracker has answered yet, its comment names a MAM torrent id, as
+    /// MAM's torrent files do.
+    /// </summary>
+    public bool IsMam => Uri.TryCreate(Tracker, UriKind.Absolute, out var tracker)
+        ? tracker.Host.Equals("myanonamouse.net", StringComparison.OrdinalIgnoreCase)
+            || tracker.Host.EndsWith(".myanonamouse.net", StringComparison.OrdinalIgnoreCase)
+        : MamId is not null;
+
     /// <summary>The MAM torrent id from <see cref="Comment"/>, or null when the comment has none.</summary>
     public long? MamId => MamIdPattern().Match(Comment) is { Success: true } match
         && long.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)

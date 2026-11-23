@@ -99,31 +99,9 @@ else
         </table>
     }
 
-    @if (Model.SeedingCounts is { } seedingCounts)
+    @if (Model.SeedingEstimate is { } seedingEstimate)
     {
-        int Counted(string state) => seedingCounts.TryGetValue(state, out var count) ? count : 0;
-        long MamCount(string key) => account.SnatchKinds.FirstOrDefault(k => k.Key == key)?.Count ?? 0;
-        var seedingUnsat = Counted(nameof(Fetchshelf.Core.Organizer.SeedingState.SeedingUnsatisfied));
-        var notSeedingUnsat = Counted(nameof(Fetchshelf.Core.Organizer.SeedingState.NotSeedingUnsatisfied));
-        var past = Counted(nameof(Fetchshelf.Core.Organizer.SeedingState.PastThePeriod));
-        <p id="seeding-estimate">
-            Fetchshelf's estimate from qBittorrent's seeding time:
-            <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(Fetchshelf.Core.Organizer.SeedingState.SeedingUnsatisfied)">@seedingUnsat seeding</a> and
-            <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(Fetchshelf.Core.Organizer.SeedingState.NotSeedingUnsatisfied)">@notSeedingUnsat not seeding</a>
-            of its torrents look unsatisfied@(past > 0 ? "," : ".")
-            @if (past > 0)
-            {
-                <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(Fetchshelf.Core.Organizer.SeedingState.PastThePeriod)">@past past the period</a>@:.
-            }
-            @if (seedingUnsat != MamCount("seedUnsat") || notSeedingUnsat != MamCount("inactUnsat"))
-            {
-                <span class="muted">
-                    MAM counts @MamCount("seedUnsat") and @MamCount("inactUnsat"). They can differ: snatches made outside Fetchshelf or
-                    in another client, torrents Fetchshelf only has as metadata, and seeding time MAM counts differently. MAM's counts
-                    are what matter.
-                </span>
-            }
-        </p>
+        @await Html.PartialAsync("_SeedingEstimate", seedingEstimate)
     }
 
     <h3>What Fetchshelf works out from it</h3>

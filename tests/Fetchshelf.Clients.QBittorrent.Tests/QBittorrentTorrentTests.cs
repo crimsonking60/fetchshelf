@@ -31,4 +31,14 @@ public class QBittorrentTorrentTests
     [InlineData("AMID=7", null)]
     public void MamId_IsReadFromMamsComment(string comment, long? expected) =>
         Assert.Equal(expected, (Build(1.0) with { Comment = comment }).MamId);
+
+    [Theory]
+    [InlineData("https://t.myanonamouse.net/tracker.php/abc/announce", "", true)]
+    [InlineData("https://myanonamouse.net/announce", "", true)]
+    [InlineData("https://tracker.example/announce", "MID=42", false)]
+    [InlineData("https://notmyanonamouse.net/announce", "", false)]
+    [InlineData("", "MID=42", true)]
+    [InlineData("", "Made with mktorrent", false)]
+    public void IsMam_ByTracker_OrByMamsCommentWhenNoTrackerAnswered(string tracker, string comment, bool expected) =>
+        Assert.Equal(expected, (Build(1.0) with { Tracker = tracker, Comment = comment }).IsMam);
 }

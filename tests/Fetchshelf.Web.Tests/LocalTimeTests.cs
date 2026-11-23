@@ -47,6 +47,15 @@ public class LocalTimeTests
     }
 
     [Fact]
+    public void Process_Minute_MarksTheElementAndFallsBackToTheUtcMinute()
+    {
+        var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 23, 30, 5, TimeSpan.Zero), Minute = true });
+
+        Assert.True(output.Attributes.ContainsName("data-minute"));
+        Assert.Equal("2026-10-27 23:30 UTC", output.Content.GetContent());
+    }
+
+    [Fact]
     public void Process_Date_MarksTheElementAndFallsBackToTheUtcDate()
     {
         var output = Render(new LocalTimeTagHelper { Value = new DateTimeOffset(2026, 10, 27, 23, 30, 5, TimeSpan.Zero), Date = true });
