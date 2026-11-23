@@ -114,7 +114,7 @@ public sealed class DownloadRunner(
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Download run stopped at {Torrent}; it stays queued for the next run", name);
+                _logger.LogInformation("Run stopped at {Torrent}; it stays queued for the next run", name);
                 throw;
             }
             catch (Exception ex)

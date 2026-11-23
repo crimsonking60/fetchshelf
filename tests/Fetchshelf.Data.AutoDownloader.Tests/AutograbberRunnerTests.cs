@@ -165,7 +165,7 @@ public sealed class AutograbberRunnerTests : IDisposable
         Assert.Equal((2, 2, true), (summary.ResultCount, summary.Selected, summary.DryRun));
         Assert.Empty(context.SelectedTorrents);
         var messages = logger.Messages(LogLevel.Information);
-        Assert.Contains(messages, m => m.Contains("Autograb Bookmarks: dry run"));
+        Assert.Contains(messages, m => m.Contains("Dry run, nothing will be selected"));
         Assert.Contains(messages, m => m.Contains("MAM torrent 1 \"High Seeders\": would be selected"));
         Assert.Contains(messages, m => m.Contains("MAM torrent 2 \"Low Seeders\": would be selected"));
         Assert.Contains(messages, m => m.Contains("2 search results, 2 would have been selected (dry run)"));

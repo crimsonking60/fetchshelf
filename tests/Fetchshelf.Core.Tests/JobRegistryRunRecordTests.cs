@@ -193,7 +193,7 @@ public class JobRegistryRunRecordTests
     [Fact(Timeout = 10_000)]
     public async Task Cancel_BetweenARunAndTheRunQueuedAfterIt_DropsTheQueuedRun()
     {
-        var logger = new PausingLogger("finished");
+        var logger = new PausingLogger("Finished in");
         var registry = new JobRegistry(logger);
         var runs = 0;
         // Continued on a thread of its own: the logger holds the run's thread, which must not be the test's.

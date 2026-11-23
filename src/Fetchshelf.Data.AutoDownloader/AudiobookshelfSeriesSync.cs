@@ -44,7 +44,7 @@ public sealed class AudiobookshelfSeriesSync(
         foreach (var name in unknown)
         {
             _logger.LogWarning(
-                "Follow: Audiobookshelf has no book library named {Library} (audiobookshelf_libraries); its libraries are {Libraries}",
+                "Audiobookshelf has no book library named {Library} (audiobookshelf_libraries); its libraries are {Libraries}",
                 name, string.Join(", ", bookLibraries.Select(l => l.Name)));
         }
 
@@ -83,7 +83,7 @@ public sealed class AudiobookshelfSeriesSync(
         }
 
         _logger.LogInformation(
-            "Follow: {Series} series read from Audiobookshelf ({Libraries}), {Added} {Verb}",
+            "{Series} series read from Audiobookshelf ({Libraries}), {Added} {Verb}",
             series.Count, string.Join(", ", chosen.Select(l => l.Name)), newSeries.Count,
             dryRun ? "would have been followed (dry run)" : "followed for the first time");
         return new AudiobookshelfSeriesSyncSummary(series.Count, newSeries.Count, unknown);

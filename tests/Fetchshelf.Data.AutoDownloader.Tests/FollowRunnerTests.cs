@@ -260,7 +260,7 @@ public sealed class FollowRunnerTests : IDisposable
         await harness.RunAsync();
 
         Assert.Contains(
-            "Follow The Expanse: 8 torrents on MAM in 1 page, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
+            "The Expanse: 8 torrents on MAM in 1 page, 7 of them ebooks or audiobooks in the series; 4 already in the library or selected; "
             + "the other 3 are 2 books (one torrent per book, language and format). Of those, 0 found before, 2 new to look at, 0 selected, 0 not free",
             logger.Messages(LogLevel.Information));
         Assert.Equal([5, 6], Finds(harness).Where(f => f.Status == FollowFindStatus.New).Select(f => f.MamId));
@@ -540,7 +540,7 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal(100, summary.NewFinds);
         Assert.Null(harness.Context.Follows.AsNoTracking().Single().FullySearchedAt); // not every page
         Assert.Contains(logger.Messages(LogLevel.Warning), m => m.StartsWith(
-            "Follow James S. A. Corey: MAM gave page 2 (from torrent 100) only torrents an earlier page had, so the search stops at 100 torrents.",
+            "James S. A. Corey: MAM gave page 2 (from torrent 100) only torrents an earlier page had, so the search stops at 100 torrents.",
             StringComparison.Ordinal));
     }
 

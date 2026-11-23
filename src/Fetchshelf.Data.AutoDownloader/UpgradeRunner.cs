@@ -75,7 +75,7 @@ public sealed class UpgradeRunner(
         _dryRun = dryRun ?? settings.DryRun;
         if (_dryRun)
         {
-            _logger.LogInformation("Upgrade: dry run, nothing will be selected or written");
+            _logger.LogInformation("Dry run, nothing will be selected or written");
         }
 
         var (due, upgradable) = await DueAsync(cancellationToken);
@@ -90,7 +90,7 @@ public sealed class UpgradeRunner(
                 ? "no book in the library could be in a better format"
                 : $"{upgradable.Count} {(upgradable.Count == 1 ? "book" : "books")} could be in a better format, but none is due a search: "
                     + $"each is searched again {settings.SearchAgainAfter} days after its last search";
-            _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
+            _logger.LogInformation("Nothing searched, {Note}", note);
             return new UpgradeRunSummary(0, 0, 0, _dryRun, Note: note);
         }
 
@@ -106,7 +106,7 @@ public sealed class UpgradeRunner(
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
             var note = $"this run's limit is 0 selections ({explanation})";
-            _logger.LogInformation("Upgrade: nothing searched, {Note}", note);
+            _logger.LogInformation("Nothing searched, {Note}", note);
             return new UpgradeRunSummary(0, 0, 0, _dryRun, Note: note);
         }
 
@@ -119,7 +119,7 @@ public sealed class UpgradeRunner(
         {
             if (selected >= budget)
             {
-                _logger.LogInformation("Upgrade: stopped at this run's limit of {Budget} selections", budget);
+                _logger.LogInformation("Stopped at this run's limit of {Budget} selections", budget);
                 break;
             }
 
@@ -139,7 +139,7 @@ public sealed class UpgradeRunner(
             if (failure is not null)
             {
                 failed++;
-                _logger.LogWarning(failure, "Upgrade: searching for a better copy of \"{Title}\" failed: {Reason}", copy.Title, failure.Message);
+                _logger.LogWarning(failure, "Searching for a better copy of \"{Title}\" failed: {Reason}", copy.Title, failure.Message);
             }
         }
 
@@ -150,7 +150,7 @@ public sealed class UpgradeRunner(
 
         var summary = new UpgradeRunSummary(searchedTitles.Count, selected, failed, _dryRun, searchedTitles);
         _logger.LogInformation(
-            "Upgrade: {Searched} {Books} searched on MAM ({Titles}), {Selected} better {Copies} {Verb}{Failures}",
+            "{Searched} {Books} searched on MAM ({Titles}), {Selected} better {Copies} {Verb}{Failures}",
             summary.Searched, summary.Searched == 1 ? "book" : "books", summary.TitlesText, selected, selected == 1 ? "copy" : "copies",
             _dryRun ? "would have been selected (dry run)" : "selected", failed == 0 ? string.Empty : $", {failed} failed");
         return summary;

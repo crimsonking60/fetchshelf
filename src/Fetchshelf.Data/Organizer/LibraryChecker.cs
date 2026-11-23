@@ -145,7 +145,7 @@ public sealed class LibraryChecker(
             findings.Count(f => f.Kind == LibraryFindingKind.UnknownFolder), findings.Count(f => f.Kind == LibraryFindingKind.UnknownFile),
             findings.Count(f => f.Kind == LibraryFindingKind.FolderMissing), findings.Count(f => f.Kind == LibraryFindingKind.FilesMissing));
         _logger.LogInformation(
-            "Library check: {Folders} folders walked, {Books} linked books; {Findings} findings",
+            "{Folders} folders walked, {Books} linked books; {Findings} findings",
             folders.Count, books.Count, summary.Total);
         return summary;
     }

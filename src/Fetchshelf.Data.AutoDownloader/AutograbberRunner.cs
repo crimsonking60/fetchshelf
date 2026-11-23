@@ -70,13 +70,13 @@ public sealed class AutograbberRunner(
         if (budget == 0 && !isMetadataOnlyCost)
         {
             _logger.LogInformation(
-                "Autograb {Name}: nothing to do, this run's limit is 0 selections ({BudgetExplanation})", name, budgetExplanation);
+                "Nothing to do, this run's limit is 0 selections ({BudgetExplanation})", budgetExplanation);
             return new AutograbRunSummary(0, 0, _dryRun, $"this run's limit is 0 selections ({budgetExplanation})");
         }
 
         if (_dryRun)
         {
-            _logger.LogInformation("Autograb {Name}: dry run, nothing will be selected or written", name);
+            _logger.LogInformation("Dry run, nothing will be selected or written");
         }
 
         var detailLevel = _dryRun ? LogLevel.Information : LogLevel.Debug;
@@ -107,7 +107,7 @@ public sealed class AutograbberRunner(
                 }
                 catch (UnrecognizedReferenceDataException ex)
                 {
-                    _logger.Log(detailLevel, "Autograb {Name}: MAM torrent {MamId} could not be read ({Reason}), skipped", name, record.MamId, ex.Message);
+                    _logger.Log(detailLevel, "MAM torrent {MamId} could not be read ({Reason}), skipped", record.MamId, ex.Message);
                     continue;
                 }
 
@@ -122,7 +122,7 @@ public sealed class AutograbberRunner(
 
                 if (!TorrentFilterMatcher.Matches(filter, candidate))
                 {
-                    _logger.LogDebug("Autograb {Name}: MAM torrent {MamId} \"{Title}\" does not pass the filter", name, record.MamId, metadata.Title);
+                    _logger.LogDebug("MAM torrent {MamId} \"{Title}\" does not pass the filter", record.MamId, metadata.Title);
                     continue;
                 }
 
@@ -130,8 +130,8 @@ public sealed class AutograbberRunner(
                     record, metadata, ignoreTorrents, entry.Cost, new DownloadPlacement(entry.Category, entry.Client, entry.SavePath), entry.Name,
                     dryRun: _dryRun, cancellationToken: cancellationToken);
                 _logger.Log(
-                    detailLevel, "Autograb {Name}: MAM torrent {MamId} \"{Title}\": {Outcome}",
-                    name, record.MamId, metadata.Title, outcome.Describe(_dryRun));
+                    detailLevel, "MAM torrent {MamId} \"{Title}\": {Outcome}",
+                    record.MamId, metadata.Title, outcome.Describe(_dryRun));
 
                 if (outcome.IsSelected())
                 {
@@ -154,12 +154,12 @@ public sealed class AutograbberRunner(
         var (checkedForRemoval, markedRemoved) = (0, 0);
         if (entry.MarkRemoved && returnedMamIds.Count > 0 && entry.Type?.Kind != AutograbType.Bookmarks.Kind)
         {
-            (checkedForRemoval, markedRemoved) = await MarkRemovedAsync(name, _dryRun, returnedMamIds, cancellationToken);
+            (checkedForRemoval, markedRemoved) = await MarkRemovedAsync(_dryRun, returnedMamIds, cancellationToken);
         }
 
         _logger.LogInformation(
-            "Autograb {Name}: {ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
-            name, resultCount, selectedCount, _dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
+            "{ResultCount} search results, {SelectedCount} {Verb}{BudgetNote}",
+            resultCount, selectedCount, _dryRun ? "would have been selected (dry run)" : "selected", budgetReachedNote);
         return new AutograbRunSummary(resultCount, selectedCount, _dryRun, limitNote, checkedForRemoval, markedRemoved);
     }
 
@@ -176,7 +176,7 @@ public sealed class AutograbberRunner(
     /// <see cref="MaxRemovalChecksPerRun"/> per run, those asked about longest ago first. Returns how many were asked
     /// about, and how many of those MAM no longer has.
     /// </summary>
-    private async Task<(int Checked, int Removed)> MarkRemovedAsync(string name, bool dryRun, HashSet<long> returnedMamIds, CancellationToken cancellationToken)
+    private async Task<(int Checked, int Removed)> MarkRemovedAsync(bool dryRun, HashSet<long> returnedMamIds, CancellationToken cancellationToken)
     {
         var (lowest, highest) = (returnedMamIds.Min(), returnedMamIds.Max());
         var now = DateTimeOffset.UtcNow;
@@ -213,8 +213,8 @@ public sealed class AutograbberRunner(
                 foreach (var torrent in torrents)
                 {
                     _logger.LogInformation(
-                        "Autograb {Name}: MAM no longer has {Book} (MAM id {MamId}); {Outcome}",
-                        name, Describe(torrent), mamId, dryRun ? "would have been marked as removed from MAM (dry run)" : "marked as removed from MAM");
+                        "MAM no longer has {Book} (MAM id {MamId}); {Outcome}",
+                        Describe(torrent), mamId, dryRun ? "would have been marked as removed from MAM (dry run)" : "marked as removed from MAM");
                 }
             }
 
@@ -239,8 +239,8 @@ public sealed class AutograbberRunner(
         }
 
         _logger.LogInformation(
-            "Autograb {Name}: asked MAM about {Checked} stored {Torrents} missing from the results; {Removed} {Verb} removed",
-            name, toCheck.Count, toCheck.Count == 1 ? "torrent" : "torrents", removed, dryRun ? "would have been marked (dry run)" : "marked");
+            "Asked MAM about {Checked} stored {Torrents} missing from the results; {Removed} {Verb} removed",
+            toCheck.Count, toCheck.Count == 1 ? "torrent" : "torrents", removed, dryRun ? "would have been marked (dry run)" : "marked");
         return (toCheck.Count, removed);
     }
 

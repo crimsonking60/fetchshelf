@@ -170,7 +170,8 @@ public sealed class FetchshelfLoggingTests : IDisposable
 
             var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.Contains(lines, line => line.EndsWith("INF] [Link] Wrote cover.jpg for I Am a Strange Loop", StringComparison.Ordinal));
-            Assert.Contains(lines, line => line.EndsWith("INF] [Link] Job Link started", StringComparison.Ordinal));
+            Assert.Contains(lines, line => line.EndsWith("INF] [Link] Started", StringComparison.Ordinal));
+            Assert.Contains(lines, line => line.Contains("INF] [Link] Finished in ", StringComparison.Ordinal));
             Assert.Contains(lines, line => line.EndsWith("INF] outside any job", StringComparison.Ordinal));
         }
         finally

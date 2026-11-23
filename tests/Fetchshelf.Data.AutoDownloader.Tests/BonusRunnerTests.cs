@@ -137,7 +137,7 @@ public sealed class BonusRunnerTests : IDisposable
         Assert.Empty(harness.Context.Events);
         Assert.True(summary.DryRun);
         Assert.Equal(["a wedge"], summary.Bought);
-        Assert.Contains("Bonus: would buy a wedge for 50,000 points", logger.Messages(LogLevel.Information));
+        Assert.Contains("Would buy a wedge for 50,000 points", logger.Messages(LogLevel.Information));
     }
 
     [Fact]
