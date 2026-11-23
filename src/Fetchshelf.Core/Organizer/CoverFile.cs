@@ -21,8 +21,10 @@ public static class CoverFile
     /// Whether a folder holding <paramref name="fileNames"/> needs a cover: none of them is an image, whatever its name. A
     /// cover the user, Audiobookshelf or an earlier run put there is never replaced.
     /// </summary>
-    public static bool IsNeeded(IEnumerable<string> fileNames) =>
-        !fileNames.Any(name => ImageExtensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase));
+    public static bool IsNeeded(IEnumerable<string> fileNames) => !fileNames.Any(IsImage);
+
+    /// <summary>Whether <paramref name="fileName"/> is an image a folder's cover can be: a JPEG, PNG or WebP file, whatever its name.</summary>
+    public static bool IsImage(string fileName) => ImageExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The name a cover of <paramref name="contentType"/> is written under; null for a type that isn't written.</summary>
     public static string? NameFor(string contentType) => NamesByContentType.GetValueOrDefault(contentType);

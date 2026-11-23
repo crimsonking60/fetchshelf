@@ -743,6 +743,75 @@ public sealed class LinkRunnerTests : IDisposable
         Assert.True(File.Exists(Path.Combine(updated.LibraryPath!, "book.m4b")));
     }
 
+    [Fact]
+    public async Task RelinkAsync_FolderChanged_CarriesTheCoverAndOtherImagesOver()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, oldPath) = await LinkOnceAsync(context, libraries);
+        await File.WriteAllBytesAsync(Path.Combine(oldPath, "cover.jpg"), [1, 2, 3]);
+        await File.WriteAllBytesAsync(Path.Combine(oldPath, "folder.png"), [4, 5]);
+        var stored = await context.Torrents.SingleAsync();
+        stored.MetadataJson = TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata(title: "Stored Title"));
+        await context.SaveChangesAsync();
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(null), libraries)
+            .RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var newPath = (await context.Torrents.SingleAsync()).LibraryPath!;
+        Assert.NotEqual(oldPath, newPath);
+        Assert.Equal([1, 2, 3], await File.ReadAllBytesAsync(Path.Combine(newPath, "cover.jpg")));
+        Assert.Equal([4, 5], await File.ReadAllBytesAsync(Path.Combine(newPath, "folder.png")));
+        Assert.False(Directory.Exists(oldPath)); // no image left behind to keep it
+    }
+
+    [Fact]
+    public async Task RelinkAsync_SameFolder_KeepsTheCover()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, path) = await LinkOnceAsync(context, libraries);
+        await File.WriteAllBytesAsync(Path.Combine(path, "cover.webp"), [7]);
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(null), libraries)
+            .RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(path, (await context.Torrents.SingleAsync()).LibraryPath);
+        Assert.Equal([7], await File.ReadAllBytesAsync(Path.Combine(path, "cover.webp")));
+    }
+
+    [Fact]
+    public async Task RelinkAsync_FolderSharedWithAnotherBook_LeavesItsImagesThere()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var libraries = new List<Library> { CreateLibrary(LibraryDir) };
+        var (client, oldPath) = await LinkOnceAsync(context, libraries);
+        await File.WriteAllBytesAsync(Path.Combine(oldPath, "cover.jpg"), [1]);
+        var stored = await context.Torrents.SingleAsync();
+        context.Torrents.Add(new TorrentEntity
+        {
+            Id = "other",
+            MamId = 2,
+            NormalizedTitleKey = stored.NormalizedTitleKey,
+            Title = "Other format",
+            MetadataJson = stored.MetadataJson,
+            CreatedAt = DateTimeOffset.UtcNow,
+            LibraryPath = oldPath,
+        });
+        stored.MetadataJson = TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata(title: "Stored Title"));
+        await context.SaveChangesAsync();
+
+        var result = await CreateRunner(context, new FakeMetadataLookup(null), libraries)
+            .RelinkAsync("hash1", [(new QBittorrentConnection(), client)]);
+
+        Assert.True(result.Succeeded, result.Message);
+        var newPath = (await context.Torrents.SingleAsync(t => t.Id == "hash1")).LibraryPath!;
+        Assert.True(File.Exists(Path.Combine(oldPath, "cover.jpg")));
+        Assert.False(File.Exists(Path.Combine(newPath, "cover.jpg")));
+    }
+
     /// <summary>Links "hash1" (book.m4b) once and returns its qBittorrent client and library folder.</summary>
     private async Task<(QBittorrentClient Client, string LibraryPath)> LinkOnceAsync(
         FetchshelfDbContext context, IReadOnlyList<Library> libraries, string category = "audiobooks")
