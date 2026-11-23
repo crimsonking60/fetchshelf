@@ -94,8 +94,13 @@ public sealed class FollowRunner(
 
     public static string GrabberName(FollowEntity follow) => GrabberPrefix + follow.DisplayName;
 
+    /// <remarks>
+    /// The free unsatisfied-snatch slots don't limit what a run selects, unlike an autograb's: a follow's selections are
+    /// one series' or author's missing books, and the Download job checks the slots, `unsat_buffer`, ratio and wedges
+    /// before each download, so what it can't start yet waits on the Selected page. Only `max_active_downloads` caps them.
+    /// </remarks>
     public async Task<FollowRunSummary> RunAsync(
-        int unsatBuffer, IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default, bool? dryRun = null)
+        IReadOnlyList<long> ignoreTorrents, CancellationToken cancellationToken = default, bool? dryRun = null)
     {
         _dryRun = dryRun ?? settings.DryRun;
         var added = await SyncAudiobookshelfSeriesAsync(cancellationToken);
@@ -124,22 +129,22 @@ public sealed class FollowRunner(
 
         using var _ = await accessGate.AcquireAsync(JobNames.Follow, cancellationToken);
 
-        var account = await mamClient.GetAccountStateAsync(cancellationToken);
-        // [follow]'s own buffer and cap, over every "Follow: …" selection together.
-        unsatBuffer = settings.UnsatBuffer ?? unsatBuffer;
-        var currentActive = settings.MaxActiveDownloads is null
-            ? 0
-            : await SelectionQueue.ActiveForGrabberAsync(dbContext, GrabberPrefix, isPrefix: true, cancellationToken);
-        var budget = SelectionBudget.Compute(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
-        if (budget <= 0 && due.All(f => f.Mode == FollowMode.Download))
+        // `max_active_downloads` caps every "Follow: …" selection waiting, together; without it a run selects all it finds.
+        var budget = int.MaxValue;
+        if (settings.MaxActiveDownloads is { } cap)
         {
-            var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, settings.MaxActiveDownloads, currentActive);
-            _logger.LogInformation("Follow: nothing searched, this run's limit is 0 selections ({BudgetExplanation})", explanation);
-            return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
+            var waiting = await SelectionQueue.ActiveForGrabberAsync(dbContext, GrabberPrefix, isPrefix: true, cancellationToken);
+            budget = (int)Math.Max(0, cap - waiting);
+            if (budget == 0 && due.All(f => f.Mode == FollowMode.Download))
+            {
+                _logger.LogInformation(
+                    "Follow: nothing searched, max_active_downloads {Cap} of Follow's selections are already waiting to be downloaded", cap);
+                return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
+            }
         }
 
         var grabFilters = settings.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
-        var run = new RunState((int)Math.Clamp(budget, 0, int.MaxValue));
+        var run = new RunState(budget);
         var errors = await ItemErrors.LoadAsync(dbContext, ErrorStage.Follow, _dryRun, cancellationToken);
         foreach (var follow in due)
         {
@@ -372,7 +377,9 @@ public sealed class FollowRunner(
             if (run.BudgetLeft <= 0)
             {
                 stoppedByBudget = true;
-                _logger.LogInformation("Follow: stopped at this run's limit of selections; {Name} is searched again next run", follow.DisplayName);
+                _logger.LogInformation(
+                    "Follow: stopped at max_active_downloads, the most of Follow's selections that may wait; {Name} is searched again next run",
+                    follow.DisplayName);
                 break;
             }
 

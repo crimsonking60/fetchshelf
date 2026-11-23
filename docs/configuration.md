@@ -840,7 +840,7 @@ missing.
 | `save_path` | unset | The folder qBittorrent saves the Follow job's downloads in, and those from the **Following** page, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `unsat_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
-| `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. |
+| `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. The free unsatisfied-snatch slots don't limit what the Follow job selects, so this is what keeps the **Selected** page from filling with Follow's selections while none can download. |
 | `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
 | `audiobookshelf_series` | `"off"` | `"follow"` or `"auto"`: follow every series in Audiobookshelf, in that mode, so series from before Fetchshelf are completed too. Needs [`[audiobookshelf]`](#audiobookshelf). See [series from Audiobookshelf](#series-from-audiobookshelf). |
@@ -873,12 +873,13 @@ What each run does:
    series entry already owned in that format and language, and anything already on the **Selected** page.
 4. **Decides each book, language and format on its own**, a series in entry order and an author's books newest first:
    the first `grab` block whose filter and `cost` accept a torrent takes the one in the best format. A series or author on *Auto* has
-   it selected, through the usual rules and the unsatisfied-snatch budget; a followed one has it listed on the
-   **Following** page. A match no block's `cost` accepts is listed as *not free*.
+   it selected, through the usual rules, whether or not an unsatisfied-snatch slot is free: the Download job
+   checks the slots, `unsat_buffer`, ratio and wedges when it downloads, so what it can't start yet waits on the
+   **Selected** page. A followed one has it listed on the **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
 With the defaults, a run searches at most 10 series or authors, and each series or author on the **Following**
 page is searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
-doesn't take a search from the others on every run. A run that reaches the unsatisfied-snatch budget stops selecting; the follow it was on is searched first
+doesn't take a search from the others on every run. A run that reaches `max_active_downloads` stops selecting; the follow it was on is searched first
 on the next run.
 
 ### Series from Audiobookshelf

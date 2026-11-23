@@ -61,7 +61,7 @@ public sealed class FollowRunnerTests : IDisposable
         public List<string> Searches => searches;
 
         public Task<FollowRunSummary> RunAsync(FollowSettings? settings = null) =>
-            create(settings ?? Settings()).RunAsync(unsatBuffer: 0, ignoreTorrents: []);
+            create(settings ?? Settings()).RunAsync(ignoreTorrents: []);
     }
 
     /// <summary>A harness whose MAM answers each search with <paramref name="searchResponse"/>, given the search's body.</summary>
@@ -197,18 +197,20 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ItsOwnUnsatBuffer_LowersTheRunsLimit()
+    public async Task NoFreeSlots_StillSearchesAndSelects_TheDownloadJobWaitsForASlot()
     {
+        // The account has 20 slots and the buffer takes them all: an autograb would select nothing, a follow selects its
+        // missing books, which wait on the Selected page until the Download job finds a slot beyond the buffer.
         var harness = CreateHarness(Results(Record(2, "Caliban's War", series: "The Expanse", number: "2")));
         AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
         var settings = Settings();
-        settings.UnsatBuffer = 20; // the account has 20 slots, none in use
+        settings.UnsatBuffer = 20;
 
         var summary = await harness.RunAsync(settings);
 
-        Assert.Equal(0, summary.Selected);
-        Assert.Empty(harness.Searches);
-        Assert.Empty(harness.Context.SelectedTorrents.AsNoTracking());
+        Assert.Equal((1, 1), (summary.Searched, summary.Selected));
+        Assert.Equal(2L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+        Assert.Equal(Now, harness.Context.Follows.AsNoTracking().Single().LastSearchedAt);
     }
 
     [Fact]
@@ -668,14 +670,16 @@ public sealed class FollowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task TheSelectionLimit_StopsTheRun_AndTheFollowIsSearchedAgainNextRun()
+    public async Task MaxActiveDownloads_StopsTheRun_AndTheFollowIsSearchedAgainNextRun()
     {
         var harness = CreateHarness(Results(
             Record(2, "Caliban's War", series: "The Expanse", number: "2"),
-            Record(3, "Abaddon's Gate", series: "The Expanse", number: "3")), unsatLimit: 1);
+            Record(3, "Abaddon's Gate", series: "The Expanse", number: "3")));
         AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
+        var settings = Settings();
+        settings.MaxActiveDownloads = 1;
 
-        var summary = await harness.RunAsync();
+        var summary = await harness.RunAsync(settings);
 
         Assert.Equal(1, summary.Selected);
         Assert.Equal(2L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
