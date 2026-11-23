@@ -20,8 +20,10 @@ public sealed record NavGroup(string Label, IReadOnlyList<NavEntry> Entries)
 /// <param name="ErrorDescription">The Errors badge's tooltip.</param>
 /// <param name="FollowCount">Finds waiting to be looked at; the Following badge.</param>
 /// <param name="LibraryFindings">Findings of the last Library check; the Library check badge.</param>
+/// <param name="SeedingConfigured">There is a <c>[seeding]</c> section.</param>
 public sealed record NavInputs(
-    bool HasAccount, bool FollowConfigured, bool ListsConfigured, int ErrorCount, string ErrorDescription, int FollowCount, int LibraryFindings);
+    bool HasAccount, bool FollowConfigured, bool ListsConfigured, int ErrorCount, string ErrorDescription, int FollowCount, int LibraryFindings,
+    bool SeedingConfigured = false);
 
 /// <summary>
 /// The main navigation: the pages used every day on the bar, related pages in menus, and the rare ones at the far end.
@@ -63,6 +65,11 @@ public sealed record NavModel(IReadOnlyList<NavEntry> Primary, IReadOnlyList<Nav
 
         // Looking back.
         List<NavEntry> insight = [new("/Events/Index", "Events"), new("/Statistics/Index", "Statistics")];
+        if (inputs.SeedingConfigured)
+        {
+            insight.Add(new("/Unsatisfied/Index", "Unsatisfied burndown"));
+        }
+
         if (inputs.HasAccount)
         {
             insight.Add(new("/MamApi/Index", "MAM API"));

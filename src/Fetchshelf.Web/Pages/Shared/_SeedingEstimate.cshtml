@@ -1,0 +1,20 @@
+@model Fetchshelf.Web.Pages.SeedingEstimateView
+@using Fetchshelf.Core.Organizer
+<p id="seeding-estimate">
+    Fetchshelf's estimate from qBittorrent's seeding time:
+    <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(SeedingState.SeedingUnsatisfied)">@Model.Seeding seeding</a> and
+    <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(SeedingState.NotSeedingUnsatisfied)">@Model.NotSeeding not seeding</a>
+    of its torrents look unsatisfied@(Model.PastThePeriod > 0 ? "," : ".")
+    @if (Model.PastThePeriod > 0)
+    {
+        <a asp-page="/Torrents/Index" asp-route-Seeding="@nameof(SeedingState.PastThePeriod)">@Model.PastThePeriod past the period</a>@:.
+    }
+    @if (Model.DiffersFromMam)
+    {
+        <span class="muted">
+            MAM counts @Model.MamSeeding and @Model.MamNotSeeding. They can differ: snatches made outside Fetchshelf or
+            in another client, torrents Fetchshelf only has as metadata, and seeding time MAM counts differently. MAM's counts
+            are what matter.
+        </span>
+    }
+</p>

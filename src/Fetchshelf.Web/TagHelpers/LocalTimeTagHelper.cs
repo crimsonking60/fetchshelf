@@ -9,7 +9,8 @@ namespace Fetchshelf.Web.TagHelpers;
 /// fallback, labelled as such) and wwwroot/js/local-time.js rewrites the text to the browser's local time as
 /// <c>YYYY-MM-DD HH:MM:SS</c>. The title keeps the UTC time for reference. With <c>short</c> the browser shows
 /// "3 h ago" or "yesterday 21:14" instead, for the tables, and the title holds the exact local time. With <c>date</c>
-/// it shows only the local date (<c>YYYY-MM-DD</c>), with the exact local time in the title.
+/// it shows only the local date (<c>YYYY-MM-DD</c>), with the exact local time in the title, and with <c>minute</c> the
+/// local time without seconds (<c>YYYY-MM-DD HH:MM</c>).
 /// </summary>
 [HtmlTargetElement("local-time", TagStructure = TagStructure.NormalOrSelfClosing)]
 public sealed class LocalTimeTagHelper : TagHelper
@@ -26,6 +27,9 @@ public sealed class LocalTimeTagHelper : TagHelper
 
     /// <summary>Shows only the date, in the browser's time zone; the exact local time goes in the title.</summary>
     public bool Date { get; set; }
+
+    /// <summary>Shows the time to the minute, in the browser's time zone, for times on the hour or a schedule.</summary>
+    public bool Minute { get; set; }
 
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
@@ -52,6 +56,13 @@ public sealed class LocalTimeTagHelper : TagHelper
             // The fallback keeps the date's width, so the column doesn't shift when the script rewrites it.
             output.Attributes.SetAttribute("data-date", "");
             output.Content.SetContent(value.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            return;
+        }
+
+        if (Minute)
+        {
+            output.Attributes.SetAttribute("data-minute", "");
+            output.Content.SetContent($"{value.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC");
             return;
         }
 

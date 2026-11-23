@@ -1,5 +1,6 @@
 using System.Net;
 using Fetchshelf.Clients.Mam;
+using Fetchshelf.Clients.QBittorrent;
 using Fetchshelf.Data;
 using Fetchshelf.Data.Organizer;
 using Fetchshelf.Tests.Shared;
@@ -119,6 +120,67 @@ public sealed class SeedingPagesTests
         Assert.Contains("72 hours within 30 days", config);
         Assert.Contains("<td>unsat</td>", config);
         Assert.NotNull(fixture.JobRegistry.Get("Seeding"));
+    }
+
+    [Fact]
+    public async Task BurndownPage_Lists73Hours_ForFetchshelfAndEveryMamTorrent_AndMarksWhereSeedingCompletes()
+    {
+        var added = DateTimeOffset.UtcNow.AddDays(-5).ToUnixTimeSeconds();
+        List<QBittorrentTorrent> inClient =
+        [
+            // MAM's tracker, 10 hours to go.
+            new() { Hash = "mam1", Name = "A", SavePath = "/d", State = "uploading", Progress = 1, SeedingTime = 62 * 3600, AddedOn = added, Tracker = "https://t.myanonamouse.net/tracker.php/abc/announce" },
+            // No tracker has answered, but MAM's comment: not seeding, so it counts until its period ends.
+            new() { Hash = "mam2", Name = "B", SavePath = "/d", State = "stoppedUP", Progress = 1, SeedingTime = 3600, AddedOn = added, Comment = "MID=123" },
+            // Another tracker, and a MAM torrent still downloading: neither counts.
+            new() { Hash = "other", Name = "C", SavePath = "/d", State = "uploading", Progress = 1, AddedOn = added, Tracker = "https://tracker.example/announce" },
+            new() { Hash = "mam3", Name = "D", SavePath = "/d", State = "downloading", Progress = 0.5, AddedOn = added, Tracker = "https://t.myanonamouse.net/announce" },
+        ];
+        using var fixture = new FetchshelfWebAppFixture(
+            Config + "\n[[qbittorrent]]\nurl = \"http://qbittorrent.test\"\nusername = \"admin\"\npassword = \"adminadmin\"\n",
+            qbittorrentHandler: request => request.RequestUri!.AbsolutePath.Contains("torrents/info")
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = System.Net.Http.Json.JsonContent.Create(inClient) }
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") },
+            mamHandler: request => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(request.RequestUri!.AbsolutePath.Contains("jsonLoad.php") ? MamAccountFixture.Json : "{}"),
+            });
+        await SetSeedingAsync(fixture, "hash1", "Short Book", "SeedingUnsatisfied", 41);
+        await SetSeedingAsync(fixture, "hash2", "Stopped Book", "NotSeedingUnsatisfied", 10);
+        using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+            await db.Torrents.ForEachAsync(t => t.SeedingCheckedAt = DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync();
+            await scope.ServiceProvider.GetRequiredService<MamClient>().GetAccountStateAsync();
+        }
+
+        var client = fixture.CreateClient();
+        var html = System.Text.RegularExpressions.Regex.Replace(await client.GetStringAsync("/unsatisfied"), @"\s+", " ");
+        var rows = System.Text.RegularExpressions.Regex.Matches(
+            html, "<tr> <td><time[^>]*data-minute[^>]*>[^<]+</time></td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td>");
+
+        Assert.Contains("<th class=\"num\">Fetchshelf unsatisfied</th><th class=\"num\">MAM unsatisfied</th>", html);
+        Assert.Contains(">1 seeding</a> and <a href=\"/Torrents?Seeding=NotSeedingUnsatisfied\">1 not seeding</a> of its torrents look unsatisfied.", html);
+        Assert.Contains("MAM counts 14 and 0.", html);
+        Assert.Equal(73, rows.Count);
+        Assert.Equal(("2", "2"), (rows[0].Groups[2].Value, rows[0].Groups[4].Value));
+        Assert.Equal(("1", "1"), (rows[72].Groups[2].Value, rows[72].Groups[4].Value));
+        var fetchshelfFewer = Assert.Single(rows, row => row.Groups[1].Success);
+        var mamFewer = Assert.Single(rows, row => row.Groups[3].Success);
+        Assert.Contains("title=\"1 satisfied\"", fetchshelfFewer.Value);
+        Assert.InRange(rows.ToList().IndexOf(mamFewer), 10, 11);
+        Assert.Contains("Unsatisfied burndown</a>", await client.GetStringAsync("/"));
+    }
+
+    [Fact]
+    public async Task BurndownPage_WithoutASeedingSection_IsNotThere()
+    {
+        using var fixture = Fixture("mam_id = \"\"\n");
+        var client = fixture.CreateClient();
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/unsatisfied")).StatusCode);
+        Assert.DoesNotContain("Unsatisfied burndown", await client.GetStringAsync("/"));
     }
 
     [Fact]

@@ -710,6 +710,9 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0 1rem; align-items: start; }
 .stat-table .num { text-align: right; font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap; }
 .stat-table .bar-cell { width: 35%; }
+table.burndown { width: auto; min-width: 20rem; }
+.burndown .num { width: auto; }
+.burndown td.fewer { background: color-mix(in srgb, var(--c-ok) 30%, var(--surface, transparent)); font-weight: 600; }
 .stat-bar { display: inline-block; height: 0.65rem; min-width: 1px; vertical-align: middle; background: var(--accent-line); border-radius: 2px; }
 .stat-bar[style="width: 0%"] { min-width: 0; }
 .stat-bar-free { background: var(--c-info); }

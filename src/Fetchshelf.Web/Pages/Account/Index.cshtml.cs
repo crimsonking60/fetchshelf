@@ -23,11 +23,8 @@ public class IndexModel(
     /// <summary>The Bonus points section; null until the page is built.</summary>
     public BonusView? Bonus { get; private set; }
 
-    /// <summary>
-    /// The Seeding job's estimate, by state (<c>SeedingState</c> name) with how many torrents are in each; null without a
-    /// `[seeding]` section.
-    /// </summary>
-    public IReadOnlyDictionary<string, int>? SeedingCounts { get; private set; }
+    /// <summary>The Seeding job's estimate next to MAM's counts; null without a `[seeding]` section.</summary>
+    public SeedingEstimateView? SeedingEstimate { get; private set; }
 
     /// <summary>The "Over time" section, from the daily snapshots.</summary>
     public AccountHistory History { get; private set; } = new([], []);
@@ -47,11 +44,7 @@ public class IndexModel(
         History = await AccountHistory.LoadAsync(dbContext, timeProvider.GetUtcNow(), cancellationToken);
         if (settings.Seeding is not null)
         {
-            SeedingCounts = await dbContext.Torrents.AsNoTracking()
-                .Where(t => t.SeedingState != null)
-                .GroupBy(t => t.SeedingState!)
-                .Select(g => new { State = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(g => g.State, g => g.Count, cancellationToken);
+            SeedingEstimate = await SeedingEstimateView.LoadAsync(dbContext, Summary.Snapshot?.State, cancellationToken);
         }
     }
 

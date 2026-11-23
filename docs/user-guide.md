@@ -1520,6 +1520,13 @@ Where it shows:
   counted differently by MAM. MAM's counts are what matter.
 - The **Torrents** page has a *Seeding* filter, and the *Status* column says how many hours a torrent still
   needs.
+- The **Unsatisfied burndown** page (under **Insight**) starts with the same estimate and MAM's counts as the
+  **Account** page, then counts the torrents that will look unsatisfied now and each hour of the next 72:
+  *Fetchshelf unsatisfied* for Fetchshelf's own torrents, from the Seeding job's last estimates, and *MAM unsatisfied*
+  for every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time when the page
+  opens, so it includes torrents added by hand or by another tool. A torrent seeding now is taken to keep seeding
+  until it is satisfied; one not seeding stays unsatisfied until its period ends. A count lower than the hour before
+  is highlighted, and pointing at it says how many were satisfied, or reached the end of their period, in that hour.
 - A torrent's page says how far it has got and by when, from qBittorrent's numbers right then.
 - **Unlink** and **Remove from qBittorrent with data** on a torrent that isn't satisfied say so before you confirm.
 - The Clean job holds `on_cleaned` back for a retired copy that isn't satisfied, so a qBittorrent rule acting on that
@@ -1935,7 +1942,8 @@ There is no login. See [Security and privacy](#security-and-privacy).
 The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
 **Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check**,
 with a count when it found something) and
-**Insight** (**Events**, **Statistics** and, when `mam_id` is set, **MAM API**), and at the right **Account**, **Config** and the theme menu. The theme
+**Insight** (**Events**, **Statistics**, **Unsatisfied burndown** with a `[seeding]` section and, when `mam_id` is set,
+**MAM API**), and at the right **Account**, **Config** and the theme menu. The theme
 menu offers four themes and **Match system**, the default, which follows the device's light or dark setting. A pill
 in the bar names the jobs running, on every page.
 
@@ -1949,6 +1957,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; at the end of the second group, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
+| **Unsatisfied burndown** | How many torrents will look unsatisfied now and each hour of the next 72, Fetchshelf's own and every MAM torrent in qBittorrent, with the hours where seeding completes highlighted. Only in the menu with a `[seeding]` section. See [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied). |
 | **MAM API** | Every call Fetchshelf made to MAM, as a chart and a table, to see the pattern behind a 429 (too many requests). Only in the menu when `mam_id` is set. See [MAM API](#mam-api). |
 | **Selected** | The queue of torrents that are chosen and not yet finished downloading. |
 | **Torrents** | Every torrent Fetchshelf knows. |
