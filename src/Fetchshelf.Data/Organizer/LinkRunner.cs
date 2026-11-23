@@ -987,13 +987,20 @@ public sealed class LinkRunner(
         var oldPath = existing.LibraryPath;
         var oldPathUse = oldPath is null ? null : await LibraryFileRemover.FolderUseByOthersAsync(dbContext, oldPath, existing.Id, cancellationToken);
         Placement placement;
+        List<FolderImage> images = [];
         try
         {
             if (oldPath is not null)
             {
+                var oldLinkedFiles = DeserializeLinkedFiles(existing.LinkedFilesJson);
+                if (CarriesImages(oldPath, oldPathUse!, library))
+                {
+                    // The book's own folder: its cover and other images go with it, so the cover isn't fetched again.
+                    images = FolderImages.Take(oldPath, oldLinkedFiles);
+                }
+
                 LibraryFileRemover.Remove(
-                    oldPath, DeserializeLinkedFiles(existing.LinkedFilesJson), oldPathUse!.Shared, oldPathUse.Files,
-                    LibraryContaining(oldPath)?.LibraryDir);
+                    oldPath, oldLinkedFiles, oldPathUse!.Shared, oldPathUse.Files, LibraryContaining(oldPath)?.LibraryDir);
             }
 
             // After the old files went: a folder the book itself left is no narrator collision.
@@ -1002,10 +1009,20 @@ public sealed class LinkRunner(
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            if (images.Count > 0 && oldPath is not null)
+            {
+                RestoreImages(existing.Title, oldPath, images);
+            }
+
             _logger.LogError("Could not relink {Title}: {Error}", existing.Title, ex.Message);
             await ErrorLog.RecordAsync(dbContext, ErrorStage.Linker, torrent.Hash, torrent.Name, ex.Message, cancellationToken: cancellationToken);
             await dbContext.SaveChangesAsync(cancellationToken);
             return new RelinkResult(false, $"Relinking failed part-way: {ex.Message} Fix the cause and relink again.");
+        }
+
+        if (images.Count > 0)
+        {
+            PutImages(existing.Title, placement.Folder, images);
         }
 
         RecordPlacement(existing, torrent, library, placement, audio, ebook);
@@ -1137,6 +1154,55 @@ public sealed class LinkRunner(
         var path = record.LibraryPath!;
         var use = await LibraryFileRemover.FolderUseByOthersAsync(dbContext, path, record.Id, cancellationToken);
         LibraryFileRemover.Remove(path, DeserializeLinkedFiles(record.LinkedFilesJson), use.Shared, use.Files, LibraryContaining(path)?.LibraryDir);
+    }
+
+    /// <summary>
+    /// Whether a relink carries the old folder's images over: the folder is a book folder of a library that places files,
+    /// no other torrent uses it, and the book goes into a book folder of such a library. A series folder's images are the
+    /// series', and a folder shared with another book keeps them for that one.
+    /// </summary>
+    private bool CarriesImages(string oldPath, FolderUse oldPathUse, Library newLibrary) =>
+        !oldPathUse.Shared
+        && LibraryContaining(oldPath) is { IsSeriesLayout: false, Method: not LibraryLinkMethod.NoLink }
+        && newLibrary is { IsSeriesLayout: false, Method: not LibraryLinkMethod.NoLink };
+
+    /// <summary>
+    /// Puts the images taken out of the book's old folder into its new one. A failure is logged and doesn't undo the
+    /// relink: the book's files are placed, and the next Link run writes a cover where there is none.
+    /// </summary>
+    private void PutImages(string title, string folder, List<FolderImage> images)
+    {
+        try
+        {
+            FolderImages.Put(folder, images);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning("Could not put the images of {Title} into {Folder}: {Error}", title, folder, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// After a relink failed part-way, puts the images taken out of the old folder back, making the folder again if the
+    /// removal took it: they may be the only copy of a cover put there by hand.
+    /// </summary>
+    private void RestoreImages(string title, string oldPath, List<FolderImage> images)
+    {
+        try
+        {
+            Directory.CreateDirectory(oldPath);
+            var restored = FolderImages.Put(oldPath, images);
+            if (restored.Count < images.Count)
+            {
+                _logger.LogWarning(
+                    "Relinking {Title} failed after its images were taken out of {Folder}; {Images} could not be put back",
+                    title, oldPath, string.Join(", ", images.Select(image => image.Name).Except(restored)));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning("Relinking {Title} failed after its images were taken out of {Folder}, and they could not be put back: {Error}", title, oldPath, ex.Message);
+        }
     }
 
     private RelinkResult Refuse(TorrentEntity existing, string reason)

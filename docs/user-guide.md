@@ -1752,6 +1752,11 @@ The Link job's result says how many covers were written, from where, and how man
 looked at once: again only after **Refresh** or a relink. A book whose files have no cover, and no source has one for,
 is logged and left without one.
 
+A relink carries the images in the book's folder over to the folder it is placed in, whatever their names: a cover
+written or fetched by Fetchshelf, put there by hand or by Audiobookshelf, or a `folder.jpg`. So a cover isn't fetched
+again when a book moves, and its old folder doesn't stay behind for an image. A folder another book still uses keeps
+its images for that one, and series folders are left as they are.
+
 Series libraries are left out. There, every book of a series is a file in one shared series folder, and a `cover.jpg`
 in it would be taken as the cover of them all: the first book's cover would show for the whole series, and the folder
 would then count as having one. Comics and manga, which series libraries are mostly for, carry their cover inside the
