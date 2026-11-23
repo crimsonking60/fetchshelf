@@ -127,6 +127,7 @@ public partial class FollowPagesTests
         Assert.Contains("Author, Followed - download yourself.", before);
         Assert.Contains(">Change to Auto</button>", before);
         Assert.Contains("Author, Auto - downloaded automatically.", after);
+        Assert.Contains("The author James S. A. Corey: Auto - downloaded automatically.", after); // the message starts the sentence
         Assert.Contains(">Change to Followed</button>", after);
         Assert.DoesNotContain("Followed - download yourself.", after);
     }

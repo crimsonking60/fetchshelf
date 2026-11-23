@@ -147,7 +147,8 @@ public class IndexModel(
         }
 
         var follow = await followService.SetAsync(kind, key, name, mode);
-        Message = $"{Describe(follow)}: {ModeLabel(follow.Mode)}.";
+        var described = Describe(follow);
+        Message = $"{char.ToUpperInvariant(described[0])}{described[1..]}: {ModeLabel(follow.Mode)}.";
         return Back(returnUrl);
     }
 
