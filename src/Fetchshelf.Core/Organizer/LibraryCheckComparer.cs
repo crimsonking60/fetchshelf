@@ -20,7 +20,10 @@ public sealed record BookIdentity(string Title, IReadOnlyList<string> Authors);
 
 public enum LibraryFindingKind
 {
-    /// <summary>A folder holding files that no book's folder is, or is inside of.</summary>
+    /// <summary>
+    /// A folder that no book's folder is, or is inside of or above: one holding files, or one with no files anywhere below
+    /// it, such as the author and series folders an older version left behind after unlinking a book.
+    /// </summary>
     UnknownFolder,
 
     /// <summary>A file in a series folder that no book of it lists, or a stray file above the book folders.</summary>
@@ -135,11 +138,17 @@ public static class LibraryCheckComparer
         HashSet<string> bookFolders, HashSet<string> aboveBooks, HashSet<string> roots, IReadOnlyList<KnownBook> books,
         Func<string, BookIdentity?>? readIdentity)
     {
-        // A folder holding files, inside a library, that is no book's folder, inside none and above none. Of nested ones,
-        // the outermost is reported: a book's `Disc 1` belongs to the book's folder when that holds files of its own.
+        // A folder inside a library that is no book's folder, inside none and above none, and either holds files or has
+        // none anywhere below it: an empty author folder is unknown, while an author folder above an unknown book's folder
+        // is not, as that folder is reported. Of nested ones, the outermost is reported: a book's `Disc 1` belongs to the
+        // book's folder when that holds files of its own, and an empty series folder to the empty author folder above it.
+        var withFilesBelow = folders
+            .Where(f => f.Files.Count > 0)
+            .SelectMany(f => Ancestors(Trim(f.Path)).Prepend(Trim(f.Path)))
+            .ToHashSet(StringComparer.Ordinal);
         var candidates = folders
             .Select(f => Trim(f.Path))
-            .Where(path => byPath[path].Files.Count > 0 && !roots.Contains(path) && LibraryOf(libraries, path) is not null
+            .Where(path => (byPath[path].Files.Count > 0 || !withFilesBelow.Contains(path)) && !roots.Contains(path) && LibraryOf(libraries, path) is not null
                 && !bookFolders.Contains(path) && !aboveBooks.Contains(path) && !Ancestors(path).Any(bookFolders.Contains))
             .ToHashSet(StringComparer.Ordinal);
         var reported = candidates.Where(path => !Ancestors(path).Any(candidates.Contains)).ToHashSet(StringComparer.Ordinal);

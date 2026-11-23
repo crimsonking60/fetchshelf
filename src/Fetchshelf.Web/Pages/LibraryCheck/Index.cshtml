@@ -76,7 +76,7 @@
 @if (unknownFolders.Count + unknownFiles.Count > 0)
 {
     <h3>Unknown folders and files</h3>
-    <p>No book points at these. Deleting removes them from the disk, and the folders left empty above them.</p>
+    <p>No book points at these, or they are empty, such as an author folder left behind. Deleting removes them from the disk, and the folders left empty above them.</p>
     <form method="post" asp-page-handler="Delete">
         @Html.AntiForgeryToken()
         <input type="hidden" name="Library" value="@Model.Library" />
@@ -96,7 +96,7 @@
                 {
                     <tr>
                         <td><input class="unknown-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Path" /></td>
-                        <td class="break">@finding.Path@(finding.Kind == LibraryFindingKind.UnknownFolder ? $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})" : "")</td>
+                        <td class="break">@finding.Path@(finding.Kind != LibraryFindingKind.UnknownFolder ? "" : finding.Files == 0 ? " (empty)" : $" ({finding.Files} {(finding.Files == 1 ? "file" : "files")})")</td>
                         <td>@finding.LibraryName</td>
                         <td class="nowrap">@DownloadBudget.FormatBytes(finding.Bytes)</td>
                         <td><local-time value="finding.NewestAt" /></td>

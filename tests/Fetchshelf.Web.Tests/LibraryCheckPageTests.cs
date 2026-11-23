@@ -202,6 +202,23 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
+    public async Task AnEmptyFolder_IsShownAsEmpty_AndDeletedWithTheEmptyFoldersInIt()
+    {
+        using var fixture = Fixture();
+        var client = fixture.CreateClient();
+        var folder = Path.Combine(LibraryDir, "Author");
+        Directory.CreateDirectory(Path.Combine(folder, "Series"));
+        Results(fixture).Set([new LibraryFinding(LibraryFindingKind.UnknownFolder, folder, "Audiobooks")], DateTimeOffset.UtcNow);
+
+        var page = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/LibraryCheck"));
+        var html = await PostAsync(client, "Delete", Results(fixture).Findings[0].Id);
+
+        Assert.Contains($"{folder} (empty)", page);
+        Assert.False(Directory.Exists(folder));
+        Assert.Contains("Deleted 1 finding.", html);
+    }
+
+    [Fact]
     public async Task Delete_AFolderABookUsesNow_IsRefusedAndKept()
     {
         using var fixture = Fixture();
