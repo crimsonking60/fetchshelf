@@ -426,51 +426,137 @@ public sealed class BookCoverExtractorTests : IDisposable
         Assert.Null(cache.PruneIfDue([], now.AddDays(6)));
         Assert.Equal(2, cache.PruneIfDue([], now.AddDays(8)));
     }
+    /// <summary>One image drawn on a test PDF's page: its bytes and size in pixels, and where it is drawn, in points.</summary>
+    private sealed record PdfPicture(byte[] Bytes, int PixelWidth, int PixelHeight, double X, double Y, double Width, double Height, string Filter = "DCTDecode");
+
+    /// <summary>A one-page A4 PDF whose page is filled by one picture with the given filter, such as JPXDecode.</summary>
+    private static string WritePdfWithFilter(string folder, string fileName, byte[] picture, int pixelWidth, int pixelHeight, string filter) =>
+        WritePdf(folder, fileName, new PdfPicture(picture, pixelWidth, pixelHeight, 0, 0, 595, 842, filter));
+
     /// <summary>
     /// Writes a one-page A4 PDF (595 by 842 points) whose page draws one DCT (JPEG) image at the given size, and returns its
     /// path. The image's bytes aren't decoded, so the test JPEG's few bytes do.
     /// </summary>
-    private static string WritePdf(string folder, string fileName, byte[] image, int width, int height)
+    private static string WritePdf(string folder, string fileName, byte[] image, int width, int height) =>
+        WritePdf(folder, fileName, new PdfPicture(image, 100, 140, 0, 0, width, height));
+
+    /// <summary>Writes a one-page A4 PDF whose page draws the given JPEG images, and returns its path.</summary>
+    private static string WritePdf(string folder, string fileName, params PdfPicture[] pictures)
     {
-        var content = $"q {width} 0 0 {height} 0 0 cm /Im1 Do Q";
-        var objects = new[]
+        static string Number(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var content = string.Join(" ", pictures.Select((p, i) => $"q {Number(p.Width)} 0 0 {Number(p.Height)} {Number(p.X)} {Number(p.Y)} cm /Im{i + 1} Do Q"));
+        var xObjects = string.Join(" ", pictures.Select((_, i) => $"/Im{i + 1} {i + 5} 0 R"));
+        var objects = new List<(string Text, byte[]? Stream)>
         {
-            "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>",
-            $"<< /Length {content.Length} >>\nstream\n{content}\nendstream",
-            null,
+            ("<< /Type /Catalog /Pages 2 0 R >>", null),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            ($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << {xObjects} >> >> /Contents 4 0 R >>", null),
+            ($"<< /Length {content.Length} >>", Encoding.ASCII.GetBytes(content)),
         };
+        objects.AddRange(pictures.Select(p => (
+            $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /{p.Filter} /Length {p.Bytes.Length} >>",
+            (byte[]?)p.Bytes)));
         using var pdf = new MemoryStream();
         var offsets = new List<long>();
         void Write(string text) => pdf.Write(Encoding.ASCII.GetBytes(text));
         Write("%PDF-1.4\n");
-        for (var i = 0; i < objects.Length; i++)
+        for (var i = 0; i < objects.Count; i++)
         {
             offsets.Add(pdf.Position);
-            if (objects[i] is { } text)
+            Write($"{i + 1} 0 obj\n{objects[i].Text}\n");
+            if (objects[i].Stream is { } stream)
             {
-                Write($"{i + 1} 0 obj\n{text}\nendobj\n");
+                Write("stream\n");
+                pdf.Write(stream);
+                Write("\nendstream\n");
             }
-            else
-            {
-                Write($"{i + 1} 0 obj\n<< /Type /XObject /Subtype /Image /Width 100 /Height 140 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {image.Length} >>\nstream\n");
-                pdf.Write(image);
-                Write("\nendstream\nendobj\n");
-            }
+
+            Write("endobj\n");
         }
 
         var xref = pdf.Position;
-        Write($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        Write($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
         foreach (var offset in offsets)
         {
             Write($"{offset:D10} 00000 n \n");
         }
 
-        Write($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        Write($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
         var path = Path.Combine(folder, fileName);
         File.WriteAllBytes(path, pdf.ToArray());
         return path;
+    }
+
+    /// <summary>A real JPEG of one colour, which SkiaSharp can decode.</summary>
+    private static byte[] SolidJpeg(int width, int height, SkiaSharp.SKColor colour)
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(width, height);
+        bitmap.Erase(colour);
+        using var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+        return data.ToArray();
+    }
+
+    [Fact]
+    public void Pdf_ACoverCutIntoStrips_IsPutTogether_TopStripFirst()
+    {
+        // Three strips 800 pixels wide, 500, 500 and 200 high, filling an A4 page: 842 points over 1,200 pixels.
+        var scale = 842.0 / 1200;
+        var (red, green, blue) = (SolidJpeg(800, 500, SkiaSharp.SKColors.Red), SolidJpeg(800, 500, SkiaSharp.SKColors.Lime), SolidJpeg(800, 200, SkiaSharp.SKColors.Blue));
+        var path = WritePdf(_root, "magazine.pdf",
+            new PdfPicture(blue, 800, 200, 0, 0, 595, 200 * scale),
+            new PdfPicture(red, 800, 500, 0, 700 * scale, 595, 500 * scale),
+            new PdfPicture(green, 800, 500, 0, 200 * scale, 595, 500 * scale));
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal("image/jpeg", cover!.ContentType);
+        using var bitmap = SkiaSharp.SKBitmap.Decode(cover.Bytes);
+        Assert.Equal((800, 1200), (bitmap.Width, bitmap.Height));
+        Assert.True(bitmap.GetPixel(400, 250).Red > 200, "the red strip is on top");
+        Assert.True(bitmap.GetPixel(400, 750).Green > 200, "the green strip is in the middle");
+        Assert.True(bitmap.GetPixel(400, 1100).Blue > 200, "the blue strip is at the bottom");
+    }
+
+    /// <summary>A JPEG 2000 codestream of one colour, encoded by CoreJ2K from a PPM.</summary>
+    private static byte[] SolidJpeg2000(int width, int height, (byte R, byte G, byte B) colour)
+    {
+        var header = Encoding.ASCII.GetBytes($"P6\n{width} {height}\n255\n");
+        var ppm = new byte[header.Length + (width * height * 3)];
+        header.CopyTo(ppm, 0);
+        for (var i = header.Length; i < ppm.Length; i += 3)
+        {
+            (ppm[i], ppm[i + 1], ppm[i + 2]) = colour;
+        }
+
+        using var stream = new MemoryStream(ppm);
+        return CoreJ2K.J2kImage.ToBytes(CoreJ2K.J2kImage.CreateEncodableSource(stream)!, (CoreJ2K.j2k.util.ParameterList?)null);
+    }
+
+    [Fact]
+    public void Pdf_AJpeg2000Cover_IsTurnedIntoAJpeg()
+    {
+        var path = WritePdfWithFilter(_root, "scan.pdf", SolidJpeg2000(80, 112, (200, 30, 30)), 80, 112, "JPXDecode");
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal("image/jpeg", cover!.ContentType);
+        using var bitmap = SkiaSharp.SKBitmap.Decode(cover.Bytes);
+        Assert.Equal((80, 112), (bitmap.Width, bitmap.Height));
+        var pixel = bitmap.GetPixel(40, 56);
+        Assert.True(pixel.Red > 170 && pixel.Green < 70 && pixel.Blue < 70, $"red, not {pixel}");
+    }
+
+    [Fact]
+    public void Pdf_SmallPicturesSideBySide_OrApart_AreNoCover()
+    {
+        var picture = SolidJpeg(400, 400, SkiaSharp.SKColors.Red);
+        var sideBySide = WritePdf(_root, "side.pdf",
+            new PdfPicture(picture, 400, 400, 0, 0, 290, 842), new PdfPicture(picture, 400, 400, 300, 0, 290, 842));
+        var apart = WritePdf(_root, "apart.pdf",
+            new PdfPicture(picture, 400, 400, 0, 500, 595, 342), new PdfPicture(picture, 400, 400, 0, 0, 595, 342));
+
+        Assert.Null(BookCoverExtractor.Extract(sideBySide));
+        Assert.Null(BookCoverExtractor.Extract(apart));
     }
 
     [Fact]

@@ -63,10 +63,12 @@ public static class BookCoverExtractor
     }
 
     /// <summary>
-    /// The largest image on a PDF's first page, when it covers at least half the page: a scanned or retail cover is one
-    /// picture, while a title page of text with a small logo has none that large. The page is not drawn, so text printed
-    /// over the picture isn't in the cover, and a cover drawn as vector graphics isn't found. A JPEG is taken as it is;
-    /// other images only when PdfPig can turn them into a PNG. Null for a PDF that can't be read, such as an encrypted one.
+    /// The picture filling a PDF's first page: its largest image when that covers at least half the page, as a scanned or
+    /// retail cover is one picture, while a title page of text with a small logo has none that large. Some scans cut the
+    /// page into strips of the same width, one above the other (<see cref="PdfStripCover"/>); those are put together. The
+    /// page is not drawn, so text printed over the picture isn't in the cover, and a cover drawn as vector graphics isn't
+    /// found. A JPEG is taken as it is, a JPEG 2000 picture is turned into a JPEG, and other images are taken only when
+    /// PdfPig can turn them into a PNG. Null for a PDF that can't be read, such as an encrypted one.
     /// </summary>
     private static BookCover? PdfCover(string path)
     {
@@ -80,25 +82,38 @@ public static class BookCoverExtractor
 
             var page = document.GetPage(1);
             var pageArea = page.Width * page.Height;
-            var image = page.GetImages().MaxBy(i => i.BoundingBox.Area);
-            if (image is null || pageArea <= 0 || image.BoundingBox.Area < pageArea / 2)
+            var images = page.GetImages().ToList();
+            var image = images.MaxBy(i => i.BoundingBox.Area);
+            if (image is null || pageArea <= 0)
             {
                 return null;
             }
 
-            var bytes = image.RawMemory.ToArray();
-            if (SniffImageType(bytes) is not "image/jpeg")
+            if (image.BoundingBox.Area < pageArea / 2)
             {
-                bytes = image.TryGetPng(out var png) ? png : null;
+                return PdfStripCover.Join(images, pageArea);
             }
 
+            var bytes = PdfImageBytes(image);
             return bytes is { Length: > 0 and <= MaxCoverBytes } && SniffImageType(bytes) is { } contentType ? new BookCover(bytes, contentType) : null;
         }
         catch (Exception ex) when (ex is not (IOException or UnauthorizedAccessException or OperationCanceledException))
         {
-            // PdfPig throws its own exceptions, and others, for damaged, encrypted or unusual files.
+            // PdfPig, CoreJ2K and SkiaSharp throw their own exceptions, and others, for damaged, encrypted or unusual files.
             return null;
         }
+    }
+
+    /// <summary>
+    /// A PDF image as a JPEG when it is one, or is a JPEG 2000 picture (<see cref="Jpeg2000Picture"/>), else as a PNG when
+    /// PdfPig can make one; null otherwise, such as for the black-and-white JBIG2 and CCITT fax pictures of some scans.
+    /// </summary>
+    internal static byte[]? PdfImageBytes(UglyToad.PdfPig.Content.IPdfImage image)
+    {
+        var bytes = image.RawMemory.ToArray();
+        return SniffImageType(bytes) is "image/jpeg" ? bytes
+            : Jpeg2000Picture.Is(bytes) ? Jpeg2000Picture.ToJpeg(bytes)
+            : image.TryGetPng(out var png) ? png : null;
     }
 
     /// <summary>The image type of <paramref name="bytes"/> from its first bytes, or null when it isn't a known image.</summary>
