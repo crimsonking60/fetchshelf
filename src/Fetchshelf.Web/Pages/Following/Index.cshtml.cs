@@ -211,6 +211,17 @@ public class IndexModel(
         return Back(returnUrl);
     }
 
+    public async Task<IActionResult> OnPostUndoDismissAsync(int findId, string? returnUrl)
+    {
+        if (FollowService is not { } followService)
+        {
+            return NotFound();
+        }
+
+        await followService.UndoDismissAsync(findId);
+        return Back(returnUrl);
+    }
+
     public async Task<IActionResult> OnPostDownloadAsync(int findId, bool wedge, string? returnUrl)
     {
         if (FollowService is not { } followService)
@@ -244,7 +255,7 @@ public class IndexModel(
     /// <summary>How many of the ticked books' outcomes a bulk download names, before saying how many more there are.</summary>
     private const int BulkProblemsNamed = 3;
 
-    /// <summary>Downloads, wedge-downloads or dismisses the ticked finds of a list of finds.</summary>
+    /// <summary>Downloads, wedge-downloads, dismisses or undoes the dismissal of the ticked finds of a list of finds.</summary>
     public async Task<IActionResult> OnPostBulkAsync(string bulkAction, int[] findIds, string? returnUrl)
     {
         if (FollowService is not { } followService)
@@ -267,6 +278,15 @@ public class IndexModel(
                 }
 
                 Message = findIds.Length == 1 ? "Dismissed 1 book." : $"Dismissed {findIds.Length} books.";
+                return Back(returnUrl);
+            case "undo-dismiss":
+                var undone = 0;
+                foreach (var findId in findIds)
+                {
+                    undone += await followService.UndoDismissAsync(findId) ? 1 : 0;
+                }
+
+                Message = undone == 1 ? "1 book is back to look at." : $"{undone} books are back to look at.";
                 return Back(returnUrl);
             case "download" or "wedge":
                 await DownloadAllAsync(followService, findIds, bulkAction == "wedge");

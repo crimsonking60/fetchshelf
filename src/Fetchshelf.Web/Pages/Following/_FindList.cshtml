@@ -5,6 +5,8 @@
     var query = Model.Query;
     var sortRoute = Model.RouteValuesFor(query);
     var anyWaiting = Model.Rows.Any(r => FindListViewModel.IsWaiting(r.Find));
+    var anyDismissed = Model.Rows.Any(r => r.Find.Status == Fetchshelf.Data.Entities.FollowFindStatus.Dismissed);
+    var anyTickable = anyWaiting || anyDismissed;
 }
 
 @* A changed dropdown applies straight away, as on the Torrents page. No action: it stays on this page, a follow's id and all. *@
@@ -51,21 +53,28 @@
 else
 {
     @* The tick boxes belong to this form through their form attribute: each row's own buttons are forms too, and forms can't nest. *@
-    @if (anyWaiting)
+    @if (anyTickable)
     {
         <form id="bulk-finds" method="post" asp-page="/Following/Index" asp-page-handler="Bulk" class="toolbar">
             @Html.AntiForgeryToken()
             <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
             <span class="muted">Ticked:</span>
-            <button type="submit" name="bulkAction" value="download">Download</button>
-            <button type="submit" name="bulkAction" value="wedge" data-confirm="Spend one freeleech wedge per book on the {n}?" data-confirm-count="findIds" data-confirm-noun="book" data-confirm-label="Spend wedges">Wedge&nbsp;download</button>
-            <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
+            @if (anyWaiting)
+            {
+                <button type="submit" name="bulkAction" value="download">Download</button>
+                <button type="submit" name="bulkAction" value="wedge" data-confirm="Spend one freeleech wedge per book on the {n}?" data-confirm-count="findIds" data-confirm-noun="book" data-confirm-label="Spend wedges">Wedge&nbsp;download</button>
+                <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
+            }
+            @if (anyDismissed)
+            {
+                <button type="submit" name="bulkAction" value="undo-dismiss">Undo dismiss</button>
+            }
         </form>
     }
     <table class="follow-finds">
         <thead>
             <tr>
-                @if (anyWaiting)
+                @if (anyTickable)
                 {
                     <th><input type="checkbox" aria-label="Tick all" onclick="document.querySelectorAll('.find-select').forEach(c => c.checked = this.checked)" /></th>
                 }
@@ -94,11 +103,12 @@ else
             @foreach (var (find, follow) in Model.Rows)
             {
                 var waiting = FindListViewModel.IsWaiting(find);
+                var dismissed = find.Status == Fetchshelf.Data.Entities.FollowFindStatus.Dismissed;
                 <tr class="@(waiting ? null : "muted")">
-                    @if (anyWaiting)
+                    @if (anyTickable)
                     {
                         <td>
-                            @if (waiting)
+                            @if (waiting || dismissed)
                             {
                                 <input class="find-select" type="checkbox" form="bulk-finds" name="findIds" value="@find.Id" aria-label="Tick @find.Title" />
                             }
@@ -153,6 +163,15 @@ else
                                 <input type="hidden" name="findId" value="@find.Id" />
                                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                                 <button type="submit">Dismiss</button>
+                            </form>
+                        }
+                        else if (dismissed)
+                        {
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="UndoDismiss" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="findId" value="@find.Id" />
+                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                <button type="submit">Undo dismiss</button>
                             </form>
                         }
                     </td>

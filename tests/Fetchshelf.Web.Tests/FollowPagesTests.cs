@@ -855,6 +855,57 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task UndoDismiss_PutsADismissedFindBackToLookAt()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        var dismissed = AddFind(fixture, 2, "Words of Radiance", FollowFindStatus.Dismissed);
+        using var client = fixture.CreateClient();
+        var page = FollowPage(fixture) + "?Show=Dismissed";
+
+        var html = await client.GetStringAsync(page);
+        Assert.Contains("Words of Radiance", html);
+        Assert.Contains(">Undo dismiss</button>", html);
+        Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"findIds\" value=\"{dismissed}\"", html);
+        Assert.DoesNotContain("value=\"dismiss\">Dismiss</button>", html); // nothing waiting on this list: only the undo
+
+        var response = await PostAsync(client, page, "/Following?handler=UndoDismiss",
+            new() { ["findId"] = dismissed.ToString(System.Globalization.CultureInfo.InvariantCulture), ["returnUrl"] = page });
+
+        Assert.DoesNotContain("Words of Radiance", await response.Content.ReadAsStringAsync());
+        var toLookAt = await client.GetStringAsync("/following/to-look-at");
+        Assert.Contains("Words of Radiance", toLookAt);
+    }
+
+    [Fact]
+    public async Task Bulk_UndoDismiss_CountsOnlyTheFindsThatWereDismissed()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        var waiting = await SeedFindAsync(fixture);
+        var first = AddFind(fixture, 2, "Words of Radiance", FollowFindStatus.Dismissed);
+        var second = AddFind(fixture, 3, "Oathbringer", FollowFindStatus.Dismissed);
+        using var client = fixture.CreateClient();
+        var page = FollowPage(fixture);
+        var html = await client.GetStringAsync(page);
+        Assert.Contains("value=\"undo-dismiss\">Undo dismiss</button>", html);
+
+        var token = TokenPattern().Match(html).Groups[1].Value;
+        using var content = new FormUrlEncodedContent(
+        [
+            new("__RequestVerificationToken", token),
+            new("bulkAction", "undo-dismiss"),
+            new("findIds", waiting.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("findIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("findIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("returnUrl", page),
+        ]);
+        var after = await (await client.PostAsync("/Following?handler=Bulk", content)).Content.ReadAsStringAsync();
+
+        Assert.Contains("2 books are back to look at.", after);
+        Assert.DoesNotContain(">Undo dismiss</button>", after);
+    }
+
+    [Fact]
     public async Task Bulk_WithNothingTicked_SaysSo()
     {
         using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);

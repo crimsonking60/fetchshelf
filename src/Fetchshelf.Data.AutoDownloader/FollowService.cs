@@ -262,6 +262,25 @@ public sealed class FollowService(
     }
 
     /// <summary>
+    /// Puts a dismissed find back to be looked at, with its Download and Dismiss buttons. Whether it was not free before
+    /// isn't kept, so it comes back as new; the next Follow run of an Auto follow marks it not free again if no grab
+    /// block pays for it, or downloads it if one does. A find that isn't dismissed is left as it is. True when it was
+    /// dismissed.
+    /// </summary>
+    public async Task<bool> UndoDismissAsync(int findId, CancellationToken cancellationToken = default)
+    {
+        var find = await dbContext.FollowFinds.FirstOrDefaultAsync(f => f.Id == findId, cancellationToken);
+        if (find is not { Status: FollowFindStatus.Dismissed })
+        {
+            return false;
+        }
+
+        (find.Status, find.StatusAt) = (FollowFindStatus.New, _time.GetUtcNow());
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
     /// Selects a find's torrent as the Search page's Download does: MAM is asked for it again, so the cost is today's,
     /// and it goes through the usual selection rules, with the `[follow]` category.
     /// </summary>

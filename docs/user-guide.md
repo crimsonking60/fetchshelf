@@ -1397,7 +1397,10 @@ and author together, which is what the count on the menu link counts. A find tha
 selection queue by another route, such as another follow, an autograb or the **Search** page, leaves **To look at** at
 the next Follow run, whether its own follow is searched in that run or not. On both, a torrent's title opens its
 details from MAM over the page, as on the **Search** page; **Close** goes back to the list. Tick several finds
-to **Download**, **Wedge download** or **Dismiss** them at once.
+to **Download**, **Wedge download** or **Dismiss** them at once. A dismissed find is listed under *Show* →
+*Dismissed*, with **Undo dismiss**, alone or for the ticked ones, to put it back to look at with its buttons. Whether
+it was *not free* isn't kept: it comes back as to look at, and on Auto the next Follow run marks it *not free* again,
+or downloads it if a `[[follow.grab]]` block now pays for it.
 
 Once a find is downloaded, its status moves on by itself as on the **Search** page, *Selected*, *Downloading*,
 *Downloaded*, *Linked*, and it is linked as soon as qBittorrent has finished it, whether the page stays open or not. A find marked *not free* matched, but none of the
