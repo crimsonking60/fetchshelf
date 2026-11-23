@@ -114,7 +114,7 @@ public sealed class SeedingRunner(
         await dbContext.SaveChangesAsync(cancellationToken);
         var summary = new SeedingRunSummary(checkedCount, unsatisfied, notSeeding, pastThePeriod, newlySatisfied, onCleanedApplied);
         _logger.LogInformation(
-            "Seeding: {Checked} torrents checked; {Unsatisfied} look unsatisfied ({NotSeeding} not seeding), {Past} past the period, {Satisfied} newly satisfied",
+            "{Checked} torrents checked; {Unsatisfied} look unsatisfied ({NotSeeding} not seeding), {Past} past the period, {Satisfied} newly satisfied",
             summary.Checked, summary.LookUnsatisfied, summary.NotSeeding, summary.PastThePeriod, summary.NewlySatisfied);
         return summary;
     }

@@ -267,7 +267,7 @@ public sealed class UpgradeRunnerTests : IDisposable
         Assert.Contains(debug, m => m.Contains("MAM torrent 2 \"Dune\" by Brian Herbert (m4b): not the same book", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("MAM torrent 3 \"Dune Messiah\" by Frank Herbert (m4b): not the same book", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("MAM torrent 4 \"Dune\" by Frank Herbert (m4b): already known", StringComparison.Ordinal));
-        Assert.Contains(logger.Messages(LogLevel.Information), m => m.StartsWith("Upgrade: 1 book searched on MAM (\"Dune\"), 0 better copies selected", StringComparison.Ordinal));
+        Assert.Contains(logger.Messages(LogLevel.Information), m => m.StartsWith("1 book searched on MAM (\"Dune\"), 0 better copies selected", StringComparison.Ordinal));
     }
 
     [Fact]

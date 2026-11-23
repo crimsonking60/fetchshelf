@@ -116,14 +116,14 @@ public sealed class FollowRunner(
             .ToList();
         if (_dryRun)
         {
-            _logger.LogInformation("Follow: dry run, nothing will be selected or written");
+            _logger.LogInformation("Dry run, nothing will be selected or written");
         }
 
         await RetireForFollowsNotDueAsync(due, cancellationToken);
 
         if (due.Count == 0)
         {
-            _logger.LogInformation("Follow: no series or author on the Following page is due for a search");
+            _logger.LogInformation("No series or author on the Following page is due for a search");
             return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
         }
 
@@ -138,7 +138,7 @@ public sealed class FollowRunner(
             if (budget == 0 && due.All(f => f.Mode == FollowMode.Download))
             {
                 _logger.LogInformation(
-                    "Follow: nothing searched, max_active_downloads {Cap} of Follow's selections are already waiting to be downloaded", cap);
+                    "Nothing searched, max_active_downloads {Cap} of Follow's selections are already waiting to be downloaded", cap);
                 return new FollowRunSummary(0, 0, 0, 0, _dryRun, added);
             }
         }
@@ -163,7 +163,7 @@ public sealed class FollowRunner(
             if (failure is not null)
             {
                 run.Failed++;
-                _logger.LogWarning(failure, "Follow: searching for {Name} failed: {Reason}", follow.DisplayName, failure.Message);
+                _logger.LogWarning(failure, "Searching for {Name} failed: {Reason}", follow.DisplayName, failure.Message);
             }
         }
 
@@ -173,7 +173,7 @@ public sealed class FollowRunner(
         }
 
         _logger.LogInformation(
-            "Follow: {Searched} series and authors searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
+            "{Searched} series and authors searched on MAM, {Selected} {Verb}, {New} new to look at{Failures}",
             run.Searched, run.Selected, _dryRun ? "would have been selected (dry run)" : "selected", run.NewFinds,
             run.Failed == 0 ? string.Empty : $", {run.Failed} failed");
         return new FollowRunSummary(run.Searched, run.Selected, run.NewFinds, run.Failed, _dryRun, added);
@@ -227,7 +227,7 @@ public sealed class FollowRunner(
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested
             && ex is HttpRequestException or System.Text.Json.JsonException or TaskCanceledException)
         {
-            _logger.LogWarning(ex, "Follow: the series could not be read from Audiobookshelf, so the run searches the follows it has: {Error}", ex.Message);
+            _logger.LogWarning(ex, "The series could not be read from Audiobookshelf, so the run searches the follows it has: {Error}", ex.Message);
             return 0;
         }
     }
@@ -378,7 +378,7 @@ public sealed class FollowRunner(
             {
                 stoppedByBudget = true;
                 _logger.LogInformation(
-                    "Follow: stopped at max_active_downloads, the most of Follow's selections that may wait; {Name} is searched again next run",
+                    "Stopped at max_active_downloads, the most of Follow's selections that may wait; {Name} is searched again next run",
                     follow.DisplayName);
                 break;
             }
@@ -408,7 +408,7 @@ public sealed class FollowRunner(
         }
 
         RecordHad(follow, had, candidates, finds, now);
-        _logger.LogInformation("Follow {Name}: {Outcome}", follow.DisplayName, outcome.Describe(follow.Kind));
+        _logger.LogInformation("{Name}: {Outcome}", follow.DisplayName, outcome.Describe(follow.Kind));
 
         if (!stoppedByBudget)
         {
@@ -427,7 +427,7 @@ public sealed class FollowRunner(
 
     private void Log(FollowEntity follow, Candidate candidate, string what) =>
         _logger.Log(
-            _dryRun ? LogLevel.Information : LogLevel.Debug, "Follow {Name}: \"{Title}\" (MAM torrent {MamId}): {What}",
+            _dryRun ? LogLevel.Information : LogLevel.Debug, "{Name}: \"{Title}\" (MAM torrent {MamId}): {What}",
             follow.DisplayName, candidate.Metadata.Title, candidate.Record.MamId, what);
 
     /// <summary>The torrent's size from MAM's listing; null when MAM gives none or one that can't be read, as it is only shown.</summary>
@@ -494,7 +494,7 @@ public sealed class FollowRunner(
             var fresh = result.Data.Where(record => seen.Add(record.MamId)).ToList();
             records.AddRange(fresh);
             _logger.LogDebug(
-                "Follow {Name}: page {Page} from torrent {Offset}: {Count} torrents, {Fresh} not on an earlier page; MAM gave start {Start}, found {Found}, total {Total}",
+                "{Name}: page {Page} from torrent {Offset}: {Count} torrents, {Fresh} not on an earlier page; MAM gave start {Start}, found {Found}, total {Total}",
                 follow.DisplayName, page + 1, offset, result.Data.Count, fresh.Count, result.Start, result.Found, result.Total);
 
             // A short page is the last; so is a full one that reaches the count MAM gives, when it gives one. MAM gives
@@ -509,7 +509,7 @@ public sealed class FollowRunner(
             {
                 // The same torrents again: MAM didn't move on to the next page, and reading on would only repeat them.
                 _logger.LogWarning(
-                    "Follow {Name}: MAM gave page {Page} (from torrent {Offset}) only torrents an earlier page had, so the search stops at {Count} torrents. MAM gave start {Start}, found {Found}, total {Total}",
+                    "{Name}: MAM gave page {Page} (from torrent {Offset}) only torrents an earlier page had, so the search stops at {Count} torrents. MAM gave start {Start}, found {Found}, total {Total}",
                     follow.DisplayName, page + 1, offset, records.Count, result.Start, result.Found, result.Total);
                 return (records, false, page + 1);
             }
@@ -517,13 +517,13 @@ public sealed class FollowRunner(
             if (readBackTo is { } since && result.Data.Min(record => record.UploadedAt) < since)
             {
                 _logger.LogDebug(
-                    "Follow {Name}: read {Pages} pages, back to torrents the last search saw", follow.DisplayName, page + 1);
+                    "{Name}: read {Pages} pages, back to torrents the last search saw", follow.DisplayName, page + 1);
                 return (records, false, page + 1);
             }
         }
 
         _logger.LogWarning(
-            "Follow {Name}: stopped after {Pages} pages of results ({Count} torrents); older ones are not looked at",
+            "{Name}: stopped after {Pages} pages of results ({Count} torrents); older ones are not looked at",
             follow.DisplayName, MaxPages, records.Count);
         return (records, false, MaxPages);
     }
@@ -779,7 +779,7 @@ public sealed class FollowRunner(
 
         if (retired > 0)
         {
-            _logger.LogInformation("Follow {Name}: {Count} found earlier are in the library or selected by now", follow.DisplayName, retired);
+            _logger.LogInformation("{Name}: {Count} found earlier are in the library or selected by now", follow.DisplayName, retired);
         }
     }
 

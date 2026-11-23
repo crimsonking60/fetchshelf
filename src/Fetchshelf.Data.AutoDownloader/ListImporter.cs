@@ -81,7 +81,7 @@ public sealed class ListImporter(
         var unreadableLines = bookSource.UnreadableLines;
         if (_dryRun)
         {
-            _logger.LogInformation("List {Name}: dry run, nothing will be selected or written", name);
+            _logger.LogInformation("Dry run, nothing will be selected or written");
         }
 
         var grabFilters = list.Grab.Select(SharedFilterConfigMapper.ToTorrentFilter).ToList();
@@ -102,8 +102,8 @@ public sealed class ListImporter(
         {
             var explanation = SelectionBudget.Explain(account.UnsatLimit, account.UnsatCount, unsatBuffer, list.MaxActiveDownloads, currentActive);
             _logger.LogInformation(
-                "List {Name}: {Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
-                name, Books(books.Count, bookmarks), explanation);
+                "{Books}, nothing searched, this run's limit is 0 selections ({BudgetExplanation})",
+                Books(books.Count, bookmarks), explanation);
             return new ListRunSummary(0, 0, books.Count, 0, _dryRun, unreadableLines, bookmarks);
         }
 
@@ -115,7 +115,7 @@ public sealed class ListImporter(
         {
             if (selected >= budget)
             {
-                _logger.LogInformation("List {Name}: stopped at this run's limit of {Budget} selections", name, budget);
+                _logger.LogInformation("Stopped at this run's limit of {Budget} selections", budget);
                 break;
             }
 
@@ -134,13 +134,13 @@ public sealed class ListImporter(
             if (failure is not null)
             {
                 failed++;
-                _logger.LogWarning(failure, "List {Name}: \"{Title}\" failed: {Reason}", name, item.BookTitle, failure.Message);
+                _logger.LogWarning(failure, "\"{Title}\" failed: {Reason}", item.BookTitle, failure.Message);
             }
         }
 
         _logger.LogInformation(
-            "List {Name}: {Books}, {Searched} {SearchedVerb}, {Selected} {Verb}{Failures}",
-            name, Books(books.Count, bookmarks), searched, bookmarks ? "looked at" : "searched on MAM", selected, _dryRun ? "would have been selected (dry run)" : "selected",
+            "{Books}, {Searched} {SearchedVerb}, {Selected} {Verb}{Failures}",
+            Books(books.Count, bookmarks), searched, bookmarks ? "looked at" : "searched on MAM", selected, _dryRun ? "would have been selected (dry run)" : "selected",
             failed == 0 ? string.Empty : $", {failed} failed");
         return new ListRunSummary(selected, failed, books.Count, searched, _dryRun, unreadableLines, bookmarks);
     }
@@ -317,8 +317,8 @@ public sealed class ListImporter(
 
                 (item.LastSearchedAt, item.MissingSince) = (null, null);
                 _logger.LogInformation(
-                    "List {Name}: \"{Title}\": the {Format} {What} MAM torrent {MamId} is gone; searching for it again",
-                    name, item.BookTitle, side == FilterMainType.Audio ? "audiobook" : "ebook",
+                    "\"{Title}\": the {Format} {What} MAM torrent {MamId} is gone; searching for it again",
+                    item.BookTitle, side == FilterMainType.Audio ? "audiobook" : "ebook",
                     status == ListItemSideStatus.Selected ? "selection of" : "copy from", id);
             }
         }
@@ -478,8 +478,8 @@ public sealed class ListImporter(
             // The audiobook took the run's last selection: the ebook waits, and isn't recorded as not found.
             leftForNextRun = true;
             _logger.Log(
-                Detail(), "List {Name}: \"{Title}\": the ebook is left for the next run, which has room to select it",
-                name, item.BookTitle);
+                Detail(), "\"{Title}\": the ebook is left for the next run, which has room to select it",
+                item.BookTitle);
         }
         else if (needEbook)
         {
@@ -554,7 +554,7 @@ public sealed class ListImporter(
         {
             SetSide(item, side, ListItemSideStatus.NoGrabBlock, torrent.MamId);
             _logger.Log(
-                Detail(), "List {Name}: \"{Title}\": MAM torrent {MamId} doesn't pass any grab block's filter", name, item.BookTitle, torrent.MamId);
+                Detail(), "\"{Title}\": MAM torrent {MamId} doesn't pass any grab block's filter", item.BookTitle, torrent.MamId);
             return (0, true);
         }
 
@@ -571,15 +571,15 @@ public sealed class ListImporter(
         {
             SetSide(item, side, ListItemSideStatus.Wanted, tooExpensive.Payload.MamId);
             _logger.Log(
-                Detail(), "List {Name}: \"{Title}\": {Format} MAM torrent {MamId} matches, but no grab block's cost accepts it",
-                name, item.BookTitle, format, tooExpensive.Payload.MamId);
+                Detail(), "\"{Title}\": {Format} MAM torrent {MamId} matches, but no grab block's cost accepts it",
+                item.BookTitle, format, tooExpensive.Payload.MamId);
             return 0;
         }
 
         if (winner is null)
         {
             SetSide(item, side, ListItemSideStatus.NotFound, mamId: null);
-            _logger.Log(Detail(), "List {Name}: \"{Title}\": no {Format} on MAM matches", name, item.BookTitle, format);
+            _logger.Log(Detail(), "\"{Title}\": no {Format} on MAM matches", item.BookTitle, format);
             return 0;
         }
 
@@ -595,8 +595,8 @@ public sealed class ListImporter(
         };
         SetSide(item, side, status, winner.Payload.MamId);
         _logger.Log(
-            Detail(), "List {Name}: \"{Title}\": {Format} MAM torrent {MamId}: {Outcome}",
-            name, item.BookTitle, format, winner.Payload.MamId, outcome.Describe(_dryRun));
+            Detail(), "\"{Title}\": {Format} MAM torrent {MamId}: {Outcome}",
+            item.BookTitle, format, winner.Payload.MamId, outcome.Describe(_dryRun));
         return outcome.IsSelected() ? 1 : 0;
     }
 

@@ -66,13 +66,13 @@ public sealed class MamBookmarksSource(
     {
         if (GrabMatching.TryMap(record) is not { } metadata)
         {
-            _logger.LogDebug("List {Name}: bookmarked MAM torrent {MamId} could not be read, left out", listName, record.MamId);
+            _logger.LogDebug("Bookmarked MAM torrent {MamId} could not be read, left out", record.MamId);
             return null;
         }
 
         if (FilterMainTypeMapper.FromMediaType(metadata.MediaType) is not (FilterMainType.Audio or FilterMainType.Ebook))
         {
-            _logger.LogDebug("List {Name}: bookmarked MAM torrent {MamId} is neither an audiobook nor an ebook, left out", listName, record.MamId);
+            _logger.LogDebug("Bookmarked MAM torrent {MamId} is neither an audiobook nor an ebook, left out", record.MamId);
             return null;
         }
 

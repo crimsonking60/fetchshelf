@@ -289,7 +289,8 @@ public sealed class JobRegistry(
     private async Task RunOnceAsync(RegisteredJob job, JobTrigger trigger, CancellationTokenSource cancellation)
     {
         var name = job.Name;
-        // Flows into everything the run awaits or starts, whichever logger it writes with.
+        // Flows into everything the run awaits or starts, whichever logger it writes with. The log output puts the job's
+        // name in front of each line, so the lines below and the runners' own leave it out.
         using var logScope = _logger.BeginScope(new Dictionary<string, object> { [JobLogProperty] = name });
         var startedAt = _timeProvider.GetUtcNow();
         lock (job.Gate)
@@ -297,7 +298,7 @@ public sealed class JobRegistry(
             job.RunningSince = startedAt;
         }
 
-        _logger.LogInformation("Job {JobName} started", name);
+        _logger.LogInformation("Started");
         var row = _writer?.Started(name, startedAt, trigger);
 
         JobRunResult result;
@@ -309,12 +310,12 @@ public sealed class JobRegistry(
         {
             var outcome = await (trigger == JobTrigger.DryRun ? job.DryRunAsync! : job.RunAsync)(cancellation.Token);
             (result, summary, counts, details) = (JobRunResult.Success, outcome?.Summary, outcome?.Counts, outcome?.Details);
-            _logger.LogInformation("Job {JobName} finished in {Elapsed:0.0}s", name, Elapsed(startedAt));
+            _logger.LogInformation("Finished in {Elapsed:0.0}s", Elapsed(startedAt));
         }
         catch (JobCompletedWithErrorsException ex)
         {
             (result, summary, counts, details) = (JobRunResult.CompletedWithErrors, ex.Message, ex.Counts, ex.Details);
-            _logger.LogWarning("Job {JobName} finished in {Elapsed:0.0}s with errors: {Error}", name, Elapsed(startedAt), ex.Message);
+            _logger.LogWarning("Finished in {Elapsed:0.0}s with errors: {Error}", Elapsed(startedAt), ex.Message);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -327,12 +328,12 @@ public sealed class JobRegistry(
             (result, summary) = cancelRequested
                 ? (JobRunResult.Cancelled, CancelledSummary)
                 : (JobRunResult.Interrupted, InterruptedSummary);
-            _logger.LogInformation("Job {JobName} stopped after {Elapsed:0.0}s: {Reason}", name, Elapsed(startedAt), summary);
+            _logger.LogInformation("Stopped after {Elapsed:0.0}s: {Reason}", Elapsed(startedAt), summary);
         }
         catch (Exception ex)
         {
             (result, summary, failureKind) = (JobRunResult.Failure, ex.Message, classifyFailure?.Invoke(ex) ?? JobFailureKind.Other);
-            _logger.LogWarning(ex, "Job {JobName} failed: {Error}", name, ex.Message);
+            _logger.LogWarning(ex, "Failed: {Error}", ex.Message);
         }
         finally
         {

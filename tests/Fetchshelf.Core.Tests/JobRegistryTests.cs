@@ -170,11 +170,11 @@ public class JobRegistryTests
 
         Assert.Collection(
             logger.Entries,
-            entry => Assert.Equal((LogLevel.Information, "Job example-job started"), entry),
+            entry => Assert.Equal((LogLevel.Information, "Started"), entry),
             entry =>
             {
                 Assert.Equal(LogLevel.Information, entry.Level);
-                Assert.StartsWith("Job example-job finished in ", entry.Message, StringComparison.Ordinal);
+                Assert.StartsWith("Finished in ", entry.Message, StringComparison.Ordinal);
             });
     }
 
@@ -187,7 +187,7 @@ public class JobRegistryTests
 
         await registry.TriggerAsync("failing-job");
 
-        Assert.Equal((LogLevel.Warning, "Job failing-job failed: boom"), logger.Entries[^1]);
+        Assert.Equal((LogLevel.Warning, "Failed: boom"), logger.Entries[^1]);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public class JobRegistryTests
         Assert.Equal("2 torrents could not be linked", lastRun.Summary);
         var entry = logger.Entries[^1];
         Assert.Equal(LogLevel.Warning, entry.Level);
-        Assert.StartsWith("Job link finished in ", entry.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Finished in ", entry.Message, StringComparison.Ordinal);
         Assert.EndsWith(" with errors: 2 torrents could not be linked", entry.Message, StringComparison.Ordinal);
     }
 

@@ -135,7 +135,7 @@ public sealed class AutograbberRunnerMarkRemovedTests : IDisposable
         Assert.Equal(("hash105", 105L), (removed.TorrentId, removed.MamId));
         Assert.Contains(
             logger.Messages(LogLevel.Information),
-            m => m == "Autograb Freeleech: MAM no longer has Book 105 by Some Author (MAM id 105); marked as removed from MAM");
+            m => m == "MAM no longer has Book 105 by Some Author (MAM id 105); marked as removed from MAM");
     }
 
     [Fact]

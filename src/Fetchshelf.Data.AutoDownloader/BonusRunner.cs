@@ -68,13 +68,13 @@ public sealed class BonusRunner(
     private BonusRunSummary DryRun(BonusPolicy policy, BonusRunState state)
     {
         var plan = BonusPlanner.PlanRun(policy, state);
-        _logger.LogInformation("Bonus: dry run with {Points} points", BonusPlanner.Points(state.Points));
+        _logger.LogInformation("Dry run with {Points} points", BonusPlanner.Points(state.Points));
         foreach (var purchase in plan.Purchases)
         {
-            _logger.LogInformation("Bonus: would buy {Purchase} for {Price} points", purchase.Description, BonusPlanner.Points(purchase.Price));
+            _logger.LogInformation("Would buy {Purchase} for {Price} points", purchase.Description, BonusPlanner.Points(purchase.Price));
         }
 
-        _logger.LogInformation("Bonus: then nothing more, as {Reason}", plan.StopReason);
+        _logger.LogInformation("Then nothing more, as {Reason}", plan.StopReason);
         return new BonusRunSummary(plan.Purchases.Select(p => p.Description).ToList(), DryRun: true, plan.StopReason);
     }
 
@@ -85,7 +85,7 @@ public sealed class BonusRunner(
             var decision = BonusPlanner.Next(policy, state with { Now = _time.GetUtcNow() });
             if (decision.Purchase is not { } purchase)
             {
-                _logger.LogInformation("Bonus: nothing more to buy, as {Reason}", decision.Reason);
+                _logger.LogInformation("Nothing more to buy, as {Reason}", decision.Reason);
                 return new BonusRunSummary(bought, DryRun: false, decision.Reason);
             }
 
@@ -95,18 +95,18 @@ public sealed class BonusRunner(
                 var refusal = $"MAM refused {purchase.Description}: {result.Error ?? "it gave no reason"}";
                 if (result.IsRateLimited)
                 {
-                    _logger.LogWarning("Bonus: {Refusal}; the next run tries again", refusal);
+                    _logger.LogWarning("{Refusal}; the next run tries again", refusal);
                     return new BonusRunSummary(bought, DryRun: false, $"{refusal}; the next run tries again");
                 }
 
                 if (purchase.Kind == BonusPurchaseKind.Vip)
                 {
-                    _logger.LogInformation("Bonus: {Refusal}", refusal);
+                    _logger.LogInformation("{Refusal}", refusal);
                     state = state with { VipDone = true };
                     continue;
                 }
 
-                _logger.LogWarning("Bonus: {Refusal}", refusal);
+                _logger.LogWarning("{Refusal}", refusal);
                 return new BonusRunSummary(bought, DryRun: false, refusal, Failure: refusal);
             }
 
@@ -114,7 +114,7 @@ public sealed class BonusRunner(
             {
                 var noChange = $"MAM said {purchase.Description} was bought, but the points didn't go down "
                     + $"({BonusPlanner.Points(state.Points)} before, {(result.PointsAfter is { } left ? BonusPlanner.Points(left) : "none given")} after)";
-                _logger.LogWarning("Bonus: {Problem}; stopping", noChange);
+                _logger.LogWarning("{Problem}; stopping", noChange);
                 return new BonusRunSummary(bought, DryRun: false, noChange, Failure: noChange);
             }
 
@@ -128,7 +128,7 @@ public sealed class BonusRunner(
                 PointsAfter = after,
             }, cancellationToken);
             _logger.LogInformation(
-                "Bonus: bought {Purchase} with bonus points, {Before} → {After}",
+                "Bought {Purchase} with bonus points, {Before} → {After}",
                 purchase.Description, BonusPlanner.Points(state.Points), BonusPlanner.Points(after));
             bought.Add(purchase.Description);
             state = BonusPlanner.After(state, purchase, after);
@@ -144,7 +144,7 @@ public sealed class BonusRunner(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Bonus: could not read the account after the purchases: {Error}", ex.Message);
+            _logger.LogWarning("Could not read the account after the purchases: {Error}", ex.Message);
         }
     }
 
