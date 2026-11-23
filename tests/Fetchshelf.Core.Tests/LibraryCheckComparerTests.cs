@@ -53,9 +53,35 @@ public class LibraryCheckComparerTests
     }
 
     [Fact]
-    public void FoldersWithoutFiles_AndFoldersOutsideTheLibraries_AreNotReported()
+    public void FoldersOutsideTheLibraries_AndTheLibrariesOwnFolders_AreNotReported()
     {
-        Assert.Empty(Compare([Folder("/lib/audio/Empty"), Folder("/elsewhere/Book", "01.mp3")], []));
+        Assert.Empty(Compare([Folder("/lib/audio"), Folder("/elsewhere/Book", "01.mp3"), Folder("/elsewhere/Empty")], []));
+    }
+
+    [Fact]
+    public void EmptyFolders_AreReportedOnceAtTheOutermostEmptyOne()
+    {
+        // An author folder whose only book was unlinked by an older version, which left the series and author folders.
+        var finding = Assert.Single(Compare([Folder("/lib/audio"), Folder("/lib/audio/Author"), Folder("/lib/audio/Author/Series")], []));
+
+        Assert.Equal((LibraryFindingKind.UnknownFolder, "/lib/audio/Author"), (finding.Kind, finding.Path));
+        Assert.Equal((0L, 0, (DateTimeOffset?)null), (finding.Bytes, finding.Files, finding.NewestAt));
+    }
+
+    [Fact]
+    public void EmptyFolders_BesideABook_OrBesideAnUnknownFolder_AreReportedOnTheirOwn_AndFoldersInABookAreNot()
+    {
+        var findings = Compare(
+            [
+                Folder("/lib/audio"), Folder("/lib/audio/Author"), Folder("/lib/audio/Author/Book", "book.m4b"),
+                Folder("/lib/audio/Author/Book/Extras"), Folder("/lib/audio/Author/Old series"),
+                Folder("/lib/audio/Other"), Folder("/lib/audio/Other/Old", "01.mp3"), Folder("/lib/audio/Other/Empty"),
+            ],
+            [Book("a", "/lib/audio/Author/Book", "book.m4b")]);
+
+        Assert.Equal(
+            ["/lib/audio/Author/Old series", "/lib/audio/Other/Empty", "/lib/audio/Other/Old"],
+            findings.Select(f => f.Path).Order(StringComparer.Ordinal));
     }
 
     [Fact]
