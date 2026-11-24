@@ -136,7 +136,7 @@
     <ul>
         @foreach (var file in torrent.LinkedFiles)
         {
-            <li><span class="mono">@file.RelativePath</span> <span class="muted">(@file.SizeBytes bytes)</span></li>
+            <li><span class="mono">@file.RelativePath</span> <span class="muted" title="@file.SizeBytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) bytes">(@Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(file.SizeBytes))</span></li>
         }
     </ul>
 
