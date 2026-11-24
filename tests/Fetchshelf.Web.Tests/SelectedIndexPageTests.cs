@@ -9,7 +9,7 @@ public partial class SelectedIndexPageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(
         FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1, DateTimeOffset? startedAt = null,
-        string? clientName = null, string? savePath = null)
+        string? clientName = null, string? savePath = null, DateTimeOffset? createdAt = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -21,7 +21,7 @@ public partial class SelectedIndexPageTests
             Category = "audiobooks",
             MetadataJson = Fetchshelf.Core.Organizer.TorrentMetadataSerializer.Serialize(OrganizerTestSupport.BuildMetadata(title)),
             NormalizedTitleKey = Fetchshelf.Core.Metadata.TitleNormalizer.Normalize(title),
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
             StartedAt = startedAt,
             ClientName = clientName,
             SavePath = savePath,
@@ -41,6 +41,22 @@ public partial class SelectedIndexPageTests
         var html = await (await client.GetAsync("/selected")).Content.ReadAsStringAsync();
 
         Assert.Contains("The Way of Kings", html);
+    }
+
+    [Fact]
+    public async Task Get_ListsTheOldestFirst_TheOrderTheDownloadJobStartsThemIn()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var day = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        await SeedSelectedAsync(fixture, "Newer Book", mamId: 1, createdAt: day.AddDays(1));
+        await SeedSelectedAsync(fixture, "Older Book", mamId: 2, createdAt: day);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/selected");
+        var byTitleDescending = await client.GetStringAsync("/selected?Sort=Title&Dir=desc");
+
+        Assert.True(html.IndexOf("Older Book", StringComparison.Ordinal) < html.IndexOf("Newer Book", StringComparison.Ordinal));
+        Assert.True(byTitleDescending.IndexOf("Older Book", StringComparison.Ordinal) < byTitleDescending.IndexOf("Newer Book", StringComparison.Ordinal));
     }
 
     [Fact]
