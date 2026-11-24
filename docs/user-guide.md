@@ -774,7 +774,9 @@ The catalog offers:
 
 - **Recently added,** **Authors** (each author's books by series and number) and **Series** (in series
   order), and **Libraries** when more than one is served. Each library has its own **Recently added**,
-  **Authors** and **Series**, for browsing just your comics, say. Long lists come 50 to a page.
+  **Authors** and **Series**, for browsing just your comics, say. Long lists come 50 to a page. **Series**
+  leaves out the series you have only one book of; its first entry, *Every series, with those of one book*,
+  lists them all.
 - **Search** by title, author or series, the same way as on the **Torrents** page. It always searches every
   served library.
 - **Each book** with its title, authors, language and genres from MAM. Its series and number are shown at
@@ -820,6 +822,9 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
 
 - **Recently added**, **Authors**, **Series** (each series' books in order, with a link to the series on the
   **Series** page and its missing books) and **Libraries**, like the [OPDS catalog](#reading-on-an-e-reader-opds).
+  **Series** hides the series you have only one book of, a later book of a series or a book of a collection, and
+  says how many it hides, with **Show them**. Sort it **A-Z** or by **Most books**. A series of one book is still
+  found by the search and from its book.
 - **Authors** on a card stop at three; for a book with more, **... more** opens the book, like its cover, with all
   of them.
 - **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), show only fiction or nonfiction (or

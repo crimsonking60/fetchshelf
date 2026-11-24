@@ -221,6 +221,22 @@ public sealed class OpdsEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task Series_LeavesOutThoseWithOneBook_UnlessAskedFor()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: Config());
+        await SeedAsync(fixture, "aaa111", "Ancillary Sword", series: new Series { Name = "Imperial Radch", Entries = [SeriesEntry.ForNumber(2, "2")] });
+        await SeedAsync(fixture, "bbb222", "Ancillary Justice", series: new Series { Name = "Imperial Radch", Entries = [SeriesEntry.ForNumber(1, "1")] });
+        await SeedAsync(fixture, "ccc333", "Children of Dune", "Frank Herbert", series: new Series { Name = "Dune", Entries = [SeriesEntry.ForNumber(3, "3")] });
+        using var client = fixture.CreateClient();
+
+        var (series, _) = await GetFeedAsync(client, "/opds/series");
+        Assert.Equal(["Every series, with those of one book", "Imperial Radch"], Titles(series));
+        var allHref = Link(series.Element(Atom + "entry")!, "subsection");
+        Assert.Equal("/opds/series?singles=show", allHref);
+        Assert.Equal(["Dune", "Imperial Radch"], Titles((await GetFeedAsync(client, allHref)).Feed));
+    }
+
+    [Fact]
     public async Task EachLibrary_HasItsOwnRecentAuthorsAndSeries()
     {
         var ebooks = Path.Combine(_library, "ebooks");
@@ -266,7 +282,10 @@ public sealed class OpdsEndpointTests : IDisposable
         Assert.StartsWith("/opds/libraries/1/author?name=", authorHref);
         Assert.Equal(["Saga Vol. 1"], Titles((await GetFeedAsync(client, authorHref)).Feed));
 
-        var (series, _) = await GetFeedAsync(client, "/opds/libraries/0/series");
+        // Its one series has one book: left out, with the way to it first.
+        var (fewSeries, _) = await GetFeedAsync(client, "/opds/libraries/0/series");
+        Assert.Equal(["Every series, with those of one book"], Titles(fewSeries));
+        var (series, _) = await GetFeedAsync(client, Link(fewSeries.Element(Atom + "entry")!, "subsection"));
         Assert.Equal(["Imperial Radch"], Titles(series));
         Assert.Equal(["Ancillary Justice"], Titles((await GetFeedAsync(client, Link(series.Element(Atom + "entry")!, "subsection"))).Feed));
 

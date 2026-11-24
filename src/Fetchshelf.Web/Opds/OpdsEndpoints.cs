@@ -115,11 +115,28 @@ public static class OpdsEndpoints
             return BookFeed($"{scope.Id}:author:{name}", name, $"{scope.Href}/author?name={Uri.EscapeDataString(name)}", books, page, time);
         });
 
-        views.MapGet("/series", async (BookCatalogCache cache, TimeProvider time, HttpContext context, int? page, CancellationToken ct) =>
-            await ScopeAsync(cache, context, ct) is var (catalog, scope)
-                ? GroupFeed($"{scope.Id}:series", scope.Title("Series"), $"{scope.Href}/series", catalog.Series(), page, time,
-                    series => ($"{scope.Id}:series:{series}", $"{scope.Href}/series/books?name={Uri.EscapeDataString(series)}"))
-                : Results.NotFound());
+        // Series with one book are left out unless asked for (singles=show), as on the Books page: hundreds of them would
+        // bury the rest. The first page then starts with the way to them.
+        views.MapGet("/series", async (BookCatalogCache cache, TimeProvider time, HttpContext context, int? page, string? singles, CancellationToken ct) =>
+        {
+            if (await ScopeAsync(cache, context, ct) is not var (catalog, scope))
+            {
+                return Results.NotFound();
+            }
+
+            var all = catalog.Series();
+            var withSingles = singles == "show";
+            var shown = withSingles ? all : all.Where(group => group.BookCount > 1).ToList();
+            var hidden = all.Count - shown.Count;
+            OpdsNavigationEntry? toSingles = hidden > 0
+                ? new($"{scope.Id}:series:singles", "Every series, with those of one book", $"{Count(hidden, "series")} with one book left out of this list", $"{scope.Href}/series?singles=show", LeadsToBooks: false)
+                : null;
+            return GroupFeed(
+                withSingles ? $"{scope.Id}:series:all" : $"{scope.Id}:series", scope.Title("Series"),
+                withSingles ? $"{scope.Href}/series?singles=show" : $"{scope.Href}/series", shown, page, time,
+                series => ($"{scope.Id}:series:{series}", $"{scope.Href}/series/books?name={Uri.EscapeDataString(series)}"),
+                toSingles);
+        });
 
         views.MapGet("/series/books", async (BookCatalogCache cache, TimeProvider time, HttpContext context, string? name, int? page, CancellationToken ct) =>
         {
@@ -168,7 +185,8 @@ public static class OpdsEndpoints
     }
 
     private static IResult GroupFeed(
-        string id, string title, string href, IReadOnlyList<CatalogGroup> groups, int? page, TimeProvider time, Func<string, (string Id, string Href)> linkFor)
+        string id, string title, string href, IReadOnlyList<CatalogGroup> groups, int? page, TimeProvider time, Func<string, (string Id, string Href)> linkFor,
+        OpdsNavigationEntry? first = null)
     {
         var (items, opdsPage) = OpdsPage.Of(groups, page ?? 1, PageSize, number => WithPage(href, number));
         var entries = items.Select(group =>
@@ -176,6 +194,11 @@ public static class OpdsEndpoints
             var (entryId, entryHref) = linkFor(group.Name);
             return new OpdsNavigationEntry(entryId, group.Name, Count(group.BookCount, "book"), entryHref, LeadsToBooks: true);
         });
+        if (first is not null && opdsPage.Number == 1)
+        {
+            entries = entries.Prepend(first);
+        }
+
         return Navigation(OpdsFeedBuilder.Navigation(id, title, opdsPage.Number == 1 ? href : WithPage(href, opdsPage.Number), time.GetUtcNow(), entries, opdsPage));
     }
 
