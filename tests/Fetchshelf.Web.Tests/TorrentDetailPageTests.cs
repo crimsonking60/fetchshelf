@@ -21,6 +21,26 @@ public class TorrentDetailPageTests
     }
 
     [Fact]
+    public async Task Get_LinkedFiles_ShowEachSizeReadably_WithTheExactBytesOnHover()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", OrganizerTestSupport.BuildMetadata("The Way of Kings"));
+        using (var scope = fixture.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<Fetchshelf.Data.FetchshelfDbContext>();
+            var entity = await dbContext.Torrents.FindAsync("hash1");
+            entity!.LinkedFilesJson = System.Text.Json.JsonSerializer.Serialize(
+                new List<Fetchshelf.Data.Organizer.LinkedFileRecord> { new("The Way of Kings.m4b", 1_258_291) });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        Assert.Contains("<span class=\"muted\" title=\"1,258,291 bytes\">(1.2 MiB)</span>", html);
+        Assert.DoesNotContain("1258291 bytes", html);
+    }
+
+    [Fact]
     public async Task Get_EditedByHand_RefreshAsksFirst_AndTheActionsSayWhatEachRefreshDoes()
     {
         using var fixture = new FetchshelfWebAppFixture();
