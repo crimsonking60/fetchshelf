@@ -41,7 +41,9 @@ else
                     <tr>
                         <td class="col-fit"><input class="selection-select" type="checkbox" name="selectedIds" value="@selection.Id" aria-label="Select @selection.Title" /></td>
                         <td>
-                            @selection.Title
+                            @* Opens the selection's details in a dialog; the link itself goes to the torrent on MAM, for a new tab. *@
+                            <a class="selection-title" href="@Fetchshelf.Web.Pages.Duplicates.DuplicateViewModel.MamTorrentLink(Model.MamBaseUrl, selection.MamId)"
+                               hx-get="@Url.Page("/Selected/Index", "Details", new { id = selection.Id })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@selection.Title</a>
                             @* Who selected it and when, under the title: three columns of plain text were most of the table's width. *@
                             <div class="sub unclamped">@selection.GrabberName · created <local-time value="selection.CreatedAt" />@if (selection.StartedAt is { } startedAt) { <text> · started <local-time value="startedAt" /></text> }</div>
                         </td>
@@ -89,3 +91,5 @@ else
         </div>
     </form>
 }
+
+<partial name="_HitDialog" />

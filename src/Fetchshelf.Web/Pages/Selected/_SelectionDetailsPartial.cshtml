@@ -1,0 +1,58 @@
+@model Fetchshelf.Web.Pages.Selected.SelectionDetailsViewModel
+@using Fetchshelf.Core.Metadata
+@* A selection's details in the dialog its title opens: what was stored when it was picked, and a link to MAM. *@
+@{
+    var metadata = Model.Metadata;
+    var selection = Model.Selection;
+}
+<h2>@metadata.Title</h2>
+<p><a id="open-on-mam" href="@Model.MamLink" target="_blank" rel="noreferrer">Open on MAM</a></p>
+
+<div class="meta-block" id="selection-details">
+    <p><span class="label">Authors</span><span class="value">@(metadata.Authors.Count == 0 ? "-" : string.Join(", ", metadata.Authors))</span></p>
+    <p><span class="label">Narrators</span><span class="value">@(metadata.Narrators.Count == 0 ? "-" : string.Join(", ", metadata.Narrators))</span></p>
+    <p><span class="label">Series</span><span class="value">@(Model.Series.Count == 0 ? "-" : string.Join(", ", Model.Series))</span></p>
+    @if (metadata.Edition is { } edition)
+    {
+        <p><span class="label">Edition</span><span class="value">@edition.Label</span></p>
+    }
+    <p><span class="label">Media type</span><span class="value">@metadata.MediaType</span></p>
+    <p><span class="label">Language</span><span class="value">@metadata.Language</span></p>
+    @if (Model.GenresOn)
+    {
+        <p><span class="label">Main category</span><span class="value">@(metadata.FictionCategory is { } main ? GenreLabels.FictionLabel(main) : "-")</span></p>
+        <p><span class="label">Genres</span><span class="value">@(Model.GenreLabelList.Count == 0 ? "-" : string.Join(", ", Model.GenreLabelList))</span></p>
+    }
+    else
+    {
+        <p><span class="label">Categories</span><span class="value">@(Model.Categories.Count == 0 ? "-" : string.Join(", ", Model.Categories))</span></p>
+    }
+    <p><span class="label">Flags</span><span class="value">@(metadata.Flags == BookFlags.None ? "-" : metadata.Flags.ToString())</span></p>
+    <p><span class="label">ISBN / ASIN</span><span class="value">@(string.Join(" / ", new[] { metadata.Isbn, metadata.Asin }.Where(v => !string.IsNullOrWhiteSpace(v))) is { Length: > 0 } ids ? ids : "-")</span></p>
+    <p><span class="label">Files</span><span class="value">@metadata.FileCount@(metadata.FileTypes.Count > 0 ? $": {string.Join(", ", metadata.FileTypes)}" : ""), @Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(metadata.TotalSizeBytes)</span></p>
+    <p><span class="label">Uploaded</span><span class="value"><local-time value="metadata.UploadTime" /></span></p>
+    <p><span class="label">VIP</span><span class="value">@Model.Vip</span></p>
+    <p><span class="label">Cost</span><span class="value">@selection.CostDecision@(Model.StartedWithWedge ? ", started with a freeleech wedge" : "")</span></p>
+    <p><span class="label">Selected by</span><span class="value">@(selection.GrabberName ?? "-"), <local-time value="selection.CreatedAt" /></span></p>
+    <p><span class="label">Started</span><span class="value">@if (selection.StartedAt is { } startedAt) { <local-time value="startedAt" /> } else { <text>Not yet</text> }</span></p>
+    <p><span class="label">Category</span><span class="value">@(string.IsNullOrEmpty(selection.Category) ? "-" : selection.Category)</span></p>
+    <p><span class="label">Tags</span><span class="value">@(selection.Tags.Count == 0 ? "-" : string.Join(", ", selection.Tags))</span></p>
+    @if (selection.ClientName is { } clientName)
+    {
+        <p><span class="label">qBittorrent</span><span class="value">@clientName</span></p>
+    }
+    @if (selection.SavePath is { } savePath)
+    {
+        <p><span class="label">Save path</span><span class="value mono">@savePath</span></p>
+    }
+</div>
+
+<h3>Description</h3>
+@if (Model.Description is { } description)
+{
+    <p id="selection-description" class="hit-description">@description</p>
+}
+else
+{
+    <p class="muted">No description.</p>
+}

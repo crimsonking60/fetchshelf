@@ -60,6 +60,27 @@ public partial class SelectedIndexPageTests
     }
 
     [Fact]
+    public async Task Title_OpensTheStoredDetails_WithALinkToMam()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var selection = await SeedSelectedAsync(fixture, "Nightfall", mamId: 4242);
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/selected");
+        var details = await client.GetStringAsync($"/selected?handler=Details&id={selection.Id}");
+        var missing = await client.GetAsync("/selected?handler=Details&id=999999");
+
+        Assert.Matches($"hx-get=\"[^\"]*handler=Details[^\"]*\"", html);
+        Assert.Matches($"hx-get=\"[^\"]*id={selection.Id}[^\"]*\"", html);
+        Assert.Contains("id=\"hit-dialog\"", html);
+        Assert.Contains("<h2>Nightfall</h2>", details);
+        Assert.Contains("Brandon Sanderson", details);
+        Assert.Matches("id=\"open-on-mam\" href=\"[^\"]*/t/4242\"", details);
+        Assert.DoesNotContain("<html", details);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_EachRowHasACheckbox_AndOneRemoveSelectedButtonSitsBelowTheTable()
     {
         using var fixture = new FetchshelfWebAppFixture();
