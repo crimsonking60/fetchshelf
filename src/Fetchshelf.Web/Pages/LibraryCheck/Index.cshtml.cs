@@ -99,7 +99,7 @@ public class IndexModel(
     public async Task<IActionResult> OnPostRunAsync()
     {
         // A new check would replace the findings a Delete or Relink selected is still working through.
-        if (bulkOperations.Active().Any(o => o.OnLibraryCheck))
+        if (bulkOperations.Active().Any(o => o.Page == BulkOperationPage.LibraryCheck))
         {
             return Refuse("A Delete or Relink selected is still running or waiting. Run the check once it has ended, or cancel it.");
         }
@@ -140,7 +140,7 @@ public class IndexModel(
     }
 
     /// <summary>This page's bulk operations, shown at the top while they run and until dismissed.</summary>
-    public BulkOperationsViewModel BulkOperations => new(bulkOperations.Shown(libraryCheck: true), "/LibraryCheck/Index");
+    public BulkOperationsViewModel BulkOperations => new(bulkOperations.Shown(BulkOperationPage.LibraryCheck), "/LibraryCheck/Index");
 
     /// <summary>The panel of bulk operations, which polls itself here while one runs or waits.</summary>
     public PartialViewResult OnGetBulkOperations() => Partial("_BulkOperationsPartial", BulkOperations);

@@ -66,6 +66,7 @@ public partial class OrganizerCompositionTests
             var refreshToken = ExtractAntiforgeryToken(detailTokenHtml);
             using var refreshForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = refreshToken });
             (await client.PostAsync($"/torrents/{Hash}?handler=RefreshAndRelink", refreshForm)).EnsureSuccessStatusCode();
+            await OrganizerTestSupport.BulkOperationsEndedAsync(fixture);
 
             var newFolder = Path.Combine(libraryDir, "Brandon Sanderson", "New Title");
             Assert.True(File.Exists(Path.Combine(newFolder, "book.m4b")));
@@ -73,6 +74,9 @@ public partial class OrganizerCompositionTests
 
             var updatedDetailHtml = await (await client.GetAsync($"/torrents/{Hash}")).Content.ReadAsStringAsync();
             Assert.Contains("New Title", updatedDetailHtml);
+            // Its own message, where the book was placed, rather than a count of torrents.
+            Assert.Contains($"into {newFolder}", System.Net.WebUtility.HtmlDecode(updatedDetailHtml));
+            Assert.DoesNotContain("Refreshed and relinked 1 torrent", updatedDetailHtml);
 
             var updatedEventsHtml = await (await client.GetAsync("/events")).Content.ReadAsStringAsync();
             Assert.Contains("Updated", updatedEventsHtml);

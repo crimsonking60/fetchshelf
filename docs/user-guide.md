@@ -1955,6 +1955,13 @@ status follows MAM. Before touching any file it checks that the torrent is in qB
 accepts it, and that its files are where qBittorrent says. If anything is missing it says so at the top of
 the page and changes nothing.
 
+It runs in the background, the way the Torrents page's bulk actions do, so the page comes back at once. A panel at
+the top of the page shows how far it has got and updates itself, counting the files as they are placed, or the books
+of a collection split into its books. You can leave the page meanwhile; the **Jobs** page lists it too. It waits while the Link or
+Clean job or a bulk action works on library files, and **Cancel** stops it until it starts. When it ends, the panel
+says how it went, with **Reload the page** to see the changes, until you **Dismiss** it. A book of a collection shows
+its collection's on its page as well.
+
 **Refresh** on its own only updates the details from MAM, without moving files, and replaces details you
 edited by hand with MAM's.
 
@@ -2159,10 +2166,11 @@ reported, so they cannot be chosen by hand.
   - *Remove* deletes Fetchshelf's record (not the files).
   - **In the background.** Clean, Refresh, Relink, Unlink and Set category run in the background, one torrent
     at a time, so the page comes back at once. A panel above the list shows how far it has got ("Relinking 7 of
-    23: *title*") and updates itself; the **Jobs** page lists it too. You can leave the page meanwhile: it keeps
-    going, and the panel still shows it when you come back. **Cancel** stops it after the torrent it is on,
-    leaving the rest as they were. A second bulk action waits for the first. When one ends, the panel says how it
-    went, with **Reload the list** to see the changes, until you **Dismiss** it. A restart of Fetchshelf stops
+    23: *title*", with "(book 37 of 332)" or "(file 37 of 303)" while a torrent's books or files are placed) and updates itself; the **Jobs**
+    page lists it too. You can leave the page meanwhile: it keeps going, and the panel still shows it when you
+    come back. **Cancel** stops it after the torrent it is on, leaving the rest as they were. A second bulk
+    action waits for the first. When one ends, the panel says how it went, with **Reload the list** to see the
+    changes, until you **Dismiss** it. A restart of Fetchshelf stops
     one that is running and forgets the panel; what was done to each torrent stays done. A bulk action and the
     Link and Clean jobs take turns, one torrent at a time, so they never work on the same files at once.
   - **Set category**, in the same bar between **Relink selected** and **Unlink selected**, and only when a library

@@ -1,8 +1,11 @@
+using Fetchshelf.Data.Organizer;
+
 namespace Fetchshelf.Web.Jobs;
 
 /// <summary>
 /// What a bulk action does to each item selected: the torrents of the Torrents page, or, for
-/// <see cref="DeleteFindings"/> and <see cref="RelinkFindings"/>, the findings of the Library check page.
+/// <see cref="DeleteFindings"/> and <see cref="RelinkFindings"/>, the findings of the Library check page. A torrent's
+/// own page queues <see cref="RefreshAndRelink"/>.
 /// </summary>
 public enum BulkAction
 {
@@ -17,6 +20,19 @@ public enum BulkAction
 
     /// <summary>The Library check's Relink selected, for books whose folder or files are gone.</summary>
     RelinkFindings,
+
+    /// <summary><b>Refresh and relink</b> on a torrent's own page.</summary>
+    RefreshAndRelink,
+}
+
+/// <summary>The page that queued a bulk operation, which shows its progress and how it went.</summary>
+public enum BulkOperationPage
+{
+    Torrents,
+    LibraryCheck,
+
+    /// <summary>A torrent's own page, for the torrent the operation is about.</summary>
+    Torrent,
 }
 
 /// <summary>Where a bulk operation is: waiting behind another, running, or ended one of three ways.</summary>
@@ -39,6 +55,8 @@ public sealed class BulkOperation
     private readonly Lock _lock = new();
     private int _handled;
     private string? _current;
+    private PlacementProgress? _placed;
+    private bool _handling;
 
     public BulkOperation(int id, BulkAction action, IReadOnlyList<string> itemIds, string? category, DateTimeOffset createdAt)
     {
@@ -77,7 +95,34 @@ public sealed class BulkOperation
     /// <summary>Cancelled by <b>Cancel</b>: the operation stops after the torrent it is on.</summary>
     public CancellationTokenSource Cancellation { get; } = new();
 
+    /// <summary>
+    /// Whether <b>Cancel</b> is offered: while it waits, or while torrents are left after the one being handled. An
+    /// operation of one torrent being handled is handled completely, so there is nothing left to cancel.
+    /// </summary>
+    public bool CanCancel
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return State == BulkOperationState.Waiting || (State == BulkOperationState.Running && (ItemIds.Count > 1 || !_handling));
+            }
+        }
+    }
+
     public bool HasEnded => State is BulkOperationState.Finished or BulkOperationState.Cancelled or BulkOperationState.Interrupted;
+
+    /// <summary>For the torrent being relinked: how many of its books, or of its files, are placed, of how many.</summary>
+    public PlacementProgress? Placed
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _placed;
+            }
+        }
+    }
 
     /// <summary>How many torrents have been handled so far, and the title of the one being handled now.</summary>
     public (int Handled, string? Current) Progress
@@ -125,7 +170,37 @@ public sealed class BulkOperation
     {
         lock (_lock)
         {
-            (_handled, _current) = (handled, current);
+            (_handled, _current, _placed, _handling) = (handled, current, null, false);
+        }
+    }
+
+    /// <summary>The torrent <see cref="Report"/> named is being handled now, past the wait for the write gate.</summary>
+    public void Handling()
+    {
+        lock (_lock)
+        {
+            _handling = true;
+        }
+    }
+
+    /// <summary>How many books or files of the torrent being handled are placed, of how many; cleared by the next <see cref="Report"/>.</summary>
+    public void ReportPlaced(PlacementProgress placed)
+    {
+        lock (_lock)
+        {
+            _placed = placed;
+        }
+    }
+
+    /// <summary>
+    /// What the progress bar shows, as a value of a maximum: the torrents handled, or, for an operation of one torrent, its
+    /// books or files placed once they are being placed.
+    /// </summary>
+    public (int Value, int Max) ProgressBar()
+    {
+        lock (_lock)
+        {
+            return ItemIds.Count == 1 && _placed is { } placed ? (placed.Placed, placed.Total) : (_handled, ItemIds.Count);
         }
     }
 
@@ -133,7 +208,7 @@ public sealed class BulkOperation
     {
         lock (_lock)
         {
-            (Summary, Problems, _current, State) = (summary, problems ?? [], null, state);
+            (Summary, Problems, _current, _placed, State) = (summary, problems ?? [], null, null, state);
         }
     }
 
@@ -144,11 +219,17 @@ public sealed class BulkOperation
     {
         BulkAction.SetCategory => $"Setting the category to {Category} for {Count(ItemIds.Count)}",
         BulkAction.DeleteFindings or BulkAction.RelinkFindings => $"{Verbs.For(Action, Category).Doing} {Count(ItemIds.Count)}",
+        BulkAction.RefreshAndRelink => $"Refresh and relink of {Count(ItemIds.Count)}",
         _ => $"{Action} of {Count(ItemIds.Count)}",
     };
 
-    /// <summary>Whether it acts on Library check findings, so the Library check page shows it rather than the Torrents page.</summary>
-    public bool OnLibraryCheck => Action is BulkAction.DeleteFindings or BulkAction.RelinkFindings;
+    /// <summary>The page that shows it: the Library check for its findings, a torrent's page for its Refresh and relink, else the Torrents page.</summary>
+    public BulkOperationPage Page => Action switch
+    {
+        BulkAction.DeleteFindings or BulkAction.RelinkFindings => BulkOperationPage.LibraryCheck,
+        BulkAction.RefreshAndRelink => BulkOperationPage.Torrent,
+        _ => BulkOperationPage.Torrents,
+    };
 
     /// <summary>A number of the items it acts on: "1 torrent", "23 findings", "4 books".</summary>
     public string Count(int count)
@@ -165,11 +246,13 @@ public sealed class BulkOperation
     public string Status()
     {
         var (handled, current) = Progress;
+        var placed = Placed;
         return State switch
         {
             BulkOperationState.Waiting => $"{Describe()}: waits for the bulk action before it.",
             BulkOperationState.Running => $"{Verbs.For(Action, Category).Doing} {Math.Min(handled + 1, ItemIds.Count)} of {ItemIds.Count}"
-                + (current is null ? "" : $": {current}"),
+                + (current is null ? "" : $": {current}")
+                + (placed is { Total: > 1 } p ? $" ({(p.Unit == PlacementUnit.Book ? "book" : "file")} {p.Placed} of {p.Total})" : ""),
             _ => Summary ?? string.Empty,
         };
     }
@@ -185,6 +268,7 @@ public sealed class BulkOperation
             BulkAction.Clean => new("Cleaning", "Cleaned", "Cleaning"),
             BulkAction.DeleteFindings => new("Deleting", "Deleted", "Deleting"),
             BulkAction.RelinkFindings => new("Relinking", "Relinked", "Relinking"),
+            BulkAction.RefreshAndRelink => new("Refreshing and relinking", "Refreshed and relinked", "Refresh and relink"),
             _ => new($"Setting the category to {category} for", $"Set the category to {category} for", "Setting the category"),
         };
     }

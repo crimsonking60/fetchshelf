@@ -23,6 +23,16 @@ public sealed record LinkRunSummary(int Linked, int Failed, int WaitingForLookup
 /// <summary>Whether Refresh and relink placed the torrent's files again, and a message saying what happened.</summary>
 public sealed record RelinkResult(bool Succeeded, string Message);
 
+/// <summary>What a relink counts as it places them: the books of a collection split into its books, else the book's files.</summary>
+public enum PlacementUnit
+{
+    Book,
+    File,
+}
+
+/// <summary>How far a relink has got placing a torrent's books or files: <paramref name="Placed"/> of <paramref name="Total"/>.</summary>
+public sealed record PlacementProgress(int Placed, int Total, PlacementUnit Unit);
+
 /// <summary>What a Refresh found: changed details, the same details, or no torrent on MAM to refresh from.</summary>
 public enum RefreshOutcome
 {
@@ -404,7 +414,7 @@ public sealed class LinkRunner(
     /// </summary>
     private async Task LinkBooksAsync(
         TorrentEntity? collection, QBittorrentTorrent torrent, Library library, TorrentMetadata metadata, IReadOnlyList<CollectionBook> books,
-        IReadOnlyList<QBittorrentFile> files, string mappedSavePath)
+        IReadOnlyList<QBittorrentFile> files, string mappedSavePath, Action<PlacementProgress>? placed = null)
     {
         // Files are placed from here on: recording them must not be cut short by a cancellation.
         var cancellationToken = CancellationToken.None;
@@ -464,6 +474,7 @@ public sealed class LinkRunner(
             RecordPlacement(record, torrent, library, placement, null, book.Format);
             await AppendLinkedEventAsync(record, library, placement.Folder, cancellationToken);
             placements.Add(DescribePlacement(bookMetadata.Title, placement));
+            placed?.Invoke(new PlacementProgress(placements.Count, books.Count, PlacementUnit.Book));
         }
 
         // A book of an earlier split that is no longer one of them (the torrent's files changed) is unlinked.
@@ -673,11 +684,11 @@ public sealed class LinkRunner(
     /// <param name="bookFolder">The book's folder in a book-layout library (<see cref="BookFolderAsync"/>).</param>
     private Placement PlaceFiles(
         Library library, TorrentMetadata metadata, IReadOnlyList<QBittorrentFile> files, string mappedSavePath, string? audio, string? ebook,
-        string? bookFolder)
+        string? bookFolder, Action<int, int>? filePlaced = null)
     {
         if (library.IsSeriesLayout)
         {
-            return PlaceInSeriesFolder(library, metadata, ChosenFiles(files, audio, ebook), mappedSavePath, MarksLanguage(library, metadata));
+            return PlaceInSeriesFolder(library, metadata, ChosenFiles(files, audio, ebook), mappedSavePath, MarksLanguage(library, metadata), filePlaced);
         }
 
         var destinationFolder = bookFolder!;
@@ -685,7 +696,7 @@ public sealed class LinkRunner(
         if (library.Method != LibraryLinkMethod.NoLink)
         {
             var chosen = ChosenFiles(files, audio, ebook);
-            LinkChosen(placement, chosen, LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList()), mappedSavePath, library.Method);
+            LinkChosen(placement, chosen, LinkFilePlacer.DestinationPaths(destinationFolder, chosen.Select(f => f.Name).ToList()), mappedSavePath, library.Method, filePlaced);
 
             if (library.MetadataJson)
             {
@@ -709,7 +720,8 @@ public sealed class LinkRunner(
     /// name ends with the book's language.
     /// </summary>
     private static Placement PlaceInSeriesFolder(
-        Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen, string mappedSavePath, bool markLanguage)
+        Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen, string mappedSavePath, bool markLanguage,
+        Action<int, int>? filePlaced)
     {
         var extension = chosen is [var only] ? Path.GetExtension(only.Name) : string.Empty;
         var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension, markLanguage);
@@ -722,7 +734,7 @@ public sealed class LinkRunner(
         var destinations = chosen.Count == 1
             ? [Path.Combine(place.Folder, place.FileBaseName + extension)]
             : LinkFilePlacer.DestinationPaths(place.Folder, chosen.Select(f => f.Name).ToList());
-        LinkChosen(placement, chosen, destinations, mappedSavePath, library.Method);
+        LinkChosen(placement, chosen, destinations, mappedSavePath, library.Method, filePlaced);
         if (library.SeriesJson && !place.IsOneShot)
         {
             File.WriteAllText(Path.Combine(place.Folder, "series.json"), MylarSeriesJsonBuilder.Build(FolderNameComputer.SelectSeries(metadata.Series)!.Name));
@@ -731,9 +743,13 @@ public sealed class LinkRunner(
         return placement;
     }
 
-    /// <summary>Links each chosen file to its destination, recording on <paramref name="placement"/> what happened and the name it got.</summary>
+    /// <summary>
+    /// Links each chosen file to its destination, recording on <paramref name="placement"/> what happened and the name it
+    /// got, and calling <paramref name="filePlaced"/> with how many are placed, of how many.
+    /// </summary>
     private static void LinkChosen(
-        Placement placement, List<QBittorrentFile> chosen, IReadOnlyList<string> destinations, string mappedSavePath, LibraryLinkMethod method)
+        Placement placement, List<QBittorrentFile> chosen, IReadOnlyList<string> destinations, string mappedSavePath, LibraryLinkMethod method,
+        Action<int, int>? filePlaced)
     {
         for (var i = 0; i < chosen.Count; i++)
         {
@@ -746,6 +762,7 @@ public sealed class LinkRunner(
 
             // The path actually used, so Unlink, Clean and OPDS find the file under the name it got.
             placement.LinkedFiles.Add(new LinkedFileRecord(Path.GetRelativePath(placement.Folder, result.PlacedAt), chosen[i].Size));
+            filePlaced?.Invoke(i + 1, chosen.Count);
         }
     }
 
@@ -880,11 +897,13 @@ public sealed class LinkRunner(
     /// <summary>
     /// Refreshes a torrent's metadata from MAM and links it into its library again, as <see cref="RelinkAsync"/> does.
     /// </summary>
+    /// <param name="placed">Called as each book of a collection split into its books is placed, else as each of the book's files is.</param>
     public Task<RelinkResult> RefreshAndRelinkAsync(
         string torrentId,
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        Action<PlacementProgress>? placed = null,
         CancellationToken cancellationToken = default) =>
-        RelinkCoreAsync(torrentId, connections, refreshFromMam: true, cancellationToken);
+        RelinkCoreAsync(torrentId, connections, refreshFromMam: true, placed, cancellationToken);
 
     /// <summary>
     /// Links a torrent into its library again by its stored metadata, from the files qBittorrent has: the library
@@ -893,16 +912,19 @@ public sealed class LinkRunner(
     /// before any file is touched, so a refusal leaves the library as it was. A replaced or unlinked torrent stops being
     /// marked so; a replaced one is then weighed against the other copies again by the Clean job.
     /// </summary>
+    /// <param name="placed">Called as each book of a collection split into its books is placed, else as each of the book's files is.</param>
     public Task<RelinkResult> RelinkAsync(
         string torrentId,
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
+        Action<PlacementProgress>? placed = null,
         CancellationToken cancellationToken = default) =>
-        RelinkCoreAsync(torrentId, connections, refreshFromMam: false, cancellationToken);
+        RelinkCoreAsync(torrentId, connections, refreshFromMam: false, placed, cancellationToken);
 
     private async Task<RelinkResult> RelinkCoreAsync(
         string torrentId,
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections,
         bool refreshFromMam,
+        Action<PlacementProgress>? placed,
         CancellationToken cancellationToken)
     {
         // A book of a split collection is relinked with its collection, the torrent qBittorrent has.
@@ -963,7 +985,7 @@ public sealed class LinkRunner(
         var books = SplitCollection(library, metadata, files, mappedSavePath, existing.SplitCollection);
         if (books is not null)
         {
-            return await RelinkAsBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath, cancellationToken);
+            return await RelinkAsBooksAsync(existing, torrent, library, metadata, books, files, mappedSavePath, placed, cancellationToken);
         }
 
         var (audio, ebook, formatError) = ChooseFormats(library, metadata, files);
@@ -1005,7 +1027,9 @@ public sealed class LinkRunner(
 
             // After the old files went: a folder the book itself left is no narrator collision.
             var bookFolder = await BookFolderAsync(library, metadata, existing.Id, Directory.Exists, cancellationToken);
-            placement = PlaceFiles(library, metadata, files, mappedSavePath, audio, ebook, bookFolder);
+            placement = PlaceFiles(
+                library, metadata, files, mappedSavePath, audio, ebook, bookFolder,
+                placed is null ? null : (count, total) => placed(new PlacementProgress(count, total, PlacementUnit.File)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1146,7 +1170,7 @@ public sealed class LinkRunner(
     /// </summary>
     private async Task<RelinkResult> RelinkAsBooksAsync(
         TorrentEntity collection, QBittorrentTorrent torrent, Library library, TorrentMetadata metadata, IReadOnlyList<CollectionBook> books,
-        IReadOnlyList<QBittorrentFile> files, string mappedSavePath, CancellationToken cancellationToken)
+        IReadOnlyList<QBittorrentFile> files, string mappedSavePath, Action<PlacementProgress>? placed, CancellationToken cancellationToken)
     {
         if (library.Method != LibraryLinkMethod.NoLink
             && books.SelectMany(b => b.Files).Count(f => !File.Exists(Path.Combine(mappedSavePath, f))) is var missing and > 0)
@@ -1168,7 +1192,7 @@ public sealed class LinkRunner(
                 await RemoveFilesAsync(book, cancellationToken);
             }
 
-            await LinkBooksAsync(collection, torrent, library, metadata, books, files, mappedSavePath);
+            await LinkBooksAsync(collection, torrent, library, metadata, books, files, mappedSavePath, placed);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -72,7 +72,7 @@ public sealed class LibraryCheckBulkRunner(
                     dbContext.ChangeTracker.Clear();
                     // Not cancellable: the finding being handled is handled completely.
                     var problem = operation.Action == BulkAction.RelinkFindings
-                        ? await RelinkAsync(numbered, connections)
+                        ? await RelinkAsync(numbered, connections, operation)
                         : await DeleteAsync(numbered);
                     if (problem is null)
                     {
@@ -122,7 +122,7 @@ public sealed class LibraryCheckBulkRunner(
 
     /// <returns>Null when relinked, else why not; the finding then stays, with what stops it noted on it.</returns>
     private async Task<string?> RelinkAsync(
-        NumberedFinding numbered, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections)
+        NumberedFinding numbered, IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections, BulkOperation operation)
     {
         var finding = numbered.Finding;
         if (finding.TorrentId is not { } torrentId)
@@ -132,7 +132,7 @@ public sealed class LibraryCheckBulkRunner(
 
         try
         {
-            var result = await linkRunner.RelinkAsync(torrentId, connections);
+            var result = await linkRunner.RelinkAsync(torrentId, connections, operation.ReportPlaced);
             if (result.Succeeded)
             {
                 results.Remove([numbered.Id]);

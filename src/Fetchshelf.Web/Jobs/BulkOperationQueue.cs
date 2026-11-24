@@ -42,8 +42,18 @@ public sealed class BulkOperationQueue(TimeProvider timeProvider)
         }
     }
 
-    /// <summary>Those <see cref="Shown()"/> on one page: the Library check's (<paramref name="libraryCheck"/>) or the Torrents page's.</summary>
-    public IReadOnlyList<BulkOperation> Shown(bool libraryCheck) => Shown().Where(o => o.OnLibraryCheck == libraryCheck).ToList();
+    /// <summary>Those <see cref="Shown()"/> on one page: the Torrents page or the Library check (a torrent's page uses <see cref="ShownForTorrent"/>).</summary>
+    public IReadOnlyList<BulkOperation> Shown(BulkOperationPage page) => Shown().Where(o => o.Page == page).ToList();
+
+    /// <summary>
+    /// Those <see cref="Shown()"/> on the page of the torrent <paramref name="torrentId"/>: its own, and, for a book of a
+    /// split collection, its collection's, which relinks the book with the rest.
+    /// </summary>
+    public IReadOnlyList<BulkOperation> ShownForTorrent(string torrentId)
+    {
+        var collectionId = Core.Organizer.CollectionBookId.HashOf(torrentId);
+        return Shown().Where(o => o.Page == BulkOperationPage.Torrent && o.ItemIds.Any(id => id == torrentId || id == collectionId)).ToList();
+    }
 
     /// <summary>The operations running or waiting, oldest first.</summary>
     public IReadOnlyList<BulkOperation> Active()

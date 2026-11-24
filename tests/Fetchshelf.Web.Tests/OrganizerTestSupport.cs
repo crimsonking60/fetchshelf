@@ -76,6 +76,20 @@ internal static class OrganizerTestSupport
         return entity;
     }
 
+    /// <summary>Waits for every bulk action queued, such as a torrent page's Refresh and relink, to end.</summary>
+    public static async Task BulkOperationsEndedAsync(FetchshelfWebAppFixture fixture)
+    {
+        using var scope = fixture.CreateScope();
+        var queue = scope.ServiceProvider.GetRequiredService<Jobs.BulkOperationQueue>();
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (queue.Active().Count > 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        Xunit.Assert.Empty(queue.Active());
+    }
+
     public static async Task SeedEventAsync(FetchshelfWebAppFixture fixture, EventEntity @event)
     {
         using var scope = fixture.CreateScope();

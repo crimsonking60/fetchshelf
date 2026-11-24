@@ -37,6 +37,7 @@ public sealed class BulkActionRunner(
         var verbs = BulkOperation.Verbs.For(operation.Action, operation.Category);
         var (handled, done) = (0, 0);
         var problems = new List<string>();
+        string? lastMessage = null;
         foreach (var id in ids.Where(titles.ContainsKey))
         {
             if (cancellationToken.IsCancellationRequested)
@@ -57,6 +58,7 @@ public sealed class BulkActionRunner(
 
             using (gate)
             {
+                operation.Handling();
                 // What another job changed since the last torrent is read afresh.
                 dbContext.ChangeTracker.Clear();
                 try
@@ -66,6 +68,7 @@ public sealed class BulkActionRunner(
                     if (succeeded)
                     {
                         done++;
+                        lastMessage = message;
                     }
                     else
                     {
@@ -87,8 +90,12 @@ public sealed class BulkActionRunner(
         var state = !cancellationToken.IsCancellationRequested ? BulkOperationState.Finished
             : operation.Cancellation.IsCancellationRequested ? BulkOperationState.Cancelled
             : BulkOperationState.Interrupted;
-        operation.End(state, Summary(operation, verbs, titles.Count, handled, done, problems.Count, state), problems);
-        logger.LogInformation("Bulk action from the Torrents page: {Summary}", operation.Summary);
+        // An operation of one torrent, from its own page, says what was done to it, as the page did before it ran here.
+        var summary = state == BulkOperationState.Finished && titles.Count == 1 && done == 1 && !string.IsNullOrEmpty(lastMessage)
+            ? lastMessage
+            : Summary(operation, verbs, titles.Count, handled, done, problems.Count, state);
+        operation.End(state, summary, problems);
+        logger.LogInformation("Bulk action: {Summary}", operation.Summary);
     }
 
     private async Task<(bool Succeeded, string Message)> RunOneAsync(
@@ -97,8 +104,11 @@ public sealed class BulkActionRunner(
         switch (operation.Action)
         {
             case BulkAction.Relink:
-                var relinked = await linkRunner.RelinkAsync(id, connections);
+                var relinked = await linkRunner.RelinkAsync(id, connections, operation.ReportPlaced);
                 return (relinked.Succeeded, relinked.Message);
+            case BulkAction.RefreshAndRelink:
+                var refreshed = await linkRunner.RefreshAndRelinkAsync(id, connections, operation.ReportPlaced);
+                return (refreshed.Succeeded, refreshed.Message);
             case BulkAction.Unlink:
                 var unlinked = await cleaner.UnlinkAsync(id, connections);
                 return (unlinked.Succeeded, unlinked.Message);

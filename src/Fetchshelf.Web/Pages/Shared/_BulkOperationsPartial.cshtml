@@ -1,22 +1,24 @@
 @model Fetchshelf.Web.Jobs.BulkOperationsViewModel
 @using Fetchshelf.Web.Jobs
-@* The bulk actions running, waiting or ended, of the page that started them (the Torrents page or the Library check).
+@* The bulk actions running, waiting or ended, of the page that started them (the Torrents page, the Library check or a
+   torrent's page).
    It polls that page every 2 seconds while one runs or waits, and stops once they have all ended; an ended one stays
    until dismissed. The page has the BulkOperations, CancelBulk and DismissBulk handlers. *@
 @{
     var bulkPage = Model.Page;
+    var routeId = Model.RouteId;
     // Taken once: an operation can end while the page renders, and the polling and the strip must agree.
     var unended = Model.Operations.Where(o => !o.HasEnded).ToList();
     var active = unended.Count > 0;
 }
-<div id="bulk-operations" hx-get="@(active ? Url.Page(bulkPage, "BulkOperations") : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
+<div id="bulk-operations" hx-get="@(active ? Url.Page(bulkPage, "BulkOperations", new { id = routeId }) : null)" hx-trigger="@(active ? "every 2s" : null)" hx-swap="outerHTML">
     @foreach (var operation in Model.Operations)
     {
-        var (handled, _) = operation.Progress;
+        var (value, max) = operation.ProgressBar();
         <div class="notice bulk-operation@(operation.HadProblems ? " error" : "")" role="status" data-state="@operation.State.ToString().ToLowerInvariant()">
             @if (operation.State == BulkOperationState.Running)
             {
-                <progress max="@operation.ItemIds.Count" value="@handled"></progress>
+                <progress max="@max" value="@value"></progress>
             }
             <span>
                 @operation.Status()
@@ -30,20 +32,20 @@
                     </ul>
                 }
             </span>
-            @if (!operation.HasEnded)
+            @if (operation.CanCancel)
             {
-                <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk"
-                      hx-post="@Url.Page(bulkPage, "CancelBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk" asp-route-id="@routeId"
+                      hx-post="@Url.Page(bulkPage, "CancelBulk", new { id = routeId })" hx-target="#bulk-operations" hx-swap="outerHTML">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="operationId" value="@operation.Id" />
                     <button type="submit">Cancel</button>
                 </form>
             }
-            else
+            else if (operation.HasEnded)
             {
-                <a href="">Reload the list</a>
-                <form method="post" asp-page="@bulkPage" asp-page-handler="DismissBulk"
-                      hx-post="@Url.Page(bulkPage, "DismissBulk")" hx-target="#bulk-operations" hx-swap="outerHTML">
+                <a href="">@Model.ReloadLabel</a>
+                <form method="post" asp-page="@bulkPage" asp-page-handler="DismissBulk" asp-route-id="@routeId"
+                      hx-post="@Url.Page(bulkPage, "DismissBulk", new { id = routeId })" hx-target="#bulk-operations" hx-swap="outerHTML">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="operationId" value="@operation.Id" />
                     <button type="submit">Dismiss</button>
@@ -56,12 +58,12 @@
     @if (active)
     {
         var shown = unended.FirstOrDefault(o => o.State == BulkOperationState.Running) ?? unended[0];
-        var (shownHandled, _) = shown.Progress;
+        var (shownValue, shownMax) = shown.ProgressBar();
         var more = unended.Count - 1;
         <a class="bulk-progress" href="#bulk-operations" data-bulk-progress title="Show the bulk actions at the top of the page, with Cancel">
             @if (shown.State == BulkOperationState.Running)
             {
-                <progress max="@shown.ItemIds.Count" value="@shownHandled"></progress>
+                <progress max="@shownMax" value="@shownValue"></progress>
             }
             <span class="bulk-progress-text">@shown.Status()@(more > 0 ? $" ({more} more waiting)" : "")</span>
             <span class="bulk-progress-link">Details</span>

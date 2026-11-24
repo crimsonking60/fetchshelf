@@ -16,7 +16,7 @@ namespace Fetchshelf.Web.Pages.Torrents;
 public class DetailModel(
     FetchshelfDbContext dbContext, LinkRunner linkRunner, Cleaner cleaner, LibraryWriteGate writeGate,
     FetchshelfSettings settings, QBittorrentClientFactory qbittorrentFactory, MamClientOptions mamOptions,
-    Core.AutoDownloader.FormatPreferenceLists formatPreferenceLists, ILogger<DetailModel> logger) : PageModel
+    Core.AutoDownloader.FormatPreferenceLists formatPreferenceLists, BulkOperationQueue bulkOperations, ILogger<DetailModel> logger) : PageModel
 {
     /// <summary>"mp3; m4b preferred" when a better format of this copy is possible; null otherwise.</summary>
     public string? UpgradeNote { get; private set; }
@@ -67,6 +67,17 @@ public class DetailModel(
 
     /// <summary>Whether this is a book of a split collection, whose qBittorrent actions are its collection's.</summary>
     public bool IsBook => Torrent is { } torrent && CollectionBookId.IsBook(torrent.Id);
+
+    /// <summary>
+    /// This torrent's <b>Refresh and relink</b> running, waiting or ended, for the panel above the actions: queued for
+    /// <see cref="BulkOperationWorker"/>, so a collection of many books doesn't keep the request waiting.
+    /// </summary>
+    public BulkOperationsViewModel BulkOperations => new(bulkOperations.ShownForTorrent(Id), "/Torrents/Detail", Id);
+
+    /// <summary>Whether this torrent's Refresh and relink is waiting or running, so the button is disabled.</summary>
+    public bool RefreshAndRelinkQueued => bulkOperations.ShownForTorrent(Id).Any(o => !o.HasEnded);
+
+    private string Id => (string)RouteData.Values["id"]!;
 
     /// <summary>What the last action did, shown once after the redirect back to this page.</summary>
     [TempData]
@@ -153,6 +164,14 @@ public class DetailModel(
     /// <param name="splitShown">Whether the form offered it, so an unticked box (which sends nothing) means "don't split".</param>
     public async Task<IActionResult> OnPostRefreshAndRelinkAsync(string id, bool split = false, bool splitShown = false)
     {
+        // The one waiting or running reads the choice it was queued with: nothing changes under it.
+        if (RefreshAndRelinkQueued)
+        {
+            ActionFailed = true;
+            ActionMessage = "Refresh and relink is already waiting or running; its progress is shown above.";
+            return RedirectToPage(new { id });
+        }
+
         if (splitShown && await dbContext.Torrents.FirstOrDefaultAsync(t => t.Id == id) is { } record)
         {
             // Stored only as an exception to the library, so a later change of the library's setting still reaches it.
@@ -160,22 +179,31 @@ public class DetailModel(
             await dbContext.SaveChangesAsync();
         }
 
-        using var gate = await writeGate.AcquireAsync(HttpContext.RequestAborted);
-        try
-        {
-            var result = await linkRunner.RefreshAndRelinkAsync(id, QBittorrentConnections.Build(settings, qbittorrentFactory));
-            ActionMessage = result.Message;
-            ActionFailed = !result.Succeeded;
-        }
-        catch (Exception ex) when (!IsRequestAborted(ex))
-        {
-            logger.LogWarning(ex, "Refresh and relink of {TorrentId} failed", id);
-            ActionFailed = true;
-            ActionMessage = $"Refresh and relink failed: {MamErrorDescriber.DescribeAmong(ex, "MAM, qBittorrent or Audiobookshelf")}";
-        }
-
+        // Run by BulkOperationWorker, under the write gate, while this page shows how far it has got. A book of a split
+        // collection is relinked with its collection, the torrent qBittorrent has.
+        bulkOperations.Enqueue(BulkAction.RefreshAndRelink, [CollectionBookId.HashOf(id)]);
         return RedirectToPage(new { id });
     }
+
+    /// <summary>The panel of this torrent's Refresh and relink, which polls itself while it waits or runs.</summary>
+    public PartialViewResult OnGetBulkOperations(string id) => Partial("_BulkOperationsPartial", BulkOperations);
+
+    /// <summary><b>Cancel</b>: a Refresh and relink still waiting never starts; one running finishes the torrent.</summary>
+    public IActionResult OnPostCancelBulk(string id, int operationId)
+    {
+        bulkOperations.Cancel(operationId);
+        return BulkPanelOrPage(id);
+    }
+
+    /// <summary><b>Dismiss</b> on an ended Refresh and relink: how it went is no longer shown.</summary>
+    public IActionResult OnPostDismissBulk(string id, int operationId)
+    {
+        bulkOperations.Dismiss(operationId);
+        return BulkPanelOrPage(id);
+    }
+
+    private IActionResult BulkPanelOrPage(string id) =>
+        Request.Headers.ContainsKey("HX-Request") ? OnGetBulkOperations(id) : RedirectToPage(new { id });
 
     public async Task<IActionResult> OnPostUnlinkAsync(string id)
     {

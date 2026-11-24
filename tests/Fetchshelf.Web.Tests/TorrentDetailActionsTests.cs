@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
@@ -22,7 +23,7 @@ public partial class TorrentDetailActionsTests
         """;
 
     [Fact]
-    public async Task Post_RefreshAndRelink_DownloadMissing_ShowsWhyAndKeepsTheBook()
+    public async Task Post_RefreshAndRelink_DownloadMissing_ShowsWhyOnceItHasRun_AndKeepsTheBook()
     {
         var tempDir = Directory.CreateTempSubdirectory("fetchshelf-detail-action-tests-").FullName;
         try
@@ -47,16 +48,69 @@ public partial class TorrentDetailActionsTests
             using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
             var response = await client.PostAsync($"/torrents/{Hash}?handler=RefreshAndRelink", form);
             response.EnsureSuccessStatusCode();
-            var html = await response.Content.ReadAsStringAsync();
+            await OrganizerTestSupport.BulkOperationsEndedAsync(fixture);
+            var html = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync($"/torrents/{Hash}"));
 
-            Assert.Contains("id=\"action-message\"", html);
-            Assert.Contains($"Not relinked: 1 of its files are not in {missingDownloads}; check path_mapping. Nothing was changed.", html);
+            Assert.Contains("Refreshed and relinked 0 of 1 torrent.", html);
+            Assert.Contains($"Old Title: Not relinked: 1 of its files are not in {missingDownloads}; check path_mapping. Nothing was changed.", html);
+            Assert.Contains("Reload the page", html);
             Assert.True(File.Exists(Path.Combine(bookFolder, "book.m4b")));
         }
         finally
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Post_RefreshAndRelink_WhileOneIsWaiting_QueuesNothing_AndTheButtonIsDisabled()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent("/library"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, Hash, OrganizerTestSupport.BuildMetadata());
+        var client = fixture.CreateClient();
+        using var scope = fixture.CreateScope();
+        var queue = scope.ServiceProvider.GetRequiredService<Jobs.BulkOperationQueue>();
+        // Held by a bulk action ahead of it, so the torrent page's waits.
+        var gate = await scope.ServiceProvider.GetRequiredService<Data.Organizer.LibraryWriteGate>().AcquireAsync(CancellationToken.None);
+        try
+        {
+            await PostAsync(client, "RefreshAndRelink");
+            var html = System.Net.WebUtility.HtmlDecode(await PostAsync(client, "RefreshAndRelink"));
+
+            Assert.Single(queue.ShownForTorrent(Hash));
+            Assert.Contains("Refresh and relink is already waiting or running; its progress is shown above.", html);
+            Assert.Contains("Refreshing and relinking 1 of 1", html);
+            Assert.Contains("hx-trigger=\"every 2s\"", html);
+            Assert.Matches(@"<button type=""submit"" class=""primary"" disabled=""disabled""[^>]*>Refresh and relink</button>", html);
+            var jobs = await client.GetStringAsync("/Jobs");
+            Assert.Contains($"<a href=\"/torrents/{Hash}\">Torrent page</a>", jobs);
+            Assert.Contains($"action=\"/torrents/{Hash}?handler=CancelBulk\"", jobs);
+        }
+        finally
+        {
+            gate.Dispose();
+        }
+
+        await OrganizerTestSupport.BulkOperationsEndedAsync(fixture);
+        Assert.DoesNotContain("disabled=\"disabled\"", await client.GetStringAsync($"/torrents/{Hash}"));
+    }
+
+    [Fact]
+    public async Task ABooksPage_ShowsItsCollectionsRefreshAndRelink()
+    {
+        var collection = new string('c', 40);
+        var book = Core.Organizer.CollectionBookId.For(collection, 2);
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent("/library"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, collection, OrganizerTestSupport.BuildMetadata("Lantern Collection"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, book, OrganizerTestSupport.BuildMetadata("Lantern"));
+        using var scope = fixture.CreateScope();
+        var operation = scope.ServiceProvider.GetRequiredService<Jobs.BulkOperationQueue>().Enqueue(Jobs.BulkAction.RefreshAndRelink, [collection]);
+        await OrganizerTestSupport.BulkOperationsEndedAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync($"/torrents/{book}");
+
+        Assert.Contains(System.Net.WebUtility.HtmlEncode(operation.Summary!), html);
+        Assert.Contains($"/torrents/{book}?handler=DismissBulk", html);
     }
 
     [Fact]

@@ -33,24 +33,27 @@ brought onto the same machinery.
      collection's hash. The page of one of its books shows it too.
    - The Jobs page links to and cancels through the page the operation belongs to, a torrent's page included.
 
-3. **Per-book progress.** `RelinkAsync` and `RefreshAndRelinkAsync` take an optional callback, called as each
-   book of a collection is placed, with how many are placed and how many there are. It is passed down through
-   `RelinkCoreAsync` and `RelinkAsBooksAsync` to `LinkBooksAsync`; the Link job passes none.
-   - `BulkOperation.ReportBooks(placed, total)` stores it; `Report` for the next torrent clears it.
-   - While a torrent's books are being placed, the status adds them: "Refreshing and relinking 1 of 1: Title
-     (book 37 of 332)".
-   - The progress bar of an operation of one torrent counts the books instead.
+3. **Per-book and per-file progress.** `RelinkAsync` and `RefreshAndRelinkAsync` take an optional callback, called
+   with a `PlacementProgress` (placed, total, unit). It counts the books of a collection split into its books
+   (`LinkBooksAsync`), else the book's files as each is placed (`LinkChosen`). The Link job passes none.
+   - `BulkOperation.ReportPlaced` stores it; `Report` for the next torrent clears it.
+   - While they are being placed, the status adds them: "Refreshing and relinking 1 of 1: Title (book 37 of 332)",
+     or "(file 37 of 303)". A book of one file shows no count.
+   - The progress bar of an operation of one torrent counts them instead.
    - The bulk Relink of the Torrents page and the Library check's Relink selected pass the callback too.
 
 4. **The torrent page.**
    - The post saves the split choice as before, queues the operation and redirects straight away.
    - It no longer waits for the write gate.
    - If an operation of this torrent is waiting or running already, nothing more is queued, and the page says so.
-   - The page shows `_BulkOperationsPartial` for its operations, above the actions. It has the
+   - The page shows `_BulkOperationsPartial` for its operations, at the top of the page. It has the
      `BulkOperations`, `CancelBulk` and `DismissBulk` handlers, and polls itself while one is waiting or running.
    - `BulkOperationsViewModel` gets the page's route id, so the panel's URLs and forms keep `{id}`.
    - The panel's link says "Reload the page", not "Reload the list", on a torrent's page.
    - While an operation of this torrent is waiting or running, the **Refresh and relink** button is disabled.
+   - **Cancel** is offered while an operation waits, and while a running one has torrents left after the current
+     one. An operation of one torrent, once past the wait for the write gate, has nothing left to cancel, so it
+     isn't offered then.
 
 5. **Docs.** The user guide says that Refresh and relink runs in the background, with its progress, and a
    collection's progress book by book, at the top of the torrent's page.
@@ -69,3 +72,4 @@ so they stay as they are.
 - **Web:** the existing tests that post `RefreshAndRelink` wait for the operation to end.
 - **Unit:** `BulkOperation.Status()` with book progress, and `Shown` per page.
 - **Data:** relinking a collection as its books calls the callback once per book, ending at the number of books.
+- **Data:** relinking a collection as one book calls it once per file placed.
