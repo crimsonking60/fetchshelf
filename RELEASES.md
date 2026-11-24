@@ -5,6 +5,61 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.23 - 2026-11-24
+
+Fetchshelf is now **much more phone-friendly**. On a phone, the lists of the Jobs, Search, Torrents, Selected, Events,
+Series, Following, Config and Account pages show each row as a card that fits the screen, instead of a table that ran
+off its right edge and hid the buttons; wide screens look as before. The **Jobs page** no longer flickers: it changes
+only when a job starts, ends or moves. Also new: an **Unsatisfied burndown** page, **covers from PDFs**, **Undo
+dismiss** on the Following page, and log lines that start with the job they come from.
+
+### Upgrading
+
+- Nothing is needed: there is no database change and no new setting.
+- **Follow on Auto selects books even when no unsatisfied-snatch slot is free.** An Auto follow's missing books are
+  selected anyway, and wait on the **Selected** page until the Download job, which checks the slots,
+  `unsat_buffer`, ratio and wedges before each download, can start them. More may wait there than before; `[follow]`
+  `max_active_downloads` still caps what Follow selects (#199).
+
+### Added
+
+- **Phone layouts**: at 40rem (640 px) and narrower, each row of these lists is a card:
+  - **Jobs**: the name and description, the last and the next run, the result and the buttons (#203).
+  - **Search**: the title and authors, the format and quality beside the size, the status beside the cost, then
+    **Download** and **Wedge download** (#204).
+  - **Torrents** and **Selected**: the tick box beside the title, the rest under it; on Selected the cost, category and
+    tags stay editable. The column headings stay as a line of sort links beside **Select all** (#205, #208).
+  - **Events**, **Series** and **Following**: the type beside the time; the name beside how it is followed; the
+    Following counts on one line with their names (#206).
+  - **Config** and **Account**: each block of settings and each month is a card of named lines, such as "Category:
+    audiobooks"; the Account page's worked-out numbers put each name above its explanation (#207).
+  - The **Unsatisfied burndown** headings break between words, so its table fits too.
+- **Unsatisfied burndown** page, under Insight with `[seeding]`: how many torrents will look unsatisfied now and each
+  hour of the next 72, by Fetchshelf's Seeding estimates and by MAM's way of counting every finished torrent in
+  qBittorrent; an hour with fewer than the one before is highlighted (#197).
+- **Covers from a PDF's first page**, among the books' own files the Link job reads covers from. A cover stored in
+  strips is put together, and a JPEG 2000 picture becomes a JPEG. Third-party notices for what does it are included
+  (#193, #196).
+- **Following: Undo dismiss**: a dismissed find, under **Show** → **Dismissed**, can be brought back to be looked at,
+  one at a time or ticked (#198).
+
+### Changed
+
+- **Jobs page**: the list no longer flickers. It used to be replaced, and dimmed, every 2 seconds; now the page asks
+  whether anything changed and leaves the list alone until a job starts, ends or is rescheduled. "Running for 2m 10s"
+  and "in 12 min" count on in the browser, and the page stops asking while its tab is hidden (#203).
+- **Follow**: an Auto follow selects its missing books even when no unsatisfied-snatch slot is free; the Download job
+  waits for a slot before it starts them (see Upgrading). As the slots no longer matter when Follow selects, the Follow
+  job no longer reads the account's numbers from MAM. A run now says so when it didn't get to search a follow, and the
+  Account page shows the limit Follow selects by, `max_active_downloads` (#199).
+- **Logs**: every line written during a job starts with the job's name, such as "[Link] Wrote cover.jpg for ...", and
+  the lines no longer name the job again after it (#200, #201).
+- **Relink** takes a book's cover and other images along to its new folder, instead of leaving them behind or having
+  the next Link run fetch the cover again (#202).
+- **Library check**: an empty folder in a library is an unknown folder, to be deleted from there (#195).
+- **A torrent's page** gives its linked files' sizes as "1.2 MiB" instead of bytes, with the exact count on hover
+  (#209).
+
 ## 2026.11.22 - 2026-11-22
 
 Libraries can now be chosen by **genre**: with `genres = true`, a `[[library]]` takes `allow_genres`, `deny_genres` and
