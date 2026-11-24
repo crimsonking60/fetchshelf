@@ -6,7 +6,7 @@ public class MainNavPageTests
 {
     private static string Nav(string html)
     {
-        var start = html.IndexOf("<nav class=\"site-nav\"", StringComparison.Ordinal);
+        var start = html.IndexOf("<nav id=\"site-nav\" class=\"site-nav\"", StringComparison.Ordinal);
         return html[start..html.IndexOf("</nav>", start, StringComparison.Ordinal)];
     }
 

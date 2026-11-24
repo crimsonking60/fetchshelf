@@ -55,7 +55,7 @@ else
     @* The tick boxes belong to this form through their form attribute: each row's own buttons are forms too, and forms can't nest. *@
     @if (anyTickable)
     {
-        <form id="bulk-finds" method="post" asp-page="/Following/Index" asp-page-handler="Bulk" class="toolbar">
+        <form id="bulk-finds" method="post" asp-page="/Following/Index" asp-page-handler="Bulk" class="toolbar" in-place="true">
             @Html.AntiForgeryToken()
             <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
             <span class="muted">Ticked:</span>
@@ -145,20 +145,20 @@ else
                     <td class="nowrap">
                         @if (waiting)
                         {
-                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline">
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline" in-place="true">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="findId" value="@find.Id" />
                                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                                 <button type="submit">Download</button>
                             </form>
-                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline">
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline" in-place="true">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="findId" value="@find.Id" />
                                 <input type="hidden" name="wedge" value="true" />
                                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                                 <button type="submit">Wedge&nbsp;download</button>
                             </form>
-                            <form method="post" asp-page="/Following/Index" asp-page-handler="Dismiss" class="inline">
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="Dismiss" class="inline" in-place="true">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="findId" value="@find.Id" />
                                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
@@ -167,7 +167,7 @@ else
                         }
                         else if (dismissed)
                         {
-                            <form method="post" asp-page="/Following/Index" asp-page-handler="UndoDismiss" class="inline">
+                            <form method="post" asp-page="/Following/Index" asp-page-handler="UndoDismiss" class="inline" in-place="true">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="findId" value="@find.Id" />
                                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
@@ -183,4 +183,3 @@ else
     @await Html.PartialAsync("_Pager", Model.Pager)
 }
 
-<partial name="_HitDialog" />

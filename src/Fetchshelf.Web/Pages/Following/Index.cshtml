@@ -48,6 +48,8 @@
     </section>
 }
 
+@* The message and the list, refreshed in place after a row's button (InPlaceFormTagHelper). *@
+<div id="in-place">
 @if (Model.Message is { } message)
 {
     <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
@@ -162,3 +164,4 @@ else
         @await Html.PartialAsync("_Pager", Model.Pager)
     }
 }
+</div>

@@ -4,8 +4,9 @@
     var follow = Model.Follow;
     var otherMode = follow.Mode == FollowMode.Download ? FollowMode.Watch : FollowMode.Download;
 }
-@* Plain form posts that redirect back: the whole page reloads, so everything on it shows the new mode. *@
-<form method="post" asp-page="/Following/Index" asp-page-handler="Mode" class="inline">
+@* Posts that redirect back, sent in place (InPlaceFormTagHelper): the page's #in-place part comes back whole, so everything in
+   it shows the new mode. Stop following on a follow's own page goes to the Following page instead, so it is a plain post. *@
+<form method="post" asp-page="/Following/Index" asp-page-handler="Mode" class="inline" in-place="true">
     @Html.AntiForgeryToken()
     <input type="hidden" name="kind" value="@follow.Kind" />
     <input type="hidden" name="key" value="@follow.NameKey" />
@@ -14,14 +15,14 @@
     <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
     <button type="submit">@(otherMode == FollowMode.Download ? "Change to Auto" : "Change to Followed")</button>
 </form>
-<form method="post" asp-page="/Following/Index" asp-page-handler="SearchNow" class="inline">
+<form method="post" asp-page="/Following/Index" asp-page-handler="SearchNow" class="inline" in-place="true">
     @Html.AntiForgeryToken()
     <input type="hidden" name="followId" value="@follow.Id" />
     <input type="hidden" name="name" value="@follow.DisplayName" />
     <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
     <button type="submit">Search now</button>
 </form>
-<form method="post" asp-page="/Following/Index" asp-page-handler="Stop" class="inline">
+<form method="post" asp-page="/Following/Index" asp-page-handler="Stop" class="inline" in-place="@(Model.StopReturnUrl == Model.ReturnUrl)">
     @Html.AntiForgeryToken()
     <input type="hidden" name="followId" value="@follow.Id" />
     <input type="hidden" name="name" value="@follow.DisplayName" />

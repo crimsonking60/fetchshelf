@@ -10,7 +10,7 @@
     private static string? Current(string currentPage, NavEntry entry) => NavModel.IsCurrent(currentPage, entry.Page) ? "page" : null;
 }
 @* Entries on the bar, then one button for each menu of related pages, then the rare ones at the far end. A menu is a native <details>, so it opens without a script; nav.js only closes it again. *@
-<nav class="site-nav" aria-label="Main">
+<nav id="site-nav" class="site-nav" aria-label="Main">
     @foreach (var entry in Model.Primary)
     {
         <a asp-page="@entry.Page" aria-current="@Current(currentPage, entry)">@entry.Label@if (entry.Badge is { } badge)
