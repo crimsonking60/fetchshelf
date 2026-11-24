@@ -148,7 +148,7 @@ public partial class FollowPagesTests
 
         Assert.Contains($"<a href=\"{FollowPage(fixture)}\">James S. A. Corey</a>", html);
         // To look at, not free, selected, in the library.
-        Assert.Matches("<td>2</td>\\s*<td>1</td>\\s*<td></td>\\s*<td>1</td>", html);
+        Assert.Matches("<td class=\"follow-count\" data-label=\"To look at\">2</td>\\s*<td class=\"follow-count\" data-label=\"Not free\">1</td>\\s*<td class=\"follow-count\" data-label=\"Selected\"></td>\\s*<td class=\"follow-count\" data-label=\"In the library\">1</td>", html);
         Assert.Contains(">To look at (2)</a>", html);
         Assert.DoesNotContain("The Way of Kings", html); // the finds are on the follow's own page
         Assert.Equal("/Following?Q=corey", response.RequestMessage!.RequestUri!.PathAndQuery);
@@ -358,7 +358,7 @@ public partial class FollowPagesTests
         var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Series"));
 
         Assert.Contains(">The Expanse</a>", html);
-        Assert.Matches("<td>\\s*1, 2, 4\\s*<div class=\"sub unclamped\">Missing: 3</div>", html);
+        Assert.Matches("<td class=\"series-owned\" data-label=\"In the library\">\\s*1, 2, 4\\s*<div class=\"sub unclamped\">Missing: 3</div>", html);
         Assert.DoesNotContain("handler=Mode", html);
         Assert.DoesNotContain(">Following</a>", html);
     }
@@ -1054,7 +1054,7 @@ public partial class FollowPagesTests
         var list = WebUtility.HtmlDecode(await client.GetStringAsync("/Following"));
         var page = WebUtility.HtmlDecode(await client.GetStringAsync($"/following/{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}"));
 
-        Assert.Matches(@"The Expanse</a></td>\s*<td>Series\s*<span class=""muted""> from Audiobookshelf</span>", list);
+        Assert.Matches(@"The Expanse</a></td>\s*<td class=""follow-kind"">Series\s*<span class=""muted""> from Audiobookshelf</span>", list);
         Assert.Contains("Followed from Audiobookshelf.", page);
     }
 

@@ -96,7 +96,7 @@ else
     }
     else
     {
-        <table class="follows">
+        <table class="follows phone-cards">
             <thead>
                 <tr>
                     <th sort-by="Name" sort-state="query.SortState" sort-page="/Following/Index" sort-route="query.ToRouteValues()">Name</th>
@@ -119,12 +119,12 @@ else
                 {
                     var follow = summary.Follow;
                     <tr id="follow-@follow.Id">
-                        <td><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
-                        <td>@(follow.Kind == FollowKind.Series ? "Series" : "Author")@if (follow.Source == FollowSource.Audiobookshelf)
+                        <td class="follow-name"><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
+                        <td class="follow-kind">@(follow.Kind == FollowKind.Series ? "Series" : "Author")@if (follow.Source == FollowSource.Audiobookshelf)
                             {
                                 <span class="muted"> from Audiobookshelf</span>
                             }</td>
-                        <td class="nowrap">
+                        <td class="nowrap follow-mode">
                             @if (follow.Mode == FollowMode.Download)
                             {
                                 <span class="status-badge status-linked" title="Downloaded automatically">Auto</span>
@@ -134,24 +134,24 @@ else
                                 <span class="status-badge status-selected" title="Download yourself">Followed</span>
                             }
                         </td>
-                        <td>@(summary.ToLookAt > 0 ? summary.ToLookAt : "")</td>
+                        <td class="follow-count" data-label="To look at">@(summary.ToLookAt > 0 ? summary.ToLookAt : "")</td>
                         @if (Model.ShowsNotFree)
                         {
-                            <td>@(summary.NotFree > 0 ? summary.NotFree : "")</td>
+                            <td class="follow-count" data-label="Not free">@(summary.NotFree > 0 ? summary.NotFree : "")</td>
                         }
-                        <td>@(summary.Selected > 0 ? summary.Selected : "")</td>
-                        <td>@(summary.InLibrary > 0 ? summary.InLibrary : "")</td>
+                        <td class="follow-count" data-label="Selected">@(summary.Selected > 0 ? summary.Selected : "")</td>
+                        <td class="follow-count" data-label="In the library">@(summary.InLibrary > 0 ? summary.InLibrary : "")</td>
                         @if (follow.LastSearchedAt is { } searched)
                         {
-                            <td><local-time value="searched" short /></td>
-                            <td><local-time value="Model.SearchAgainAfter(searched)" /></td>
+                            <td class="follow-searched" data-label="Last searched"><local-time value="searched" short /></td>
+                            <td class="follow-again" data-label="Searched again after"><local-time value="Model.SearchAgainAfter(searched)" /></td>
                         }
                         else
                         {
-                            <td class="muted">Not yet</td>
-                            <td></td>
+                            <td class="muted follow-searched" data-label="Last searched">Not yet</td>
+                            <td class="follow-again"></td>
                         }
-                        <td class="nowrap">
+                        <td class="nowrap follow-actions">
                             <partial name="_FollowActions" model="new Fetchshelf.Web.Pages.Following.FollowActionsViewModel(follow, Model.ReturnUrl, Model.ReturnUrl)" />
                         </td>
                     </tr>

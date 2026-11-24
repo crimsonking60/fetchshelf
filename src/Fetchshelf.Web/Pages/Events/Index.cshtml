@@ -64,7 +64,7 @@
 }
 else
 {
-    <table>
+    <table class="phone-cards event-table">
         <thead>
             <tr>
                 <th class="col-fit" sort-by="OccurredAt" sort-first-descending="true" sort-state="Model.SortState" sort-page="/Events/Index" sort-route="Model.FilterRouteValues()">Occurred at</th>
@@ -77,15 +77,15 @@ else
             @foreach (var e in Model.Events)
             {
                 <tr>
-                    <td class="col-fit"><local-time value="e.OccurredAt" short /></td>
-                    <td class="col-fit">@EventLabels.For(e.Kind)</td>
-                    <td class="col-min">
+                    <td class="col-fit event-time"><local-time value="e.OccurredAt" short /></td>
+                    <td class="col-fit event-type">@EventLabels.For(e.Kind)</td>
+                    <td class="col-min event-torrent">
                         @if (e.TorrentId is not null)
                         {
                             <a asp-page="/Torrents/Detail" asp-route-id="@e.TorrentId" title="@e.TorrentId">@Model.TorrentLabel(e)</a>
                         }
                     </td>
-                    <td class="break">
+                    <td class="break event-details">
                         @{ var details = EventLabels.Details(e); }
                         @if (EventLabels.Shortened(details) is { } shortened)
                         {
