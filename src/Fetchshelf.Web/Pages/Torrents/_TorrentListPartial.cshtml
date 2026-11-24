@@ -27,21 +27,21 @@ else
     <table class="torrent-table">
         <thead>
             <tr>
-                <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.torrent-select').forEach(c => c.checked = this.checked)" /></th>
+                <th class="col-fit torrent-select-all"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.torrent-select').forEach(c => c.checked = this.checked)" /></th>
                 <th sort-by="Title" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Title</th>
                 <th class="col-fit" sort-by="Format" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Format</th>
                 <th sort-by="Category" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Category</th>
                 <th sort-by="Status" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Status</th>
                 <th class="col-fit" sort-by="CreatedAt" sort-first-descending="true" sort-state="Model.Query.SortState" sort-page="/Torrents/Index" sort-route="Model.Query.ToRouteValues()">Added</th>
-                <th class="col-fit"></th>
+                <th class="col-fit torrent-edit-head"></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var torrent in Model.Torrents)
             {
                 <tr>
-                    <td class="col-fit"><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" aria-label="Select @torrent.Title" /></td>
-                    <td>
+                    <td class="col-fit torrent-check"><input class="torrent-select" type="checkbox" name="selectedIds" value="@torrent.Id" aria-label="Select @torrent.Title" /></td>
+                    <td class="torrent-title">
                         <a asp-page="/Torrents/Detail" asp-route-id="@torrent.Id">@torrent.Title</a>
                         @if (torrent.Unlinked)
                         {
@@ -71,9 +71,9 @@ else
                             </div>
                         }
                     </td>
-                    <td class="col-fit"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a><div class="sub"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></div></td>
-                    <td class="col-clip" title="@torrent.QBittorrentCategory">@torrent.QBittorrentCategory</td>
-                    <td class="col-fit">@QBittorrentStateLabel.For(torrent.ClientStatus)@if (torrent.RemovedFromMam)
+                    <td class="col-fit torrent-format"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { MediaType = torrent.MediaType }).ToRouteValues()">@torrent.MediaType</a><div class="sub"><a asp-page="/Torrents/Index" asp-all-route-data="(Model.Query with { Language = torrent.Language }).ToRouteValues()">@torrent.Language</a></div></td>
+                    <td class="col-clip torrent-category" title="@torrent.QBittorrentCategory">@torrent.QBittorrentCategory</td>
+                    <td class="col-fit torrent-status">@QBittorrentStateLabel.For(torrent.ClientStatus)@if (torrent.RemovedFromMam)
                         {
                             <span class="muted">(removed from MAM)</span>
                         }@if (LibraryMismatchLabel.For(torrent.LibraryMismatchState) is { } mismatch)
@@ -83,8 +83,8 @@ else
                         {
                             <div class="sub seeding-note">@seedingNote</div>
                         }</td>
-                    <td class="col-fit"><local-time value="torrent.CreatedAt" date /></td>
-                    <td class="col-fit"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
+                    <td class="col-fit torrent-added"><local-time value="torrent.CreatedAt" date /></td>
+                    <td class="col-fit torrent-edit"><a asp-page="/Torrents/Edit" asp-route-id="@torrent.Id">Edit</a></td>
                 </tr>
             }
         </tbody>
