@@ -164,8 +164,8 @@ else
                 </figure>
             }
         </div>
-        <table id="account-months">
-            <thead><tr><th>Month</th><th>Ratio</th><th>Uploaded</th><th>Downloaded</th><th>Bonus points</th><th>Wedges</th></tr></thead>
+        <table id="account-months" class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Month</th><th>Ratio</th><th>Uploaded</th><th>Downloaded</th><th>Bonus points</th><th>Wedges</th></tr></thead>
             <tbody>
                 @foreach (var month in Model.History.Months)
                 {
