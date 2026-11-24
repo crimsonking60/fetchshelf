@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Data;
+using Fetchshelf.Data.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fetchshelf.Web.Pages.Selected;
 
 /// <summary>The Selected page: the download queue.</summary>
-public class IndexModel(FetchshelfDbContext dbContext) : PageModel
+public class IndexModel(FetchshelfDbContext dbContext, MamClientOptions mamOptions, FetchshelfSettings settings) : PageModel
 {
     /// <summary>"CreatedAt" (the default, oldest first: the order the Download job starts them in), "Title" or "Cost".</summary>
     [BindProperty(SupportsGet = true)]
@@ -21,6 +23,9 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 
     public IReadOnlyList<SelectedTorrentViewModel> Selections { get; private set; } = [];
 
+    /// <summary>MAM's address, for the link each title carries to its torrent there.</summary>
+    public string MamBaseUrl => mamOptions.BaseUrl;
+
     public async Task OnGetAsync()
     {
         var entities = await dbContext.SelectedTorrents.Where(s => s.RemovedAt == null).ToListAsync();
@@ -32,6 +37,18 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
             "Cost" => SortState.Apply(oldestFirst, r => r.CostDecision),
             _ => SortState.Apply(rows, r => r.CreatedAt),
         }).ToList();
+    }
+
+    /// <summary>
+    /// One selection's details, for the dialog its title opens: what was stored when it was picked, with a link to its
+    /// MAM page. Nothing is asked of MAM.
+    /// </summary>
+    public async Task<IActionResult> OnGetDetailsAsync(int id)
+    {
+        var entity = await dbContext.SelectedTorrents.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        return entity is null
+            ? NotFound()
+            : Partial("_SelectionDetailsPartial", SelectionDetailsViewModel.From(entity, mamOptions.BaseUrl, settings.Genres));
     }
 
     /// <summary>Takes the ticked selections out of the queue; ones already removed keep their original removal time.</summary>

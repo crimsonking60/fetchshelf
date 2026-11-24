@@ -1997,7 +1997,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Unsatisfied burndown** | How many torrents will look unsatisfied now and each hour of the next 72, Fetchshelf's own and every MAM torrent in qBittorrent, with the hours where seeding completes highlighted. Only in the menu with a `[seeding]` section. See [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied). |
 | **MAM API** | Every call Fetchshelf made to MAM, as a chart and a table, to see the pattern behind a 429 (too many requests). Only in the menu when `mam_id` is set. See [MAM API](#mam-api). |
-| **Selected** | The queue of torrents that are chosen and not yet finished downloading, oldest first: the order the Download job starts them in. Click **Title** or **Cost** to sort by them; open the page again for this order. |
+| **Selected** | The queue of torrents that are chosen and not yet finished downloading, oldest first: the order the Download job starts them in. Click **Title** or **Cost** to sort by them; open the page again for this order. A title opens what Fetchshelf stored about the torrent when it was picked, with **Open on MAM**. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Books** | Every linked book, audiobooks included, to find one and open it in Audiobookshelf or download it. See [Browsing your books](#browsing-your-books). |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
