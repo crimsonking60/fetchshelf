@@ -839,6 +839,8 @@ tr.failing td { background: color-mix(in srgb, var(--c-danger) 9%, transparent);
 .stat-table .bar-cell { width: 35%; }
 table.burndown { width: auto; min-width: 20rem; }
 .burndown .num { width: auto; }
+/* The headings may break between words, so the table fits a phone. */
+.burndown thead th, .burndown thead th.num { white-space: normal; }
 .burndown td.fewer { background: color-mix(in srgb, var(--c-ok) 30%, var(--surface, transparent)); font-weight: 600; }
 .stat-bar { display: inline-block; height: 0.65rem; min-width: 1px; vertical-align: middle; background: var(--accent-line); border-radius: 2px; }
 .stat-bar[style="width: 0%"] { min-width: 0; }
