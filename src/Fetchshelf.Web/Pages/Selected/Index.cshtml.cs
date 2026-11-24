@@ -10,12 +10,12 @@ namespace Fetchshelf.Web.Pages.Selected;
 /// <summary>The Selected page: the download queue.</summary>
 public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 {
-    /// <summary>"CreatedAt" (the default, newest first), "Title" or "Cost".</summary>
+    /// <summary>"CreatedAt" (the default, oldest first: the order the Download job starts them in), "Title" or "Cost".</summary>
     [BindProperty(SupportsGet = true)]
     public string Sort { get; set; } = "CreatedAt";
 
     [BindProperty(SupportsGet = true)]
-    public string Dir { get; set; } = SortState.DescendingValue;
+    public string Dir { get; set; } = SortState.Ascending;
 
     public SortState SortState => SortState.From(Sort, Dir);
 
@@ -25,11 +25,11 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
     {
         var entities = await dbContext.SelectedTorrents.Where(s => s.RemovedAt == null).ToListAsync();
         var rows = entities.Select(SelectedTorrentViewModel.From).ToList();
-        var newestFirst = rows.OrderByDescending(r => r.CreatedAt);
+        var oldestFirst = rows.OrderBy(r => r.CreatedAt);
         Selections = (Sort switch
         {
-            "Title" => SortState.Apply(newestFirst, r => r.Title),
-            "Cost" => SortState.Apply(newestFirst, r => r.CostDecision),
+            "Title" => SortState.Apply(oldestFirst, r => r.Title),
+            "Cost" => SortState.Apply(oldestFirst, r => r.CostDecision),
             _ => SortState.Apply(rows, r => r.CreatedAt),
         }).ToList();
     }
