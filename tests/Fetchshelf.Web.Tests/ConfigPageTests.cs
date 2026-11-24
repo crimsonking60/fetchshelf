@@ -299,7 +299,7 @@ public class ConfigPageTests
 
         var html = await fixture.CreateClient().GetStringAsync("/config");
 
-        Assert.Contains("<th>#</th><th>Name</th><th>Matches</th>", html);
+        Assert.Contains("<th class=\"phone-title\">#</th><th class=\"phone-title\">Name</th><th>Matches</th>", html);
         Assert.Matches(@"<td>1</td>\s*<td>Comics</td>", html);
         Assert.Contains("Media types: ComicBook, Manga<br />", html);
         Assert.Contains("Languages: English<br />", html);

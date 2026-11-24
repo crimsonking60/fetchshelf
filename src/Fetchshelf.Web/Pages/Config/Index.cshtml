@@ -86,8 +86,8 @@
     }
     else
     {
-        <table>
-            <thead><tr><th>Url</th><th>Username</th><th>Password</th><th>Path mapping</th></tr></thead>
+        <table class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Url</th><th>Username</th><th>Password</th><th>Path mapping</th></tr></thead>
             <tbody>
                 @foreach (var connection in settings.QBittorrent)
                 {
@@ -111,10 +111,10 @@
     }
     else
     {
-        <table>
+        <table class="phone-cards phone-labels">
             <thead>
                 <tr>
-                    <th>Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Layout</th><th>Split collections</th>
+                    <th class="phone-title">Name</th><th>Library dir</th><th>Category</th><th>Download dir</th><th>Method</th><th>Metadata files</th><th>Folder names</th><th>Layout</th><th>Split collections</th>
                     @if (settings.Genres)
                     {
                         <th>Genres</th>
@@ -190,8 +190,8 @@
     }
     else
     {
-        <table>
-            <thead><tr><th>Name</th><th>Type</th><th>Cost</th><th>Category</th>@Html.Raw(BudgetHeaders)<th></th></tr></thead>
+        <table class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Name</th><th>Type</th><th>Cost</th><th>Category</th>@Html.Raw(BudgetHeaders)<th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Autograb.Count; i++)
                 {
@@ -249,8 +249,8 @@
     }
     else
     {
-        <table>
-            <thead><tr><th>Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+        <table class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Name</th><th>Books</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 @foreach (var entry in settings.HardcoverList)
                 {
@@ -279,8 +279,8 @@
     }
     else
     {
-        <table id="file-lists">
-            <thead><tr><th>Name</th><th>File</th><th>Shelf</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+        <table id="file-lists" class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Name</th><th>File</th><th>Shelf</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.FileList.Count; i++)
                 {
@@ -311,8 +311,8 @@
     }
     else
     {
-        <table id="bookmarks-list">
-            <thead><tr><th>Name</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
+        <table id="bookmarks-list" class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Name</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 <tr>
                     <td>@AutoDownloaderJobNames.BookmarksList(bookmarks)</td>
@@ -336,7 +336,7 @@
     }
     else
     {
-        <table id="follow-settings">
+        <table id="follow-settings" class="phone-cards phone-labels">
             <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Preferred format</th><th>Grab costs</th><th>Category</th>@Html.Raw(BudgetHeaders)<th>Dry run</th><th>Audiobookshelf series</th></tr></thead>
             <tbody>
                 <tr>
@@ -367,7 +367,7 @@
     }
     else
     {
-        <table id="upgrade-settings">
+        <table id="upgrade-settings" class="phone-cards phone-labels">
             <thead><tr><th>Searches per run</th><th>Search again after</th><th>Interval</th><th>Libraries</th><th>Grab costs</th>@Html.Raw(BudgetHeaders)<th>Dry run</th></tr></thead>
             <tbody>
                 <tr>
@@ -394,7 +394,7 @@
     }
     else
     {
-        <table id="bonus-settings">
+        <table id="bonus-settings" class="phone-cards phone-labels">
             <thead><tr><th>Keep points</th><th>Upload amounts</th><th>Wedge every</th><th>VIP</th><th>Max purchases per run</th><th>Interval</th><th>Dry run</th></tr></thead>
             <tbody>
                 <tr>
@@ -419,7 +419,7 @@
     }
     else
     {
-        <table id="seeding-settings">
+        <table id="seeding-settings" class="phone-cards phone-labels">
             <thead><tr><th>Requirement</th><th>Interval</th><th>Tag unsatisfied</th><th>Warn before removal</th></tr></thead>
             <tbody>
                 <tr>
@@ -441,7 +441,7 @@
     }
     else
     {
-        <table id="backup-settings">
+        <table id="backup-settings" class="phone-cards phone-labels">
             <thead><tr><th>Folder</th><th>Interval</th><th>Keep</th><th>Before upgrades</th></tr></thead>
             <tbody>
                 <tr>
@@ -463,8 +463,8 @@
     }
     else
     {
-        <table id="notify-blocks">
-            <thead><tr><th>Name</th><th>Format</th><th>Events</th><th>URL</th><th></th></tr></thead>
+        <table id="notify-blocks" class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">Name</th><th>Format</th><th>Events</th><th>URL</th><th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < Model.NotifyTargets.Count; i++)
                 {
@@ -496,8 +496,8 @@
     }
     else
     {
-        <table>
-            <thead><tr><th>#</th><th>Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
+        <table class="phone-cards phone-labels">
+            <thead><tr><th class="phone-title">#</th><th class="phone-title">Name</th><th>Matches</th><th>Category applied</th><th>Tags applied</th><th></th></tr></thead>
             <tbody>
                 @for (var i = 0; i < settings.Tag.Count; i++)
                 {

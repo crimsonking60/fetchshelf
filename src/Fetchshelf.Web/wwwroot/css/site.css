@@ -610,6 +610,11 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     main table { display: block; overflow-x: auto; }
     thead th { position: static; }
     thead { position: relative; z-index: 4; }
+    /* As wide as its columns need, so it has no empty strip inside its border. */
+    main table#snatches { width: max-content; max-width: 100%; }
+    /* Account's derived numbers: each name above its value and explanation, which get the whole width. */
+    main table#derived-numbers, #derived-numbers tbody, #derived-numbers tr, #derived-numbers th, #derived-numbers td { display: block; width: auto; }
+    #derived-numbers th { padding-bottom: 0; border-bottom: 0; }
 }
 
 /* A phone: each torrent is a card of its own instead of a row too wide for the screen, with its tick box at the left.
@@ -658,6 +663,15 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     main .phone-cards > tbody > tr:last-child { border-bottom: 0; }
     main .phone-cards > tbody > tr > td { display: block; width: auto; max-width: none; min-width: 0; padding: 0; border: 0; background: none; }
     main .phone-cards td[data-label]:not(:empty)::before { content: attr(data-label) ": "; color: var(--text-muted); }
+
+    /* Account: a month's change since the month before on the value's line, not under it. */
+    #account-months td br { display: none; }
+    #account-months td .muted { margin-left: 0.35rem; }
+
+    /* Labelled cards (phone-labels.js names the cells): one line for each value, under the title cells. */
+    main .phone-labels > tbody > tr > td { flex-basis: 100%; }
+    main .phone-labels > tbody > tr > td.phone-title { flex-basis: auto; font-weight: 600; }
+    main .phone-labels > tbody > tr > td.phone-title .sub { font-weight: 400; }
 
     /* Events: the type beside the time, then the torrent and the details. */
     .event-table .event-type { flex: 1 1 0; font-weight: 600; }
