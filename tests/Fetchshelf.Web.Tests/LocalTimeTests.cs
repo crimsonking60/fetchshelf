@@ -75,7 +75,7 @@ public class LocalTimeTests
 
         var html = await client.GetStringAsync("/torrents");
 
-        Assert.Matches("<td class=\"col-fit\"><time class=\"local-time\" datetime=\"[^\"]+Z\"[^>]* data-date=\"\"[^>]*>\\d{4}-\\d{2}-\\d{2}</time></td>", html);
+        Assert.Matches("<td class=\"col-fit torrent-added\"><time class=\"local-time\" datetime=\"[^\"]+Z\"[^>]* data-date=\"\"[^>]*>\\d{4}-\\d{2}-\\d{2}</time></td>", html);
     }
 
     [Fact]
