@@ -71,7 +71,7 @@ else
             }
         </form>
     }
-    <table class="follow-finds">
+    <table class="follow-finds phone-cards">
         <thead>
             <tr>
                 @if (anyTickable)
@@ -107,7 +107,7 @@ else
                 <tr class="@(waiting ? null : "muted")">
                     @if (anyTickable)
                     {
-                        <td>
+                        <td class="find-tick">
                             @if (waiting || dismissed)
                             {
                                 <input class="find-select" type="checkbox" form="bulk-finds" name="findIds" value="@find.Id" aria-label="Tick @find.Title" />
@@ -116,22 +116,22 @@ else
                     }
                     @if (Model.ShowsBook)
                     {
-                        <td>@find.SeriesDisplay</td>
+                        <td class="find-book">@find.SeriesDisplay</td>
                     }
                     @* Opens the details in a dialog over the page, as on the Search page; the link itself is the full page, for a new tab. *@
-                    <td><a asp-page="/Search/Detail" asp-route-mamId="@find.MamId"
+                    <td class="find-title"><a asp-page="/Search/Detail" asp-route-mamId="@find.MamId"
                            hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = find.MamId })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@find.Title</a></td>
                     @if (Model.ShowsFollow)
                     {
-                        <td><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
+                        <td class="find-follow"><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
                     }
-                    <td>@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                    <td class="find-format">@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
                     @if (Model.ShowsLanguage)
                     {
-                        <td>@(Enum.TryParse<Fetchshelf.Core.Metadata.Language>(find.Language, out var findLanguage) ? Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName(findLanguage) : "")</td>
+                        <td class="find-language">@(Enum.TryParse<Fetchshelf.Core.Metadata.Language>(find.Language, out var findLanguage) ? Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName(findLanguage) : "")</td>
                     }
-                    <td class="nowrap">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
-                    <td>
+                    <td class="nowrap find-size">@(find.SizeBytes is { } size ? Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(size) : "")</td>
+                    <td class="find-status">
                         @if (Model.StatusBadge(find) is { } badge)
                         {
                             <partial name="_SearchResultStatusPartial" model="badge" />
@@ -141,8 +141,8 @@ else
                             @IndexModel.StatusLabel(find.Status)
                         }
                     </td>
-                    <td><local-time value="find.FoundAt" short /></td>
-                    <td class="nowrap">
+                    <td class="find-found"><local-time value="find.FoundAt" short /></td>
+                    <td class="nowrap find-actions">
                         @if (waiting)
                         {
                             <form method="post" asp-page="/Following/Index" asp-page-handler="Download" class="inline" in-place="true">

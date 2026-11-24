@@ -702,6 +702,25 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     .follows .follow-searched { order: 4; flex-basis: 100%; }
     .follows .follow-again { order: 5; flex-basis: 100%; }
     .follows .follow-actions { order: 6; flex-basis: 100%; white-space: normal; }
+
+    /* A follow's finds: the tick box, the book's number and the title on top, the series or author under it, then the
+       format, language, size, status and when it was found on a line that wraps, then the buttons. */
+    .follow-finds .find-title { flex: 1 1 0; font-weight: 600; }
+    /* The line ends after the title: the row's last item, so of those left in place (order 0) it comes after the tick
+       box, number and title, while every other cell is ordered after it. */
+    .follow-finds > tbody > tr::after { content: ""; flex-basis: 100%; height: 0; margin-top: -0.25rem; }
+    .follow-finds .find-book { color: var(--text-muted); }
+    .follow-finds .find-follow { order: 1; flex-basis: 100%; }
+    .follow-finds .find-format { order: 2; }
+    .follow-finds .find-language { order: 3; }
+    .follow-finds .find-size { order: 4; }
+    .follow-finds .find-found { order: 5; color: var(--text-muted); }
+    .follow-finds .find-status { order: 6; }
+    .follow-finds .find-tick:not(:has(input)), .follow-finds .find-book:empty, .follow-finds .find-language:empty,
+    .follow-finds .find-size:empty { display: none; }
+    .follow-finds .find-actions { order: 7; flex-basis: 100%; white-space: normal; }
+    .follow-finds .find-actions:not(:has(form)) { display: none; }
+    .follow-finds .find-actions form { margin: 0.15rem 0.3rem 0.15rem 0; }
 }
 
 /* A phone: each job is a card of its own instead of a row too wide for the screen. The name and description on top, the
