@@ -98,6 +98,7 @@ public static class JobOutcomes
             summary.UnknownFiles > 0 ? Count(summary.UnknownFiles, "unknown file", "unknown files") : null,
             summary.FoldersMissing > 0 ? Count(summary.FoldersMissing, "book", "books") + " with its folder missing" : null,
             summary.FilesMissing > 0 ? Count(summary.FilesMissing, "book", "books") + " with files missing" : null,
+            summary.CollectionsNotSplit > 0 ? Count(summary.CollectionsNotSplit, "collection", "collections") + " not split" : null,
         }.OfType<string>().ToList();
         return new JobOutcome(
             parts.Count == 0 ? "The library matches the records" : string.Join(", ", parts) + "; see the Library check page",
@@ -107,6 +108,7 @@ public static class JobOutcomes
                 ["unknown_files"] = summary.UnknownFiles,
                 ["folders_missing"] = summary.FoldersMissing,
                 ["files_missing"] = summary.FilesMissing,
+                ["collections_not_split"] = summary.CollectionsNotSplit,
             });
     }
 

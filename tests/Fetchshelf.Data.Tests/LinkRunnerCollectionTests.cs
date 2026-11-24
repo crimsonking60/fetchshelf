@@ -131,6 +131,39 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         Assert.Equal(split ? 2 : 0, await context.Torrents.CountAsync(t => t.CollectionTorrentId == Hash));
     }
 
+    [Theory]
+    [InlineData(true, null, 1)] // linked as one book, and its library splits now: found
+    [InlineData(false, null, 0)] // its library doesn't split
+    [InlineData(true, false, 0)] // its page says not to split it
+    public async Task CollectionsNotSplit_FindsACollectionLinkedAsOneBook_ThatItsLibraryWouldSplit(bool librarySplits, bool? choice, int found)
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(files));
+        (await context.Torrents.SingleAsync()).SplitCollection = choice;
+        await context.SaveChangesAsync();
+
+        var findings = await Runner(context, EbookLibrary(librarySplits)).CollectionsNotSplitAsync([(new QBittorrentConnection(), Client(files))]);
+
+        Assert.Equal(found, findings.Count);
+        if (found > 0)
+        {
+            var finding = findings.Single();
+            Assert.Equal((LibraryFindingKind.CollectionNotSplit, Hash, "Discworld", 2), (finding.Kind, finding.TorrentId, finding.Title, finding.Books));
+        }
+    }
+
+    [Fact]
+    public async Task CollectionsNotSplit_LeavesOutACollectionSplitAlready()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        var runner = Runner(context, EbookLibrary());
+        await runner.RunAsync(new QBittorrentConnection(), Client(files));
+
+        Assert.Empty(await runner.CollectionsNotSplitAsync([(new QBittorrentConnection(), Client(files))]));
+    }
+
     [Fact]
     public async Task Link_ASecondRun_LeavesTheBooksAndFollowsTheTorrentsCategory()
     {

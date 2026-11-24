@@ -1773,8 +1773,9 @@ authorizes automating; since 2026-11-22 it refuses Fetchshelf, and Fetchshelf no
 
 ### Collections
 
-A collection is one torrent holding several books of one series, such as all of Discworld, or a run of comic issues.
-Linked as it is, it becomes one "book" in one folder. A collection can instead be split into one book each, placed as a
+A collection is one torrent holding several books: of one series, such as all of Discworld, or a run of comic issues;
+of many series, such as a reading order across a publisher's comics; or of no series at all, such as a bundle of
+classics by several authors. Linked as it is, it becomes one "book" in one folder. A collection can instead be split into one book each, placed as a
 single download of it would be: its own folder (or, in a series library, its own file in the series folder), its own metadata files as the
 library writes them, its own cover, and its own record on the **Torrents** page.
 
@@ -1793,10 +1794,20 @@ Whether a collection is split is decided, first that applies:
   in brackets are left out, so `Saga 001 (Digital).cbz` and `Saga 001.cbr` are one book in two formats, and a
   `Variant Covers` folder's files go with the issues above it. A book the torrent holds twice, with the same title,
   series and number (a series in two folders), is one book, its best copy kept. Disc folders mean one book. Audiobooks aren't split.
+- **Reading orders.** When most names start with the book's place in a reading order, a number of one width before
+  the name (`001_Nightfall - Year Zero.cbr`, `04417 Hollow House 11.cbr`), and MAM's series gives no range, that number
+  is left out of the name before it is read, so `04417 Hollow House 11` is *Hollow House* #11, and the books are in
+  reading order on the collection's page. A name `<series> - <title>` (or `<series>_<title>`) there, without a number,
+  whose series another book of the torrent has too, is a book of that series with no number: `001_Nightfall - Year
+  Zero` is *Year Zero* in *Nightfall*. Three books of one series, read this way, make the torrent a collection.
+- **Bundles of unrelated books.** A torrent whose books are mostly named `<Last>, <First> - <Title>` or
+  `<First> <Last> - <Title>` (`Austen, Jane - Emma.pdf`), at least three of them and by at least two of the authors MAM
+  lists for it, is a collection of books with no series. Each of them has its own author, the one MAM lists, and its title from the
+  name; one whose name names no author MAM lists keeps the torrent's authors.
 - **Each book's details.** The collection's authors, language, category and tags; the book's own title, series number,
   ISBN and description from its epub when it has them, else its title from its folder or file name (trailing groups in
   brackets, such as a Calibre id `(1019)`, a year `(2014)` or release tags `(Digital)`, and a trailing ` - author` left
-  out), and its number from a leading number in the name (`04 - Mort`), a
+  out, though a part of a story such as `(Part 2)` stays), and its number from a leading number in the name (`04 - Mort`), a
   number at its end (`Berserk v07`, `Vol. 7`, `Volume 7`, `#7`), a magazine's month and year (`Popular Mechanics
   10 1927` is #1927.10, so its issues sort by date), or a numbered list in MAM's description, which also
   matches a title cut short there. Names with underscores for spaces are read as spaced ones. A folder that names a
@@ -1825,7 +1836,7 @@ Whether a collection is split is decided, first that applies:
   and relink**: the choice is kept for that torrent, overriding its library from then on, also for the Link job and bulk
   **Relink**. Choosing what its library does again makes it follow the library.
 - **Collections linked before** stay as one book until you **Relink** them, which splits them when the settings ask for
-  it. Relinking a split collection that is no longer to be split links it as one book again.
+  it. The [Library check](#checking-the-library) lists them as **Collection not split**, ready to relink. Relinking a split collection that is no longer to be split links it as one book again.
 - A book of a collection gets the cover inside its own file, but none is fetched for it: a cover found by its details
   would be the collection's.
 
@@ -1978,7 +1989,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Following** | The series and authors on Auto or followed, each with a page of what was found for it, and **To look at**, what waits to be downloaded or dismissed for all of them. Only in the menu with a `[follow]` section, with a count of the finds to look at. |
 | **Events** | A log of what happened: grabbed, linked, cleaned, unlinked, updated, removed from MAM, deleted from a library by the Library check, bonus points spent, and each Upgrade run with what it did. |
 | **Errors** | Jobs that keep failing, and the torrents and books the Download, Link, Clean, list, Follow, Upgrade and Audiobookshelf jobs couldn't handle. A count on its menu link says when something needs attention. |
-| **Library check** | What the last Library check found: folders and files no book points at, and books whose folder or files are gone. Under **Library** in the menu, with a count of the findings when there are any. |
+| **Library check** | What the last Library check found: folders and files no book points at, books whose folder or files are gone, and collections linked as one book that their library would split. Under **Library** in the menu, with a count of the findings when there are any. |
 | **Duplicates** | Torrents skipped because you already have or have selected the same book. |
 | **Lists** | The books on your Hardcover lists and list files, and your MAM bookmarks, with what was found for each. Only in the menu when a `[[hardcover_list]]`, `[[file_list]]` or `[[bookmarks_list]]` is configured. |
 | **Config** | A read-only view of the active configuration, with secrets hidden, and a **Send a test message** button for each `[[notify]]` block. |
@@ -2272,6 +2283,7 @@ back with its findings straight away. With more than one library, a dropdown abo
 | **Unknown file** | In a series library, a file in a series folder that none of its books lists; anywhere, a file in a library's own folder or in a folder above book folders, such as an author or series folder. Not a file inside a book's own folder (see below). | **Delete selected** |
 | **Folder missing** | A linked book whose folder is gone. | **Relink selected**, **Remove record** |
 | **Files missing** | A linked book whose folder is there, but some of its files aren't. | **Relink selected**, **Remove record** |
+| **Collection not split** | A torrent linked as one book that **Relink** would [split into its books](#collections): in a library whose `split_collections` is on, with no choice of its own on its page, linked before splitting was on or before its file names could be read as a collection's. Found from its file list in qBittorrent, with the number of books. | **Relink selected** |
 
 - **A book's own folder is not checked for extra files**, except in a series library, where the series folder is the
   book's folder. A file put into a book's folder, by hand or by another program (such as an ebook reader's own cover
@@ -2298,6 +2310,9 @@ back with its findings straight away. With more than one library, a dropdown abo
   - move its files back to where qBittorrent keeps them, or use **Set location** in qBittorrent, then **Force
     recheck** and Relink, when qBittorrent can't find the torrent's files (its state *Missing files*: moved or deleted
     outside qBittorrent). Relink and the Search page's **Import** say the same for such a torrent.
+- **Collection not split** is looked for only among torrents qBittorrent has and has finished, as their file lists
+  come from it. A torrent whose page says not to split it (**Split into its books** unticked) isn't listed; to split
+  one of those, tick the box on its page and click **Refresh and relink** there.
 - **Relink selected** relinks each ticked book as on its torrent page. A book it relinks leaves the list; one it can't
   stays, with *What to do* brought up to date. **Remove record** makes Fetchshelf forget the book, as on its torrent
   page.

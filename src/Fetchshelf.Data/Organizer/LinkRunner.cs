@@ -1040,6 +1040,63 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
+    /// The linked torrents that Relink would split into their books, but are linked as one: in a library whose
+    /// `split_collections` is on, with no choice of their own on their page, and taken for a collection by
+    /// <see cref="CollectionSplitter"/> from their file list in qBittorrent. Such as a collection linked before splitting
+    /// was turned on, or before the splitter learned to read its names. A torrent qBittorrent doesn't have, hasn't
+    /// finished or can't be asked about is left out. With the number of books, for the Library check.
+    /// </summary>
+    public async Task<List<LibraryFinding>> CollectionsNotSplitAsync(
+        IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)> connections, CancellationToken cancellationToken = default)
+    {
+        var linked = await dbContext.Torrents.AsNoTracking()
+            .Where(t => t.LibraryPath != null && t.CollectionTorrentId == null && t.CollectionBookCount == null && t.SplitCollection == null
+                && t.UnlinkedAt == null && t.ReplacedAt == null)
+            .Select(t => new { t.Id, t.Title, t.MetadataJson, t.LibraryPath })
+            .ToListAsync(cancellationToken);
+        var findings = new List<LibraryFinding>();
+        foreach (var torrent in linked)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var library = LibraryContaining(torrent.LibraryPath!);
+            var metadata = TorrentMetadataSerializer.Deserialize(torrent.MetadataJson);
+            if (library is not { SplitCollections: true } || !CollectionSplitter.IsEbookSide(metadata.MediaType))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (await FindInQBittorrentAsync(torrent.Id, connections, cancellationToken) is not var (_, client, found) || !found.IsFinished)
+                {
+                    continue;
+                }
+
+                var files = await client.ListFilesAsync(torrent.Id, cancellationToken);
+                var books = CollectionSplitter.Split(
+                    metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), library.EbookTypes ?? formatPreferenceLists.EbookTypes);
+                if (books is not null)
+                {
+                    findings.Add(new LibraryFinding(LibraryFindingKind.CollectionNotSplit, Path.GetFullPath(torrent.LibraryPath!), library.Name ?? library.LibraryDir)
+                    {
+                        TorrentId = torrent.Id,
+                        Title = torrent.Title,
+                        Authors = metadata.Authors,
+                        Books = books.Count,
+                        Blocker = RelinkBlocker.None,
+                    });
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Library check: could not ask qBittorrent about {Title}: {Error}", torrent.Title, ex.Message);
+            }
+        }
+
+        return findings;
+    }
+
+    /// <summary>
     /// What would stop <see cref="RelinkAsync"/> placing the torrent's files again, found the way it finds it, without
     /// changing anything: whether qBittorrent has it and has finished it, whether a library accepts it, and whether it
     /// has the author a book-layout library needs. With the torrent's category, for a library to be given, or for

@@ -8,10 +8,11 @@
     var unknownFiles = Model.Of(LibraryFindingKind.UnknownFile);
     var foldersMissing = Model.Of(LibraryFindingKind.FolderMissing);
     var filesMissing = Model.Of(LibraryFindingKind.FilesMissing);
+    var notSplit = Model.Of(LibraryFindingKind.CollectionNotSplit);
 }
 
 <h2>Library check</h2>
-@await Html.PartialAsync("_PageExplanation", "The Library check compares the library folders with what Fetchshelf has on record: folders no book points at, such as an old folder left behind after going back to a database backup, and books whose folder or files are gone. Run it after the Link job has caught up. Each folder or file is checked again before it is deleted, so one a book uses by then is left alone.")
+@await Html.PartialAsync("_PageExplanation", "The Library check compares the library folders with what Fetchshelf has on record: folders no book points at, such as an old folder left behind after going back to a database backup, books whose folder or files are gone, and collections linked as one book that Relink would split into their books. Run it after the Link job has caught up. Each folder or file is checked again before it is deleted, so one a book uses by then is left alone.")
 
 @if (Model.ActionMessage is { } actionMessage)
 {
@@ -61,7 +62,7 @@
     </form>
 }
 
-@if (!Model.Running && Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count == 0)
+@if (!Model.Running && Model.CheckedAt is not null && unknownFolders.Count + unknownFiles.Count + foldersMissing.Count + filesMissing.Count + notSplit.Count == 0)
 {
     @if (!string.IsNullOrEmpty(Model.Library) && Model.AnyFindings)
     {
@@ -194,6 +195,51 @@
         <div class="actions">
             <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
             <button type="submit" asp-page-handler="RemoveRecord" class="danger" disabled="@Model.Running">Remove record</button>
+        </div>
+    </form>
+}
+
+@if (notSplit.Count > 0)
+{
+    <h3>Collections not split</h3>
+    <p>
+        These are linked as one book, but their library splits collections into their books, and <strong>Relink</strong>
+        would split them: linked before splitting was turned on, or before their file names could be read as a
+        collection's. Look over a collection's books on its page after it is split; to keep one as one book, untick
+        <strong>Split into its books</strong> on its page and relink it there.
+    </p>
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="Library" value="@Model.Library" />
+        <table id="not-split">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.not-split-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th>Collection</th>
+                    <th>Folder on record</th>
+                    <th>Books</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (id, finding, note) in notSplit)
+                {
+                    <tr>
+                        <td><input class="not-split-select" type="checkbox" name="selectedIds" value="@id" aria-label="Select @finding.Title" /></td>
+                        <td>
+                            <a asp-page="/Torrents/Detail" asp-route-id="@finding.TorrentId">@finding.Title</a>@(finding.Authors.Count > 0 ? $" by {string.Join(", ", finding.Authors)}" : "")
+                            @if (note is not null)
+                            {
+                                <div class="finding-note">@note</div>
+                            }
+                        </td>
+                        <td class="break">@finding.Path</td>
+                        <td class="nowrap">@finding.Books</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="actions">
+            <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
         </div>
     </form>
 }

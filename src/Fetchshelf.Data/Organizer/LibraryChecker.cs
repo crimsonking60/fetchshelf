@@ -68,9 +68,9 @@ public sealed class LibraryCheckResults
 }
 
 /// <summary>What one Library check found, by kind.</summary>
-public sealed record LibraryCheckSummary(int UnknownFolders, int UnknownFiles, int FoldersMissing, int FilesMissing)
+public sealed record LibraryCheckSummary(int UnknownFolders, int UnknownFiles, int FoldersMissing, int FilesMissing, int CollectionsNotSplit = 0)
 {
-    public int Total => UnknownFolders + UnknownFiles + FoldersMissing + FilesMissing;
+    public int Total => UnknownFolders + UnknownFiles + FoldersMissing + FilesMissing + CollectionsNotSplit;
 }
 
 /// <summary>
@@ -96,7 +96,8 @@ public sealed class LibraryChecker(
 
     /// <param name="connections">
     /// The qBittorrent connections, asked for each book whose folder or files are gone what would stop Relink
-    /// (<see cref="LinkRunner.RelinkBlockerAsync"/>); without them, or without a <see cref="LinkRunner"/>, nobody is asked.
+    /// (<see cref="LinkRunner.RelinkBlockerAsync"/>), and for the file lists that tell a collection not split
+    /// (<see cref="LinkRunner.CollectionsNotSplitAsync"/>); without them, or without a <see cref="LinkRunner"/>, nobody is asked.
     /// </param>
     public async Task<LibraryCheckSummary> RunAsync(
         IReadOnlyList<(QBittorrentConnection Connection, QBittorrentClient Client)>? connections = null, CancellationToken cancellationToken = default)
@@ -138,12 +139,14 @@ public sealed class LibraryChecker(
         if (linkRunner is not null && connections is not null)
         {
             findings = await WithRelinkBlockersAsync(findings, connections, cancellationToken);
+            findings.AddRange(await linkRunner.CollectionsNotSplitAsync(connections, cancellationToken));
         }
 
         results.Set(findings, _time.GetUtcNow());
         var summary = new LibraryCheckSummary(
             findings.Count(f => f.Kind == LibraryFindingKind.UnknownFolder), findings.Count(f => f.Kind == LibraryFindingKind.UnknownFile),
-            findings.Count(f => f.Kind == LibraryFindingKind.FolderMissing), findings.Count(f => f.Kind == LibraryFindingKind.FilesMissing));
+            findings.Count(f => f.Kind == LibraryFindingKind.FolderMissing), findings.Count(f => f.Kind == LibraryFindingKind.FilesMissing),
+            findings.Count(f => f.Kind == LibraryFindingKind.CollectionNotSplit));
         _logger.LogInformation(
             "{Folders} folders walked, {Books} linked books; {Findings} findings",
             folders.Count, books.Count, summary.Total);
