@@ -1956,8 +1956,8 @@ accepts it, and that its files are where qBittorrent says. If anything is missin
 the page and changes nothing.
 
 It runs in the background, the way the Torrents page's bulk actions do, so the page comes back at once. A panel at
-the top of the page shows how far it has got and updates itself; for a collection split into its books, it counts the
-books as they are placed. You can leave the page meanwhile; the **Jobs** page lists it too. It waits while the Link or
+the top of the page shows how far it has got and updates itself, counting the files as they are placed, or the books
+of a collection split into its books. You can leave the page meanwhile; the **Jobs** page lists it too. It waits while the Link or
 Clean job or a bulk action works on library files, and **Cancel** stops it until it starts. When it ends, the panel
 says how it went, with **Reload the page** to see the changes, until you **Dismiss** it. A book of a collection shows
 its collection's on its page as well.
@@ -2166,7 +2166,7 @@ reported, so they cannot be chosen by hand.
   - *Remove* deletes Fetchshelf's record (not the files).
   - **In the background.** Clean, Refresh, Relink, Unlink and Set category run in the background, one torrent
     at a time, so the page comes back at once. A panel above the list shows how far it has got ("Relinking 7 of
-    23: *title*", with "(book 37 of 332)" while a collection's books are placed) and updates itself; the **Jobs**
+    23: *title*", with "(book 37 of 332)" or "(file 37 of 303)" while a torrent's books or files are placed) and updates itself; the **Jobs**
     page lists it too. You can leave the page meanwhile: it keeps going, and the panel still shows it when you
     come back. **Cancel** stops it after the torrent it is on, leaving the rest as they were. A second bulk
     action waits for the first. When one ends, the panel says how it went, with **Reload the list** to see the

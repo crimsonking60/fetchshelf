@@ -104,10 +104,10 @@ public sealed class BulkActionRunner(
         switch (operation.Action)
         {
             case BulkAction.Relink:
-                var relinked = await linkRunner.RelinkAsync(id, connections, operation.ReportBooks);
+                var relinked = await linkRunner.RelinkAsync(id, connections, operation.ReportPlaced);
                 return (relinked.Succeeded, relinked.Message);
             case BulkAction.RefreshAndRelink:
-                var refreshed = await linkRunner.RefreshAndRelinkAsync(id, connections, operation.ReportBooks);
+                var refreshed = await linkRunner.RefreshAndRelinkAsync(id, connections, operation.ReportPlaced);
                 return (refreshed.Succeeded, refreshed.Message);
             case BulkAction.Unlink:
                 var unlinked = await cleaner.UnlinkAsync(id, connections);

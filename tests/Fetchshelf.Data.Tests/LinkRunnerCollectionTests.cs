@@ -188,16 +188,33 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(files));
         var oldFolder = (await context.Torrents.SingleAsync()).LibraryPath!;
 
-        var placed = new List<(int Placed, int Total)>();
-        var result = await Runner(context, EbookLibrary()).RelinkAsync(
-            Hash, [(new QBittorrentConnection(), Client(files))], (count, total) => placed.Add((count, total)));
+        var placed = new List<PlacementProgress>();
+        var result = await Runner(context, EbookLibrary()).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))], placed.Add);
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal("Linked Discworld as 2 books.", result.Message);
-        Assert.Equal([(1, 2), (2, 2)], placed); // as each book is placed, for the progress shown
+        // As each book is placed, for the progress shown.
+        Assert.Equal([new PlacementProgress(1, 2, PlacementUnit.Book), new PlacementProgress(2, 2, PlacementUnit.Book)], placed);
         Assert.False(Directory.Exists(oldFolder));
         context.ChangeTracker.Clear();
         Assert.Equal(2, await context.Torrents.CountAsync(t => t.CollectionTorrentId == Hash && t.LibraryPath != null));
+    }
+
+    [Fact]
+    public async Task Relink_ACollectionAsOneBook_ReportsEachOfItsFilesAsItIsPlaced()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        await Runner(context, EbookLibrary()).RunAsync(new QBittorrentConnection(), Client(files));
+
+        var placed = new List<PlacementProgress>();
+        var result = await Runner(context, EbookLibrary(split: false)).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))], placed.Add);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.NotEmpty(placed);
+        Assert.All(placed, p => Assert.Equal(PlacementUnit.File, p.Unit));
+        Assert.Equal(Enumerable.Range(1, placed.Count), placed.Select(p => p.Placed));
+        Assert.Equal(placed.Count, placed[^1].Total);
     }
 
     [Fact]

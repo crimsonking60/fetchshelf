@@ -132,7 +132,7 @@ public sealed class LibraryCheckBulkRunner(
 
         try
         {
-            var result = await linkRunner.RelinkAsync(torrentId, connections, operation.ReportBooks);
+            var result = await linkRunner.RelinkAsync(torrentId, connections, operation.ReportPlaced);
             if (result.Succeeded)
             {
                 results.Remove([numbered.Id]);

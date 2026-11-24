@@ -1,3 +1,5 @@
+using Fetchshelf.Data.Organizer;
+
 namespace Fetchshelf.Web.Jobs;
 
 /// <summary>
@@ -53,7 +55,7 @@ public sealed class BulkOperation
     private readonly Lock _lock = new();
     private int _handled;
     private string? _current;
-    private (int Placed, int Total)? _books;
+    private PlacementProgress? _placed;
     private bool _handling;
 
     public BulkOperation(int id, BulkAction action, IReadOnlyList<string> itemIds, string? category, DateTimeOffset createdAt)
@@ -110,14 +112,14 @@ public sealed class BulkOperation
 
     public bool HasEnded => State is BulkOperationState.Finished or BulkOperationState.Cancelled or BulkOperationState.Interrupted;
 
-    /// <summary>For the torrent being handled, when it is a collection linked as its books: how many are placed, of how many.</summary>
-    public (int Placed, int Total)? Books
+    /// <summary>For the torrent being relinked: how many of its books, or of its files, are placed, of how many.</summary>
+    public PlacementProgress? Placed
     {
         get
         {
             lock (_lock)
             {
-                return _books;
+                return _placed;
             }
         }
     }
@@ -168,7 +170,7 @@ public sealed class BulkOperation
     {
         lock (_lock)
         {
-            (_handled, _current, _books, _handling) = (handled, current, null, false);
+            (_handled, _current, _placed, _handling) = (handled, current, null, false);
         }
     }
 
@@ -181,24 +183,24 @@ public sealed class BulkOperation
         }
     }
 
-    /// <summary>How many books of the torrent being handled are placed, of how many; cleared by the next <see cref="Report"/>.</summary>
-    public void ReportBooks(int placed, int total)
+    /// <summary>How many books or files of the torrent being handled are placed, of how many; cleared by the next <see cref="Report"/>.</summary>
+    public void ReportPlaced(PlacementProgress placed)
     {
         lock (_lock)
         {
-            _books = (placed, total);
+            _placed = placed;
         }
     }
 
     /// <summary>
-    /// What the progress bar shows, as a value of a maximum: the torrents handled, or, for an operation of one torrent, the
-    /// books of its collection placed once they are being placed.
+    /// What the progress bar shows, as a value of a maximum: the torrents handled, or, for an operation of one torrent, its
+    /// books or files placed once they are being placed.
     /// </summary>
     public (int Value, int Max) ProgressBar()
     {
         lock (_lock)
         {
-            return ItemIds.Count == 1 && _books is { } books ? (books.Placed, books.Total) : (_handled, ItemIds.Count);
+            return ItemIds.Count == 1 && _placed is { } placed ? (placed.Placed, placed.Total) : (_handled, ItemIds.Count);
         }
     }
 
@@ -206,7 +208,7 @@ public sealed class BulkOperation
     {
         lock (_lock)
         {
-            (Summary, Problems, _current, _books, State) = (summary, problems ?? [], null, null, state);
+            (Summary, Problems, _current, _placed, State) = (summary, problems ?? [], null, null, state);
         }
     }
 
@@ -244,13 +246,13 @@ public sealed class BulkOperation
     public string Status()
     {
         var (handled, current) = Progress;
-        var books = Books;
+        var placed = Placed;
         return State switch
         {
             BulkOperationState.Waiting => $"{Describe()}: waits for the bulk action before it.",
             BulkOperationState.Running => $"{Verbs.For(Action, Category).Doing} {Math.Min(handled + 1, ItemIds.Count)} of {ItemIds.Count}"
                 + (current is null ? "" : $": {current}")
-                + (books is { } b ? $" (book {b.Placed} of {b.Total})" : ""),
+                + (placed is { Total: > 1 } p ? $" ({(p.Unit == PlacementUnit.Book ? "book" : "file")} {p.Placed} of {p.Total})" : ""),
             _ => Summary ?? string.Empty,
         };
     }

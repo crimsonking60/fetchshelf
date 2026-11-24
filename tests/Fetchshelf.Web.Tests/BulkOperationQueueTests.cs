@@ -1,4 +1,5 @@
 using Fetchshelf.Core.Organizer;
+using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
 
 namespace Fetchshelf.Web.Tests;
@@ -150,11 +151,26 @@ public sealed class BulkOperationQueueTests
         Assert.True(operation.CanCancel); // still waiting for the write gate
         operation.Handling();
         Assert.False(operation.CanCancel); // the one torrent is handled completely
-        operation.ReportBooks(37, 332);
+        operation.ReportPlaced(new PlacementProgress(37, 332, PlacementUnit.Book));
 
         Assert.Equal("Refreshing and relinking 1 of 1: Nightfall Reading Order (book 37 of 332)", operation.Status());
         Assert.Equal((37, 332), operation.ProgressBar());
         Assert.Equal("Refresh and relink of 1 torrent", operation.Describe());
+    }
+
+    [Fact]
+    public void Status_WhilePlacingOneBooksFiles_SaysWhichFile_ButNotForABookOfOneFile()
+    {
+        var operation = new BulkOperation(1, BulkAction.RefreshAndRelink, ["hash1"], null, DateTimeOffset.UnixEpoch);
+        Assert.True(operation.TryStart());
+        operation.Report(0, "Hollow House Omnibus");
+
+        operation.ReportPlaced(new PlacementProgress(120, 303, PlacementUnit.File));
+        Assert.Equal("Refreshing and relinking 1 of 1: Hollow House Omnibus (file 120 of 303)", operation.Status());
+        Assert.Equal((120, 303), operation.ProgressBar());
+
+        operation.ReportPlaced(new PlacementProgress(1, 1, PlacementUnit.File));
+        Assert.Equal("Refreshing and relinking 1 of 1: Hollow House Omnibus", operation.Status());
     }
 
     [Fact]
@@ -163,7 +179,7 @@ public sealed class BulkOperationQueueTests
         var operation = new BulkOperation(1, BulkAction.Relink, ["hash1", "hash2"], null, DateTimeOffset.UnixEpoch);
         Assert.True(operation.TryStart());
         operation.Report(0, "Nightfall Reading Order");
-        operation.ReportBooks(5, 10);
+        operation.ReportPlaced(new PlacementProgress(5, 10, PlacementUnit.Book));
         Assert.Equal("Relinking 1 of 2: Nightfall Reading Order (book 5 of 10)", operation.Status());
         Assert.Equal((0, 2), operation.ProgressBar());
         Assert.True(operation.CanCancel);
