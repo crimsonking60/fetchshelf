@@ -1795,11 +1795,14 @@ Whether a collection is split is decided, first that applies:
   `Variant Covers` folder's files go with the issues above it. A book the torrent holds twice, with the same title,
   series and number (a series in two folders), is one book, its best copy kept. Disc folders mean one book. Audiobooks aren't split.
 - **Reading orders.** When most names start with the book's place in a reading order, a number of one width before
-  the name (`001_Nightfall - Year Zero.cbr`, `04417 Hollow House 11.cbr`), and MAM's series gives no range, that number
-  is left out of the name before it is read, so `04417 Hollow House 11` is *Hollow House* #11, and the books are in
-  reading order on the collection's page. A name `<series> - <title>` (or `<series>_<title>`) there, without a number,
-  whose series another book of the torrent has too, is a book of that series with no number: `001_Nightfall - Year
-  Zero` is *Year Zero* in *Nightfall*. Three books of one series, read this way, make the torrent a collection.
+  the name (`001_Nightfall - Year Zero.cbr`, `04417 Hollow House 11.cbr`), and MAM's series gives no range, every book
+  with a place goes into one series named after the torrent, numbered by its place, so a library shows the books in
+  reading order. The number is left out of the title, and the book's own series stays in it: `001_Nightfall - Year
+  Zero` is *Nightfall - Year Zero*, #1 of *Nightfall Reading Order*. A count of files at the end of the torrent's title
+  (`… 878 files`) is left out of the series' name. A book whose own name has no place takes its folder's, so the issues
+  of `734_Lantern - Long Winter/Lantern v2 #69.cbz` are all #734. A number starting an issue's name there is its order
+  in the folder: `746_…/005 Nightfall 138.cbr` is #746.005. Three books of one series among them, read without the
+  places, make the torrent a collection.
 - **Bundles of unrelated books.** A torrent whose books are mostly named `<Last>, <First> - <Title>` or
   `<First> <Last> - <Title>` (`Austen, Jane - Emma.pdf`), at least three of them and by at least two of the authors MAM
   lists for it, is a collection of books with no series. Each of them has its own author, the one MAM lists, and its title from the
