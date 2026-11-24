@@ -489,7 +489,8 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
 .unconfigured-jobs { margin: 0; padding: 0.5rem 0.75rem; border-top: 1px solid var(--border); }
 .unconfigured-jobs p { margin: 0.2rem 0; }
 #job-list > .unconfigured-jobs { margin-top: 1.25rem; padding-left: 0; border-top: 0; }
-.htmx-request table { opacity: 0.85; }
+/* A list being refreshed by a click dims; the Jobs page's own poll doesn't, as it would blink the list every 2 seconds. */
+.htmx-request:not(#job-list) table { opacity: 0.85; }
 
 /* Lists */
 .list-row {
@@ -609,6 +610,30 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     main table { display: block; overflow-x: auto; }
     thead th { position: static; }
     thead { position: relative; z-index: 4; }
+}
+
+/* A phone: each job is a card of its own instead of a row too wide for the screen. The name and description on top, the
+   last and the next run beside each other under it, then the result and the buttons. The column names go, as every
+   line reads for itself ("3 min ago", "in 12 min"). */
+@media (max-width: 40rem) {
+    main .job-table, main .job-table tbody { display: block; overflow: visible; }
+    main .job-table thead { display: none; }
+    main .job-table tr {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.2rem 0.75rem;
+        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    main .job-table tr:last-child { border-bottom: 0; }
+    main .job-table td { display: block; width: auto; min-width: 0; padding: 0; border: 0; background: none; }
+    main .job-table tr.failing { background: color-mix(in srgb, var(--c-danger) 9%, transparent); }
+    .job-table .job-name { grid-column: 1 / -1; }
+    .job-table .job-last-run { grid-column: 1; grid-row: 2; white-space: normal; }
+    .job-table .next-run { grid-column: 2; grid-row: 2; text-align: right; }
+    .job-table .next-run:not(:has(.job-due)) { display: none; }
+    .job-table .job-result { grid-column: 1 / -1; }
+    .job-table .job-result:not(:has(*)) { display: none; }
+    .job-table .job-actions { grid-column: 1 / -1; margin-top: 0.2rem; white-space: normal; }
+    .job-table .job-actions form { margin-bottom: 0.2rem; }
+    .job-table td .sub.job-description { max-width: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

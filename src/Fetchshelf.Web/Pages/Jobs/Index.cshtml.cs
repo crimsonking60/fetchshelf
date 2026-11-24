@@ -1,5 +1,6 @@
 using Fetchshelf.Core.Jobs;
 using Fetchshelf.Data.Configuration;
+using Fetchshelf.Data.Organizer;
 using Fetchshelf.Web.Jobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -7,7 +8,11 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace Fetchshelf.Web.Pages.Jobs;
 
 public class IndexModel(
-    IJobRegistry jobRegistry, FetchshelfSettings settings, Account.AccountSummaryBuilder accountSummaryBuilder, BulkOperationQueue bulkOperations)
+    IJobRegistry jobRegistry,
+    FetchshelfSettings settings,
+    Account.AccountSummaryBuilder accountSummaryBuilder,
+    BulkOperationQueue bulkOperations,
+    LibraryCheckResults libraryCheck)
     : PageModel
 {
     /// <summary>The jobs in their groups, and the kinds of optional job with nothing configured.</summary>
@@ -30,11 +35,15 @@ public class IndexModel(
     public JsonResult OnGetRunning() =>
         new(jobRegistry.GetAll().Where(job => job.IsRunning).Select(job => job.Name).Order(StringComparer.OrdinalIgnoreCase).ToList());
 
-    /// <summary>Polled by htmx (see `pollJobs` in Index.cshtml, currently off) to refresh the job list without a full page reload.</summary>
-    public PartialViewResult OnGetJobsPartial()
+    /// <summary>
+    /// Polled by htmx (see `pollJobs` in Index.cshtml) to refresh the job list without a full page reload. The poll sends
+    /// the <see cref="JobListVersion"/> of the list it shows; while that is still the list's version, the answer is 204
+    /// No Content, which htmx leaves unswapped, so the list on screen is only replaced when a job started, ended or moved.
+    /// </summary>
+    public IActionResult OnGetJobsPartial(string? version)
     {
         JobList = BuildJobList();
-        return Partial("_JobListPartial", JobList);
+        return version is not null && version == JobList.Version ? StatusCode(StatusCodes.Status204NoContent) : Partial("_JobListPartial", JobList);
     }
 
     /// <summary>
@@ -78,6 +87,9 @@ public class IndexModel(
         return Partial("_JobListPartial", JobList);
     }
 
-    private JobListViewModel BuildJobList() =>
-        JobGrouping.Build(jobRegistry.GetAll().Select(JobStatusViewModel.From), settings);
+    private JobListViewModel BuildJobList()
+    {
+        var list = JobGrouping.Build(jobRegistry.GetAll().Select(JobStatusViewModel.From), settings);
+        return list with { Version = JobListVersion.Of(list, settings.JobExplanations, settings.DryJobButtons, libraryCheck.Findings.Count) };
+    }
 }
