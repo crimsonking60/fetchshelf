@@ -24,11 +24,11 @@ else
 
     <form method="post" asp-page-handler="RemoveSelected">
         @Html.AntiForgeryToken()
-        <table>
+        <table class="phone-cards phone-labels selection-table">
             <thead>
                 <tr>
-                    <th class="col-fit"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
-                    <th sort-by="Title" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Title</th>
+                    <th class="col-fit phone-title"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
+                    <th class="phone-title" sort-by="Title" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Title</th>
                     <th class="col-fit" sort-by="Cost" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Cost</th>
                     <th>Category</th>
                     <th>Tags</th>

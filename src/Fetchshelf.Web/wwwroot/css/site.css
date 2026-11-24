@@ -654,7 +654,8 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     main .phone-cards > thead { background: var(--surface-2); box-shadow: inset 0 -2px 0 var(--border-strong); }
     main .phone-cards > thead > tr { display: flex; flex-wrap: wrap; align-items: center; }
     main .phone-cards > thead th { display: block; width: auto; padding: 0; border: 0; box-shadow: none; background: none; }
-    main .phone-cards > thead th:not(:has(> a.sort)), main .phone-cards > thead:not(:has(a.sort)) { display: none; }
+    main .phone-cards > thead th:not(:has(> a.sort, > input[type="checkbox"])), main .phone-cards > thead:not(:has(a.sort)) { display: none; }
+    main .phone-cards > thead th:has(> input[type="checkbox"]) { padding: 0.25rem 0.5rem; }
     main .phone-cards > thead a.sort { min-height: 2rem; padding: 0.25rem 0.5rem; }
     main .phone-cards > tbody > tr {
         display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
@@ -672,6 +673,10 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     main .phone-labels > tbody > tr > td { flex-basis: 100%; }
     main .phone-labels > tbody > tr > td.phone-title { flex-basis: auto; font-weight: 600; }
     main .phone-labels > tbody > tr > td.phone-title .sub { font-weight: 400; }
+
+    /* Selected: the tick box beside the title, the cost, category and tags each on a line, then Update. */
+    .selection-table > tbody > tr > td.phone-title + td.phone-title { flex: 1 1 0; }
+    .selection-table td input[type="text"] { max-width: 100%; }
 
     /* Events: the type beside the time, then the torrent and the details. */
     .event-table .event-type { flex: 1 1 0; font-weight: 600; }
