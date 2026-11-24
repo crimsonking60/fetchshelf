@@ -634,6 +634,7 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     .job-table .job-actions { grid-column: 1 / -1; margin-top: 0.2rem; white-space: normal; }
     .job-table .job-actions form { margin-bottom: 0.2rem; }
     .job-table td .sub.job-description { max-width: none; }
+}
 
 /* A phone: each search result is a card of its own instead of a row too wide for the screen. The title and authors on
    top; the format and its quality beside the size; the status beside the cost; then the buttons. A line with nothing
