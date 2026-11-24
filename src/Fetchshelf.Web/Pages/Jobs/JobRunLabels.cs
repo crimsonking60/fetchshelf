@@ -39,6 +39,10 @@ public static class JobRunLabels
         };
     }
 
+    /// <summary>An instant for the page's script to count from, in UTC to the millisecond ("2026-11-24T09:41:07.250Z").</summary>
+    public static string? Instant(DateTimeOffset? instant) =>
+        instant?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+
     /// <summary>"linked: 3, failed: 1", or null without counts.</summary>
     public static string? Counts(IReadOnlyDictionary<string, long>? counts) =>
         counts is null || counts.Count == 0

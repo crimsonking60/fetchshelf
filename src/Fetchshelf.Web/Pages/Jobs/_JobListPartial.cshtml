@@ -6,6 +6,9 @@
     var notConfiguredShown = Model.NotConfigured.Count == 0;
 }
 
+@* What the next poll sends back (jobs.js), and the server's clock, which the running and next-run times count from. *@
+<span id="job-list-state" hidden data-version="@Model.Version" data-now="@JobRunLabels.Instant(now)"></span>
+
 @if (Model.IsEmpty)
 {
     <p id="no-jobs-message" class="empty">No background jobs are registered yet.</p>
@@ -51,10 +54,11 @@
                                 <div class="sub job-description">@job.Description</div>
                             }
                         </td>
-                        <td class="col-fit">
+                        <td class="col-fit job-last-run">
                             @if (job.RunningText(now) is { } runningText)
                             {
-                                @runningText
+                                @* jobs.js keeps counting the time from data-since. *@
+                                <span class="job-elapsed" data-since="@JobRunLabels.Instant(job.RunningSince)">@runningText</span>
                             }
                             else if (job.LastStartedAt is { } lastStartedAt)
                             {
@@ -109,7 +113,17 @@
                                 </form>
                             }
                         </td>
-                        <td class="col-fit next-run">@(job.NextRunText(now) ?? "–")</td>
+                        <td class="col-fit next-run">
+                            @if (job.NextRunText(now) is { } nextRunText)
+                            {
+                                @* jobs.js counts down to data-due. *@
+                                <span class="job-due" data-due="@JobRunLabels.Instant(job.NextScheduledRun)">@nextRunText</span>
+                            }
+                            else
+                            {
+                                @:–
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>

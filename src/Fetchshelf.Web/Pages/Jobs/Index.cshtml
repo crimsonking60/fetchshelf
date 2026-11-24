@@ -4,7 +4,8 @@
     ViewData["Title"] = "Jobs";
 
     // Live job-list refresh. Set to false while testing/debugging if the 2s polling floods the
-    // logs or interferes with breakpoints.
+    // logs or interferes with breakpoints. The poll sends the version of the list it shows (jobs.js) and gets an empty
+    // answer, which leaves the list alone, until a job starts, ends or moves; it waits while the tab is hidden.
     const bool pollJobs = true;
 }
 
@@ -16,7 +17,7 @@
     @await Html.PartialAsync("/Pages/Account/_AccountStripPartial.cshtml", account)
 }
 
-<div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s" : null)" hx-swap="innerHTML">
+<div id="job-list" hx-get="@(pollJobs ? "?handler=JobsPartial" : null)" hx-trigger="@(pollJobs ? "every 2s [!document.hidden], visibilitychange from:document [!document.hidden]" : null)" hx-swap="innerHTML">
     @await Html.PartialAsync("_JobListPartial", Model.JobList)
 </div>
 
@@ -37,4 +38,8 @@
             </div>
         }
     </div>
+}
+
+@section Scripts {
+    <script src="~/js/jobs.js" defer></script>
 }

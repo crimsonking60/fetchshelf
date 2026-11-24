@@ -321,6 +321,54 @@ public partial class JobsPageTests
     }
 
     [Fact]
+    public async Task GetJobsPartial_VersionOfTheListOnScreen_AnswersNoContentUntilAJobRuns()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        fixture.JobRegistry.Register("example-job", _ => Task.CompletedTask);
+        var client = fixture.CreateClient();
+        var version = VersionIn(await client.GetStringAsync("/Jobs"));
+
+        var unchanged = await client.GetAsync($"/Jobs?handler=JobsPartial&version={version}");
+        await fixture.JobRegistry.TriggerAsync("example-job");
+        var changed = await client.GetAsync($"/Jobs?handler=JobsPartial&version={version}");
+        var html = await changed.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NoContent, unchanged.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        Assert.Contains("Success", html);
+        Assert.NotEqual(version, VersionIn(html));
+    }
+
+    [Fact]
+    public async Task GetJobsPartial_RunningJob_KeepsItsVersionWhileTheTimeCountsOnInTheBrowser()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var started = new TaskCompletionSource();
+        fixture.JobRegistry.Register("slow-job", async ct =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+        });
+        var run = fixture.JobRegistry.TriggerAsync("slow-job");
+        await started.Task;
+        var client = fixture.CreateClient();
+
+        var html = await client.GetStringAsync("/Jobs?handler=JobsPartial");
+        await Task.Delay(1100);
+        var later = await client.GetAsync($"/Jobs?handler=JobsPartial&version={VersionIn(html)}");
+
+        Assert.Matches(@"<span class=""job-elapsed"" data-since=""\d{4}-\d\d-\d\dT[\d:.]+Z"">Running for \d+s</span>", html);
+        Assert.Equal(HttpStatusCode.NoContent, later.StatusCode);
+        fixture.JobRegistry.Cancel("slow-job");
+        await run;
+    }
+
+    private static string VersionIn(string html) =>
+        Regex.Match(html, @"id=""job-list-state"" hidden data-version=""([0-9a-f]+)""").Groups[1].Value is { Length: > 0 } version
+            ? version
+            : throw new InvalidOperationException("No job list version in the page.");
+
+    [Fact]
     public async Task JobsPage_JobThatReportedAnOutcome_ShowsTheSummaryItsCountsAndAHistoryLink()
     {
         using var fixture = new FetchshelfWebAppFixture();

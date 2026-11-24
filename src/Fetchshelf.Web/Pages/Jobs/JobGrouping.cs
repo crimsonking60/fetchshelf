@@ -26,6 +26,9 @@ public sealed record JobGroupViewModel(JobGroup Group, string Title, string Capt
 public sealed record JobListViewModel(IReadOnlyList<JobGroupViewModel> Groups, IReadOnlyList<string> NotConfigured)
 {
     public bool IsEmpty => Groups.Count == 0;
+
+    /// <summary>The list's <see cref="JobListVersion"/>, which the page's poll sends back to learn whether anything changed.</summary>
+    public string Version { get; init; } = "";
 }
 
 /// <summary>
