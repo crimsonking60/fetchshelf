@@ -46,11 +46,14 @@ brought onto the same machinery.
    - The post saves the split choice as before, queues the operation and redirects straight away.
    - It no longer waits for the write gate.
    - If an operation of this torrent is waiting or running already, nothing more is queued, and the page says so.
-   - The page shows `_BulkOperationsPartial` for its operations, above the actions. It has the
+   - The page shows `_BulkOperationsPartial` for its operations, at the top of the page. It has the
      `BulkOperations`, `CancelBulk` and `DismissBulk` handlers, and polls itself while one is waiting or running.
    - `BulkOperationsViewModel` gets the page's route id, so the panel's URLs and forms keep `{id}`.
    - The panel's link says "Reload the page", not "Reload the list", on a torrent's page.
    - While an operation of this torrent is waiting or running, the **Refresh and relink** button is disabled.
+   - **Cancel** is offered while an operation waits, and while a running one has torrents left after the current
+     one. An operation of one torrent, once past the wait for the write gate, has nothing left to cancel, so it
+     isn't offered then.
 
 5. **Docs.** The user guide says that Refresh and relink runs in the background, with its progress, and a
    collection's progress book by book, at the top of the torrent's page.

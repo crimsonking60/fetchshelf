@@ -188,10 +188,13 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(files));
         var oldFolder = (await context.Torrents.SingleAsync()).LibraryPath!;
 
-        var result = await Runner(context, EbookLibrary()).RelinkAsync(Hash, [(new QBittorrentConnection(), Client(files))]);
+        var placed = new List<(int Placed, int Total)>();
+        var result = await Runner(context, EbookLibrary()).RelinkAsync(
+            Hash, [(new QBittorrentConnection(), Client(files))], (count, total) => placed.Add((count, total)));
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal("Linked Discworld as 2 books.", result.Message);
+        Assert.Equal([(1, 2), (2, 2)], placed); // as each book is placed, for the progress shown
         Assert.False(Directory.Exists(oldFolder));
         context.ChangeTracker.Clear();
         Assert.Equal(2, await context.Torrents.CountAsync(t => t.CollectionTorrentId == Hash && t.LibraryPath != null));

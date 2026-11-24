@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@using Fetchshelf.Web.Jobs
 @{
     ViewData["Title"] = "Jobs";
 
@@ -24,17 +25,26 @@
 @if (Model.BulkOperations.Count > 0)
 {
     <div id="bulk-operations-running">
-        <h3>Bulk actions from the Torrents and Library check pages</h3>
+        <h3>Bulk actions from the Torrents, Library check and torrent pages</h3>
         @foreach (var operation in Model.BulkOperations)
         {
-            var bulkPage = operation.OnLibraryCheck ? "/LibraryCheck/Index" : "/Torrents/Index";
+            var (bulkPage, pageName) = operation.Page switch
+            {
+                BulkOperationPage.LibraryCheck => ("/LibraryCheck/Index", "Library check page"),
+                BulkOperationPage.Torrent => ("/Torrents/Detail", "Torrent page"),
+                _ => ("/Torrents/Index", "Torrents page"),
+            };
+            var torrentId = operation.Page == BulkOperationPage.Torrent ? operation.ItemIds[0] : null;
             <div class="notice bulk-operation" role="status">
-                <span>@operation.Status() <a asp-page="@bulkPage">@(operation.OnLibraryCheck ? "Library check page" : "Torrents page")</a></span>
-                <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="operationId" value="@operation.Id" />
-                    <button type="submit">Cancel</button>
-                </form>
+                <span>@operation.Status() <a asp-page="@bulkPage" asp-route-id="@torrentId">@pageName</a></span>
+                @if (operation.CanCancel)
+                {
+                    <form method="post" asp-page="@bulkPage" asp-page-handler="CancelBulk" asp-route-id="@torrentId">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="operationId" value="@operation.Id" />
+                        <button type="submit">Cancel</button>
+                    </form>
+                }
             </div>
         }
     </div>

@@ -25,6 +25,8 @@
     {
         <p id="action-message" class="notice@(Model.ActionFailed ? " error" : "")" role="@(Model.ActionFailed ? "alert" : "status")">@actionMessage</p>
     }
+    @* Refresh and relink runs in the background: how far it has got, and how it went, until dismissed. *@
+    @await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
     @await Html.PartialAsync("_PageExplanation", "This page shows everything Fetchshelf knows about this torrent: its metadata, linked files, qBittorrent state, and history. Use the actions below to clean, refresh, relink, unlink, or remove it. While qBittorrent has the torrent you can also change its category and tags there.")
     @if (Model.Collection is var (collectionId, collectionTitle))
     {
@@ -198,14 +200,14 @@
         }
         <form method="post" asp-page-handler="RefreshAndRelink" asp-route-id="@torrent.Id">
             @Html.AntiForgeryToken()
-            <button type="submit" class="primary">Refresh and relink</button>
+            <button type="submit" class="primary" disabled="@Model.RefreshAndRelinkQueued" title="@(Model.RefreshAndRelinkQueued ? "Waiting or running; its progress is shown at the top of the page" : null)">Refresh and relink</button>
             <div class="action-note">
                 @if (Model.OffersSplit)
                 {
                     <input type="hidden" name="splitShown" value="true" />
                     <label class="action-option" title="When it is a collection, link it as one book each. Starts as its library's split_collections; what you choose here is kept for this torrent."><input type="checkbox" name="split" value="true" checked="@Model.Splits" /> Split into its books <span class="action-option-hint">links each book of a collection on its own</span></label>
                 }
-                Updates the details from MAM, keeping the ones edited by hand, and moves the book's folder to match them. Also brings back a book that was unlinked or replaced.
+                Updates the details from MAM, keeping the ones edited by hand, and moves the book's folder to match them. Also brings back a book that was unlinked or replaced. Runs in the background, with its progress at the top of the page.
             </div>
         </form>
         @if (torrent.UnlinkedAt is null && Model.Books.Count == 0)

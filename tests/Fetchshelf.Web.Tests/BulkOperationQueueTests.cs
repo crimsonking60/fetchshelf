@@ -1,3 +1,4 @@
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Web.Jobs;
 
 namespace Fetchshelf.Web.Tests;
@@ -106,20 +107,69 @@ public sealed class BulkOperationQueueTests
     {
         var operation = new BulkOperation(1, action, Enumerable.Range(0, count).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList(), null, DateTimeOffset.UnixEpoch);
 
-        Assert.True(operation.OnLibraryCheck);
+        Assert.Equal(BulkOperationPage.LibraryCheck, operation.Page);
         Assert.Equal(described, operation.Describe());
         Assert.Equal(summary, BulkActionRunner.Summary(operation, BulkOperation.Verbs.For(action, null), count, count, count, 0, BulkOperationState.Finished));
     }
 
     [Fact]
-    public void Shown_ByPage_KeepsTheTorrentsPagesAndTheLibraryChecksApart()
+    public void Shown_ByPage_KeepsTheTorrentsPagesTheLibraryChecksAndATorrentsPageApart()
     {
         var queue = new BulkOperationQueue(TimeProvider.System);
         var relink = queue.Enqueue(BulkAction.Relink, ["hash1"]);
         var delete = queue.Enqueue(BulkAction.DeleteFindings, ["7"]);
+        var refresh = queue.Enqueue(BulkAction.RefreshAndRelink, ["hash2"]);
 
-        Assert.Equal([relink], queue.Shown(libraryCheck: false));
-        Assert.Equal([delete], queue.Shown(libraryCheck: true));
-        Assert.Equal([relink, delete], queue.Active());
+        Assert.Equal([relink], queue.Shown(BulkOperationPage.Torrents));
+        Assert.Equal([delete], queue.Shown(BulkOperationPage.LibraryCheck));
+        Assert.Equal([refresh], queue.ShownForTorrent("hash2"));
+        Assert.Empty(queue.ShownForTorrent("hash1"));
+        Assert.Equal([relink, delete, refresh], queue.Active());
+    }
+
+    [Fact]
+    public void ShownForTorrent_OnABooksPage_GivesItsCollectionsRefreshAndRelink()
+    {
+        var (collection, other) = (new string('a', 40), new string('b', 40));
+        var queue = new BulkOperationQueue(TimeProvider.System);
+        var refresh = queue.Enqueue(BulkAction.RefreshAndRelink, [collection]);
+
+        Assert.Equal([refresh], queue.ShownForTorrent(CollectionBookId.For(collection, 3)));
+        Assert.Empty(queue.ShownForTorrent(CollectionBookId.For(other, 3)));
+    }
+
+    [Fact]
+    public void Status_WhilePlacingACollectionsBooks_SaysWhichBook_AndTheBarCountsBooks()
+    {
+        var operation = new BulkOperation(1, BulkAction.RefreshAndRelink, ["hash1"], null, DateTimeOffset.UnixEpoch);
+        Assert.True(operation.TryStart());
+        operation.Report(0, "Nightfall Reading Order");
+        Assert.Equal("Refreshing and relinking 1 of 1: Nightfall Reading Order", operation.Status());
+        Assert.Equal((0, 1), operation.ProgressBar());
+
+        Assert.True(operation.CanCancel); // still waiting for the write gate
+        operation.Handling();
+        Assert.False(operation.CanCancel); // the one torrent is handled completely
+        operation.ReportBooks(37, 332);
+
+        Assert.Equal("Refreshing and relinking 1 of 1: Nightfall Reading Order (book 37 of 332)", operation.Status());
+        Assert.Equal((37, 332), operation.ProgressBar());
+        Assert.Equal("Refresh and relink of 1 torrent", operation.Describe());
+    }
+
+    [Fact]
+    public void Status_OfSeveralTorrents_AddsTheBooks_ButTheBarCountsTorrents_AndTheNextTorrentClearsThem()
+    {
+        var operation = new BulkOperation(1, BulkAction.Relink, ["hash1", "hash2"], null, DateTimeOffset.UnixEpoch);
+        Assert.True(operation.TryStart());
+        operation.Report(0, "Nightfall Reading Order");
+        operation.ReportBooks(5, 10);
+        Assert.Equal("Relinking 1 of 2: Nightfall Reading Order (book 5 of 10)", operation.Status());
+        Assert.Equal((0, 2), operation.ProgressBar());
+        Assert.True(operation.CanCancel);
+
+        operation.Report(1, "Lantern");
+
+        Assert.Equal("Relinking 2 of 2: Lantern", operation.Status());
     }
 }
