@@ -617,12 +617,12 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
    category beside Edit; then the status. The heading row stays as a line of sort links beside Select all. */
 @media (max-width: 40rem) {
     main .torrent-table, main .torrent-table tbody, main .torrent-table thead { display: block; overflow: visible; }
-    main .torrent-table thead tr { display: flex; flex-wrap: wrap; align-items: center; background: var(--surface-2); }
-    main .torrent-table thead th { display: block; width: auto; padding: 0.25rem 0.35rem; border: 0; box-shadow: none; }
+    main .torrent-table thead { background: var(--surface-2); box-shadow: inset 0 -2px 0 var(--border-strong); }
+    main .torrent-table thead tr { display: flex; flex-wrap: wrap; align-items: center; }
+    main .torrent-table thead th { display: block; width: auto; padding: 0.25rem 0.35rem; border: 0; box-shadow: none; background: none; }
     main .torrent-table thead th:has(> a.sort) { padding: 0; }
     main .torrent-table thead a.sort { min-height: 2rem; padding: 0.25rem 0.35rem; }
     main .torrent-table thead .torrent-edit-head { display: none; }
-    main .torrent-table thead tr { box-shadow: inset 0 -2px 0 var(--border-strong); }
     main .torrent-table tbody tr {
         display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.75rem;
         padding: 0.6rem 0.75rem 0.6rem 0.5rem; border-bottom: 1px solid var(--border);
@@ -639,6 +639,50 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     .torrent-table .torrent-category::before { content: "Category: "; color: var(--text-muted); }
     .torrent-table .torrent-edit { grid-column: 3; grid-row: 3; text-align: right; }
     .torrent-table .torrent-status { grid-column: 2 / -1; grid-row: 4; white-space: normal; }
+}
+
+/* A phone: a table marked .phone-cards shows each row as a card of its own instead of a row too wide for the screen.
+   The heading row stays as a line of the sort links alone (or goes, with none); a cell with a data-label says what it
+   is, as its column's name no longer does. Each table places its own cells below. */
+@media (max-width: 40rem) {
+    main table.phone-cards, main .phone-cards > thead, main .phone-cards > tbody { display: block; overflow: visible; }
+    main .phone-cards > thead { background: var(--surface-2); box-shadow: inset 0 -2px 0 var(--border-strong); }
+    main .phone-cards > thead > tr { display: flex; flex-wrap: wrap; align-items: center; }
+    main .phone-cards > thead th { display: block; width: auto; padding: 0; border: 0; box-shadow: none; background: none; }
+    main .phone-cards > thead th:not(:has(> a.sort)), main .phone-cards > thead:not(:has(a.sort)) { display: none; }
+    main .phone-cards > thead a.sort { min-height: 2rem; padding: 0.25rem 0.5rem; }
+    main .phone-cards > tbody > tr {
+        display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
+        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    main .phone-cards > tbody > tr:last-child { border-bottom: 0; }
+    main .phone-cards > tbody > tr > td { display: block; width: auto; max-width: none; min-width: 0; padding: 0; border: 0; background: none; }
+    main .phone-cards td[data-label]:not(:empty)::before { content: attr(data-label) ": "; color: var(--text-muted); }
+
+    /* Events: the type beside the time, then the torrent and the details. */
+    .event-table .event-type { flex: 1 1 0; font-weight: 600; }
+    .event-table .event-time { order: 1; color: var(--text-muted); }
+    .event-table .event-torrent { order: 2; flex-basis: 100%; }
+    .event-table .event-torrent:not(:has(a)) { display: none; }
+    .event-table .event-details { order: 3; flex-basis: 100%; }
+
+    /* Series: the name beside how it is followed, then what the library has, the media types and the buttons. */
+    #series .series-name { flex: 1 1 0; }
+    #series .series-follow { order: 1; }
+    #series .series-follow:not(:has(span)) { display: none; }
+    #series .series-owned { order: 2; flex-basis: 100%; }
+    #series .series-media { order: 3; flex-basis: 100%; color: var(--text-muted); }
+    #series .series-actions { order: 4; flex-basis: 100%; white-space: normal; }
+
+    /* Following: the name beside its mode, its kind, the counts on one line, the searches, then the buttons. */
+    .follows .follow-name { flex: 1 1 0; }
+    .follows .follow-mode { order: 1; }
+    .follows .follow-kind { order: 2; flex-basis: 100%; color: var(--text-muted); }
+    .follows .follow-count { order: 3; }
+    .follows .follow-count:empty, .follows .follow-again:empty { display: none; }
+    .follows .follow-searched { order: 4; flex-basis: 100%; }
+    .follows .follow-again { order: 5; flex-basis: 100%; }
+    .follows .follow-actions { order: 6; flex-basis: 100%; white-space: normal; }
 }
 
 /* A phone: each job is a card of its own instead of a row too wide for the screen. The name and description on top, the
