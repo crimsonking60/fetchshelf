@@ -16,8 +16,8 @@ dismiss** on the Following page, and log lines that start with the job they come
 ### Upgrading
 
 - Nothing is needed: there is no database change and no new setting.
-- **Follow on Auto selects whatever the free unsatisfied-snatch slots.** An Auto follow's missing books are now
-  selected even when no slot is free, and wait on the **Selected** page until the Download job, which checks the slots,
+- **Follow on Auto selects books even when no unsatisfied-snatch slot is free.** An Auto follow's missing books are
+  selected anyway, and wait on the **Selected** page until the Download job, which checks the slots,
   `unsat_buffer`, ratio and wedges before each download, can start them. More may wait there than before; `[follow]`
   `max_active_downloads` still caps what Follow selects (#199).
 
@@ -48,9 +48,10 @@ dismiss** on the Following page, and log lines that start with the job they come
 - **Jobs page**: the list no longer flickers. It used to be replaced, and dimmed, every 2 seconds; now the page asks
   whether anything changed and leaves the list alone until a job starts, ends or is rescheduled. "Running for 2m 10s"
   and "in 12 min" count on in the browser, and the page stops asking while its tab is hidden (#203).
-- **Follow**: an Auto follow selects whatever the free slots (see Upgrading). The Follow job no longer reads the
-  account for it, a run says when it didn't search a follow, and the Account page shows Follow's own selection limit
-  (#199).
+- **Follow**: an Auto follow selects its missing books even when no unsatisfied-snatch slot is free; the Download job
+  waits for a slot before it starts them (see Upgrading). As the slots no longer matter when Follow selects, the Follow
+  job no longer reads the account's numbers from MAM. A run now says so when it didn't get to search a follow, and the
+  Account page shows the limit Follow selects by, `max_active_downloads` (#199).
 - **Logs**: every line written during a job starts with the job's name, such as "[Link] Wrote cover.jpg for ...", and
   the lines no longer name the job again after it (#200, #201).
 - **Relink** takes a book's cover and other images along to its new folder, instead of leaving them behind or having
