@@ -53,10 +53,10 @@ public static partial class CollectionSplitter
         var range = collection.Series.FirstOrDefault(s => s.Entries.Any(e => e.Kind == SeriesEntryKind.Range && e.LastNumber > e.FirstNumber));
 
         // A reading order across series starts each name with the book's place in it, which is no part of its name.
-        var positions = range is null ? ReadingOrder(groups) : null;
+        var (positions, placeInName) = range is null ? ReadingOrder(groups) : (null, []);
         var names = groups.ToDictionary(
             g => g,
-            g => Clean(positions?.ContainsKey(g) == true ? ReadingPosition().Replace(g.Name, "", 1) : g.Name, collection.Authors));
+            g => Clean(placeInName.Contains(g) ? ReadingPosition().Replace(g.Name, "", 1) : g.Name, collection.Authors));
         var numbered = groups.ToDictionary(g => g, g => NumberedName(names[g]));
         var arcs = positions is null ? [] : StoryArcs(names, numbered);
         var seriesNames = numbered.Values.OfType<(string Series, decimal Number)>().Select(n => n.Series).Concat(arcs.Values.Select(a => a.Series)).ToList();
@@ -78,8 +78,9 @@ public static partial class CollectionSplitter
                 g => g.Key,
                 g => g.GroupBy(n => n, StringComparer.Ordinal).OrderByDescending(s => s.Count()).ThenBy(s => s.Key, StringComparer.Ordinal).First().Key);
         var listed = range is null ? [] : NumberedList(collection.Description);
+        var readingOrder = positions is null ? null : ReadingOrderName(collection);
         var sizes = files.ToDictionary(f => f.Path, f => f.SizeBytes, StringComparer.Ordinal);
-        var result = new List<(CollectionBook Book, int? Position)>();
+        var result = new List<(CollectionBook Book, decimal? Position)>();
         foreach (var (group, index) in groups.OrderBy(g => g.Name, StringComparer.Ordinal).Select((g, i) => (g, i)))
         {
             var format = FormatRanker.SelectBestExtension(ebookTypes, group.Files.Select(System.IO.Path.GetExtension).OfType<string>().ToList())!;
@@ -98,6 +99,15 @@ public static partial class CollectionSplitter
                 title = epub?.Title ?? leading?.Title ?? cleaned;
                 number = epub is { SeriesName: { } epubSeries, SeriesNumber: { } epubNumber } && SameName(epubSeries, range.Name) ? epubNumber
                     : leading?.Number ?? numbered[group]?.Number ?? FromList(listed, title);
+            }
+            else if (readingOrder is not null && positions!.TryGetValue(group, out var position))
+            {
+                // The reading order is the series, numbered by the places in it, so a library shows the books in that
+                // order; a series of the book's own, or a character, stays in its title: "Nightfall - Year Zero".
+                var named = StoryArc().Match(cleaned) is { Success: true } part
+                    ? $"{part.Groups["series"].Value.Trim()} - {part.Groups["title"].Value.Trim()}"
+                    : cleaned;
+                (title, seriesName, number) = (named, readingOrder, position);
             }
             else if (numbered[group] is var (series, issue))
             {
@@ -147,7 +157,7 @@ public static partial class CollectionSplitter
     /// differently: the same title, series and number, and in a reading order the same place in it. The one kept has
     /// the best format, then the most bytes; the rest are numbered again in order.
     /// </summary>
-    private static List<CollectionBook> WithoutRepeats(List<(CollectionBook Book, int? Position)> books, IReadOnlyList<string> ebookTypes) =>
+    private static List<CollectionBook> WithoutRepeats(List<(CollectionBook Book, decimal? Position)> books, IReadOnlyList<string> ebookTypes) =>
         books
             .GroupBy(b => (
                 Title: b.Book.Metadata.Title.ToUpperInvariant(),
@@ -173,23 +183,55 @@ public static partial class CollectionSplitter
     /// <summary>
     /// The books' places in a reading order, when their names give one: at least three quarters of them, and at least
     /// <see cref="MinimumNumberedBooks"/>, start with a number of one width and then a name (<c>001_Nightfall - Year Zero</c>,
-    /// <c>04417 Hollow House 11</c>), and those numbers mostly differ. By book; null when there is no reading order.
+    /// <c>04417 Hollow House 11</c>), and those numbers mostly differ. A book in a folder that has a place is at the
+    /// folder's: the issues of <c>734_Lantern - The Long Winter/Lantern v2 #69.cbz</c> are all at 734, and a number starting
+    /// such an issue's own name is its order there, <c>746_…/005 Nightwing 138.cbr</c> at 746.005. By book, with the books
+    /// whose own names start with a number to leave out; null when there is no reading order.
     /// </summary>
-    private static Dictionary<FileGroup, int>? ReadingOrder(List<FileGroup> groups)
+    private static (Dictionary<FileGroup, decimal>? Positions, HashSet<FileGroup> InName) ReadingOrder(List<FileGroup> groups)
     {
         var widest = groups
-            .Select(g => (Group: g, Match: ReadingPosition().Match(g.Name)))
-            .Where(x => x.Match.Success)
-            .GroupBy(x => x.Match.Groups["position"].Length)
+            .Select(g => (
+                Group: g,
+                InName: ReadingPosition().Match(g.Name) is { Success: true } named ? named : null,
+                Folder: FolderPosition(g.Files[0])))
+            // A book's own folder, "010_Lantern - The Long Winter/010_Lantern - The Long Winter.cbr", gives no order within.
+            .Select(x => (x.Group, x.InName, Place: x.Folder ?? x.InName,
+                Within: x.Folder is null || x.InName?.Groups["position"].Value == x.Folder.Groups["position"].Value ? null : x.InName))
+            .Where(x => x.Place is not null)
+            .GroupBy(x => x.Place!.Groups["position"].Length)
             .MaxBy(g => g.Count())
             ?.ToList();
         if (widest is null || widest.Count < MinimumNumberedBooks || widest.Count * 4 < groups.Count * 3)
         {
-            return null;
+            return (null, []);
         }
 
-        var positions = widest.ToDictionary(x => x.Group, x => int.Parse(x.Match.Groups["position"].Value, CultureInfo.InvariantCulture));
-        return positions.Values.Distinct().Count() * 4 < positions.Count * 3 ? null : positions;
+        static int Number(Match match) => int.Parse(match.Groups["position"].Value, CultureInfo.InvariantCulture);
+        var positions = widest.ToDictionary(
+            x => x.Group,
+            x => Number(x.Place!) + (x.Within is { } within && Number(within) < 1000 ? Number(within) / 1000m : 0));
+        return positions.Values.Distinct().Count() * 4 < positions.Count * 3
+            ? (null, [])
+            : (positions, widest.Where(x => x.InName is not null).Select(x => x.Group).ToHashSet());
+    }
+
+    /// <summary>The place in a reading order of the nearest folder above <paramref name="path"/> whose name starts with one.</summary>
+    private static Match? FolderPosition(string path) =>
+        path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries)[..^1]
+            .Reverse()
+            .Select(folder => ReadingPosition().Match(folder))
+            .FirstOrDefault(m => m.Success);
+
+    /// <summary>
+    /// The name of the series a reading order's books go into: the torrent's title, without its tags in brackets or a
+    /// count of files at its end ("… Chronological Compilation 878 files").
+    /// </summary>
+    private static string ReadingOrderName(TorrentMetadata collection)
+    {
+        var title = Clean(collection.Title, collection.Authors);
+        var withoutCount = TrailingFileCount().Replace(title, "").Trim();
+        return withoutCount.Length > 0 ? withoutCount : title;
     }
 
     /// <summary>
@@ -456,8 +498,12 @@ public static partial class CollectionSplitter
     [GeneratedRegex(@"(\s*(\((?!\s*(?:part|pt\.?)\s*\d+\s*\))[^()]*\)|\[[^\[\]]*\]))+\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingBracketGroups();
 
-    // A place in a reading order: two to five digits, then "_", " - " or spaces, and a letter.
-    [GeneratedRegex(@"^(?<position>\d{2,5})(?:_|\s+-\s+|\s+)(?=\p{L})")]
+    [GeneratedRegex(@"\s+\d+\s+files?$", RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingFileCount();
+
+    // A place in a reading order: two to five digits, maybe a letter ("514b"), then " - " or spaces and a letter, or "_"
+    // and a letter or digit ("693_52 (Part 1)").
+    [GeneratedRegex(@"^(?<position>\d{2,5})[a-z]?(?:_\s*(?=[\p{L}\d])|\s+-\s+(?=\p{L})|\s+(?=\p{L}))")]
     private static partial Regex ReadingPosition();
 
     // A story arc's series and title, at the first " - " or "_".

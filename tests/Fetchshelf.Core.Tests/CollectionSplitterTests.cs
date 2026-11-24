@@ -355,7 +355,7 @@ public class CollectionSplitterTests
     }
 
     [Fact]
-    public void AReadingOrder_LeavesItsPositionsOutOfTheNames_AndPutsStoryArcsInTheirSeries()
+    public void AReadingOrder_IsTheSeries_NumberedByThePlacesInIt_WithEachBooksOwnSeriesInItsTitle()
     {
         const string Top = "Nightfall Reading Order/Nightfall 001";
         var books = CollectionSplitter.Split(
@@ -375,19 +375,48 @@ public class CollectionSplitterTests
                 $"{Top}/Lantern v2 #69.cbr"),
             EbookTypes)!;
 
+        const string Order = "Nightfall Reading Order 1990-2010";
         Assert.Equal(
             [
-                ("Year Zero", "Nightfall", null), ("First Light", "Lantern", null), ("Long Night (Part 1)", "Nightfall", null),
-                ("Long Night (Part 2)", "Nightfall", null), ("Nightfall 683", "Nightfall", "683"), ("Last Light", "Lantern", null),
-                ("Villains United", null, null), ("Poison Garden", "Nightfall", null), ("Broken Worlds - Hidden Door", "Nightfall", null),
-                ("The Long Winter", "Lantern", null), ("Lantern v2 #69", "Lantern v2", "69"),
+                ("Nightfall - Year Zero", Order, "1"), ("Lantern - First Light", Order, "2"), ("Nightfall - Long Night (Part 1)", Order, "3"),
+                ("Nightfall - Long Night (Part 2)", Order, "4"), ("Nightfall 683", Order, "5"), ("Lantern - Last Light", Order, "6"),
+                ("Villains United", Order, "7"), ("Nightfall - Poison Garden", Order, "8"), ("Nightfall - Broken Worlds - Hidden Door", Order, "9"),
+                ("Lantern - The Long Winter", Order, "10"),
+                ("Lantern v2 #69", "Lantern v2", "69"), // no place in the reading order: in its own series
             ],
             books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name, b.Metadata.Series.FirstOrDefault()?.Entries.FirstOrDefault()?.Display)));
-        Assert.Equal("cbz", books.Single(b => b.Metadata.Title == "The Long Winter").Format); // one book in two formats
+        Assert.Equal("cbz", books.Single(b => b.Metadata.Title == "Lantern - The Long Winter").Format); // one book in two formats
     }
 
     [Fact]
-    public void AReadingOrderOfNumberedIssues_IsACollection_OnceThePositionsAreLeftOut()
+    public void AReadingOrdersArcFolders_GiveTheirIssuesTheirPlace_AndANumberStartingAnIssuesName_ItsOrderThere()
+    {
+        const string Top = "Nightfall Reading Order/Nightfall 006";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Nightfall Reading Order" },
+            Files(
+                $"{Top}/514_Nightfall - Close Before Striking.cbr",
+                $"{Top}/514b_Nightfall - False Faces.cbr",
+                $"{Top}/691_ Endless Crisis (Part 2).cbr",
+                $"{Top}/693_52 (Part 1).cbr",
+                $"{Top}/734_Lantern - Life During Wartime/Lantern v2 #69.cbz",
+                $"{Top}/734_Lantern - Life During Wartime/Lantern v2 #70.cbz",
+                $"{Top}/746_Nightfall - The Return (Part 1)/001 Nightfall Annual 26.cbr",
+                $"{Top}/746_Nightfall - The Return (Part 1)/002 Nightfall 670.cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [
+                ("Nightfall - Close Before Striking", "514"), ("Nightfall - False Faces", "514"), ("Endless Crisis (Part 2)", "691"),
+                ("52 (Part 1)", "693"), ("Lantern v2 #69", "734"), ("Lantern v2 #70", "734"), ("Nightfall Annual 26", "746.001"),
+                ("Nightfall 670", "746.002"),
+            ],
+            books.OrderBy(b => b.Metadata.Series[0].Entries[0].FirstNumber).Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)));
+        Assert.All(books, b => Assert.Equal("Nightfall Reading Order", b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
+    public void AReadingOrderOfNumberedIssues_IsACollection_InTheReadingOrdersSeries()
     {
         var books = CollectionSplitter.Split(
             Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Comics Reading Order 1975" },
@@ -399,7 +428,10 @@ public class CollectionSplitterTests
             EbookTypes)!;
 
         Assert.Equal(
-            [("Hollow House 11", "Hollow House", "11"), ("Star Rangers 5", "Star Rangers", "5"), ("Hollow House 12", "Hollow House", "12"), ("Hollow House 13", "Hollow House", "13")],
+            [
+                ("Hollow House 11", "Comics Reading Order 1975", "4417"), ("Star Rangers 5", "Comics Reading Order 1975", "4418"),
+                ("Hollow House 12", "Comics Reading Order 1975", "4450"), ("Hollow House 13", "Comics Reading Order 1975", "4481"),
+            ],
             books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Name, b.Metadata.Series[0].Entries[0].Display)));
     }
 
@@ -415,14 +447,17 @@ public class CollectionSplitterTests
     }
 
     [Fact]
-    public void AStoryArcWhoseSeriesNoOtherBookHas_HasNoSeries()
+    public void AReadingOrdersName_LeavesOutTheCountOfFilesAtTheEndOfTheTitle()
     {
         var books = CollectionSplitter.Split(
-            Collection(seriesEntries: null, mediaType: MediaType.ComicBook),
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Nightfall 1990-2010 001-004 Chronological Compilation 4 files" },
             Files("C/001_Saga 1.cbr", "C/002_Saga 2.cbr", "C/003_Saga 3.cbr", "C/004_Lantern - First Light.cbr"),
             EbookTypes)!;
 
-        Assert.Equal(("Lantern - First Light", null), books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name)).Last());
+        Assert.Equal(
+            [("Saga 1", "1"), ("Saga 2", "2"), ("Saga 3", "3"), ("Lantern - First Light", "4")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Entries[0].Display)));
+        Assert.All(books, b => Assert.Equal("Nightfall 1990-2010 001-004 Chronological Compilation", b.Metadata.Series[0].Name));
     }
 
     [Fact]
