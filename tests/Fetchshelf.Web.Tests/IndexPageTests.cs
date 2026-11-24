@@ -609,7 +609,7 @@ public partial class IndexPageTests
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         // The cell is col-fit (no wrapping), like its heading, and holds Download and Wedge download.
-        var cell = Regex.Match(html, @"<td class=""col-fit"">\s*<form[^>]*handler=Download.*?</td>", RegexOptions.Singleline).Value;
+        var cell = Regex.Match(html, @"<td class=""col-fit result-actions"">\s*<form[^>]*handler=Download.*?</td>", RegexOptions.Singleline).Value;
         Assert.Contains(">Download</button>", cell);
         Assert.Matches("Wedge(\u00a0|&#xA0;|&nbsp;)download</button>", cell);
     }
@@ -623,7 +623,7 @@ public partial class IndexPageTests
         var html = await (await client.GetAsync("/?handler=Results&Q=kings")).Content.ReadAsStringAsync();
 
         Assert.Contains("<th class=\"col-fit\">Format</th>", html);
-        Assert.Matches("<td class=\"col-fit\">Audiobook\\s", html);
+        Assert.Matches("<td class=\"col-fit result-format\">Audiobook\\s", html);
     }
 
     [Fact]

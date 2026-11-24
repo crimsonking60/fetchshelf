@@ -6,7 +6,7 @@
 @* SwapOob is set when htmx returns this row after a download, to replace the row already on the page (see _DownloadFeedbackPartial). *@
 <tr id="result-@result.MamId" hx-swap-oob="@(Model.SwapOob ? "true" : null)" data-media-type="@result.MediaTypeSlug" data-status="@result.Status.ToString().ToLowerInvariant()" data-in-qbittorrent="@(result.InQBittorrent == true ? "true" : null)" data-genres="@result.GenreIds" data-fiction="@result.Fiction">
     @* A click opens the details in a dialog over the results, which stay as they are; the link itself is the full page, for a new tab. *@
-    <td><a asp-page="/Search/Detail" asp-route-mamId="@result.MamId" asp-route-Q="@Context.Request.Query["Q"]" asp-route-Lang="@(language.Length > 0 ? language : null)"
+    <td class="result-title"><a asp-page="/Search/Detail" asp-route-mamId="@result.MamId" asp-route-Q="@Context.Request.Query["Q"]" asp-route-Lang="@(language.Length > 0 ? language : null)"
            hx-get="@Url.Page("/Search/Detail", "Partial", new { mamId = result.MamId, Lang = language.Length > 0 ? language : null })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@result.Title</a>
         <div class="sub unclamped">
         @if (result.AuthorsShortened)
@@ -24,7 +24,7 @@
         }
         </div>
     </td>
-    <td class="col-fit">@result.MediaTypeLabel
+    <td class="col-fit result-format">@result.MediaTypeLabel
         <div class="sub unclamped">
         @if (result.QualityGrade is { } grade)
         {
@@ -43,7 +43,7 @@
         }
         </div>
     </td>
-    <td>
+    <td class="result-badges">
         @await Html.PartialAsync("_SearchResultStatusPartial", new SearchResultStatusViewModel(result.MamId, result.Status))
         @if (result.InQBittorrent == true)
         {
@@ -59,14 +59,14 @@
             <span class="status-badge status-snatched" title="MAM says this account has snatched this torrent before">Snatched</span>
         }
     </td>
-    <td class="nowrap">@result.SizeDisplay</td>
-    <td class="nowrap">
+    <td class="nowrap result-size">@result.SizeDisplay</td>
+    <td class="nowrap result-cost">
         @if (result.IsVip) { <span class="badge-vip">VIP</span> }
         @if (result.IsPersonalFreeleech) { <span class="badge-personal-freeleech">Personal FL</span> }
         @if (result.IsFree) { <span class="badge-freeleech">FL</span> }
     </td>
     @* Its buttons stay on one line, as its heading's column does. *@
-    <td class="col-fit">
+    <td class="col-fit result-actions">
         @if (result.InQBittorrent == true && result.Status is MamResultStatus.None or MamResultStatus.Selected)
         {
             @* qBittorrent has it already: downloading again makes no sense, recording it does. *@

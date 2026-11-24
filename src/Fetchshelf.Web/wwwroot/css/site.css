@@ -634,6 +634,34 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     .job-table .job-actions { grid-column: 1 / -1; margin-top: 0.2rem; white-space: normal; }
     .job-table .job-actions form { margin-bottom: 0.2rem; }
     .job-table td .sub.job-description { max-width: none; }
+
+/* A phone: each search result is a card of its own instead of a row too wide for the screen. The title and authors on
+   top; the format and its quality beside the size; the status beside the cost; then the buttons. A line with nothing
+   in it goes, and the status stripe moves from the title's cell to the card's edge. */
+@media (max-width: 40rem) {
+    main #search-results, main #search-results tbody { display: block; overflow: visible; }
+    main #search-results thead { display: none; }
+    main #search-results tr {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.3rem 0.75rem;
+        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    main #search-results tr[hidden] { display: none; }
+    main #search-results tr:last-child { border-bottom: 0; }
+    main #search-results td { display: block; width: auto; min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+    main #search-results tr[data-status="selected"], main #search-results tr[data-status="downloading"] { box-shadow: inset 3px 0 0 var(--c-info); }
+    main #search-results tr[data-status="downloaded"] { box-shadow: inset 3px 0 0 var(--c-warn); }
+    main #search-results tr[data-status="linked"] { box-shadow: inset 3px 0 0 var(--c-ok); }
+    #search-results .result-title { grid-column: 1 / -1; }
+    #search-results .result-format { grid-column: 1; grid-row: 2; }
+    #search-results .result-format > .sub { display: inline; margin-left: 0.4rem; }
+    #search-results .result-size { grid-column: 2; grid-row: 2; text-align: right; }
+    #search-results .result-badges { grid-column: 1; grid-row: 3; }
+    #search-results .result-cost { grid-column: 2; grid-row: 3; text-align: right; }
+    #search-results .result-badges:not(:has(.status-badge)) { display: none; }
+    #search-results .result-cost:not(:has(span)) { display: none; }
+    #search-results .result-actions { grid-column: 1 / -1; white-space: normal; }
+    #search-results .result-actions:not(:has(form, span)) { display: none; }
+    #search-results .result-actions form { margin: 0.15rem 0.3rem 0.15rem 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
