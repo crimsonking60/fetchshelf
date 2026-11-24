@@ -134,6 +134,35 @@ public sealed class BooksPageTests : IDisposable
     }
 
     [Fact]
+    public async Task SeriesView_HidesSeriesWithOneBook_UntilShown_AndSortsByNameOrSize()
+    {
+        using var fixture = await LibraryAsync();
+        await SeedAsync(fixture, "children", "Children of Dune", MediaType.Ebook, ["Children of Dune.epub"], author: "Frank Herbert",
+            series: new Series { Name = "Dune", Entries = [SeriesEntry.ForNumber(3, "3")] });
+        foreach (var number in new[] { 1, 2, 3 })
+        {
+            await SeedAsync(fixture, $"lantern{number}", $"A Lantern Book {number}", MediaType.Ebook, [$"A Lantern Book {number}.epub"], author: "Ann Artist",
+                series: new Series { Name = "A Lantern", Entries = [SeriesEntry.ForNumber(number, $"{number}")] });
+        }
+
+        var client = fixture.CreateClient();
+
+        var hidden = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/books?View=series"));
+        var shown = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/books?View=series&Singles=show"));
+        var bySize = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/books?View=series&Sort=size"));
+
+        Assert.DoesNotContain("Dune</a>", hidden);
+        Assert.Contains("1 series with one book are hidden.", hidden);
+        Assert.Matches(@"id=""series-singles"" href=""/Books\?View=series[^""]*&Singles=show""", hidden);
+        Assert.Contains("Dune</a> <span class=\"muted\">1 book<", shown);
+        Assert.Contains(">Hide series with one book</a>", shown);
+        Assert.True(IndexOf(hidden, "A Lantern</a>") < IndexOf(hidden, "Imperial Radch</a>"));
+        Assert.True(IndexOf(bySize, "A Lantern</a>") < IndexOf(bySize, "Imperial Radch</a>")); // 3 books before 2
+        Assert.Contains("<strong>Most books</strong>", bySize);
+        Assert.Contains("id=\"series-sort-size\"", hidden);
+    }
+
+    [Fact]
     public async Task AuthorsSeriesAndLibraries_ListTheirNames_AndLeadToTheirBooks()
     {
         using var fixture = await LibraryAsync();

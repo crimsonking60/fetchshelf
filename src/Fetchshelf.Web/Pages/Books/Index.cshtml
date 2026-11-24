@@ -75,9 +75,37 @@
 }
 else if (Model.Groups is { } groups)
 {
+    @if (Model.View == Fetchshelf.Web.Pages.Books.IndexModel.ViewSeries)
+    {
+        var bySize = Model.Sort == Fetchshelf.Web.Pages.Books.IndexModel.SortBySize;
+        var singlesShown = Model.Singles == Fetchshelf.Web.Pages.Books.IndexModel.ShowSingles;
+        <p id="series-options" class="toolbar">
+            <span>Sort:
+                @if (bySize)
+                {
+                    <a id="series-sort-name" asp-page="/Books/Index" asp-all-route-data="Model.SeriesViewWith(nameof(Model.Sort), string.Empty)">A-Z</a>
+                    <strong>Most books</strong>
+                }
+                else
+                {
+                    <strong>A-Z</strong>
+                    <a id="series-sort-size" asp-page="/Books/Index" asp-all-route-data="Model.SeriesViewWith(nameof(Model.Sort), Fetchshelf.Web.Pages.Books.IndexModel.SortBySize)">Most books</a>
+                }
+            </span>
+            @if (singlesShown)
+            {
+                <a id="series-singles" asp-page="/Books/Index" asp-all-route-data="Model.SeriesViewWith(nameof(Model.Singles), string.Empty)">Hide series with one book</a>
+            }
+            else if (Model.SinglesHidden > 0)
+            {
+                <span class="muted">@Model.SinglesHidden series with one book are hidden.</span>
+                <a id="series-singles" asp-page="/Books/Index" asp-all-route-data="Model.SeriesViewWith(nameof(Model.Singles), Fetchshelf.Web.Pages.Books.IndexModel.ShowSingles)">Show them</a>
+            }
+        </p>
+    }
     @if (groups.Count == 0)
     {
-        <p id="no-books-message" class="empty">Nothing in this format.</p>
+        <p id="no-books-message" class="empty">@(Model.SinglesHidden > 0 ? "Every series here has one book." : "Nothing in this format.")</p>
     }
     else
     {

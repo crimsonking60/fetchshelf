@@ -66,6 +66,23 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
     [BindProperty(SupportsGet = true)]
     public int PageNumber { get; set; } = 1;
 
+    /// <summary>The Series view's <see cref="ShowSingles"/>: series with one book are listed too; hidden otherwise.</summary>
+    public const string ShowSingles = "show";
+
+    /// <summary>The Series view's <see cref="SortBySize"/>: the series with the most books first; A-Z otherwise.</summary>
+    public const string SortBySize = "size";
+
+    /// <summary>On the Series view, <see cref="ShowSingles"/> to list the series with one book as well.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Singles { get; set; }
+
+    /// <summary>On the Series view, <see cref="SortBySize"/> for the series with the most books first.</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Sort { get; set; }
+
+    /// <summary>On the Series view, how many series with one book are hidden; 0 when they are shown, or there are none.</summary>
+    public int SinglesHidden { get; private set; }
+
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = Paging.DefaultPageSize;
 
@@ -109,6 +126,8 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
             [nameof(Format)] = Format ?? string.Empty,
             [nameof(Genre)] = GenresOn ? Genre ?? string.Empty : string.Empty,
             [nameof(Fiction)] = GenresOn ? Fiction ?? string.Empty : string.Empty,
+            [nameof(Singles)] = View == ViewSeries ? Singles ?? string.Empty : string.Empty,
+            [nameof(Sort)] = View == ViewSeries ? Sort ?? string.Empty : string.Empty,
             [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture),
         }
             .Where(pair => pair.Value.Length > 0)
@@ -124,7 +143,21 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
 
     /// <summary>What is shown (a view, an author, a series or a library), for the filter form to keep when a filter changes.</summary>
     public IEnumerable<(string Name, string Value)> ShownRouteValues =>
-        RouteValues.Where(pair => pair.Key is nameof(View) or nameof(Author) or nameof(Series) or nameof(Library)).Select(pair => (pair.Key, pair.Value));
+        RouteValues.Where(pair => pair.Key is nameof(View) or nameof(Author) or nameof(Series) or nameof(Library) or nameof(Singles) or nameof(Sort))
+            .Select(pair => (pair.Key, pair.Value));
+
+    /// <summary>The Series view's address with <paramref name="key"/> set to <paramref name="value"/>, or left out when empty, from the first page.</summary>
+    public Dictionary<string, string> SeriesViewWith(string key, string value)
+    {
+        var route = new Dictionary<string, string>(RouteValues);
+        route.Remove(key);
+        if (value.Length > 0)
+        {
+            route[key] = value;
+        }
+
+        return route;
+    }
 
     /// <summary>The route values for another view or list, keeping the format, genre and fiction filters and the page size.</summary>
     public Dictionary<string, string> RouteFor(string key, string value)
@@ -200,7 +233,21 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
         }
         else if (View == ViewSeries)
         {
-            ShowGroups(catalog.Series().Select(group => new BookGroupLink(group.Name, group.BookCount, RouteFor(nameof(Series), group.Name))).ToList());
+            // Hundreds of series with one book (a later book of a series, or a book of a collection) would bury the rest.
+            var series = catalog.Series();
+            IEnumerable<CatalogGroup> shown = series;
+            if (Singles != ShowSingles)
+            {
+                SinglesHidden = series.Count(group => group.BookCount == 1);
+                shown = series.Where(group => group.BookCount > 1);
+            }
+
+            if (Sort == SortBySize)
+            {
+                shown = shown.OrderByDescending(group => group.BookCount); // stable: A-Z among the same number
+            }
+
+            ShowGroups(shown.Select(group => new BookGroupLink(group.Name, group.BookCount, RouteFor(nameof(Series), group.Name))).ToList());
         }
         else if (View == ViewLibraries)
         {
