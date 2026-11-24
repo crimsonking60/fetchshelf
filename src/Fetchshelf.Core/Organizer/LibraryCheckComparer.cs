@@ -34,6 +34,12 @@ public enum LibraryFindingKind
 
     /// <summary>A linked book whose folder exists, but some of whose files don't.</summary>
     FilesMissing,
+
+    /// <summary>
+    /// A torrent linked as one book that Relink would split into its books: a collection in a library that splits them,
+    /// linked before it did, or before its names could be read.
+    /// </summary>
+    CollectionNotSplit,
 }
 
 /// <summary>What would stop Relink placing a book's files again, as the Library check found when it asked qBittorrent.</summary>
@@ -83,6 +89,9 @@ public sealed record LibraryFinding(LibraryFindingKind Kind, string Path, string
     public string? Title { get; init; }
 
     public IReadOnlyList<string> Authors { get; init; } = [];
+
+    /// <summary>For <see cref="LibraryFindingKind.CollectionNotSplit"/>: how many books Relink would split it into.</summary>
+    public int Books { get; init; }
 
     /// <summary>For <see cref="LibraryFindingKind.FilesMissing"/>: the linked files that aren't there, relative to the folder.</summary>
     public IReadOnlyList<string> MissingFiles { get; init; } = [];

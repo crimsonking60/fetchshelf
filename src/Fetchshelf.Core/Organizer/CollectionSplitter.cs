@@ -51,36 +51,46 @@ public static partial class CollectionSplitter
         }
 
         var range = collection.Series.FirstOrDefault(s => s.Entries.Any(e => e.Kind == SeriesEntryKind.Range && e.LastNumber > e.FirstNumber));
-        var numbered = groups.ToDictionary(g => g, g => NumberedName(Clean(g.Name, collection.Authors)));
-        var largestNamedSeries = numbered.Values.OfType<(string Series, decimal Number)>()
-            .GroupBy(n => TitleNormalizer.Normalize(n.Series))
+
+        // A reading order across series starts each name with the book's place in it, which is no part of its name.
+        var positions = range is null ? ReadingOrder(groups) : null;
+        var names = groups.ToDictionary(
+            g => g,
+            g => Clean(positions?.ContainsKey(g) == true ? ReadingPosition().Replace(g.Name, "", 1) : g.Name, collection.Authors));
+        var numbered = groups.ToDictionary(g => g, g => NumberedName(names[g]));
+        var arcs = positions is null ? [] : StoryArcs(names, numbered);
+        var seriesNames = numbered.Values.OfType<(string Series, decimal Number)>().Select(n => n.Series).Concat(arcs.Values.Select(a => a.Series)).ToList();
+        var largestNamedSeries = seriesNames
+            .GroupBy(TitleNormalizer.Normalize)
             .Select(g => g.Count())
             .DefaultIfEmpty(0)
             .Max();
-        if (range is null && largestNamedSeries < MinimumNumberedBooks)
+        var bundle = range is null && largestNamedSeries < MinimumNumberedBooks ? Bundle(names, collection.Authors) : null;
+        if (range is null && largestNamedSeries < MinimumNumberedBooks && bundle is null)
         {
             return null;
         }
 
         // One series spelled several ways in its file names, such as "Spider-man" and "Spider-Man", is named as most are.
-        var spellings = numbered.Values.OfType<(string Series, decimal Number)>()
-            .GroupBy(n => TitleNormalizer.Normalize(n.Series))
+        var spellings = seriesNames
+            .GroupBy(TitleNormalizer.Normalize)
             .ToDictionary(
                 g => g.Key,
-                g => g.GroupBy(n => n.Series, StringComparer.Ordinal).OrderByDescending(s => s.Count()).ThenBy(s => s.Key, StringComparer.Ordinal).First().Key);
+                g => g.GroupBy(n => n, StringComparer.Ordinal).OrderByDescending(s => s.Count()).ThenBy(s => s.Key, StringComparer.Ordinal).First().Key);
         var listed = range is null ? [] : NumberedList(collection.Description);
         var sizes = files.ToDictionary(f => f.Path, f => f.SizeBytes, StringComparer.Ordinal);
-        var result = new List<CollectionBook>();
+        var result = new List<(CollectionBook Book, int? Position)>();
         foreach (var (group, index) in groups.OrderBy(g => g.Name, StringComparer.Ordinal).Select((g, i) => (g, i)))
         {
             var format = FormatRanker.SelectBestExtension(ebookTypes, group.Files.Select(System.IO.Path.GetExtension).OfType<string>().ToList())!;
             var chosen = group.Files.Where(f => string.Equals(Extension(f), format, StringComparison.OrdinalIgnoreCase)).ToList();
             var epub = string.Equals(format, "epub", StringComparison.OrdinalIgnoreCase) ? readEpub?.Invoke(chosen[0]) : null;
-            var cleaned = Clean(group.Name, collection.Authors);
+            var cleaned = names[group];
 
             string title;
             string? seriesName;
             decimal? number;
+            var authors = collection.Authors;
             if (range is not null)
             {
                 seriesName = range.Name;
@@ -99,6 +109,16 @@ public static partial class CollectionSplitter
                     better,
                     issue);
             }
+            else if (arcs.TryGetValue(group, out var arc))
+            {
+                (title, seriesName, number) = (
+                    arc.Title, BetterSeriesName(WithFolderVolume(spellings[TitleNormalizer.Normalize(arc.Series)], group.Files[0]), collection), null);
+            }
+            else if (bundle is not null && bundle.TryGetValue(group, out var book))
+            {
+                (title, seriesName, number) = (book.Title, null, null);
+                authors = [book.Author];
+            }
             else
             {
                 (title, seriesName, number) = (epub?.Title ?? cleaned, null, null);
@@ -107,6 +127,7 @@ public static partial class CollectionSplitter
             var metadata = collection with
             {
                 Title = title,
+                Authors = authors,
                 Series = seriesName is null ? [] : [new Series { Name = seriesName, Entries = number is { } n ? [SeriesEntry.ForNumber(n, n.ToString(CultureInfo.InvariantCulture))] : [] }],
                 Isbn = epub?.Isbn,
                 Asin = null,
@@ -115,7 +136,7 @@ public static partial class CollectionSplitter
                 FileCount = chosen.Count,
                 TotalSizeBytes = chosen.Sum(f => sizes.GetValueOrDefault(f)),
             };
-            result.Add(new CollectionBook(index + 1, metadata, chosen, format.ToLowerInvariant(), null));
+            result.Add((new CollectionBook(index + 1, metadata, chosen, format.ToLowerInvariant(), null), positions?.GetValueOrDefault(group)));
         }
 
         return WithCovers(WithoutRepeats(result, ebookTypes), files);
@@ -123,16 +144,18 @@ public static partial class CollectionSplitter
 
     /// <summary>
     /// The books with one of each kept when the torrent holds a book twice, such as a series in two folders spelled
-    /// differently: the same title, series and number. The one kept has the best format, then the most bytes; the rest
-    /// are numbered again in order.
+    /// differently: the same title, series and number, and in a reading order the same place in it. The one kept has
+    /// the best format, then the most bytes; the rest are numbered again in order.
     /// </summary>
-    private static List<CollectionBook> WithoutRepeats(List<CollectionBook> books, IReadOnlyList<string> ebookTypes) =>
+    private static List<CollectionBook> WithoutRepeats(List<(CollectionBook Book, int? Position)> books, IReadOnlyList<string> ebookTypes) =>
         books
             .GroupBy(b => (
-                Title: b.Metadata.Title.ToUpperInvariant(),
-                Series: b.Metadata.Series.FirstOrDefault()?.Name.ToUpperInvariant(),
-                Number: b.Metadata.Series.FirstOrDefault()?.Entries.FirstOrDefault()?.FirstNumber))
+                Title: b.Book.Metadata.Title.ToUpperInvariant(),
+                Series: b.Book.Metadata.Series.FirstOrDefault()?.Name.ToUpperInvariant(),
+                Number: b.Book.Metadata.Series.FirstOrDefault()?.Entries.FirstOrDefault()?.FirstNumber,
+                b.Position))
             .Select(g => g
+                .Select(b => b.Book)
                 .OrderBy(b => FormatRank(ebookTypes, b.Format))
                 .ThenByDescending(b => b.Metadata.TotalSizeBytes)
                 .ThenBy(b => b.Position)
@@ -146,6 +169,82 @@ public static partial class CollectionSplitter
         var rank = ebookTypes.ToList().FindIndex(t => string.Equals(t, format, StringComparison.OrdinalIgnoreCase));
         return rank < 0 ? int.MaxValue : rank;
     }
+
+    /// <summary>
+    /// The books' places in a reading order, when their names give one: at least three quarters of them, and at least
+    /// <see cref="MinimumNumberedBooks"/>, start with a number of one width and then a name (<c>001_Nightfall - Year Zero</c>,
+    /// <c>04417 Hollow House 11</c>), and those numbers mostly differ. By book; null when there is no reading order.
+    /// </summary>
+    private static Dictionary<FileGroup, int>? ReadingOrder(List<FileGroup> groups)
+    {
+        var widest = groups
+            .Select(g => (Group: g, Match: ReadingPosition().Match(g.Name)))
+            .Where(x => x.Match.Success)
+            .GroupBy(x => x.Match.Groups["position"].Length)
+            .MaxBy(g => g.Count())
+            ?.ToList();
+        if (widest is null || widest.Count < MinimumNumberedBooks || widest.Count * 4 < groups.Count * 3)
+        {
+            return null;
+        }
+
+        var positions = widest.ToDictionary(x => x.Group, x => int.Parse(x.Match.Groups["position"].Value, CultureInfo.InvariantCulture));
+        return positions.Values.Distinct().Count() * 4 < positions.Count * 3 ? null : positions;
+    }
+
+    /// <summary>
+    /// The books of a reading order named <c>&lt;series&gt; - &lt;title&gt;</c> (or <c>&lt;series&gt;_&lt;title&gt;</c>),
+    /// such as a story arc, without a number of their own: their series and title, where another book has that series too.
+    /// </summary>
+    private static Dictionary<FileGroup, (string Series, string Title)> StoryArcs(
+        Dictionary<FileGroup, string> names, Dictionary<FileGroup, (string Series, decimal Number)?> numbered)
+    {
+        var candidates = names
+            .Where(n => numbered[n.Key] is null)
+            .Select(n => (Group: n.Key, Match: StoryArc().Match(n.Value)))
+            .Where(x => x.Match.Success)
+            .ToDictionary(x => x.Group, x => (Series: x.Match.Groups["series"].Value.Trim(), Title: x.Match.Groups["title"].Value.Trim()));
+        var books = numbered.Values.OfType<(string Series, decimal Number)>().Select(n => n.Series)
+            .Concat(candidates.Values.Select(c => c.Series))
+            .GroupBy(TitleNormalizer.Normalize)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        return candidates.Where(c => books[TitleNormalizer.Normalize(c.Value.Series)] > 1).ToDictionary(c => c.Key, c => c.Value);
+    }
+
+    /// <summary>
+    /// The books of a bundle of unrelated books: at least three quarters of them, and at least
+    /// <see cref="MinimumNumberedBooks"/>, named <c>&lt;Last&gt;, &lt;First&gt; - &lt;Title&gt;</c> or <c>&lt;First&gt;
+    /// &lt;Last&gt; - &lt;Title&gt;</c> by one of the torrent's authors, with two authors or more among them. Each with its
+    /// title and author, as the torrent spells it; null when the torrent isn't such a bundle.
+    /// </summary>
+    private static Dictionary<FileGroup, (string Author, string Title)>? Bundle(Dictionary<FileGroup, string> names, IReadOnlyList<string> authors)
+    {
+        var byKey = authors.GroupBy(AuthorKey, StringComparer.Ordinal).Where(g => g.Key.Length > 0).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var books = new Dictionary<FileGroup, (string Author, string Title)>();
+        foreach (var (group, name) in names)
+        {
+            if (BundleName().Match(name) is not { Success: true } m)
+            {
+                continue;
+            }
+
+            var named = m.Groups["author"].Value.Trim();
+            var comma = named.IndexOf(',', StringComparison.Ordinal);
+            var author = comma < 0 ? named : $"{named[(comma + 1)..].Trim()} {named[..comma].Trim()}";
+            if (byKey.TryGetValue(AuthorKey(author), out var listed))
+            {
+                books[group] = (listed, m.Groups["title"].Value.Trim());
+            }
+        }
+
+        return books.Count >= MinimumNumberedBooks && books.Count * 4 >= names.Count * 3 && books.Values.Select(b => b.Author).Distinct(StringComparer.Ordinal).Count() > 1
+            ? books
+            : null;
+    }
+
+    /// <summary>An author's name to compare by: its letters and digits, folded and lower-cased.</summary>
+    private static string AuthorKey(string author) =>
+        string.Concat(WordPattern().Matches(TextFolding.Fold(author).ToLowerInvariant()).Select(m => m.Value));
 
     /// <summary>Whether a media type is on the ebook side, the one split.</summary>
     public static bool IsEbookSide(MediaType mediaType) =>
@@ -353,8 +452,21 @@ public static partial class CollectionSplitter
 
     private static string Extension(string path) => System.IO.Path.GetExtension(path).TrimStart('.');
 
-    [GeneratedRegex(@"(\s*(\([^()]*\)|\[[^\[\]]*\]))+\s*$")]
+    // A part of a story, "(Part 2)", is the title's and stays.
+    [GeneratedRegex(@"(\s*(\((?!\s*(?:part|pt\.?)\s*\d+\s*\))[^()]*\)|\[[^\[\]]*\]))+\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingBracketGroups();
+
+    // A place in a reading order: two to five digits, then "_", " - " or spaces, and a letter.
+    [GeneratedRegex(@"^(?<position>\d{2,5})(?:_|\s+-\s+|\s+)(?=\p{L})")]
+    private static partial Regex ReadingPosition();
+
+    // A story arc's series and title, at the first " - " or "_".
+    [GeneratedRegex(@"^(?<series>.*?\S)(?:\s+-\s+|_)(?<title>\S.*)$")]
+    private static partial Regex StoryArc();
+
+    // A bundle's book: its author before the first " - ", with letters, spaces, dots, apostrophes and one comma.
+    [GeneratedRegex(@"^(?<author>[\p{L}.' ]+(?:,[\p{L}.' ]+)?)\s+-\s+(?<title>\S.*)$")]
+    private static partial Regex BundleName();
 
     [GeneratedRegex(@"^(?<number>\d{1,4}(\.\d+)?)\s*[-.:)_]\s*(?<title>\S.*)$")]
     private static partial Regex LeadingNumberPattern();

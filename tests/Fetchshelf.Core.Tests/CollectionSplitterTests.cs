@@ -355,6 +355,123 @@ public class CollectionSplitterTests
     }
 
     [Fact]
+    public void AReadingOrder_LeavesItsPositionsOutOfTheNames_AndPutsStoryArcsInTheirSeries()
+    {
+        const string Top = "Nightfall Reading Order/Nightfall 001";
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Nightfall Reading Order 1990-2010", Authors = ["Ann Artist"] },
+            Files(
+                $"{Top}/001_Nightfall - Year Zero.cbr",
+                $"{Top}/002_Lantern - First Light.cbr",
+                $"{Top}/003_Nightfall - Long Night (Part 1).cbr",
+                $"{Top}/004_Nightfall - Long Night (Part 2).cbr",
+                $"{Top}/005 Nightfall 683.cbr",
+                $"{Top}/006_Lantern - Last Light.cbr",
+                $"{Top}/007_Villains United.cbr",
+                $"{Top}/008_Nightfall_Poison Garden.cbr",
+                $"{Top}/009_Nightfall_Broken Worlds - Hidden Door.cbr",
+                $"{Top}/010_Lantern - The Long Winter/010_Lantern - The Long Winter.cbr",
+                $"{Top}/010_Lantern - The Long Winter/010_Lantern - The Long Winter.cbz",
+                $"{Top}/Lantern v2 #69.cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [
+                ("Year Zero", "Nightfall", null), ("First Light", "Lantern", null), ("Long Night (Part 1)", "Nightfall", null),
+                ("Long Night (Part 2)", "Nightfall", null), ("Nightfall 683", "Nightfall", "683"), ("Last Light", "Lantern", null),
+                ("Villains United", null, null), ("Poison Garden", "Nightfall", null), ("Broken Worlds - Hidden Door", "Nightfall", null),
+                ("The Long Winter", "Lantern", null), ("Lantern v2 #69", "Lantern v2", "69"),
+            ],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name, b.Metadata.Series.FirstOrDefault()?.Entries.FirstOrDefault()?.Display)));
+        Assert.Equal("cbz", books.Single(b => b.Metadata.Title == "The Long Winter").Format); // one book in two formats
+    }
+
+    [Fact]
+    public void AReadingOrderOfNumberedIssues_IsACollection_OnceThePositionsAreLeftOut()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook) with { Title = "Comics Reading Order 1975" },
+            Files(
+                "Reading Order (1975)/01-Jan/04417 Hollow House 11.cbr",
+                "Reading Order (1975)/01-Jan/04418 Star Rangers 5.cbr",
+                "Reading Order (1975)/02-Feb/04450 Hollow House 12 (c2c).cbr",
+                "Reading Order (1975)/03-March/04481 Hollow House 13.cbz"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Hollow House 11", "Hollow House", "11"), ("Star Rangers 5", "Star Rangers", "5"), ("Hollow House 12", "Hollow House", "12"), ("Hollow House 13", "Hollow House", "13")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Series[0].Name, b.Metadata.Series[0].Entries[0].Display)));
+    }
+
+    [Fact]
+    public void OneNumberStartingEveryName_IsNoReadingOrder()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook),
+            Files("C/2000 Tales 001.cbr", "C/2000 Tales 002.cbr", "C/2000 Tales 003.cbr"),
+            EbookTypes)!;
+
+        Assert.All(books, b => Assert.Equal("2000 Tales", b.Metadata.Series[0].Name));
+    }
+
+    [Fact]
+    public void AStoryArcWhoseSeriesNoOtherBookHas_HasNoSeries()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null, mediaType: MediaType.ComicBook),
+            Files("C/001_Saga 1.cbr", "C/002_Saga 2.cbr", "C/003_Saga 3.cbr", "C/004_Lantern - First Light.cbr"),
+            EbookTypes)!;
+
+        Assert.Equal(("Lantern - First Light", null), books.Select(b => (b.Metadata.Title, b.Metadata.Series.FirstOrDefault()?.Name)).Last());
+    }
+
+    [Fact]
+    public void ABundleOfUnrelatedBooks_IsSplit_EachBookWithItsOwnAuthor()
+    {
+        var books = CollectionSplitter.Split(
+            Collection(seriesEntries: null) with { Title = "Illustrated Classics", Authors = ["Jane Austen", "Charles Dickens", "Charlotte Brontë", "George Eliot"] },
+            Files(
+                "Classics/Austen, Jane - Emma.pdf",
+                "Classics/Austen, Jane - Persuasion.pdf",
+                "Classics/Bronte, Charlotte - Jane Eyre.pdf",
+                "Classics/Charles Dickens - Bleak House.pdf",
+                "Classics/Eliot, George  - Middlemarch.pdf"),
+            EbookTypes)!;
+
+        Assert.Equal(
+            [("Emma", "Jane Austen"), ("Persuasion", "Jane Austen"), ("Jane Eyre", "Charlotte Brontë"), ("Bleak House", "Charles Dickens"), ("Middlemarch", "George Eliot")],
+            books.Select(b => (b.Metadata.Title, b.Metadata.Authors.Single())));
+        Assert.All(books, b => Assert.Empty(b.Metadata.Series));
+    }
+
+    [Fact]
+    public void OneAuthorsBooks_AreNoBundle()
+    {
+        Assert.Null(CollectionSplitter.Split(
+            Collection(seriesEntries: null) with { Authors = ["Jane Austen"] },
+            Files("D/Austen, Jane - Emma.epub", "D/Austen, Jane - Persuasion.epub", "D/Austen, Jane - Sanditon.epub"),
+            EbookTypes));
+    }
+
+    [Fact]
+    public void BooksByAuthorsTheTorrentDoesNotList_AreNoBundle()
+    {
+        Assert.Null(CollectionSplitter.Split(
+            Collection(seriesEntries: null) with { Authors = ["Somebody Else"] },
+            Files("D/Austen, Jane - Emma.epub", "D/Dickens, Charles - Bleak House.epub", "D/Eliot, George - Middlemarch.epub"),
+            EbookTypes));
+    }
+
+    [Fact]
+    public void OneBookNamedAfterItsAuthor_InTwoFormats_IsNoBundle()
+    {
+        Assert.Null(CollectionSplitter.Split(
+            Collection(seriesEntries: null) with { Authors = ["John Smith"] },
+            Files("D/Smith, John - Title.epub", "D/Smith, John - Title.mobi"),
+            EbookTypes));
+    }
+
+    [Fact]
     public void FewerBooksThanTheRange_IsStillSplit_AndAFolderWithoutANumberHasNone()
     {
         var books = CollectionSplitter.Split(Collection(), Files("D/Mort/m.epub", "D/Eric/e.epub"), EbookTypes)!;

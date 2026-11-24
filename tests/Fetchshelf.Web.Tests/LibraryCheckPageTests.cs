@@ -185,6 +185,23 @@ public sealed class LibraryCheckPageTests : IDisposable
     }
 
     [Fact]
+    public async Task ACollectionNotSplit_IsListedWithItsBooks_AndCanBeRelinked()
+    {
+        using var fixture = Fixture();
+        Results(fixture).Set(
+            [new LibraryFinding(LibraryFindingKind.CollectionNotSplit, "/lib/Comics/Nightfall", "Audiobooks") { TorrentId = "hash1", Title = "Nightfall Reading Order", Books = 120 }],
+            DateTimeOffset.UtcNow);
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/LibraryCheck"));
+
+        Assert.Contains("<h3>Collections not split</h3>", html);
+        Assert.Contains(">Nightfall Reading Order</a>", html);
+        Assert.Matches("<td class=\"nowrap\">120</td>", html);
+        Assert.Contains("Relink selected", html);
+        Assert.DoesNotContain("The library matches the records", html);
+    }
+
+    [Fact]
     public async Task Delete_RemovesTheFolder_TheFinding_AndRecordsAnEvent()
     {
         using var fixture = Fixture();
