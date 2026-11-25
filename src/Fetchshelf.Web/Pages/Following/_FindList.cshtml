@@ -52,25 +52,6 @@
 }
 else
 {
-    @* The tick boxes belong to this form through their form attribute: each row's own buttons are forms too, and forms can't nest. *@
-    @if (anyTickable)
-    {
-        <form id="bulk-finds" method="post" asp-page="/Following/Index" asp-page-handler="Bulk" class="toolbar" in-place="true">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-            <span class="muted">Ticked:</span>
-            @if (anyWaiting)
-            {
-                <button type="submit" name="bulkAction" value="download">Download</button>
-                <button type="submit" name="bulkAction" value="wedge" data-confirm="Spend one freeleech wedge per book on the {n}?" data-confirm-count="findIds" data-confirm-noun="book" data-confirm-label="Spend wedges">Wedge&nbsp;download</button>
-                <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
-            }
-            @if (anyDismissed)
-            {
-                <button type="submit" name="bulkAction" value="undo-dismiss">Undo dismiss</button>
-            }
-        </form>
-    }
     <table class="follow-finds phone-cards">
         <thead>
             <tr>
@@ -110,7 +91,7 @@ else
                         <td class="find-tick">
                             @if (waiting || dismissed)
                             {
-                                <input class="find-select" type="checkbox" form="bulk-finds" name="findIds" value="@find.Id" aria-label="Tick @find.Title" />
+                                <input class="find-select" type="checkbox" form="bulk-finds" name="selectedIds" value="@find.Id" aria-label="Tick @find.Title" />
                             }
                         </td>
                     }
@@ -179,6 +160,30 @@ else
             }
         </tbody>
     </table>
+
+    @* The tick boxes belong to this form through their form attribute: each row's own buttons are forms too, and forms can't
+       nest. The ticked finds' action runs in the background, as the Torrents page's do; the page shows how it goes. The bar
+       is fixed to the bottom of the window while rows are ticked (bulk-bar.js). *@
+    @if (anyTickable)
+    {
+        <form id="bulk-finds" method="post" asp-page="@Model.Page" asp-all-route-data="Model.PageRouteValues.ToDictionary()" asp-page-handler="Bulk" in-place="true">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <div class="bulk-bar" data-bulk-bar>
+                <span class="bulk-count" data-bulk-count>Nothing selected</span>
+                @if (anyWaiting)
+                {
+                    <button type="submit" name="bulkAction" value="download">Download</button>
+                    <button type="submit" name="bulkAction" value="wedge" data-confirm="Spend one freeleech wedge per book on the {n}?" data-confirm-noun="book" data-confirm-label="Spend wedges">Wedge&nbsp;download</button>
+                    <button type="submit" name="bulkAction" value="dismiss">Dismiss</button>
+                }
+                @if (anyDismissed)
+                {
+                    <button type="submit" name="bulkAction" value="undo-dismiss">Undo dismiss</button>
+                }
+            </div>
+        </form>
+    }
 
     @await Html.PartialAsync("_Pager", Model.Pager)
 }

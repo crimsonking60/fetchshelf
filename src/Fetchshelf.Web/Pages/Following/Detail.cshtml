@@ -62,6 +62,7 @@
             </p>
         }
 
+        @await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
         <partial name="_FindList" model="Model.List" />
     }
     </div>

@@ -284,7 +284,11 @@ public sealed class FollowService(
     /// Selects a find's torrent as the Search page's Download does: MAM is asked for it again, so the cost is today's,
     /// and it goes through the usual selection rules, with the `[follow]` category.
     /// </summary>
-    public async Task<FindDownloadResult> DownloadAsync(int findId, bool wedge, CancellationToken cancellationToken = default)
+    /// <param name="waitForMam">
+    /// Whether to wait for MAM however long another job holds it, as a bulk action in the background does; a page's button
+    /// waits <see cref="MamAccessGate.PageWait"/> and then says MAM is busy.
+    /// </param>
+    public async Task<FindDownloadResult> DownloadAsync(int findId, bool wedge, CancellationToken cancellationToken = default, bool waitForMam = false)
     {
         var find = await dbContext.FollowFinds.FirstOrDefaultAsync(f => f.Id == findId, cancellationToken);
         var follow = find is null ? null : await dbContext.Follows.FirstOrDefaultAsync(f => f.Id == find.FollowId, cancellationToken);
@@ -293,7 +297,9 @@ public sealed class FollowService(
             return new FindDownloadResult(null, null, "That find is no longer listed.");
         }
 
-        using var gate = await accessGate.TryAcquireAsync("Following page", MamAccessGate.PageWait, cancellationToken);
+        using var gate = waitForMam
+            ? await accessGate.AcquireAsync("Following page bulk download", cancellationToken)
+            : await accessGate.TryAcquireAsync("Following page", MamAccessGate.PageWait, cancellationToken);
         if (gate is null)
         {
             return new FindDownloadResult(null, null, $"MAM is busy with {accessGate.Owner ?? "another job"}; try again in a moment.");
