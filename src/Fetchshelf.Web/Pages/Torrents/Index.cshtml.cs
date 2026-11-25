@@ -145,7 +145,6 @@ public class IndexModel(
             Add("Category", QbCategory, q => q with { QbCategory = null });
             Add("Problems", LabelOf(TorrentListFilters.ProblemOptions, Problem), q => q with { Problem = null });
             Add("Seeding", LabelOf(TorrentListFilters.SeedingOptions, Seeding), q => q with { Seeding = null });
-            Add("Collections", CollectionBooks == ShowCollectionBooks ? "books too" : CollectionBooks, q => q with { CollectionBooks = null });
             Add("Media type", MediaType, q => q with { MediaType = null });
             Add("Language", Language, q => q with { Language = null });
             if (GenresOn)

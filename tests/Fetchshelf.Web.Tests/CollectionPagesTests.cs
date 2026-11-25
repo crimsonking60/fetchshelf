@@ -167,7 +167,13 @@ public class CollectionPagesTests
 
         Assert.Contains("(collection of 2 books)", plain);
         Assert.DoesNotContain(">Mort</a>", plain);
-        Assert.Contains("<select name=\"CollectionBooks\"", plain);
+        Assert.Matches("<input type=\"checkbox\" name=\"CollectionBooks\" value=\"show\"\\s+onchange", plain); // off by default
+        Assert.Matches("<input type=\"checkbox\" name=\"CollectionBooks\" value=\"show\" checked=\"checked\"", all);
+        Assert.Contains("Show books from collections", plain);
+        Assert.DoesNotContain("Clear filters", all); // a choice of what to show, not a filter
+        Assert.DoesNotContain("Filters in use", all);
+        var filtered = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?CollectionBooks=show&Status=seeding"));
+        Assert.Contains("CollectionBooks=show", System.Text.RegularExpressions.Regex.Match(filtered, "href=\"([^\"]*)\"[^>]*>Clear filters").Groups[1].Value);
         Assert.Contains($"(from <a href=\"/torrents/{Hash}\">a collection</a>)", all);
         Assert.Contains(">Thud!</a>", all);
         Assert.Contains(">Mort</a>", searched);
