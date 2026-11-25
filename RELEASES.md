@@ -5,6 +5,67 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.24 - 2026-11-25
+
+**Collections are split into their books much more often.** A torrent of several collections, such as a reading
+order across a publisher's series or a bundle of books by several authors, is now split instead of linked as one
+book, and a reading order's books go into one series, numbered by their places. **Magazine runs** are split by their
+numbering (volume and number, issue number, or year and month), and the Link job logs how it split each collection.
+**Refresh and relink** runs in the background with a progress bar, and so do the ticked finds' buttons on the
+Following pages. Also new: a top-level **`min_seeders`**, 1 by default, and a Search page that copes with a text MAM
+can't read.
+
+### Upgrading
+
+- There is no database change.
+- **New top-level `min_seeders`, 1 by default.** Every `[[autograb]]` and `grab` block that doesn't set its own
+  `min_seeders` now skips torrents nobody seeds, and so does the `free` block `[upgrade]` uses when it has none.
+  `min_seeders = 0`, at the top level or in a block, brings back the old behaviour. `[[tag]]` rules don't use it
+  (#220).
+- **Already-linked collections and magazine issues stay as they are** until a **Refresh and relink**, or **Relink
+  selected** on the Library check, which now lists a linked torrent it would split as *Collection not split*.
+- **The Torrents page hides the books of split collections** unless **Show books from collections** is ticked (#223).
+
+### Added
+
+- **Multi-collection torrents are split into their books** (#211):
+  - reading-order positions such as `001_` are left out of the names before they are read;
+  - story arcs without a number go into their series;
+  - a bundle of books named `<author> - <title>` by several authors becomes books of their own, each with its author;
+  - the Library check lists a linked torrent that would now be split as *Collection not split*, with **Relink
+    selected**.
+- **Reading orders**: every book with a place goes into one series named after the torrent, numbered by its place, so
+  a library shows them in reading order. A book in an arc folder takes the folder's place (#215).
+- **Magazine runs** are split by their numbering: `v10n04`, `No 268 December 2022`, `1967 Issue 1`, `1990-01` and
+  the like, with the magazine as the one series and double issues (`v14n11-12`, `Issue 281-282`) as one book. The Link
+  job logs at Information which way it split a collection, and warns when it couldn't read the numbering or the
+  numbering was inconsistent (#221).
+- **A single magazine issue** in a series layout takes its number from its name, in the numbering the other issues
+  in its folder use, and keeps it with its metadata, so the Books page shows it in order (#224, #225).
+- **Top-level `min_seeders`** (see Upgrading) (#220).
+- **Selected page**: a title opens what was stored about the torrent in a dialog, with **Open on MAM** (#218).
+- **Torrents page**: a **Show books from collections** box, off by default, that also applies while searching or
+  filtering (#223).
+
+### Changed
+
+- **Refresh and relink** on a torrent's page runs in the background: the page comes back at once and shows its
+  progress, counting the books or files placed, with **Cancel**. A long relink no longer times out (#212).
+- **Following pages**: the buttons work without reloading the page (#219). The ticked finds' **Download**, **Wedge
+  download**, **Dismiss** and **Undo dismiss** are in the bulk bar at the bottom of the window and run in the
+  background, as the Torrents page's bulk actions do, with their progress above the list. A bulk download waits while
+  another job uses MAM (#227). On a phone each find is a card (#219).
+- **Books page and OPDS**: series with only one book are hidden by default, with **Show them**, and the Series view
+  can sort by **Most books** (#216).
+- **Selected page** lists the oldest first, the order the Download job starts them in (#217).
+- **Search page**: a text MAM refuses to search for, such as one with a `/`, is searched for again as its plain
+  words, and the page says so instead of showing an error (#222).
+- Serilog.AspNetCore 11 and other dependency updates (#213, #214).
+
+### Fixed
+
+- A job cancelled from a page logs the registered job's name (#226).
+
 ## 2026.11.23 - 2026-11-24
 
 Fetchshelf is now **much more phone-friendly**. On a phone, the lists of the Jobs, Search, Torrents, Selected, Events,
