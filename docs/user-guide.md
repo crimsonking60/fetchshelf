@@ -859,7 +859,10 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
 ![The Search page with the results of a search for an author: each torrent's format, its status in Fetchshelf and qBittorrent, its size and its cost, with Download buttons for the one not downloaded yet](images/search-results-for-an-author.png)
 
 - **Search** looks for your text in the title and author of every torrent on MAM. With the box empty, the
-  page shows the newest torrents on MAM instead.
+  page shows the newest torrents on MAM instead. The text goes to MAM as typed, so MAM's search operators work
+  in it (quotes for a phrase, `|` for or, `-` or `!` for not, `@author` for a field). When MAM can't read it, as with
+  the `/` in `Fiction/Science Fact`, its plain words are searched for instead, and the page says so above the
+  results. A text with no plain words to fall back on gets MAM's reason.
 - **Search in**, the row of checkboxes below the box: title, author, series, narrator, description, tags
   and file names. Tick the ones to look in; with none ticked, title and author are used.
 - **The type list** limits what is searched: *All torrents*, *Freeleech*, *Freeleech or VIP*, *VIP*,

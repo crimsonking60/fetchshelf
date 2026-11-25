@@ -120,6 +120,24 @@ public class SearchResponseParserTests
     }
 
     [Fact]
+    public void Parse_ASearchMamCannotRead_ThrowsARefusal_WithMamsReasonAsPlainText()
+    {
+        var json = """{"error": "Search returned an error<br />Your search is only not.  This is not supported.  For a single non-not, try adding: @dummy mamDummy"}""";
+
+        var refused = Assert.Throws<MamSearchRefusedException>(() => SearchResponseParser.Parse(Parse(json)));
+
+        Assert.Equal("Your search is only not. This is not supported. For a single non-not, try adding: @dummy mamDummy", refused.MamReason);
+    }
+
+    [Fact]
+    public void Parse_AnotherError_StillThrows_WithoutItsHtml()
+    {
+        var failed = Assert.Throws<InvalidOperationException>(() => SearchResponseParser.Parse(Parse("""{"error": "Something<br />else"}""")));
+
+        Assert.Equal("MAM search failed: Something else", failed.Message);
+    }
+
+    [Fact]
     public void Parse_ThumbnailMediaInfoAndEveryRawField_AreKept()
     {
         var json = ResponseJson.Replace(

@@ -535,6 +535,51 @@ public partial class IndexPageTests
         Assert.Contains("id=\"search-loading\"", html);
     }
 
+    private const string NotReadableJson =
+        """{"error": "Search returned an error<br />Your search is only not.  This is not supported.  For a single non-not, try adding: @dummy mamDummy"}""";
+
+    [Fact]
+    public async Task GetResults_TextMamCannotRead_IsSearchedForAsPlainWords_AndThePageSaysSo()
+    {
+        var bodies = new List<string>();
+        Func<HttpRequestMessage, HttpResponseMessage> handler = request =>
+        {
+            if (!request.RequestUri!.AbsolutePath.Contains("loadSearchJSONbasic.php"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+            }
+
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            bodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body.Contains("Lantern Fiction/Science Fact", StringComparison.Ordinal) ? NotReadableJson : SearchResponseJson(large: false)),
+            };
+        };
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: handler);
+
+        var html = await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=" + Uri.EscapeDataString("Lantern Fiction/Science Fact 1995"));
+
+        Assert.Equal(2, bodies.Count);
+        Assert.Contains("\"Lantern Fiction Science Fact 1995\"", bodies[1]);
+        Assert.Contains("id=\"search-notice\"", html);
+        Assert.Contains("so its plain words were searched for: \u201cLantern Fiction Science Fact 1995\u201d", System.Net.WebUtility.HtmlDecode(html));
+        Assert.DoesNotContain("id=\"search-error\"", html);
+        Assert.Contains("id=\"search-results\"", html);
+    }
+
+    [Fact]
+    public async Task GetResults_TextMamCannotRead_WithNoPlainWordsToTry_SaysWhy()
+    {
+        using var fixture = new FetchshelfWebAppFixture(mamHandler: MamHandler(NotReadableJson));
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/?handler=Results&Q=lantern"));
+
+        Assert.Contains("id=\"search-error\"", html);
+        Assert.Contains("MAM couldn't read the search (Your search is only not. This is not supported.", html);
+        Assert.Contains("are MAM's search operators", html);
+    }
+
     [Fact]
     public async Task GetResults_MamRejectsTheSession_RendersAnErrorWithRetryInsteadOfFailing()
     {
