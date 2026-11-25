@@ -403,8 +403,38 @@ public sealed class LinkRunner(
             }
         }
 
-        return CollectionSplitter.Split(
+        var split = CollectionSplitter.Analyze(
             metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), library.EbookTypes ?? formatPreferenceLists.EbookTypes, ReadEpub);
+        LogSplit(metadata.Title, split);
+        return split.Books;
+    }
+
+    /// <summary>
+    /// Says in the log how a collection was split, or why a torrent of several books is left as one, and warns about what
+    /// the split had to guess at (plan <c>magazine-runs.md</c>). A torrent of one book says nothing.
+    /// </summary>
+    private void LogSplit(string title, CollectionSplit split)
+    {
+        if (split.Books is { } books)
+        {
+            var series = books.Select(b => b.Metadata.Series.FirstOrDefault()?.Name).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+            var named = series.Count switch
+            {
+                0 => "no series",
+                <= 3 => string.Join(", ", series),
+                _ => $"{string.Join(", ", series.Take(3))} and {series.Count - 3} more series",
+            };
+            _logger.LogInformation("{Title}: {How}, {Books} books in {Series}", title, split.Description, books.Count, named);
+        }
+        else if (split.NotSplitReason is { } reason)
+        {
+            _logger.LogInformation("{Title}: left as one book, {Reason}", title, reason);
+        }
+
+        foreach (var warning in split.Warnings)
+        {
+            _logger.LogWarning("{Title}: {Warning}, such as {Examples}", title, warning.Message, string.Join("; ", warning.Examples));
+        }
     }
 
     /// <summary>

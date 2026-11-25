@@ -9,6 +9,7 @@ using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Data.Organizer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.Tests;
 
@@ -38,9 +39,9 @@ public sealed class LinkRunnerCollectionTests : IDisposable
     private Library EbookLibrary(bool split = true, LibraryLayout layout = LibraryLayout.Book) =>
         new() { Name = "Ebooks", LibraryDir = LibraryDir, Category = "ebooks", Method = LibraryLinkMethod.Hardlink, SplitCollections = split, Layout = layout };
 
-    private LinkRunner Runner(FetchshelfDbContext context, Library library, TorrentMetadata? lookedUp = null) =>
+    private LinkRunner Runner(FetchshelfDbContext context, Library library, TorrentMetadata? lookedUp = null, ListLogger<LinkRunner>? logger = null) =>
         new(context, new EventStore(context), new FakeMetadataLookup(lookedUp ?? Discworld()), [library], Formats,
-            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false));
+            new LinkRunnerOptions(ExcludeNarratorInLibraryDir: false), logger: logger);
 
     private static TorrentMetadata Discworld() => OrganizerTestSupport.BuildMetadata("Discworld", ["Terry Pratchett"]) with
     {
@@ -55,14 +56,14 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         new() { Hash = Hash, Name = "Terry Pratchett - Discworld 1-40", SavePath = downloadsDir, Category = "ebooks", State = "uploading", Progress = 1.0 };
 
     /// <summary>The Discworld export in the download folder, two books in it, and the files qBittorrent lists.</summary>
-    private List<QBittorrentFile> WriteDiscworld()
+    private List<QBittorrentFile> WriteDiscworld() => Write(
+        "Terry Pratchett - Discworld 1-40/Mort (1019)/Mort - Terry Pratchett.epub",
+        "Terry Pratchett - Discworld 1-40/Mort (1019)/cover.jpg",
+        "Terry Pratchett - Discworld 1-40/Thud! (949)/Thud! - Terry Pratchett.epub");
+
+    /// <summary>Files in the download folder, and the files qBittorrent lists.</summary>
+    private List<QBittorrentFile> Write(params string[] paths)
     {
-        string[] paths =
-        [
-            "Terry Pratchett - Discworld 1-40/Mort (1019)/Mort - Terry Pratchett.epub",
-            "Terry Pratchett - Discworld 1-40/Mort (1019)/cover.jpg",
-            "Terry Pratchett - Discworld 1-40/Thud! (949)/Thud! - Terry Pratchett.epub",
-        ];
         foreach (var path in paths)
         {
             var full = Path.Combine(DownloadsDir, path);
@@ -100,6 +101,47 @@ public sealed class LinkRunnerCollectionTests : IDisposable
         var mort = await context.Torrents.SingleAsync(t => t.Id == Book(1));
         Assert.Equal(("Mort", Hash, mortFolder, "epub"), (mort.Title, mort.CollectionTorrentId, mort.LibraryPath, mort.ChosenEbookExtension));
         Assert.Equal(2, await context.Events.CountAsync(e => e.Kind == EventKind.Linked));
+    }
+
+    [Fact]
+    public async Task Link_ACollection_LogsHowItWasSplit()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var logger = new ListLogger<LinkRunner>();
+
+        await Runner(context, EbookLibrary(), logger: logger).RunAsync(new QBittorrentConnection(), Client(WriteDiscworld()));
+
+        Assert.Contains("Discworld: split by MAM's series range, 2 books in Discworld", logger.Messages(LogLevel.Information));
+        Assert.Empty(logger.Messages(LogLevel.Warning));
+    }
+
+    [Fact]
+    public async Task Link_AMagazineRun_LogsItsNumbering_AndWarnsAboutABookThatIsNotAnIssue()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var logger = new ListLogger<LinkRunner>();
+        var run = Discworld() with { Title = "Lantern 2020", Series = [], MediaType = MediaType.PeriodicalEbook, Description = null };
+        var files = Write("Lantern/Lantern Issue 34 2020.pdf", "Lantern/Lantern Issue 35 2020.pdf", "Lantern/Lantern Issue 36 2020.pdf", "Lantern/Lantern Issue 37 2020.pdf", "Lantern/Lantern Yearly Index.pdf");
+
+        var summary = await Runner(context, EbookLibrary(), run, logger).RunAsync(new QBittorrentConnection(), Client(files));
+
+        Assert.Equal(5, summary.Linked);
+        Assert.Contains("Lantern 2020: split as a magazine run, numbered by issue, 5 books in Lantern", logger.Messages(LogLevel.Information));
+        Assert.Equal(
+            ["Lantern 2020: 1 of 5 books don't read as issues and have no number, such as Lantern Yearly Index"],
+            logger.Messages(LogLevel.Warning));
+    }
+
+    [Fact]
+    public async Task CollectionsNotSplit_DoesNotLogTheSplits()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var files = WriteDiscworld();
+        await Runner(context, EbookLibrary(split: false)).RunAsync(new QBittorrentConnection(), Client(files));
+        var logger = new ListLogger<LinkRunner>();
+
+        Assert.Single(await Runner(context, EbookLibrary(), logger: logger).CollectionsNotSplitAsync([(new QBittorrentConnection(), Client(files))]));
+        Assert.DoesNotContain(logger.Messages(LogLevel.Information), m => m.Contains("split by", StringComparison.Ordinal));
     }
 
     [Fact]
