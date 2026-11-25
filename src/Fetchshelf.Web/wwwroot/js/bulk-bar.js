@@ -5,8 +5,11 @@
 (function () {
     function update() {
         document.querySelectorAll('[data-bulk-bar]').forEach(function (bar) {
-            const scope = bar.closest('form') || document;
-            const boxes = scope.querySelectorAll('input[type="checkbox"][name="selectedIds"]');
+            // form.elements also holds boxes outside the form that join it by a form attribute (a list of finds).
+            const form = bar.closest('form');
+            const boxes = form
+                ? Array.prototype.filter.call(form.elements, function (e) { return e.type === 'checkbox' && e.name === 'selectedIds'; })
+                : document.querySelectorAll('input[type="checkbox"][name="selectedIds"]');
             const ticked = Array.prototype.filter.call(boxes, function (box) { return box.checked; }).length;
             bar.hidden = ticked === 0;
             const count = bar.querySelector('[data-bulk-count]');

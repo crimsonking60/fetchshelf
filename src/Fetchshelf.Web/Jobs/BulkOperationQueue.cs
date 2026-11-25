@@ -20,12 +20,13 @@ public sealed class BulkOperationQueue(TimeProvider timeProvider)
     public ChannelReader<BulkOperation> Pending => _pending.Reader;
 
     /// <summary>Queues <paramref name="action"/> on <paramref name="torrentIds"/>, behind any operation waiting or running.</summary>
-    public BulkOperation Enqueue(BulkAction action, IReadOnlyList<string> torrentIds, string? category = null)
+    /// <param name="origin">For the finds' actions, the page queueing it (<see cref="BulkOperation.Origin"/>).</param>
+    public BulkOperation Enqueue(BulkAction action, IReadOnlyList<string> torrentIds, string? category = null, string? origin = null)
     {
         BulkOperation operation;
         lock (_lock)
         {
-            operation = new BulkOperation(++_lastId, action, torrentIds, category, timeProvider.GetUtcNow());
+            operation = new BulkOperation(++_lastId, action, torrentIds, category, timeProvider.GetUtcNow(), origin);
             _operations.Add(operation);
         }
 
@@ -54,6 +55,10 @@ public sealed class BulkOperationQueue(TimeProvider timeProvider)
         var collectionId = Core.Organizer.CollectionBookId.HashOf(torrentId);
         return Shown().Where(o => o.Page == BulkOperationPage.Torrent && o.ItemIds.Any(id => id == torrentId || id == collectionId)).ToList();
     }
+
+    /// <summary>Those <see cref="Shown()"/> on a follow's page (its id as <paramref name="origin"/>) or the To look at page (null).</summary>
+    public IReadOnlyList<BulkOperation> ShownForFinds(string? origin) =>
+        Shown().Where(o => o.Page == BulkOperationPage.Finds && o.Origin == origin).ToList();
 
     /// <summary>The operations running or waiting, oldest first.</summary>
     public IReadOnlyList<BulkOperation> Active()

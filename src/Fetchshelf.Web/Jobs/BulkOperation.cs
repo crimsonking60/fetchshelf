@@ -5,7 +5,7 @@ namespace Fetchshelf.Web.Jobs;
 /// <summary>
 /// What a bulk action does to each item selected: the torrents of the Torrents page, or, for
 /// <see cref="DeleteFindings"/> and <see cref="RelinkFindings"/>, the findings of the Library check page. A torrent's
-/// own page queues <see cref="RefreshAndRelink"/>.
+/// own page queues <see cref="RefreshAndRelink"/>, and a follow's page and the To look at page the four finds' actions.
 /// </summary>
 public enum BulkAction
 {
@@ -23,6 +23,18 @@ public enum BulkAction
 
     /// <summary><b>Refresh and relink</b> on a torrent's own page.</summary>
     RefreshAndRelink,
+
+    /// <summary>The ticked finds of a follow's page or the To look at page, selected as each one's <b>Download</b> does.</summary>
+    DownloadFinds,
+
+    /// <summary>The same, as each one's <b>Wedge download</b> does.</summary>
+    WedgeDownloadFinds,
+
+    /// <summary>The ticked finds dismissed.</summary>
+    DismissFinds,
+
+    /// <summary>The ticked dismissed finds put back to be looked at.</summary>
+    UndoDismissFinds,
 }
 
 /// <summary>The page that queued a bulk operation, which shows its progress and how it went.</summary>
@@ -33,6 +45,9 @@ public enum BulkOperationPage
 
     /// <summary>A torrent's own page, for the torrent the operation is about.</summary>
     Torrent,
+
+    /// <summary>A follow's page or the To look at page, for the finds ticked there (<see cref="BulkOperation.Origin"/>).</summary>
+    Finds,
 }
 
 /// <summary>Where a bulk operation is: waiting behind another, running, or ended one of three ways.</summary>
@@ -58,13 +73,14 @@ public sealed class BulkOperation
     private PlacementProgress? _placed;
     private bool _handling;
 
-    public BulkOperation(int id, BulkAction action, IReadOnlyList<string> itemIds, string? category, DateTimeOffset createdAt)
+    public BulkOperation(int id, BulkAction action, IReadOnlyList<string> itemIds, string? category, DateTimeOffset createdAt, string? origin = null)
     {
         Id = id;
         Action = action;
         ItemIds = itemIds;
         Category = category;
         CreatedAt = createdAt;
+        Origin = origin;
     }
 
     public int Id { get; }
@@ -77,6 +93,12 @@ public sealed class BulkOperation
     public string? Category { get; }
 
     public DateTimeOffset CreatedAt { get; }
+
+    /// <summary>
+    /// For the finds' actions, the page that queued it, which alone shows it: the follow's id for a follow's page, null for
+    /// the To look at page. Null for the other actions.
+    /// </summary>
+    public string? Origin { get; }
 
     public BulkOperationState State { get; private set; } = BulkOperationState.Waiting;
 
@@ -220,6 +242,10 @@ public sealed class BulkOperation
         BulkAction.SetCategory => $"Setting the category to {Category} for {Count(ItemIds.Count)}",
         BulkAction.DeleteFindings or BulkAction.RelinkFindings => $"{Verbs.For(Action, Category).Doing} {Count(ItemIds.Count)}",
         BulkAction.RefreshAndRelink => $"Refresh and relink of {Count(ItemIds.Count)}",
+        BulkAction.DownloadFinds => $"Download of {Count(ItemIds.Count)}",
+        BulkAction.WedgeDownloadFinds => $"Wedge download of {Count(ItemIds.Count)}",
+        BulkAction.DismissFinds => $"Dismissing {Count(ItemIds.Count)}",
+        BulkAction.UndoDismissFinds => $"Undoing the dismissal of {Count(ItemIds.Count)}",
         _ => $"{Action} of {Count(ItemIds.Count)}",
     };
 
@@ -228,6 +254,7 @@ public sealed class BulkOperation
     {
         BulkAction.DeleteFindings or BulkAction.RelinkFindings => BulkOperationPage.LibraryCheck,
         BulkAction.RefreshAndRelink => BulkOperationPage.Torrent,
+        BulkAction.DownloadFinds or BulkAction.WedgeDownloadFinds or BulkAction.DismissFinds or BulkAction.UndoDismissFinds => BulkOperationPage.Finds,
         _ => BulkOperationPage.Torrents,
     };
 
@@ -237,7 +264,7 @@ public sealed class BulkOperation
         var (one, many) = Action switch
         {
             BulkAction.DeleteFindings => ("finding", "findings"),
-            BulkAction.RelinkFindings => ("book", "books"),
+            BulkAction.RelinkFindings or BulkAction.DownloadFinds or BulkAction.WedgeDownloadFinds or BulkAction.DismissFinds or BulkAction.UndoDismissFinds => ("book", "books"),
             _ => ("torrent", "torrents"),
         };
         return count == 1 ? $"1 {one}" : $"{count} {many}";
@@ -269,6 +296,9 @@ public sealed class BulkOperation
             BulkAction.DeleteFindings => new("Deleting", "Deleted", "Deleting"),
             BulkAction.RelinkFindings => new("Relinking", "Relinked", "Relinking"),
             BulkAction.RefreshAndRelink => new("Refreshing and relinking", "Refreshed and relinked", "Refresh and relink"),
+            BulkAction.DownloadFinds or BulkAction.WedgeDownloadFinds => new("Selecting", "Selected", "Selecting"),
+            BulkAction.DismissFinds => new("Dismissing", "Dismissed", "Dismissing"),
+            BulkAction.UndoDismissFinds => new("Putting back", "Put back", "Putting back"),
             _ => new($"Setting the category to {category} for", $"Set the category to {category} for", "Setting the category"),
         };
     }

@@ -59,6 +59,7 @@ public static class RunnerServices
         services.AddSingleton<BulkOperationQueue>();
         services.AddScoped<BulkActionRunner>();
         services.AddScoped<LibraryCheckBulkRunner>();
+        services.AddScoped<FindsBulkRunner>();
         services.AddHostedService<BulkOperationWorker>();
         return services;
     }

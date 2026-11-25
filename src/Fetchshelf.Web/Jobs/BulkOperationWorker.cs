@@ -1,7 +1,7 @@
 namespace Fetchshelf.Web.Jobs;
 
 /// <summary>
-/// Runs the Torrents page's bulk actions from <see cref="BulkOperationQueue"/>, one at a time, in order, each in a scope
+/// Runs the bulk actions (of the Torrents page, the Library check and the lists of finds) from <see cref="BulkOperationQueue"/>, one at a time, in order, each in a scope
 /// of its own and not tied to the request that queued it: leaving the page doesn't stop one.
 /// </summary>
 public sealed class BulkOperationWorker(BulkOperationQueue queue, IServiceScopeFactory scopeFactory, ILogger<BulkOperationWorker> logger)
@@ -25,6 +25,10 @@ public sealed class BulkOperationWorker(BulkOperationQueue queue, IServiceScopeF
                     if (operation.Page == BulkOperationPage.LibraryCheck)
                     {
                         await scope.ServiceProvider.GetRequiredService<LibraryCheckBulkRunner>().RunAsync(operation, stop.Token);
+                    }
+                    else if (operation.Page == BulkOperationPage.Finds)
+                    {
+                        await scope.ServiceProvider.GetRequiredService<FindsBulkRunner>().RunAsync(operation, stop.Token);
                     }
                     else
                     {

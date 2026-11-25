@@ -889,25 +889,47 @@ public partial class FollowPagesTests
         using var client = fixture.CreateClient();
         var page = FollowPage(fixture) + "?Show=ToLookAt";
         var html = await client.GetStringAsync(page);
-        Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"findIds\" value=\"{first}\"", html);
+        Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"selectedIds\" value=\"{first}\"", html);
 
         var token = TokenPattern().Match(html).Groups[1].Value;
         using var content = new FormUrlEncodedContent(
         [
             new("__RequestVerificationToken", token),
             new("bulkAction", "dismiss"),
-            new("findIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            new("findIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new("returnUrl", page),
         ]);
-        var response = await client.PostAsync("/Following?handler=Bulk", content);
-        var after = await response.Content.ReadAsStringAsync();
-
+        var response = await client.PostAsync(FollowPage(fixture) + "?handler=Bulk", content);
         Assert.Equal(page, response.RequestMessage!.RequestUri!.PathAndQuery);
+        var after = await WhenBulkEndedAsync(client, page);
+
         Assert.Contains("Dismissed 2 books.", after);
-        Assert.Contains("Oathbringer", after);
-        Assert.DoesNotContain("The Way of Kings", after);
-        Assert.DoesNotContain("Words of Radiance", after);
+        // Shown on the page that queued it only.
+        Assert.DoesNotContain("Dismissed 2 books.", await client.GetStringAsync("/following/to-look-at"));
+        var reloaded = await client.GetStringAsync(page);
+        Assert.Contains("Oathbringer", reloaded);
+        Assert.DoesNotContain("The Way of Kings", reloaded);
+        Assert.DoesNotContain("Words of Radiance", reloaded);
+    }
+
+    [Fact]
+    public async Task FindList_HasTheBulkBar_PostingToItsOwnPage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture);
+
+        var html = await fixture.CreateClient().GetStringAsync(FollowPage(fixture));
+
+        var bar = html[html.IndexOf("<form id=\"bulk-finds\"", StringComparison.Ordinal)..];
+        var tag = bar[..bar.IndexOf('>')];
+        Assert.Contains($"action=\"{FollowPage(fixture)}?handler=Bulk\"", tag, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("hx-boost=\"true\"", tag);
+        Assert.Contains("<div class=\"bulk-bar\" data-bulk-bar>", bar);
+        foreach (var action in new[] { "download", "wedge", "dismiss" })
+        {
+            Assert.Contains($"name=\"bulkAction\" value=\"{action}\"", bar);
+        }
     }
 
     [Fact]
@@ -922,7 +944,7 @@ public partial class FollowPagesTests
         var html = await client.GetStringAsync(page);
         Assert.Contains("Words of Radiance", html);
         Assert.Contains(">Undo dismiss</button>", html);
-        Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"findIds\" value=\"{dismissed}\"", html);
+        Assert.Contains($"<input class=\"find-select\" type=\"checkbox\" form=\"bulk-finds\" name=\"selectedIds\" value=\"{dismissed}\"", html);
         Assert.DoesNotContain("value=\"dismiss\">Dismiss</button>", html); // nothing waiting on this list: only the undo
 
         var response = await PostAsync(client, page, "/Following?handler=UndoDismiss",
@@ -950,14 +972,16 @@ public partial class FollowPagesTests
         [
             new("__RequestVerificationToken", token),
             new("bulkAction", "undo-dismiss"),
-            new("findIds", waiting.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            new("findIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            new("findIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", waiting.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new("returnUrl", page),
         ]);
-        var after = await (await client.PostAsync("/Following?handler=Bulk", content)).Content.ReadAsStringAsync();
+        await client.PostAsync(page + "?handler=Bulk", content);
+        var after = await WhenBulkEndedAsync(client, page);
 
-        Assert.Contains("2 books are back to look at.", after);
+        Assert.Contains("Put back 2 of 3 books.", after);
+        Assert.Contains("The Way of Kings: it was not dismissed.", after);
         Assert.DoesNotContain(">Undo dismiss</button>", after);
     }
 
@@ -968,7 +992,7 @@ public partial class FollowPagesTests
         await SeedFindAsync(fixture);
         using var client = fixture.CreateClient();
 
-        var response = await PostAsync(client, "/following/to-look-at", "/Following?handler=Bulk",
+        var response = await PostAsync(client, "/following/to-look-at", "/following/to-look-at?handler=Bulk",
             new() { ["bulkAction"] = "download", ["returnUrl"] = "/following/to-look-at" });
 
         Assert.Contains("Tick one or more books first.", await response.Content.ReadAsStringAsync());
@@ -1041,14 +1065,15 @@ public partial class FollowPagesTests
         [
             new("__RequestVerificationToken", TokenPattern().Match(html).Groups[1].Value),
             new("bulkAction", "download"),
-            new("findIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            new("findIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", first.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("selectedIds", second.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new("returnUrl", "/following/to-look-at"),
         ]);
-        var response = await client.PostAsync("/Following?handler=Bulk", content);
+        await client.PostAsync("/following/to-look-at?handler=Bulk", content);
+        var after = await WhenBulkEndedAsync(client, "/following/to-look-at");
 
-        var message = Regex.Match(WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()), "id=\"follow-message\"[^>]*>([^<]*)").Groups[1].Value;
-        Assert.Equal("Selected 1 of 2; they start at the next Download run. MAM returned no torrent with id 2.", message);
+        Assert.Contains("Selected 1 of 2 books. They start at the next Download run.", after);
+        Assert.Contains("Words of Radiance: MAM returned no torrent with id 2.", after);
         using var scope = fixture.CreateScope();
         Assert.Equal(1, Assert.Single(scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents).MamId);
     }
@@ -1060,6 +1085,21 @@ public partial class FollowPagesTests
         using var client = fixture.CreateClient();
 
         Assert.Contains("id=\"follow-not-configured\"", await client.GetStringAsync("/Following"));
+    }
+
+    /// <summary>The page, read again until the bulk action queued on it has ended (it runs in the background), decoded.</summary>
+    private static async Task<string> WhenBulkEndedAsync(HttpClient client, string page)
+    {
+        var html = await client.GetStringAsync(page);
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while ((html.Contains("data-state=\"waiting\"", StringComparison.Ordinal) || html.Contains("data-state=\"running\"", StringComparison.Ordinal))
+            && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100);
+            html = await client.GetStringAsync(page);
+        }
+
+        return WebUtility.HtmlDecode(html);
     }
 
     [GeneratedRegex(@"name=""__RequestVerificationToken"" type=""hidden"" value=""([^""]*)""")]

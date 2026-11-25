@@ -17,6 +17,7 @@
     <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
 }
 
+@await Html.PartialAsync("_BulkOperationsPartial", Model.BulkOperations)
 @if (Model.List is { } list)
 {
     <partial name="_FindList" model="list" />
