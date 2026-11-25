@@ -28,6 +28,12 @@ public sealed class FetchshelfSettings
 
     public int WedgeBuffer { get; set; }
 
+    /// <summary>
+    /// The `min_seeders` of every `[[autograb]]` block and every `grab` block (of a list, `[follow]` or `[upgrade]`) that
+    /// doesn't set its own. `[[tag]]` rules don't use it.
+    /// </summary>
+    public long MinSeeders { get; set; } = 1;
+
     public bool AddTorrentsStopped { get; set; }
 
     /// <summary>

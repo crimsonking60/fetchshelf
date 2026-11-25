@@ -26,6 +26,8 @@ allowed_hosts = ["fetchshelf.example.net", "fetchshelf.lan"]  # names Fetchshelf
 min_ratio = 2        # never download anything that would take the account below this ratio
 unsat_buffer = 10    # unsatisfied-snatch slots always left free
 wedge_buffer = 3     # freeleech wedges always left unused
+min_seeders = 1      # the default 'min_seeders' of every [[autograb]] block and every grab block (of a list,
+                     # [follow] or [upgrade]) that doesn't set its own; 0 = no minimum. Not used by [[tag]] rules.
 add_torrents_stopped = false
 download_after_selection = true # start downloading as soon as something is selected; false = wait for the
                                 # next scheduled Download run, leaving time to check the Selected page
@@ -187,7 +189,7 @@ max_size = "50 MiB"
 exclude_uploader = ["some-uploader", "another-uploader"]
 uploaded_after = "2026-01-01"
 uploaded_before = "2026-12-31"
-min_seeders = 0
+min_seeders = 0      # overrides the top-level min_seeders; 0 = no minimum
 max_seeders = 500
 min_leechers = 0
 max_leechers = 50

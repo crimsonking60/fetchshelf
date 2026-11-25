@@ -38,6 +38,7 @@ public static partial class ConfigLoader
         ["min_ratio"] = (s, n, v) => s.MinRatio = ParseDouble(n, v),
         ["unsat_buffer"] = (s, n, v) => s.UnsatBuffer = ParseInt(n, v),
         ["wedge_buffer"] = (s, n, v) => s.WedgeBuffer = ParseInt(n, v),
+        ["min_seeders"] = (s, n, v) => s.MinSeeders = ParseInt(n, v),
         ["add_torrents_stopped"] = (s, n, v) => s.AddTorrentsStopped = ParseBool(n, v),
         ["download_after_selection"] = (s, n, v) => s.DownloadAfterSelection = ParseBool(n, v),
         ["page_explanations"] = (s, n, v) => s.PageExplanations = ParseBool(n, v),
@@ -99,6 +100,7 @@ public static partial class ConfigLoader
         ResolveNotifyUrlFiles(settings);
         ApplyGlobalLibraryDefaults(settings);
         ApplyGlobalLanguages(settings);
+        ApplyGlobalMinSeeders(settings);
         ConfigValueValidator.ValidateFilters(settings);
         ValidateQBittorrentConnections(settings);
         ConfigValueValidator.ValidateDownloadPlacements(settings);
@@ -739,6 +741,34 @@ public static partial class ConfigLoader
         }
     }
 
+    /// <summary>
+    /// Gives the top-level <c>min_seeders</c> to every <c>[[autograb]]</c> block and every <c>grab</c> block of a list,
+    /// <c>[follow]</c> and <c>[upgrade]</c> that doesn't set its own, including the <c>free</c> block <c>[upgrade]</c> gets
+    /// when it has none (added later, in <see cref="ValidateUpgrade"/>, which gives it the default as well). A block whose
+    /// own <c>max_seeders</c> is below it is left without one, so the block's range still holds. <c>[[tag]]</c> rules are
+    /// left alone on purpose, as with <c>languages</c>: they sort out what was selected, and a seeders bound there would
+    /// also make the Tag job ask MAM for every torrent's seeders.
+    /// </summary>
+    private static void ApplyGlobalMinSeeders(FetchshelfSettings settings)
+    {
+        foreach (var block in GrabBlocks(settings).Where(block => block.MinSeeders is null))
+        {
+            if (block.MaxSeeders is not { } max || max >= settings.MinSeeders)
+            {
+                block.MinSeeders = settings.MinSeeders;
+            }
+        }
+    }
+
+    /// <summary>Every block that picks torrents to download: the <c>[[autograb]]</c> blocks and every <c>grab</c> block.</summary>
+    private static IEnumerable<SharedFilterConfig> GrabBlocks(FetchshelfSettings settings) =>
+        settings.Autograb.Cast<SharedFilterConfig>()
+            .Concat(settings.HardcoverList.SelectMany(list => list.Grab))
+            .Concat(settings.FileList.SelectMany(list => list.Grab))
+            .Concat(settings.BookmarksList.SelectMany(list => list.Grab))
+            .Concat(settings.Follow?.Grab ?? [])
+            .Concat(settings.Upgrade?.Grab ?? []);
+
     private static void ValidateOpds(FetchshelfSettings settings)
     {
         if (settings.Opds is not { } opds)
@@ -859,7 +889,7 @@ public static partial class ConfigLoader
 
         if (upgrade.Grab.Count == 0)
         {
-            upgrade.Grab.Add(new GrabEntry { Cost = Core.AutoDownloader.ConfiguredCost.Free });
+            upgrade.Grab.Add(new GrabEntry { Cost = Core.AutoDownloader.ConfiguredCost.Free, MinSeeders = settings.MinSeeders });
         }
     }
 

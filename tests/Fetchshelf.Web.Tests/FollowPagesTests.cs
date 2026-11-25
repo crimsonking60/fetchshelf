@@ -282,7 +282,7 @@ public partial class FollowPagesTests
         Assert.Contains("<section id=\"follow-rules\"", html);
         Assert.Matches(
             "<p>For a series or author on Auto, this decides what is downloaded:</p>\\s*<ul>\\s*"
-            + "<li>Ebooks and audiobooks: only free ones \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*</ul>",
+            + "<li>Ebooks and audiobooks with at least one seeder: only free ones \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*</ul>",
             html);
         Assert.Contains("listed as <em>Not free</em>", html);
         Assert.Contains("A followed series or author only has what is found listed.", html);
@@ -298,8 +298,8 @@ public partial class FollowPagesTests
         var html = WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync("/Following"));
 
         Assert.Matches(
-            "<ol>\\s*<li>Ebooks and audiobooks: only free ones \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*"
-            + "<li>Ebooks and audiobooks: free ones, and others with a freeleech wedge\\.</li>\\s*</ol>",
+            "<ol>\\s*<li>Ebooks and audiobooks with at least one seeder: only free ones \\(freeleech, VIP or personal freeleech\\)\\.</li>\\s*"
+            + "<li>Ebooks and audiobooks with at least one seeder: free ones, and others with a freeleech wedge\\.</li>\\s*</ol>",
             html);
         Assert.Contains("<code>dry_run</code> is on", html);
     }
