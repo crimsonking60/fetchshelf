@@ -755,6 +755,18 @@ public sealed class LinkRunner(
     {
         var extension = chosen is [var only] ? Path.GetExtension(only.Name) : string.Empty;
         var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension, markLanguage);
+
+        // A lone magazine issue whose MAM series has no number takes one from its name, numbered as the folder's other
+        // issues are, so it sorts among them: "Series #005.04 - Title.cbr".
+        if (chosen is [var single] && FolderNameComputer.SelectSeries(metadata.Series) is { Entries.Count: 0 } series
+            && LoneIssueNumber.For(
+                [Path.GetFileNameWithoutExtension(single.Name), metadata.Title],
+                Directory.Exists(place.Folder) ? Directory.EnumerateFiles(place.Folder).Select(Path.GetFileName).OfType<string>() : []) is { } entry)
+        {
+            var numbered = metadata with { Series = metadata.Series.Select(s => ReferenceEquals(s, series) ? s with { Entries = [entry] } : s).ToList() };
+            place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, numbered, library.FolderNames, extension, markLanguage);
+        }
+
         var placement = new Placement(place.Folder, [], [], []);
         if (library.Method == LibraryLinkMethod.NoLink)
         {
@@ -870,7 +882,8 @@ public sealed class LinkRunner(
         }
 
         var state = LibraryMismatchCalculator.Compute(existing.LibraryPath!, recomputedLibraryDir, recomputedFullPath);
-        if (state == LibraryMismatchState.None && expectedFileName is not null && !IsNamed(linkedFiles[0].RelativePath, expectedFileName))
+        if (state == LibraryMismatchState.None && expectedFileName is not null && !IsNamed(linkedFiles[0].RelativePath, expectedFileName)
+            && !LoneIssueNumber.IsNumbered(Path.GetFileName(linkedFiles[0].RelativePath), expectedFileName))
         {
             state = LibraryMismatchState.NewPath;
         }
