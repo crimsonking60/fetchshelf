@@ -15,7 +15,7 @@
             <button type="submit" class="primary">Search</button>
             @if (Model.HasCollectionBooks || !string.IsNullOrEmpty(Model.CollectionBooks))
             {
-                <label title="A split collection's books show as their own rows only when this is ticked, or when the search, or an author, narrator or series, looks for them.">
+                <label title="A split collection's books show as their own rows only when this is ticked, also when searching or filtering.">
                     <input type="checkbox" name="CollectionBooks" value="@Pages.Torrents.IndexModel.ShowCollectionBooks" checked="@(Model.CollectionBooks == Pages.Torrents.IndexModel.ShowCollectionBooks)" onchange="this.form.requestSubmit()" />
                     Show books from collections
                 </label>

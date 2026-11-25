@@ -87,12 +87,21 @@ public sealed record NameLink(string Name, string Key)
 /// <summary>Names to show as Torrents page filter links: authors, narrators or series.</summary>
 /// <param name="Parameter">The filter's query parameter: "Author", "Narrator" or "Series".</param>
 /// <param name="Query">The list's current query, kept by the links; null for a plain filter on the name alone.</param>
-public sealed record NameLinksViewModel(IReadOnlyList<NameLink> Names, string Parameter, TorrentListQuery? Query = null)
+/// <param name="ShowCollectionBooks">
+/// Whether the links tick <b>Show books from collections</b>, as on a collection's or a collection book's own page,
+/// so the list shows the book whose page it is.
+/// </param>
+public sealed record NameLinksViewModel(IReadOnlyList<NameLink> Names, string Parameter, TorrentListQuery? Query = null, bool ShowCollectionBooks = false)
 {
     public Dictionary<string, string> RouteValuesFor(NameLink name)
     {
         var values = Query?.ToRouteValues() ?? [];
         values[Parameter] = name.Key;
+        if (ShowCollectionBooks)
+        {
+            values[nameof(IndexModel.CollectionBooks)] = IndexModel.ShowCollectionBooks;
+        }
+
         return values;
     }
 }

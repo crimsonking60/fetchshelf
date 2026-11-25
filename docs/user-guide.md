@@ -2168,10 +2168,10 @@ reported, so they cannot be chosen by hand.
   - *Fiction* and *Genre*, with [`genres = true`](#sorting-books-by-genre): *Fiction* or *Nonfiction*, and one of MAM's
     genres, or *No genre*. *Neither*, for books MAM gave neither main category, such as ones entered by hand, is offered
     only when there are any. A torrent's page lists its main category and genres, each a link to these filters.
-  - **Show books from collections**, a checkbox shown once a collection has been [split into its books](#collections).
-    Off, the default, each such collection is listed once, marked *collection of 146 books*, with its books on its
-    page; a book's own row shows only when the search, or an author, narrator or series, looks for it. Ticked, every
-    book is listed.
+  - **Show books from collections**, a checkbox by the search box, shown once a collection has been
+    [split into its books](#collections). Off, the default, each such collection is listed once, marked *collection of
+    146 books*, with its books on its page, also when searching or filtering: a search for a book of a collection
+    finds it only with the box ticked. Ticked, every book is listed.
   - *Author*, *Narrator* and *Series*: click an author or series name in the list, or an author, narrator
     or series on a torrent's page, to see only that author's, narrator's or series' torrents. The filter
     shows above the list with the name; its **×** drops it. Names are matched the way duplicates are, so

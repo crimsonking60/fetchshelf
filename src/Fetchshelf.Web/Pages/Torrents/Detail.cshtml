@@ -60,9 +60,9 @@
     }
 
     <div class="meta-block">
-        <p><span class="label">Authors</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Authors(torrent.Metadata), nameof(IndexModel.Author))" /></span></p>
-        <p><span class="label">Narrators</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Narrators(torrent.Metadata), nameof(IndexModel.Narrator))" /></span></p>
-        <p><span class="label">Series</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Series(torrent.Metadata), nameof(IndexModel.Series))" /></span></p>
+        <p><span class="label">Authors</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Authors(torrent.Metadata), nameof(IndexModel.Author), ShowCollectionBooks: Model.IsBook || Model.Books.Count > 0)" /></span></p>
+        <p><span class="label">Narrators</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Narrators(torrent.Metadata), nameof(IndexModel.Narrator), ShowCollectionBooks: Model.IsBook || Model.Books.Count > 0)" /></span></p>
+        <p><span class="label">Series</span><span class="value"><partial name="_NameLinks" model="new NameLinksViewModel(NameLink.Series(torrent.Metadata), nameof(IndexModel.Series), ShowCollectionBooks: Model.IsBook || Model.Books.Count > 0)" /></span></p>
         @if (Settings.Follow is not null)
         {
             var returnUrl = Model.Request.Path + Model.Request.QueryString;
