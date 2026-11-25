@@ -10,6 +10,8 @@
     + " Tick several to download or dismiss them at once. A series' or author's own page also lists what is selected, in the library or dismissed.")
 <p><a asp-page="/Following/Index">All followed series and authors</a></p>
 
+@* What the buttons change, refreshed in place after one (InPlaceFormTagHelper); the dialog stays outside, as its script must run once. *@
+<div id="in-place">
 @if (Model.Message is { } message)
 {
     <p id="follow-message" class="notice@(Model.MessageIsError ? " error" : "")" role="@(Model.MessageIsError ? "alert" : "status")">@message</p>
@@ -19,3 +21,5 @@
 {
     <partial name="_FindList" model="list" />
 }
+</div>
+<partial name="_HitDialog" />

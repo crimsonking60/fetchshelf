@@ -9,6 +9,8 @@
 @if (Model.Follow is { } follow)
 {
     var kind = follow.Kind == FollowKind.Series ? "Series" : "Author";
+    @* What the buttons change, refreshed in place after one (InPlaceFormTagHelper); the dialog stays outside, as its script must run once. *@
+    <div id="in-place">
     <h2>@follow.DisplayName</h2>
     <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).@(follow.Source == FollowSource.Audiobookshelf ? " Followed from Audiobookshelf." : "")
         <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
@@ -61,4 +63,6 @@
 
         <partial name="_FindList" model="Model.List" />
     }
+    </div>
+    <partial name="_HitDialog" />
 }

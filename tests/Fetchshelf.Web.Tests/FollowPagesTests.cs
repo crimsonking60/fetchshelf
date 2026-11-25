@@ -313,6 +313,42 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowPage_ButtonsPostInPlace_ExceptStopFollowing_WhichLeavesThePage()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        var findId = await SeedFindAsync(fixture, mode: FollowMode.Watch);
+        using var client = fixture.CreateClient();
+        var page = FollowPage(fixture);
+
+        var html = await client.GetStringAsync(page);
+        var forms = System.Text.RegularExpressions.Regex.Matches(html, "<form [^>]*method=\"post\"[^>]*>").Select(m => m.Value).ToList();
+        List<string> Forms(string handler) => forms.Where(f => f.Contains($"handler={handler}\"", StringComparison.Ordinal)).ToList();
+        // htmx swaps the page's #in-place part for the one the post comes back with; a dialog's script stays out of it.
+        var response = await PostAsync(client, page, "/Following?handler=Dismiss",
+            new() { ["findId"] = findId.ToString(System.Globalization.CultureInfo.InvariantCulture), ["returnUrl"] = page }, htmx: true);
+        var after = await response.Content.ReadAsStringAsync();
+        var region = after[after.IndexOf("<div id=\"in-place\">", StringComparison.Ordinal)..after.IndexOf("<dialog id=\"hit-dialog\"", StringComparison.Ordinal)];
+
+        foreach (var handler in new[] { "Mode", "SearchNow", "Download", "Dismiss" })
+        {
+            Assert.NotEmpty(Forms(handler));
+            Assert.All(Forms(handler), form =>
+            {
+                Assert.Contains("hx-boost=\"true\"", form);
+                Assert.Contains("hx-select=\"#in-place\"", form);
+                Assert.Contains("hx-target=\"#in-place\"", form);
+                Assert.Contains("hx-select-oob=\"#site-nav\"", form); // the menu's counts come along
+            });
+        }
+
+        Assert.DoesNotContain("hx-boost", Assert.Single(Forms("Stop")));
+        Assert.Contains("<table class=\"follow-finds phone-cards\">", html); // a card for each find on a phone
+        Assert.Equal(page, response.RequestMessage!.RequestUri!.AbsolutePath);
+        Assert.Contains(">Undo dismiss</button>", region);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(after, "<dialog id=\"hit-dialog\""));
+    }
+
+    [Fact]
     public async Task ToLookAtPage_AFindsTitle_OpensItsDetailsInADialog_AsOnTheSearchPage()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
@@ -344,8 +380,8 @@ public partial class FollowPagesTests
         var withSize = await client.GetStringAsync(FollowPage(fixture));
 
         Assert.Contains(">Size<span class=\"sort-arrow\" aria-hidden=\"true\"></span></a></th>", withoutSize);
-        Assert.Contains("<td class=\"nowrap\"></td>", withoutSize);
-        Assert.Contains("<td class=\"nowrap\">1.2 GiB</td>", withSize);
+        Assert.Contains("<td class=\"nowrap find-size\"></td>", withoutSize);
+        Assert.Contains("<td class=\"nowrap find-size\">1.2 GiB</td>", withSize);
     }
 
     [Fact]
@@ -699,7 +735,7 @@ public partial class FollowPagesTests
 
         var html = await fixture.CreateClient().GetStringAsync("/following/to-look-at");
 
-        Assert.Matches("<td>\\s*</td>\\s*<td><local-time|<td>\\s*</td>\\s*<td><time", html);
+        Assert.Matches("<td class=\"find-status\">\\s*</td>\\s*<td class=\"find-found\"><(local-)?time", html);
         Assert.DoesNotContain(">New<", html);
         Assert.DoesNotContain("result-status", html);
         Assert.Equal("Not free", Fetchshelf.Web.Pages.Following.IndexModel.StatusLabel(FollowFindStatus.Wanted));
@@ -816,7 +852,8 @@ public partial class FollowPagesTests
         Assert.Matches(@"<th aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=Title&Dir=asc", head);
         Assert.Matches(@"aria-sort=""none""><a class=""sort"" href=""[^""]*Sort=Found&Dir=desc", head);
         var row = html[html.IndexOf("<tbody>", StringComparison.Ordinal)..];
-        Assert.True(row.IndexOf("<td>2</td>", StringComparison.Ordinal) < row.IndexOf(">Book Two</a>", StringComparison.Ordinal), "the number before the title");
+        var number = row.IndexOf("<td class=\"find-book\">2</td>", StringComparison.Ordinal);
+        Assert.True(number >= 0 && number < row.IndexOf(">Book Two</a>", StringComparison.Ordinal), "the number before the title");
     }
 
     [Fact]

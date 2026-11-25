@@ -3,17 +3,17 @@
 (function () {
     const menus = () => Array.from(document.querySelectorAll('.nav-menu'));
 
-    menus().forEach(function (menu) {
-        menu.addEventListener('toggle', function () {
-            if (menu.open) {
-                menus().forEach(function (other) {
-                    if (other !== menu) {
-                        other.open = false;
-                    }
-                });
-            }
-        });
-    });
+    // On the document (toggle doesn't bubble, so in the capture phase): a form sent in place brings a new menu bar.
+    document.addEventListener('toggle', function (event) {
+        const menu = event.target;
+        if (menu instanceof HTMLDetailsElement && menu.classList.contains('nav-menu') && menu.open) {
+            menus().forEach(function (other) {
+                if (other !== menu) {
+                    other.open = false;
+                }
+            });
+        }
+    }, true);
 
     document.addEventListener('click', function (event) {
         menus().forEach(function (menu) {
