@@ -167,6 +167,36 @@ public sealed class HardcoverClientTests
     }
 
     [Fact]
+    public async Task GetListBooksAsync_OfAnotherUser_AsksByTheirName()
+    {
+        JsonElement? variables = null;
+        string? query = null;
+        var client = CreateClient(request =>
+        {
+            (query, variables) = ReadBody(request);
+            return Json($$"""{ "data": { "lists": [ { "id": 7, "name": "Award winners", "list_books": [ { "book": {{DuneBook}} } ] } ] } }""");
+        });
+
+        var books = await client.GetListBooksAsync("someone", "award-winners");
+
+        Assert.Equal("someone", variables!.Value.GetProperty("owner").GetString());
+        Assert.Equal("award-winners", variables.Value.GetProperty("slug").GetString());
+        Assert.Contains("user: {username: {_eq: $owner}}", query);
+        Assert.Equal("Dune", Assert.Single(books).Title);
+    }
+
+    [Fact]
+    public async Task GetListBooksAsync_OfAnotherUser_UnknownList_SaysToCheckItIsPublic()
+    {
+        var client = CreateClient(_ => Json("""{ "data": { "lists": [] } }"""));
+
+        var ex = await Assert.ThrowsAsync<HardcoverException>(() => client.GetListBooksAsync("someone", "missing"));
+
+        Assert.Contains("@someone", ex.Message);
+        Assert.Contains("public", ex.Message);
+    }
+
+    [Fact]
     public async Task GetListBooksAsync_UnknownSlug_SaysSo()
     {
         var client = CreateClient(_ => Json("""{ "data": { "lists": [] } }"""));
