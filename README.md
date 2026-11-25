@@ -52,7 +52,6 @@ setup. If you use one, please report how it went, good or bad (see
 - VIP top-ups from `[bonus]` (`vip = true`): MAM's answer to them has not been seen yet. Wedges and upload credit
   are confirmed.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
-- Libraries by genre (`genres = true` with `allow_genres`, `deny_genres` or `fiction` in a `[[library]]`).
 - `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
   for a selection that was removed.
 - `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
@@ -63,7 +62,7 @@ setup. If you use one, please report how it went, good or bad (see
 
 ## Latest release
 
-**2026.11.23** (2026-11-24). See [RELEASES.md](RELEASES.md#20261123---2026-11-24) for what changed, and for
+**2026.11.24** (2026-11-25). See [RELEASES.md](RELEASES.md#20261124---2026-11-25) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing
