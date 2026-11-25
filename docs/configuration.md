@@ -1370,7 +1370,9 @@ folder_names = "portable"
   title, read as a [magazine run's](user-guide.md#collections) issues are: `Nightfall Stories v05n04 (1981-04).cbr`
   becomes `Nightfall Stories #005.04 - …` or `#1981.04 - …`. It is numbered the way most numbered files in the series
   folder already are, so it sorts among them; in a folder without any, by issue number, else year and month, else
-  volume and number. A torrent of one issue isn't a collection, so **Split into its books** doesn't apply to it.
+  volume and number. The number is kept with the book's details, so the Books and Series pages and OPDS show it too,
+  and a **Refresh** keeps it while MAM's series has none. A torrent of one issue isn't a collection, so **Split into its
+  books** doesn't apply to it.
 - **Another book's file at the name**, such as a second copy of a volume, makes this one `<name> (2).<ext>`.
 - **Formats.** Only the ebook side is linked: comics, manga and other ebooks. A torrent with only audio files is a
   Link error: *This library's series layout links only ebook formats*.
