@@ -7,7 +7,7 @@ namespace Fetchshelf.Web.Pages.Following;
 /// The `[[follow.grab]]` blocks in plain words, for the top of the Following page: what the Follow job downloads by
 /// itself for a followed series or author, so a book left as *Not free* is no surprise. Every block reads the same way,
 /// which books and then how they are paid for: "Ebooks in English: free ones, and others paid with ratio." Any filter
-/// other than ebooks or audiobooks and the languages is mentioned, not spelled out.
+/// other than ebooks or audiobooks, the languages and a minimum of seeders is mentioned, not spelled out.
 /// </summary>
 public static class FollowGrabSummary
 {
@@ -20,6 +20,11 @@ public static class FollowGrabSummary
         if (block.Languages is { Count: > 0 } languages)
         {
             books += " in " + JoinWithOr(languages.Select(Capitalize).ToList());
+        }
+
+        if (block.MinSeeders is > 0 and var seeders)
+        {
+            books += seeders == 1 ? " with at least one seeder" : $" with at least {seeders} seeders";
         }
 
         if (HasOtherFilters(block))
@@ -62,7 +67,7 @@ public static class FollowGrabSummary
         || block.Categories.Musicology.Names is not { Count: 0 } || block.Categories.Radio.Names is not { Count: 0 }
         || block.Flags.Count > 0 || block.MinSize is not null || block.MaxSize is not null || block.ExcludeUploader.Count > 0
         || block.UploadedAfter is not null || block.UploadedBefore is not null
-        || block.MinSeeders is not null || block.MaxSeeders is not null || block.MinLeechers is not null || block.MaxLeechers is not null
+        || block.MaxSeeders is not null || block.MinLeechers is not null || block.MaxLeechers is not null
         || block.MinSnatched is not null || block.MaxSnatched is not null || block.MaxAuthors is not null;
 
     private static string Capitalize(string language) =>

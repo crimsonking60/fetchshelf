@@ -215,6 +215,7 @@ These go at the top of the file, before any section.
 | `min_ratio` | `2` | Fetchshelf never starts a download that would take your account below this ratio. Must be above 0. |
 | `unsat_buffer` | `10` | Number of unsatisfied-snatch slots always left free. Can be overridden per block: a named `[[autograb]]`, any list (`[[hardcover_list]]`, `[[file_list]]`, `[[bookmarks_list]]`), `[follow]` or `[upgrade]`. |
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per block, as `unsat_buffer`. |
+| `min_seeders` | `1` | The [`min_seeders`](#the-shared-torrent-filter) of every `[[autograb]]` block and every `grab` block (`[[hardcover_list.grab]]`, `[[file_list.grab]]`, `[[bookmarks_list.grab]]`, `[[follow.grab]]`, `[[upgrade.grab]]`, and the `free` block `[upgrade]` uses when it has none) that doesn't set its own, so a torrent nobody seeds is not downloaded. `0` means no minimum. A block whose own `max_seeders` is below it gets no minimum. **`[[tag]]` rules don't use it.** |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
 | `download_after_selection` | `true` | Start the Download job as soon as an autograb, a list, Follow, Upgrade, the Search page or the Following page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
@@ -485,7 +486,7 @@ in its own language.
 | `min_size`, `max_size` | [Sizes](#value-types-used-below), inclusive. |
 | `exclude_uploader` | List of uploader names to reject. |
 | `uploaded_after`, `uploaded_before` | [Dates](#value-types-used-below). Inclusive of the whole day. |
-| `min_seeders`, `max_seeders` | Inclusive numeric bounds, 0 or more. |
+| `min_seeders`, `max_seeders` | Inclusive numeric bounds, 0 or more. An `[[autograb]]` or `grab` block that leaves `min_seeders` out uses the top-level [`min_seeders`](#top-level-settings), 1 by default; `min_seeders = 0` takes torrents without seeders. **A `[[tag]]` rule never uses the top-level `min_seeders`.** |
 | `min_leechers`, `max_leechers` | Inclusive numeric bounds, 0 or more. |
 | `min_snatched`, `max_snatched` | Inclusive bounds on the number of times the torrent was completed. |
 | `max_authors` | Maximum number of authors the torrent may list, inclusive, at least 1. Use it to skip anthologies. |
@@ -1100,7 +1101,8 @@ For each new download:
 - **The top-level `languages` does not apply to tag rules.** A rule matches by language only if it sets
   `languages` itself; without it, the rule matches downloads in every language. Tag rules sort out what has
   already been selected, so an inherited language would leave a book that an autograb with `languages = []`
-  selected in another language without its category, and without a library.
+  selected in another language without its category, and without a library. The top-level `min_seeders` doesn't
+  apply either, for the same reason.
 
 The rules are worked out when a torrent is selected, and the result is applied when it is added to qBittorrent. A
 changed rule therefore doesn't reach torrents already waiting on the **Selected** page. Each rule can also be applied to torrents

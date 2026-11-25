@@ -40,11 +40,21 @@ public class FollowGrabSummaryTests
     {
         Assert.Equal(
             "Ebooks in English that pass the block's other filters: free ones, and others with a freeleech wedge.",
-            FollowGrabSummary.Describe(new GrabEntry { Cost = ConfiguredCost.Wedge, Categories = EbooksOnly, Languages = ["English"], MinSeeders = 3 }));
+            FollowGrabSummary.Describe(new GrabEntry { Cost = ConfiguredCost.Wedge, Categories = EbooksOnly, Languages = ["English"], MaxSeeders = 3 }));
         Assert.Contains(
             "that pass the block's other filters",
             FollowGrabSummary.Describe(new GrabEntry { Categories = new CategoriesConfig { Audio = CategoryListOrBool.Of(["Fantasy"]) } }));
         Assert.DoesNotContain("other filters", FollowGrabSummary.Describe(new GrabEntry()));
+    }
+
+    [Fact]
+    public void MinSeeders_IsSpelledOut_AndZeroIsLeftOut()
+    {
+        Assert.Equal(
+            "Ebooks in English with at least one seeder: only free ones (freeleech, VIP or personal freeleech).",
+            FollowGrabSummary.Describe(new GrabEntry { Categories = EbooksOnly, Languages = ["English"], MinSeeders = 1 }));
+        Assert.StartsWith("Ebooks with at least 3 seeders: ", FollowGrabSummary.Describe(new GrabEntry { Categories = EbooksOnly, MinSeeders = 3 }));
+        Assert.StartsWith("Ebooks: ", FollowGrabSummary.Describe(new GrabEntry { Categories = EbooksOnly, MinSeeders = 0 }));
     }
 
     [Fact]
