@@ -1812,6 +1812,35 @@ Whether a collection is split is decided, first that applies:
   `<First> <Last> - <Title>` (`Austen, Jane - Emma.pdf`), at least three of them and by at least two of the authors MAM
   lists for it, is a collection of books with no series. Each of them has its own author, the one MAM lists, and its title from the
   name; one whose name names no author MAM lists keeps the torrent's authors.
+- **Magazine runs.** A torrent of a magazine's issues is a collection when at least three quarters of its books (and at
+  least three) are named as issues, and they are different issues. An issue is named by:
+  - an issue number: `Lantern Issue 1`, `Issue34`, `No 268 December 2022`, `1967 Issue 1 (November 09)`, or a number
+    before a date, as in `Lantern 001 June 2010` or `Lantern 1 Fall 1978`;
+  - a volume and number: `v10n04 (Apr 1986)`, `v034n01 [1968-01]`;
+  - a year and month: `2013 03`, `1990-01`, `01 Jan 1950`, `10 1927`, or the date first, as in `1953, 10 (October)` and
+    `2019 01-02 (Nightfall Stories Book 136)`.
+
+  A double issue, such as `v14n11-12`, `Issue 281-282` or `2013 01-02`, is one book numbered with both
+  (`#281-282`). Every issue of a run is numbered the same way, by the first of these that gives each issue a number of
+  its own: the issue number, then the year and month (`#1990.01`; a season counts as its first month, fall as 9),
+  then the volume and number (`#10.04`). A weekly magazine is therefore numbered by issue, as its months repeat. The
+  series is MAM's series when MAM lists exactly one, so a magazine renamed along the way, and its other torrents,
+  stay in one series. Otherwise it is the magazine name most issues use, or, when the names have none, the torrent's
+  title without its years and words such as *Issues*. An issue's title is its name, with the series in front when the
+  name doesn't start with the magazine: `2019 01-02` becomes *Nightfall Stories 2019 01-02*. A book among the issues
+  that isn't one, such as an index, is in the series without a number. One magazine in several torrents can be
+  numbered one way in one torrent and another way in the next.
+- **The Link job's log says how each collection was split**, with the number of books and their series. The possible
+  ways are by MAM's series range, as a magazine run (with its numbering), as a series numbered in its file names, as a
+  reading order, or as a bundle. A torrent of several books left as one says why. A warning is logged, with a few of
+  the names as examples, when the split had to guess:
+  - a run whose issues have no numbering that numbers each one on its own (they are then not numbered);
+  - issues that mix numberings, such as some with an issue number and some without;
+  - books that don't read as issues;
+  - several magazine names with no series from MAM;
+  - books of a series left without a number while most have one.
+
+  The Library check's **Collection not split** doesn't log these.
 - **Each book's details.** The collection's authors, language, category and tags; the book's own title, series number,
   ISBN and description from its epub when it has them, else its title from its folder or file name (trailing groups in
   brackets, such as a Calibre id `(1019)`, a year `(2014)` or release tags `(Digital)`, and a trailing ` - author` left

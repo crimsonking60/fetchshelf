@@ -28,26 +28,40 @@ public static partial class CollectionSplitter
 
     /// <summary>
     /// The books of a collection; null when the torrent isn't one. It is one when its files of a listed ebook format fall
-    /// into at least two books, and MAM's series has a range such as <c>1-40</c>, or at least
-    /// <see cref="MinimumNumberedBooks"/> of the books are named <c>&lt;series&gt; &lt;number&gt;</c> with one series name.
-    /// A book is a sub-folder below the torrent's own folder, when every such file sits in one; else the files sharing
-    /// a name, whatever their format. Each book takes its own best format by <paramref name="ebookTypes"/>.
+    /// into at least two books, and they are a magazine's issues (<see cref="MagazineIssueName"/>), or MAM's series has a
+    /// range such as <c>1-40</c>, or at least <see cref="MinimumNumberedBooks"/> of the books are named <c>&lt;series&gt;
+    /// &lt;number&gt;</c> with one series name. A book is a sub-folder below the torrent's own folder, when every such
+    /// file sits in one; else the files sharing a name, whatever their format. Each book takes its own best format by
+    /// <paramref name="ebookTypes"/>.
     /// </summary>
     /// <param name="readEpub">Reads an epub inside the torrent, by its path there; null reads none.</param>
     public static IReadOnlyList<CollectionBook>? Split(
+        TorrentMetadata collection, IReadOnlyList<TorrentFileEntry> files, IReadOnlyList<string> ebookTypes,
+        Func<string, EpubInfo?>? readEpub = null) => Analyze(collection, files, ebookTypes, readEpub).Books;
+
+    /// <summary>
+    /// <see cref="Split"/>, with how the books were read and what had to be guessed, for the Link job's log; or, for a
+    /// torrent of several books left as one, why.
+    /// </summary>
+    public static CollectionSplit Analyze(
         TorrentMetadata collection, IReadOnlyList<TorrentFileEntry> files, IReadOnlyList<string> ebookTypes,
         Func<string, EpubInfo?>? readEpub = null)
     {
         if (!IsEbookSide(collection.MediaType))
         {
-            return null;
+            return CollectionSplit.Nothing;
         }
 
         var books = files.Where(f => ebookTypes.Contains(Extension(f.Path), StringComparer.OrdinalIgnoreCase)).ToList();
         var groups = Group(books.Select(f => f.Path).ToList(), collection.Authors);
         if (groups is null || groups.Count < 2)
         {
-            return null;
+            return CollectionSplit.Nothing;
+        }
+
+        if (MagazineRun(collection, groups, files, ebookTypes, readEpub) is { } run)
+        {
+            return run;
         }
 
         var range = collection.Series.FirstOrDefault(s => s.Entries.Any(e => e.Kind == SeriesEntryKind.Range && e.LastNumber > e.FirstNumber));
@@ -68,7 +82,7 @@ public static partial class CollectionSplitter
         var bundle = range is null && largestNamedSeries < MinimumNumberedBooks ? Bundle(names, collection.Authors) : null;
         if (range is null && largestNamedSeries < MinimumNumberedBooks && bundle is null)
         {
-            return null;
+            return CollectionSplit.Nothing with { NotSplitReason = "no series range, and no numbering shared by enough books" };
         }
 
         // One series spelled several ways in its file names, such as "Spider-man" and "Spider-Man", is named as most are.
@@ -83,8 +97,7 @@ public static partial class CollectionSplitter
         var result = new List<(CollectionBook Book, decimal? Position)>();
         foreach (var (group, index) in groups.OrderBy(g => g.Name, StringComparer.Ordinal).Select((g, i) => (g, i)))
         {
-            var format = FormatRanker.SelectBestExtension(ebookTypes, group.Files.Select(System.IO.Path.GetExtension).OfType<string>().ToList())!;
-            var chosen = group.Files.Where(f => string.Equals(Extension(f), format, StringComparison.OrdinalIgnoreCase)).ToList();
+            var (format, chosen) = BestFormat(group, ebookTypes);
             var epub = string.Equals(format, "epub", StringComparison.OrdinalIgnoreCase) ? readEpub?.Invoke(chosen[0]) : null;
             var cleaned = names[group];
 
@@ -134,23 +147,64 @@ public static partial class CollectionSplitter
                 (title, seriesName, number) = (epub?.Title ?? cleaned, null, null);
             }
 
-            var metadata = collection with
-            {
-                Title = title,
-                Authors = authors,
-                Series = seriesName is null ? [] : [new Series { Name = seriesName, Entries = number is { } n ? [SeriesEntry.ForNumber(n, n.ToString(CultureInfo.InvariantCulture))] : [] }],
-                Isbn = epub?.Isbn,
-                Asin = null,
-                Description = epub?.Description,
-                FileTypes = [format.ToLowerInvariant()],
-                FileCount = chosen.Count,
-                TotalSizeBytes = chosen.Sum(f => sizes.GetValueOrDefault(f)),
-            };
+            var entry = number is { } n ? SeriesEntry.ForNumber(n, n.ToString(CultureInfo.InvariantCulture)) : null;
+            var metadata = BookMetadata(collection, title, authors, seriesName, entry, epub, format, chosen, sizes);
             result.Add((new CollectionBook(index + 1, metadata, chosen, format.ToLowerInvariant(), null), positions?.GetValueOrDefault(group)));
         }
 
-        return WithCovers(WithoutRepeats(result, ebookTypes), files);
+        var split = WithCovers(WithoutRepeats(result, ebookTypes), files);
+        var strategy = range is not null ? SplitStrategy.SeriesRange
+            : readingOrder is not null ? SplitStrategy.ReadingOrder
+            : bundle is not null ? SplitStrategy.Bundle
+            : SplitStrategy.NumberedSeries;
+        return new CollectionSplit(split, strategy, MagazineNumbering.None, null, UnnumberedWarnings(split, strategy));
     }
+
+    /// <summary>
+    /// A warning when some books of a range or a numbered series are left without a number while most of the others
+    /// have one: their names didn't give it.
+    /// </summary>
+    private static List<SplitWarning> UnnumberedWarnings(IReadOnlyList<CollectionBook> books, SplitStrategy strategy)
+    {
+        if (strategy is not (SplitStrategy.SeriesRange or SplitStrategy.NumberedSeries))
+        {
+            return [];
+        }
+
+        var unnumbered = books.Where(b => b.Metadata.Series.FirstOrDefault()?.Entries is not { Count: > 0 }).ToList();
+        return unnumbered.Count > 0 && books.Count - unnumbered.Count > unnumbered.Count
+            ? [new SplitWarning(
+                SplitWarningKind.BooksWithoutNumber,
+                $"{unnumbered.Count} of {books.Count} books have no number in their series: their names give none",
+                Examples(unnumbered.Select(b => b.Metadata.Title)))]
+            : [];
+    }
+
+    /// <summary>A few names, as examples for a warning.</summary>
+    private static List<string> Examples(IEnumerable<string> names) => names.Order(StringComparer.Ordinal).Take(3).ToList();
+
+    /// <summary>A book's best format by <paramref name="ebookTypes"/>, and its files in it.</summary>
+    private static (string Format, List<string> Files) BestFormat(FileGroup group, IReadOnlyList<string> ebookTypes)
+    {
+        var format = FormatRanker.SelectBestExtension(ebookTypes, group.Files.Select(System.IO.Path.GetExtension).OfType<string>().ToList())!;
+        return (format, group.Files.Where(f => string.Equals(Extension(f), format, StringComparison.OrdinalIgnoreCase)).ToList());
+    }
+
+    /// <summary>The collection's details with a book's own title, authors, series, number, epub details and format.</summary>
+    private static TorrentMetadata BookMetadata(
+        TorrentMetadata collection, string title, IReadOnlyList<string> authors, string? seriesName, SeriesEntry? entry, EpubInfo? epub,
+        string format, List<string> chosen, Dictionary<string, long> sizes) => collection with
+        {
+            Title = title,
+            Authors = authors,
+            Series = seriesName is null ? [] : [new Series { Name = seriesName, Entries = entry is null ? [] : [entry] }],
+            Isbn = epub?.Isbn,
+            Asin = null,
+            Description = epub?.Description,
+            FileTypes = [format.ToLowerInvariant()],
+            FileCount = chosen.Count,
+            TotalSizeBytes = chosen.Sum(f => sizes.GetValueOrDefault(f)),
+        };
 
     /// <summary>
     /// The books with one of each kept when the torrent holds a book twice, such as a series in two folders spelled
