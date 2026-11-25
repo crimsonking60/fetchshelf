@@ -18,6 +18,8 @@ public static class MamErrorDescriber
         MamAccountBlockedException => "MAM has temporarily blocked this account. Wait a while before trying again.",
         // Already says why, what to do, and until when MAM calls are paused.
         MamForbiddenException => exception.Message,
+        MamSearchRefusedException refused =>
+            $"MAM couldn't read the search ({refused.MamReason.TrimEnd('.')}). Characters such as / - \" | ( ) @ ~ ! are MAM's search operators; leaving them out may help.",
         HttpRequestException { StatusCode: { } } => "MAM answered with an error. It may be down - try again later.",
         HttpRequestException => "MAM could not be reached. Check this machine's internet connection.",
         JsonException => "MAM sent a response Fetchshelf could not read.",

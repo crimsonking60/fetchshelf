@@ -251,6 +251,19 @@ public class IndexModel(
     /// <summary>Set when the MAM search failed, so the results panel can say why instead of staying empty.</summary>
     public string? SearchError { get; private set; }
 
+    /// <summary>
+    /// Set when MAM couldn't read the search text and its plain words were searched for instead, so the page says what
+    /// was searched for.
+    /// </summary>
+    public string? SearchNotice { get; private set; }
+
+    /// <summary>
+    /// The search text as plain words, for when MAM can't read it (<see cref="ListMamQueryBuilder.PlainWords"/>); null
+    /// when that changes nothing or leaves nothing, so there is nothing else to try.
+    /// </summary>
+    public static string? PlainSearchText(string? text) =>
+        text is null || ListMamQueryBuilder.PlainWords(text) is not { Length: > 0 } plain || plain == text.Trim() ? null : plain;
+
     /// <summary>Set when a job held the MAM gate past <see cref="MamPageGate.Wait"/>, so nothing was searched; says which job.</summary>
     public string? SearchBusy { get; private set; }
 
@@ -282,7 +295,20 @@ public class IndexModel(
                 return Partial("_SearchResultsPartial", this);
             }
 
-            var result = await mamClient.SearchAsync(query);
+            MamSearchResult result;
+            try
+            {
+                result = await mamClient.SearchAsync(query);
+            }
+            catch (MamSearchRefusedException ex) when (PlainSearchText(query.Text) is { } plain)
+            {
+                // MAM couldn't read the text, usually for a character it takes as a search operator, such as the "/" in
+                // "Fiction/Science Fact": its plain words are searched for instead, and the page says so.
+                logger.LogInformation("MAM could not read the search {Text} ({Reason}); searching for {Plain} instead", query.Text, ex.MamReason, plain);
+                result = await mamClient.SearchAsync(query with { Text = plain });
+                SearchNotice = $"MAM couldn't read \u201c{query.Text}\u201d as a search, as some of its characters are MAM's search operators, so its plain words were searched for: \u201c{plain}\u201d.";
+            }
+
             // Let go as soon as MAM has answered: the rest of the page is Fetchshelf's own.
             gate.Dispose();
             var wedgeOverBytes = settings.Search.WedgeOverBytes;
@@ -308,6 +334,12 @@ public class IndexModel(
                     presence, knownByMamId.GetValueOrDefault(record.MamId)))
                 .ToList();
             RefreshPresenceIfOlderThan(knownByMamId.Values);
+        }
+        catch (MamSearchRefusedException ex)
+        {
+            // Not a failure of MAM's: the search text is one it can't read, with no plain words to fall back on.
+            logger.LogInformation("MAM could not read the search {Text}: {Reason}", query.Text, ex.MamReason);
+            SearchError = MamErrorDescriber.Describe(ex, mamOptions.Timeout);
         }
         catch (Exception ex) when (!IsRequestAborted(ex))
         {

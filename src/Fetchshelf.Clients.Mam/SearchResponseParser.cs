@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Fetchshelf.Clients.Mam;
 
@@ -8,9 +9,21 @@ namespace Fetchshelf.Clients.Mam;
 /// shapes (including the nested-JSON-string encoding of `author_info`/`narrator_info`/
 /// `series_info`/`categories`) follow what MAM actually sends.
 /// </summary>
-internal static class SearchResponseParser
+internal static partial class SearchResponseParser
 {
     private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss";
+
+    /// <summary>How MAM starts its answer to a search it couldn't read, such as one of nothing but a "not".</summary>
+    private const string SearchErrorPrefix = "Search returned an error";
+
+    /// <summary>MAM's error as plain text: its line breaks and other tags as spaces.</summary>
+    private static string PlainText(string message) => Spaces().Replace(Tag().Replace(message, " "), " ").Trim();
+
+    [GeneratedRegex("<[^>]*>")]
+    private static partial Regex Tag();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Spaces();
 
     public static MamSearchResult Parse(JsonElement root)
     {
@@ -21,7 +34,13 @@ internal static class SearchResponseParser
                 return new MamSearchResult { PerPage = 0, Start = 0, Total = 0, Found = 0, Data = [] };
             }
 
-            throw new InvalidOperationException($"MAM search failed: {errorMessage}");
+            var plain = PlainText(errorMessage);
+            if (plain.StartsWith(SearchErrorPrefix, StringComparison.Ordinal))
+            {
+                throw new MamSearchRefusedException(plain[SearchErrorPrefix.Length..].Trim());
+            }
+
+            throw new InvalidOperationException($"MAM search failed: {plain}");
         }
 
         var data = new List<MamTorrentRecord>();

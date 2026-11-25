@@ -1,5 +1,11 @@
 @model Fetchshelf.Web.Pages.IndexModel
 
+@if (Model.SearchNotice is not null && Model.SearchBusy is null && Model.SearchError is null)
+{
+    @* MAM couldn't read the text as typed; its plain words were searched for instead. *@
+    <p id="search-notice" class="notice" role="status">@Model.SearchNotice</p>
+}
+
 @if (Model.SearchBusy is not null)
 {
     @* Nothing was asked of MAM: a job held the gate. *@
