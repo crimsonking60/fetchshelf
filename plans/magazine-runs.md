@@ -96,6 +96,31 @@ Other things the check found:
    `Lantern Issue 001`, `SRM-01`) split into the same books, series and numbers. Reading orders and bundles are read
    as they are now. Only the ebook side is split. A run is placed in a series library like any other split collection.
 
+7. **The splitter says what it chose.** Every split, of a magazine run or any other collection, logs one information
+   line when Link splits it. The line names the torrent, how it was read, how many books came out, and the series:
+   - `split by MAM's series range`;
+   - `split as a magazine run, numbered by issue` (or by year and month, or by volume and number);
+   - `split as a series numbered in its file names`;
+   - `split as a reading order`;
+   - `split as a bundle of books by several authors`.
+
+   A torrent with several books that is left as one book logs an information line with the reason, such as *no
+   series range, and no numbering shared by enough books*. A torrent of one book logs nothing.
+
+   A split that had to guess logs a warning. Each warning names the books concerned, with a few names as examples:
+   - **Numbering not recognised.** The run's issues have no numbering that rule 3 can use, so they are split without
+     numbers. The same applies when books of any other strategy end up in the series without a number while most of
+     the others have one.
+   - **Inconsistent numbering.** The torrent mixes numberings: some issues have only a volume and number, others only
+     a date. Or the numbering chosen gives two different issues the same number. Or a quarter or less of the books
+     don't read as issues and are left without a number.
+   - **Several magazine names, no MAM series.** The issues use more than one magazine name and MAM lists no series, so
+     the most common name was taken.
+
+   A torrent that is split again in the same way, when it is relinked, logs the same lines again. Library check runs
+   the splitter for its *Collection not split* finding without logging these lines, so a check of a large library
+   doesn't fill the log.
+
 ## Steps
 
 1. **Reading issue names, in Core.** A new `MagazineIssueName` in `Fetchshelf.Core/Organizer`: a pure parser from a
@@ -116,11 +141,18 @@ Other things the check found:
    - double issues, as one book with a range entry;
    - a single issue in several files, and an issue of stories, neither of them split;
    - a range collection with `vNNnNN` names.
-3. **Nothing else changes.** The existing `CollectionSplitterTests` must pass unchanged. A check is run before and
+3. **What the splitter chose, and its warnings.** `CollectionSplitter` is pure, so it doesn't log. `Split` returns
+   the books together with how they were read (a `SplitStrategy`: range, magazine run with its numbering, numbered
+   series, reading order or bundle) and a list of warnings (`SplitWarning`: kind, message and example names). When it
+   doesn't split, it returns the reason instead. `LinkRunner` logs these as rule 7 describes. Its tests cover the
+   strategy reported for each kind of collection, a warning for each case in rule 7, and no warnings for a clean
+   run. The `LinkRunner` tests check the information line and a warning in the log.
+4. **Nothing else changes.** The existing `CollectionSplitterTests` must pass unchanged. A check is run before and
    after the change against the live library's ebook-side torrents with several files, read-only from the database and
    with each torrent's linked files. Only the magazine runs may change.
-4. **Docs.** `docs/user-guide.md`, *Collections*: how a magazine run is split, which numbering is chosen, and that the
-   magazine is the series (MAM's name first). `RELEASES.md` *Upgrading*: in a library that splits collections, run
+5. **Docs.** `docs/user-guide.md`, *Collections*: how a magazine run is split, which numbering is chosen, and that the
+   magazine is the series (MAM's name first). It also says that the Link job's log says how each collection was split,
+   and warns when the numbering couldn't be read cleanly. `RELEASES.md` *Upgrading*: in a library that splits collections, run
    Library check and relink what *Collection not split* lists. A run in a library that doesn't split is split by
    ticking **Split into its books** on its page, or with the bulk split action.
 
