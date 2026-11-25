@@ -321,4 +321,71 @@ public sealed class HardcoverConfigTests : IDisposable
         Assert.Null(list.List);
         Assert.Equal(HardcoverListStatus.Read, list.Status);
     }
+
+    [Theory]
+    [InlineData("books-to-fetch", "books-to-fetch")]
+    [InlineData("@someone/books-to-fetch", "@someone/books-to-fetch")]
+    [InlineData("@someone/lists/books-to-fetch", "@someone/books-to-fetch")]
+    [InlineData("https://hardcover.app/@someone/lists/books-to-fetch", "@someone/books-to-fetch")]
+    [InlineData("hardcover.app/@someone/lists/books-to-fetch/", "@someone/books-to-fetch")]
+    public void Load_AListBySlugOwnerOrAddress_IsKeptAsSlugOrOwnerAndSlug(string given, string kept)
+    {
+        File.WriteAllText(ConfigPath, $"""
+            mam_id = ""
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            list = "{given}"
+
+            [[hardcover_list.grab]]
+            """);
+
+        Assert.Equal(kept, Assert.Single(ConfigLoader.Load(ConfigPath).HardcoverList).List);
+    }
+
+    [Fact]
+    public void Load_AnotherUsersListByAddressAndByName_IsOneList()
+    {
+        var exception = LoadFails("""
+            mam_id = ""
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            list = "https://hardcover.app/@someone/lists/books-to-fetch"
+
+            [[hardcover_list.grab]]
+
+            [[hardcover_list]]
+            list = "@someone/books-to-fetch"
+
+            [[hardcover_list.grab]]
+            """);
+
+        Assert.Contains("both read list = \"@someone/books-to-fetch\"", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/@someone/lists/books")]
+    [InlineData("books to fetch")]
+    [InlineData("@someone")]
+    public void Load_AListThatIsNoHardcoverList_Throws(string given)
+    {
+        var exception = LoadFails($"""
+            mam_id = ""
+
+            [hardcover]
+            token = "hc-token"
+
+            [[hardcover_list]]
+            list = "{given}"
+
+            [[hardcover_list.grab]]
+            """);
+
+        Assert.Contains("which is not a Hardcover list", exception.Message);
+    }
 }

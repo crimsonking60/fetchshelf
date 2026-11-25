@@ -8,7 +8,7 @@ namespace Fetchshelf.Clients.Hardcover;
 
 /// <summary>
 /// Typed client for Hardcover's GraphQL API. It only reads: the token's user, the books with a reading status,
-/// and the books on one of the user's lists. Variables travel in the request body, never inside the query text.
+/// and the books on one of the user's lists or another user's list. Variables travel in the request body, never inside the query text.
 /// </summary>
 public sealed class HardcoverClient
 {
@@ -53,6 +53,19 @@ public sealed class HardcoverClient
     private const string ListBooksQuery = $$$"""
         query ListBooks($userId: Int!, $slug: String!, $limit: Int!, $offset: Int!) {
           lists(where: {user_id: {_eq: $userId}, slug: {_eq: $slug}}) {
+            id
+            name
+            list_books(order_by: {id: asc}, limit: $limit, offset: $offset) {
+              book { {{{BookFields}}} }
+            }
+          }
+        }
+        """;
+
+    // Another user's list, by their username, which Hardcover compares ignoring case (citext).
+    private const string OwnersListBooksQuery = $$$"""
+        query OwnersListBooks($owner: citext!, $slug: String!, $limit: Int!, $offset: Int!) {
+          lists(where: {user: {username: {_eq: $owner}}, slug: {_eq: $slug}}) {
             id
             name
             list_books(order_by: {id: asc}, limit: $limit, offset: $offset) {
@@ -127,12 +140,29 @@ public sealed class HardcoverClient
     public async Task<IReadOnlyList<HardcoverBook>> GetListBooksAsync(
         long userId, string slug, CancellationToken cancellationToken = default)
     {
+        return await ReadListAsync(
+            offset => QueryAsync(ListBooksQuery, new { userId, slug, limit = PageSize, offset }, cancellationToken),
+            $"You have no Hardcover list with the slug '{slug}'.");
+    }
+
+    /// <summary>Every book on the list with this slug of the Hardcover user <paramref name="owner"/>, in the order they were added.</summary>
+    /// <exception cref="HardcoverException">The user has no list with this slug that the token can read.</exception>
+    public async Task<IReadOnlyList<HardcoverBook>> GetListBooksAsync(
+        string owner, string slug, CancellationToken cancellationToken = default)
+    {
+        return await ReadListAsync(
+            offset => QueryAsync(OwnersListBooksQuery, new { owner, slug, limit = PageSize, offset }, cancellationToken),
+            $"Hardcover has no list '{slug}' of the user @{owner} that can be read: check the name and the slug, and that the list is public.");
+    }
+
+    private static async Task<IReadOnlyList<HardcoverBook>> ReadListAsync(Func<int, Task<JsonElement>> query, string notFound)
+    {
         var books = new List<HardcoverBook>();
         for (var offset = 0; ; offset += PageSize)
         {
-            var data = await QueryAsync(ListBooksQuery, new { userId, slug, limit = PageSize, offset }, cancellationToken);
+            var data = await query(offset);
             var list = data.GetProperty("lists").EnumerateArray().Cast<JsonElement?>().FirstOrDefault()
-                ?? throw new HardcoverException($"You have no Hardcover list with the slug '{slug}'.");
+                ?? throw new HardcoverException(notFound);
             var page = ReadBooks(list.GetProperty("list_books"));
             books.AddRange(page.Books);
             if (page.Rows < PageSize)

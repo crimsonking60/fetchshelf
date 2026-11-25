@@ -52,8 +52,8 @@ setup. If you use one, please report how it went, good or bad (see
 - VIP top-ups from `[bonus]` (`vip = true`): MAM's answer to them has not been seen yet. Wedges and upload credit
   are confirmed.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
-- `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
-  for a selection that was removed.
+- `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, searching again
+  for a selection that was removed, and another user's list (`list = "@someone/…"` or the list's address).
 - `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
   series and stopping one are confirmed.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been

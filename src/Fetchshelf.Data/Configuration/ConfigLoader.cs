@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Fetchshelf.Clients.Hardcover;
 using Fetchshelf.Core.Metadata;
 using Fetchshelf.Core.Organizer;
 using Tomlyn;
@@ -959,6 +960,16 @@ public static partial class ConfigLoader
             {
                 throw new ConfigurationException(
                     $"Invalid configuration: {label} must set one of 'status' or 'list', not both.");
+            }
+
+            // A list's slug, @owner/slug or its address on hardcover.app, kept as the slug or @owner/slug: the stored list's key.
+            if (list.List is { } given)
+            {
+                list.List = HardcoverListReference.TryParse(given, out var reference)
+                    ? reference.ToString()
+                    : throw new ConfigurationException(
+                        $"Invalid configuration: {label} has list = \"{given}\", which is not a Hardcover list: give its slug, such as "
+                        + "\"books-to-fetch\", another user's list as \"@someone/books-to-fetch\", or the list's address on hardcover.app.");
             }
 
             var source = list.List is { } slug ? $"list = \"{slug}\"" : $"status = \"{UnderscoredNamingConvention.Instance.Apply(list.Status!.Value.ToString())}\"";

@@ -1183,8 +1183,8 @@ Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-t
 ## Books you want, from Hardcover
 
 [Hardcover](https://hardcover.app) is a site for keeping track of what you read and want to read. A
-`[[hardcover_list]]` follows one reading status there, usually *Want to Read*, or one of your Hardcover
-lists, and searches MAM for each book on it. What it finds goes through the same rules as an autograb's,
+`[[hardcover_list]]` follows one reading status there, usually *Want to Read*, or a Hardcover list, one of
+your own or another user's public one, and searches MAM for each book on it. What it finds goes through the same rules as an autograb's,
 so your ratio, unsatisfied-snatch slots and wedges are protected the same way. Fetchshelf only reads from
 Hardcover; it never changes anything there.
 
@@ -1213,7 +1213,9 @@ Hardcover; it never changes anything there.
    ```
 
    For one of your lists, write `list = "books-to-fetch"` instead of `status`, with the last part of the
-   list's address.
+   list's address. For another user's public list, such as an award's winners, give its address as the
+   browser shows it, `list = "https://hardcover.app/@someone/lists/award-winners"`, or `list =
+   "@someone/award-winners"`.
 
    To send a list's downloads to a library of their own, give it a `category`. For example, with fiction
    and nonfiction kept in separate libraries:
@@ -2832,6 +2834,8 @@ The job's *last result* on the **Jobs** page, and the log, say why:
 - *The Hardcover token lacks the … permission*: create a token with `read:me`, `read:library` and, for a
   `list`, `read:lists`.
 - *You have no Hardcover list with the slug …*: check `list` against the last part of the list's address.
+- *Hardcover has no list … of the user @… that can be read*: check the user's name and the list's slug against
+  the list's address, and that the list is public. A private list of another user can't be followed.
 - *Hardcover's rate limit is used up*: Hardcover allows a limited number of requests a day. Run the list
   less often with `search_interval`.
 
