@@ -342,6 +342,7 @@ public sealed class LinkRunner(
             return;
         }
 
+        metadata = WithLoneIssueNumber(library, metadata, ChosenFiles(files, bestAudioExtension, bestEbookExtension));
         var bookFolder = await BookFolderAsync(library, metadata, torrent.Hash, Directory.Exists, cancellationToken);
         var placement = PlaceFiles(library, metadata, files, mappedSavePath, bestAudioExtension, bestEbookExtension, bookFolder);
 
@@ -743,6 +744,44 @@ public sealed class LinkRunner(
     }
 
     /// <summary>
+    /// <paramref name="looked"/> with the number a lone magazine issue in a series library was given when linked
+    /// (<see cref="WithLoneIssueNumber"/>), when MAM's series still has none: a refresh doesn't take it away.
+    /// </summary>
+    private TorrentMetadata KeepLoneIssueNumber(TorrentEntity existing, TorrentMetadata looked)
+    {
+        if (existing.LibraryPath is not { } path || LibraryContaining(path) is not { IsSeriesLayout: true }
+            || FolderNameComputer.SelectSeries(looked.Series) is not { Entries.Count: 0 } series)
+        {
+            return looked;
+        }
+
+        var stored = TorrentMetadataSerializer.Deserialize(existing.MetadataJson).Series
+            .FirstOrDefault(s => string.Equals(s.Name, series.Name, StringComparison.Ordinal) && s.Entries.Count > 0);
+        return stored is null
+            ? looked
+            : looked with { Series = looked.Series.Select(s => ReferenceEquals(s, series) ? s with { Entries = stored.Entries } : s).ToList() };
+    }
+
+    /// <summary>
+    /// A lone magazine issue in a series library, whose MAM series has no number, with one from its name
+    /// (<see cref="LoneIssueNumber"/>), numbered as the series folder's other issues are. The number is kept with the
+    /// book's metadata, so its file name, the Books page, the Series page and OPDS all have it. Anything else, as it is.
+    /// </summary>
+    private static TorrentMetadata WithLoneIssueNumber(Library library, TorrentMetadata metadata, List<QBittorrentFile> chosen)
+    {
+        if (!library.IsSeriesLayout || chosen is not [var single] || FolderNameComputer.SelectSeries(metadata.Series) is not { Entries.Count: 0 } series)
+        {
+            return metadata;
+        }
+
+        var folder = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames).Folder;
+        var siblings = Directory.Exists(folder) ? Directory.EnumerateFiles(folder).Select(Path.GetFileName).OfType<string>().ToList() : [];
+        return LoneIssueNumber.For([Path.GetFileNameWithoutExtension(single.Name), metadata.Title], siblings) is { } entry
+            ? metadata with { Series = metadata.Series.Select(s => ReferenceEquals(s, series) ? s with { Entries = [entry] } : s).ToList() }
+            : metadata;
+    }
+
+    /// <summary>
     /// Places a book in a series library: a single chosen file as <c>Series #001 - Title.ext</c> in the series folder,
     /// several (a pack, or a volume split into chapters) under their own names there, as their order can't be told. A
     /// different file already at the name, another book's, makes this one <c>name (2).ext</c>. With `series_json`, the
@@ -755,17 +794,6 @@ public sealed class LinkRunner(
     {
         var extension = chosen is [var only] ? Path.GetExtension(only.Name) : string.Empty;
         var place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, metadata, library.FolderNames, extension, markLanguage);
-
-        // A lone magazine issue whose MAM series has no number takes one from its name, numbered as the folder's other
-        // issues are, so it sorts among them: "Series #005.04 - Title.cbr".
-        if (chosen is [var single] && FolderNameComputer.SelectSeries(metadata.Series) is { Entries.Count: 0 } series
-            && LoneIssueNumber.For(
-                [Path.GetFileNameWithoutExtension(single.Name), metadata.Title],
-                Directory.Exists(place.Folder) ? Directory.EnumerateFiles(place.Folder).Select(Path.GetFileName).OfType<string>() : []) is { } entry)
-        {
-            var numbered = metadata with { Series = metadata.Series.Select(s => ReferenceEquals(s, series) ? s with { Entries = [entry] } : s).ToList() };
-            place = SeriesLayoutNamer.Compute(library.LibraryDir, library.OneshotsDir, numbered, library.FolderNames, extension, markLanguage);
-        }
 
         var placement = new Placement(place.Folder, [], [], []);
         if (library.Method == LibraryLinkMethod.NoLink)
@@ -926,7 +954,7 @@ public sealed class LinkRunner(
             return RefreshOutcome.NotFoundOnMam;
         }
 
-        var changed = await ApplyRefreshedMetadataAsync(existing, looked, cancellationToken);
+        var changed = await ApplyRefreshedMetadataAsync(existing, KeepLoneIssueNumber(existing, looked), cancellationToken);
         existing.CoverCheckedAt = null; // MAM's cover may have changed or come since: the next Link run tries again
         if (changed && absClient is not null && existing.AbsId is not null)
         {
@@ -1046,6 +1074,7 @@ public sealed class LinkRunner(
             }
         }
 
+        metadata = WithLoneIssueNumber(library, metadata, ChosenFiles(files, audio, ebook));
         await ApplyRefreshedMetadataAsync(existing, metadata, cancellationToken);
         await RemoveBooksAsync(existing, cancellationToken); // linked as its books before, and now as one
 

@@ -304,7 +304,27 @@ public sealed class SeriesLayoutLinkTests : IDisposable
 
         // No numbered issue in the folder yet: by year and month, before volume and number, as a run is.
         Assert.Equal(["Nightfall Stories Magazine #1981.04 - Nightfall Stories April 1981.cbr", "series.json"], FileNames(Path.Combine(LibraryDir, "Nightfall Stories Magazine")));
-        Assert.Null((await context.Torrents.AsNoTracking().SingleAsync()).LibraryMismatchState);
+        var stored = await context.Torrents.AsNoTracking().SingleAsync();
+        Assert.Null(stored.LibraryMismatchState);
+        // Kept with its metadata, for the Books page, the Series page and OPDS.
+        Assert.Equal("1981.04", TorrentMetadataSerializer.Deserialize(stored.MetadataJson).Series.Single().Entries.Single().Display);
+    }
+
+    [Fact]
+    public async Task ALoneMagazineIssuesNumber_IsKeptByARefresh_WhileMamsSeriesHasNone()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var client = Client(Torrent("hash1", ("Nightfall Stories v05n04 (1981-04).cbr", "issue")));
+        var metadata = new Dictionary<string, TorrentMetadata> { ["hash1"] = Issue("Nightfall Stories April 1981") };
+        var runner = Runner(context, metadata, SeriesLibrary());
+        await runner.RunAsync(new QBittorrentConnection(), client);
+
+        await runner.RefreshAsync("hash1");
+
+        context.ChangeTracker.Clear();
+        var stored = await context.Torrents.AsNoTracking().SingleAsync();
+        Assert.Equal("1981.04", TorrentMetadataSerializer.Deserialize(stored.MetadataJson).Series.Single().Entries.Single().Display);
+        Assert.False(await context.Events.AnyAsync(e => e.Kind == EventKind.Updated));
     }
 
     [Fact]
