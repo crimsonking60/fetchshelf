@@ -285,4 +285,50 @@ public sealed class SeriesLayoutLinkTests : IDisposable
         Assert.False(Directory.Exists(SagaFolder));
         Assert.True(Directory.Exists(LibraryDir));
     }
+
+    private static TorrentMetadata Issue(string title) => Comic(title) with
+    {
+        MediaType = MediaType.Ebook,
+        Series = [new Series { Name = "Nightfall Stories Magazine", Entries = [] }],
+    };
+
+    [Fact]
+    public async Task ALoneMagazineIssue_WhoseSeriesHasNoNumber_TakesOneFromItsName_AndIsNotFlaggedAfterwards()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var client = Client(Torrent("hash1", ("Nightfall Stories v05n04 (#38) (1981-04) (Tagger).cbr", "issue")));
+        var metadata = new Dictionary<string, TorrentMetadata> { ["hash1"] = Issue("Nightfall Stories April 1981") };
+
+        await Runner(context, metadata, SeriesLibrary()).RunAsync(new QBittorrentConnection(), client);
+        await Runner(context, [], SeriesLibrary()).RunAsync(new QBittorrentConnection(), client);
+
+        // No numbered issue in the folder yet: by year and month, before volume and number, as a run is.
+        Assert.Equal(["Nightfall Stories Magazine #1981.04 - Nightfall Stories April 1981.cbr", "series.json"], FileNames(Path.Combine(LibraryDir, "Nightfall Stories Magazine")));
+        Assert.Null((await context.Torrents.AsNoTracking().SingleAsync()).LibraryMismatchState);
+    }
+
+    [Fact]
+    public async Task ALoneMagazineIssue_IsNumberedAsTheFoldersOtherIssuesAre()
+    {
+        var folder = Path.Combine(LibraryDir, "Nightfall Stories Magazine");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "Nightfall Stories Magazine #005.03 - Nightfall Stories v05n03.cbz"), "another issue");
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var client = Client(Torrent("hash1", ("Nightfall Stories v05n04 (1981-04).cbr", "issue")));
+
+        await Runner(context, new() { ["hash1"] = Issue("Nightfall Stories April 1981") }, SeriesLibrary()).RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Contains("Nightfall Stories Magazine #005.04 - Nightfall Stories April 1981.cbr", FileNames(folder));
+    }
+
+    [Fact]
+    public async Task ABookWhoseSeriesHasNoNumber_AndWhoseNameIsNoIssue_KeepsItsName()
+    {
+        using var context = OrganizerTestSupport.CreateContext(DbPath);
+        var client = Client(Torrent("hash1", ("The Long Winter (Digital).cbz", "book")));
+
+        await Runner(context, new() { ["hash1"] = Issue("The Long Winter") }, SeriesLibrary()).RunAsync(new QBittorrentConnection(), client);
+
+        Assert.Equal(["Nightfall Stories Magazine - The Long Winter.cbz", "series.json"], FileNames(Path.Combine(LibraryDir, "Nightfall Stories Magazine")));
+    }
 }

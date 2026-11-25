@@ -8,7 +8,7 @@ namespace Fetchshelf.Core.Organizer;
 public static partial class CollectionSplitter
 {
     /// <summary>The numberings tried for a run, in order: the first that numbers every issue on its own is used.</summary>
-    private static readonly MagazineNumbering[] Numberings =
+    internal static readonly MagazineNumbering[] Numberings =
         [MagazineNumbering.IssueNumber, MagazineNumbering.YearAndMonth, MagazineNumbering.VolumeAndNumber];
 
     /// <summary>
@@ -188,7 +188,7 @@ public static partial class CollectionSplitter
     };
 
     /// <summary>An issue's series entry: its number, or for a double issue the range of both.</summary>
-    private static SeriesEntry? Entry(MagazineIssue issue, MagazineNumbering numbering)
+    internal static SeriesEntry? Entry(MagazineIssue issue, MagazineNumbering numbering)
     {
         if (Key(issue, numbering) is not { } first)
         {
