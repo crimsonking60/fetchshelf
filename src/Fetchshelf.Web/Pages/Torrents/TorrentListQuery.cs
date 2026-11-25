@@ -36,15 +36,18 @@ public sealed record TorrentListQuery(
         return values.Where(pair => !string.IsNullOrEmpty(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
     }
 
-    /// <summary>Whether any filter is set, not counting the search text.</summary>
+    /// <summary>
+    /// Whether any filter is set, not counting the search text, nor <see cref="CollectionBooks"/>, which is a choice of
+    /// what to show (its checkbox sits by the search box), not a filter.
+    /// </summary>
     public bool HasFilters =>
         !string.IsNullOrEmpty(Status) || !string.IsNullOrEmpty(Library) || !string.IsNullOrEmpty(QbCategory) || !string.IsNullOrEmpty(Problem)
         || !string.IsNullOrEmpty(Language) || !string.IsNullOrEmpty(MediaType)
         || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series)
-        || !string.IsNullOrEmpty(Seeding) || !string.IsNullOrEmpty(CollectionBooks)
+        || !string.IsNullOrEmpty(Seeding)
         || !string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction);
 
-    /// <summary>The query with every filter cleared, keeping the search text, sort and page size.</summary>
+    /// <summary>The query with every filter cleared, keeping the search text, sort, page size and <see cref="CollectionBooks"/>.</summary>
     public TorrentListQuery WithoutFilters() =>
         this with
         {
@@ -58,7 +61,6 @@ public sealed record TorrentListQuery(
             Narrator = null,
             Series = null,
             Seeding = null,
-            CollectionBooks = null,
             Genre = null,
             Fiction = null,
         };

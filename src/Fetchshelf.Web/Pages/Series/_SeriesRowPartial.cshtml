@@ -6,7 +6,7 @@
 }
 <tr id="@row.RowId">
     <td class="series-name">
-        <a asp-page="/Torrents/Index" asp-route-Series="@row.Key">@row.Name</a>
+        <a asp-page="/Torrents/Index" asp-route-Series="@row.Key" asp-route-CollectionBooks="@Pages.Torrents.IndexModel.ShowCollectionBooks">@row.Name</a>
         @* Comics and anthologies list many people; the first few, by number of books, say whose series it is. *@
         <div class="sub unclamped" title="@(row.Authors.Count > 3 ? string.Join(", ", row.Authors) : null)">@string.Join(", ", row.Authors.Take(3))@(row.Authors.Count > 3 ? $" and {row.Authors.Count - 3} more" : "")</div>
     </td>

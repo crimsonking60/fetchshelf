@@ -156,7 +156,7 @@ public class CollectionPagesTests
     }
 
     [Fact]
-    public async Task TorrentsList_ShowsACollectionAsOneRow_ItsBooksOnlyWhenAskedOrSearchedFor()
+    public async Task TorrentsList_ShowsACollectionAsOneRow_ItsBooksOnlyWhenTicked_AlsoWhenSearching()
     {
         using var fixture = await FixtureWithCollectionAsync();
         var client = fixture.CreateClient();
@@ -164,14 +164,32 @@ public class CollectionPagesTests
         var plain = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents"));
         var all = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?CollectionBooks=show"));
         var searched = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?Q=Mort"));
+        var searchedWithBooks = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?Q=Mort&CollectionBooks=show"));
 
         Assert.Contains("(collection of 2 books)", plain);
         Assert.DoesNotContain(">Mort</a>", plain);
-        Assert.Contains("<select name=\"CollectionBooks\"", plain);
+        Assert.Matches("<input type=\"checkbox\" name=\"CollectionBooks\" value=\"show\"\\s+onchange", plain); // off by default
+        Assert.Matches("<input type=\"checkbox\" name=\"CollectionBooks\" value=\"show\" checked=\"checked\"", all);
+        Assert.Contains("Show books from collections", plain);
+        Assert.DoesNotContain("Clear filters", all); // a choice of what to show, not a filter
+        Assert.DoesNotContain("Filters in use", all);
+        var filtered = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Torrents?CollectionBooks=show&Status=seeding"));
+        Assert.Contains("CollectionBooks=show", System.Text.RegularExpressions.Regex.Match(filtered, "href=\"([^\"]*)\"[^>]*>Clear filters").Groups[1].Value);
         Assert.Contains($"(from <a href=\"/torrents/{Hash}\">a collection</a>)", all);
         Assert.Contains(">Thud!</a>", all);
-        Assert.Contains(">Mort</a>", searched);
-        Assert.DoesNotContain(">Thud!</a>", searched);
+        Assert.DoesNotContain(">Mort</a>", searched); // unticked, also when searching
+        Assert.Contains(">Mort</a>", searchedWithBooks);
+        Assert.DoesNotContain(">Thud!</a>", searchedWithBooks);
+    }
+
+    [Fact]
+    public async Task ABooksPage_LinksItsAuthorsToTheListWithTheBooksOfCollectionsShown()
+    {
+        using var fixture = await FixtureWithCollectionAsync();
+
+        var html = System.Net.WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync($"/torrents/{CollectionBookId.For(Hash, 1)}"));
+
+        Assert.Contains("href=\"/Torrents?Author=brandonsanderson&CollectionBooks=show\"", html);
     }
 
     [Fact]

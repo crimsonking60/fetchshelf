@@ -61,7 +61,7 @@ public class IndexModel(
 
     /// <summary>
     /// <see cref="ShowCollectionBooks"/> to list the books of split collections too. Without it each collection is one row,
-    /// and a book's row shows only when the search or a title, author, narrator or series filter looks for it.
+    /// whatever the search and the filters.
     /// </summary>
     [BindProperty(SupportsGet = true)]
     public string? CollectionBooks { get; set; }
@@ -145,7 +145,6 @@ public class IndexModel(
             Add("Category", QbCategory, q => q with { QbCategory = null });
             Add("Problems", LabelOf(TorrentListFilters.ProblemOptions, Problem), q => q with { Problem = null });
             Add("Seeding", LabelOf(TorrentListFilters.SeedingOptions, Seeding), q => q with { Seeding = null });
-            Add("Collections", CollectionBooks == ShowCollectionBooks ? "books too" : CollectionBooks, q => q with { CollectionBooks = null });
             Add("Media type", MediaType, q => q with { MediaType = null });
             Add("Language", Language, q => q with { Language = null });
             if (GenresOn)
@@ -421,8 +420,7 @@ public class IndexModel(
         }
 
         HasCollectionBooks = await torrents.AnyAsync(t => t.CollectionTorrentId != null);
-        var lookingForABook = !string.IsNullOrWhiteSpace(Q) || !string.IsNullOrEmpty(Author) || !string.IsNullOrEmpty(Narrator) || !string.IsNullOrEmpty(Series);
-        if (CollectionBooks != ShowCollectionBooks && !lookingForABook)
+        if (CollectionBooks != ShowCollectionBooks)
         {
             torrents = torrents.Where(t => t.CollectionTorrentId == null);
         }
