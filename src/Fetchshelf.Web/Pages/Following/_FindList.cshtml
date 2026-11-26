@@ -106,7 +106,7 @@ else
                     {
                         <td class="find-follow"><a asp-page="/Following/Detail" asp-route-id="@follow.Id">@follow.DisplayName</a></td>
                     }
-                    <td class="find-format">@(find.MediaSide == "Audio" ? "Audiobook" : "Ebook")</td>
+                    <td class="find-format">@Fetchshelf.Web.Pages.MediaTypeLabels.OfFind(find.MediaType, find.MediaSide)</td>
                     @if (Model.ShowsLanguage)
                     {
                         <td class="find-language">@(Enum.TryParse<Fetchshelf.Core.Metadata.Language>(find.Language, out var findLanguage) ? Fetchshelf.Core.Metadata.LanguageNameResolver.DisplayName(findLanguage) : "")</td>

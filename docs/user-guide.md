@@ -1403,7 +1403,9 @@ Followed**, **Search now** and **Stop following** buttons.
 ![The Following page: what the grab blocks download by themselves, then one row per followed series or author with its counts, when it was searched and its buttons](images/following.png)
 
 A series' or author's name opens its own page, with the same buttons and what was found for it: each torrent's
-format and size, and, for a series, its book number. It lists all of it to begin with; the counts at the top, or the
+format, as MAM's media type (*Comic Book / Graphic Novel*, *Periodical Ebook* and the like, as on the **Search**
+page; a find recorded before media types were kept shows *Audiobook* or *Ebook* until a search sees it again), its size, and,
+for a series, its book number. The **Format** filter still has only audiobooks and ebooks. It lists all of it to begin with; the counts at the top, or the
 *Show* filter, list instead what is to look at (with what was downloaded from it until it is in the library), what is
 not free, selected, in the library, or dismissed.
 The list can be limited to ebooks or audiobooks, sorted by title, book number, size or when it was found (click a

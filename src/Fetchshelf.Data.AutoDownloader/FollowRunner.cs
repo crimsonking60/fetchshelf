@@ -317,10 +317,14 @@ public sealed class FollowRunner(
             }
         }
 
-        // A find recorded before languages were kept gets its language the first time a search sees it again.
-        foreach (var candidate in candidates.Where(c => finds.TryGetValue(c.Record.MamId, out var listed) && listed.Language is null))
+        // A find recorded before languages or media types were kept gets them the first time a search sees it again.
+        foreach (var candidate in candidates)
         {
-            finds[candidate.Record.MamId].Language = candidate.Metadata.Language.ToString();
+            if (finds.TryGetValue(candidate.Record.MamId, out var listed))
+            {
+                listed.Language ??= candidate.Metadata.Language.ToString();
+                listed.MediaType = candidate.Metadata.MediaType.ToString();
+            }
         }
         DropUnwantedFinds(follow, records, candidates, grabFilters, finds, readAll);
         (candidates, var had) = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
@@ -353,6 +357,7 @@ public sealed class FollowRunner(
                 finds.Remove(known.MamId);
                 (known.MamId, known.Title, known.SizeBytes) = (shown.Record.MamId, shown.Metadata.Title, SizeOf(shown.Record));
                 known.Language = shown.Metadata.Language.ToString();
+                known.MediaType = shown.Metadata.MediaType.ToString();
                 finds[known.MamId] = known;
             }
 
@@ -456,6 +461,7 @@ public sealed class FollowRunner(
                 Title = candidate.Metadata.Title,
                 SeriesDisplay = candidate.SeriesDisplay,
                 MediaSide = candidate.Side.ToString(),
+                MediaType = candidate.Metadata.MediaType.ToString(),
                 Language = candidate.Metadata.Language.ToString(),
                 SizeBytes = SizeOf(candidate.Record),
                 Status = status,
@@ -469,6 +475,7 @@ public sealed class FollowRunner(
 
         (find.Status, find.StatusAt) = (status, now);
         find.Language ??= candidate.Metadata.Language.ToString();
+        find.MediaType = candidate.Metadata.MediaType.ToString();
     }
 
     /// <summary>

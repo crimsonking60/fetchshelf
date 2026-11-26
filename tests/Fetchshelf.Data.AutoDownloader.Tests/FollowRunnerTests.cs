@@ -31,12 +31,12 @@ public sealed class FollowRunnerTests : IDisposable
     /// <summary>A MAM search result: a book by <paramref name="author"/>, in <paramref name="series"/> when given.</summary>
     private static string Record(
         long mamId, string title, string author = "James S. A. Corey", string? series = null, string? number = null,
-        bool ebook = false, bool free = true, string added = "2026-01-01 00:00:00") => $$"""
+        bool ebook = false, bool free = true, string added = "2026-01-01 00:00:00", int? mediaType = null) => $$"""
         {
             "id": {{mamId}}, "title": "{{title}}", "author_info": "{\"1\":\"{{author}}\"}",
             "narrator_info": "{}", "series_info": "{{(series is null ? "{}" : $"{{\\\"7\\\":[\\\"{series}\\\",\\\"{number}\\\"]}}")}}",
             "isbn": null, "description": null,
-            "mediatype": {{(ebook ? 2 : 1)}}, "main_cat": {{(ebook ? 14 : 13)}}, "maincat": 1, "category": {{(ebook ? 60 : 39)}}, "categories": "[]",
+            "mediatype": {{mediaType ?? (ebook ? 2 : 1)}}, "main_cat": {{(ebook ? 14 : 13)}}, "maincat": 1, "category": {{(ebook ? 60 : 39)}}, "categories": "[]",
             "language": 1, "browseflags": 0, "filetype": "{{(ebook ? "epub" : "m4b")}}", "numfiles": 1, "size": "100 MiB",
             "tags": "", "owner": 1, "owner_name": "uploader", "added": "{{added}}",
             "seeders": 5, "leechers": 1, "times_completed": 1,
@@ -354,6 +354,42 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal(0, summary.Searched);
         Assert.Empty(harness.Searches);
         Assert.Equal([(1L, FollowFindStatus.Owned), (2L, FollowFindStatus.New), (3L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
+    [Fact]
+    public async Task AFind_KeepsItsMediaType_AsWellAsItsSide()
+    {
+        var harness = CreateHarness(Results(
+            Record(1, "Leviathan Wakes"),
+            Record(2, "The Expanse Graphic Novel", ebook: true, mediaType: 6)));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+
+        await harness.RunAsync();
+
+        Assert.Equal([("Audio", "Audiobook"), ("Ebook", "ComicBook")], Finds(harness).Select(f => (f.MediaSide, f.MediaType!)));
+    }
+
+    [Fact]
+    public async Task AFindRecordedBeforeMediaTypesWereKept_GetsItsMediaTypeWhenFoundAgain()
+    {
+        var harness = CreateHarness(Results(Record(2, "The Expanse Graphic Novel", ebook: true, mediaType: 6)));
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        harness.Context.FollowFinds.Add(new FollowFindEntity
+        {
+            FollowId = harness.Context.Follows.Single().Id,
+            MamId = 2,
+            Title = "The Expanse Graphic Novel",
+            MediaSide = "Ebook",
+            Language = "English",
+            Status = FollowFindStatus.New,
+            FoundAt = Now.AddDays(-5),
+            StatusAt = Now.AddDays(-5),
+        });
+        await harness.Context.SaveChangesAsync();
+
+        await harness.RunAsync();
+
+        Assert.Equal("ComicBook", Assert.Single(Finds(harness)).MediaType);
     }
 
     /// <summary>The settings with one free grab block that takes only uploads from June 2026 on.</summary>

@@ -185,16 +185,6 @@ public sealed record SearchResultViewModel(
     };
 
     /// <summary>Display name for the Media type column; "Unknown" for ids it does not list.</summary>
-    private static string MediaTypeLabelOf(MamTorrentRecord record) => MamTorrentMapper.EffectiveMediaTypeId(record) switch
-    {
-        1 => "Audiobook",
-        2 => "Ebook",
-        3 => "Musicology",
-        4 => "Radio",
-        5 => "Manga",
-        6 => "Comic Book / Graphic Novel",
-        7 => "Periodical Ebook",
-        8 => "Periodical Audiobook",
-        _ => "Unknown",
-    };
+    private static string MediaTypeLabelOf(MamTorrentRecord record) =>
+        MediaTypeLabels.Of((MediaType)MamTorrentMapper.EffectiveMediaTypeId(record));
 }
