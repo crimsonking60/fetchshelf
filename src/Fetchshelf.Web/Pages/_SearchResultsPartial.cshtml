@@ -28,6 +28,14 @@ else if (Model.ResultsLoaded && Model.Results.Count == 0)
 }
 else
 {
+    @if (Model.FollowTarget is { } followTarget)
+    {
+        @* A search for more in a series or by an author: it can be followed from here, without a book of it in the library. *@
+        var followReturnUrl = Url.Page("/Index", Model.SearchRouteValues()) ?? "/";
+        <div class="toolbar" id="search-follow">
+            <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(followTarget.Kind, [followTarget.Name], Model.Followed, followReturnUrl)" />
+        </div>
+    }
     @if (Model.ResultsLoaded)
     {
         @* Sent with every Download click on the page; the category qBittorrent gets, and with it the library, and which qBittorrent. *@

@@ -245,6 +245,17 @@ public class IndexModel(
 
     public IReadOnlyList<SearchResultViewModel> Results { get; private set; } = [];
 
+    /// <summary>
+    /// The series or author this search is for, when it looks for one name in the series or the author field only, as the
+    /// links to more in a series or by an author do, and a result has that name: a Follow button for it is shown above the
+    /// results, with the name as MAM spells it. Null without `[follow]`.
+    /// </summary>
+    public (FollowKind Kind, NameLink Name)? FollowTarget { get; private set; }
+
+    /// <summary>Everything followed, for <see cref="FollowTarget"/>'s button.</summary>
+    public IReadOnlyDictionary<(FollowKind, string), Following.FollowState> Followed { get; private set; } =
+        new Dictionary<(FollowKind, string), Following.FollowState>();
+
     /// <summary>False while the page shell is rendered; the results arrive afterwards via <see cref="OnGetResultsAsync"/>.</summary>
     public bool ResultsLoaded { get; private set; }
 
@@ -334,6 +345,11 @@ public class IndexModel(
                     presence, knownByMamId.GetValueOrDefault(record.MamId)))
                 .ToList();
             RefreshPresenceIfOlderThan(knownByMamId.Values);
+            if (FollowTargetOf(result.Data) is { } target)
+            {
+                FollowTarget = target;
+                Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext, HttpContext.RequestAborted);
+            }
         }
         catch (MamSearchRefusedException ex)
         {
@@ -357,6 +373,39 @@ public class IndexModel(
     /// Reads Fetchshelf's database only: the <c>DownloadProgressWatcher</c> asks qBittorrent and starts the Link job,
     /// whether a page is open or not.
     /// </summary>
+    /// <summary>See <see cref="FollowTarget"/>.</summary>
+    private (FollowKind Kind, NameLink Name)? FollowTargetOf(IReadOnlyList<MamTorrentRecord> records)
+    {
+        if (settings.Follow is null || In.Count != 1 || string.IsNullOrWhiteSpace(Q))
+        {
+            return null;
+        }
+
+        var text = Q.Trim();
+        var name = text.Length > 1 && text.StartsWith('"') && text.EndsWith('"') ? text[1..^1].Trim() : text;
+        if (name.Length == 0 || name.Contains('"', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var (kind, key) = In[0] switch
+        {
+            "author" => (FollowKind.Author, PersonNameKey.Of(name)),
+            "series" => (FollowKind.Series, SeriesNameKey.Of(name)),
+            _ => (FollowKind.Author, string.Empty),
+        };
+        if (key.Length == 0)
+        {
+            return null;
+        }
+
+        // MAM's spelling of the name, as the Follow job searches for it, rather than the search's.
+        var spelled = kind == FollowKind.Author
+            ? records.SelectMany(r => r.Authors.Values).FirstOrDefault(a => PersonNameKey.Of(a) == key)
+            : records.SelectMany(r => r.Series).Select(s => s.Name).FirstOrDefault(n => SeriesNameKey.Of(n) == key);
+        return spelled is null ? null : (kind, new NameLink(spelled.Trim(), key));
+    }
+
     public async Task<PartialViewResult> OnGetStatusAsync(long mamId, int round)
     {
         var status = (await LoadStatusesAsync([mamId])).GetValueOrDefault(mamId, MamResultStatus.None);

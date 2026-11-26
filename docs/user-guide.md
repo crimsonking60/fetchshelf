@@ -1350,7 +1350,8 @@ on the **Torrents** page.
 
 Following needs a [`[follow]`](configuration.md#follow) section in the configuration. Without one, the
 **Series** page only lists series, without its **Follow**, **Auto** and **Ignore** buttons; there are no
-**Follow** buttons for a series or author on a torrent's page or next to a filter on the **Torrents** page;
+**Follow** buttons for a series or author on a torrent's page, next to a filter on the **Torrents** page or on the
+**Search** page;
 and the **Following** page isn't in the menu. A minimal section:
 
 ```toml
@@ -1369,7 +1370,11 @@ categories = { ebook = false }
   wait on the **Selected** page until the Download job can start them.
 - **Ignore** a series to leave it out of the series with missing books.
 - **Follow** a series or an author with the button on a torrent's page, or next to an author or series filter
-  on the **Torrents** page. It is followed to begin with: new books are listed, not downloaded. On the
+  on the **Torrents** page. One with nothing in the library yet can be followed from MAM's search results: a search
+  result's page and its dialog on the **Search** page have the same buttons for its series and authors, and a search
+  for one name in the **Series** or **Author** field only, as the links to more in a series or by an author on a
+  search result are, has a button above the results for that series or author, as MAM spells it. It is followed to
+  begin with: new books are listed, not downloaded. On the
   **Following** page and on each series' or author's own page, **Change to Auto** and **Change to Followed**
   switch between downloading automatically and only listing.
 

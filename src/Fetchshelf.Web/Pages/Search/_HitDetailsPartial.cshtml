@@ -63,6 +63,14 @@ else if (Model.Record is { } record)
                 {
                     <text>-</text>
                 }</span></p>
+            @if (Model.ShowsFollow)
+            {
+                @* A div, not a p: a browser ends a p where a form starts, which would spill the buttons out of their row. *@
+                <div id="follow-buttons"><span class="label">Follow</span><span class="value">
+                    <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Series, Fetchshelf.Web.Pages.Torrents.NameLink.Series(Model.Metadata!), Model.Followed, Model.FollowReturnUrl)" />
+                    <partial name="/Pages/Following/_FollowButtons.cshtml" model="new Fetchshelf.Web.Pages.Following.FollowButtonsViewModel(Fetchshelf.Data.Entities.FollowKind.Author, Fetchshelf.Web.Pages.Torrents.NameLink.Authors(Model.Metadata!), Model.Followed, Model.FollowReturnUrl)" />
+                </span></div>
+            }
             <p><span class="label">Media type</span><span class="value">@(Model.Metadata?.MediaType.ToString() ?? record.MediaTypeId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
             <p><span class="label">Language</span><span class="value">@(Model.Metadata?.Language.ToString() ?? record.LanguageId.ToString(System.Globalization.CultureInfo.InvariantCulture))</span></p>
             @if (Model.GenresOn)

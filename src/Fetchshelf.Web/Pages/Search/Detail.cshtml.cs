@@ -63,6 +63,23 @@ public class DetailModel(
 
     public string? QBittorrentCategory { get; private set; }
 
+    /// <summary>Whether the result's series and authors get Follow buttons: with `[follow]`, once MAM's answer was read.</summary>
+    public bool ShowsFollow => settings.Follow is not null && Metadata is not null;
+
+    /// <summary>Everything followed, for the Follow buttons.</summary>
+    public IReadOnlyDictionary<(Data.Entities.FollowKind, string), Following.FollowState> Followed { get; private set; } =
+        new Dictionary<(Data.Entities.FollowKind, string), Following.FollowState>();
+
+    /// <summary>
+    /// Where following one comes back to: in the Search page's dialog, the page that opened it (htmx names it), so its
+    /// results stay; else this page.
+    /// </summary>
+    public string FollowReturnUrl =>
+        InDialog && Uri.TryCreate(Request.Headers["HX-Current-URL"].ToString(), UriKind.Absolute, out var opener)
+            && string.Equals(opener.Authority, Request.Host.Value, StringComparison.OrdinalIgnoreCase)
+            ? opener.PathAndQuery
+            : Url.Page("/Search/Detail", new { mamId = MamId, Q, Lang }) ?? "/";
+
     public async Task<IActionResult> OnGetAsync(long mamId)
     {
         await LoadAsync(mamId);
@@ -141,6 +158,11 @@ public class DetailModel(
         TorrentId = known.Select(t => t.Id).FirstOrDefault();
         IsLinked = known.Any(t => t.LibraryPath is not null);
         IsSelected = await dbContext.SelectedTorrents.AnyAsync(s => s.MamId == mamId && s.RemovedAt == null && s.StartedAt == null);
+
+        if (ShowsFollow)
+        {
+            Followed = await Following.FollowButtonsViewModel.LoadFollowedAsync(dbContext, HttpContext.RequestAborted);
+        }
 
         var presence = await qbittorrentPresence.GetAsync();
         if (presence.Loaded)
