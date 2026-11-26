@@ -111,8 +111,12 @@
                 }
             </tbody>
         </table>
-        <div class="actions"><button type="submit" class="danger" disabled="@Model.Running" data-confirm-noun="folder or file|folders or files"
-            data-confirm="Delete {n} from the disk? This can't be undone." data-confirm-label="Delete">Delete selected</button></div>
+        @* Fixed to the bottom of the window while rows are ticked, so the buttons are in reach at the end of a long list (bulk-bar.js). *@
+        <div class="bulk-bar" data-bulk-bar>
+            <span class="bulk-count" data-bulk-count>Nothing selected</span>
+            <button type="submit" class="danger" disabled="@Model.Running" data-confirm-noun="folder or file|folders or files"
+                data-confirm="Delete {n} from the disk? This can't be undone." data-confirm-label="Delete">Delete selected</button>
+        </div>
     </form>
 }
 
@@ -192,7 +196,9 @@
                 }
             </tbody>
         </table>
-        <div class="actions">
+        @* Fixed to the bottom of the window while rows are ticked, so the buttons are in reach at the end of a long list (bulk-bar.js). *@
+        <div class="bulk-bar" data-bulk-bar>
+            <span class="bulk-count" data-bulk-count>Nothing selected</span>
             <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
             <button type="submit" asp-page-handler="RemoveRecord" class="danger" disabled="@Model.Running">Remove record</button>
         </div>
@@ -238,7 +244,9 @@
                 }
             </tbody>
         </table>
-        <div class="actions">
+        @* Fixed to the bottom of the window while rows are ticked, so the buttons are in reach at the end of a long list (bulk-bar.js). *@
+        <div class="bulk-bar" data-bulk-bar>
+            <span class="bulk-count" data-bulk-count>Nothing selected</span>
             <button type="submit" asp-page-handler="Relink" disabled="@Model.Running">Relink selected</button>
         </div>
     </form>
