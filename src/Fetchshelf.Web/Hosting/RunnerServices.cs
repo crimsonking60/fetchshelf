@@ -22,11 +22,12 @@ public static class RunnerServices
         {
             AudioTypes = settings.AudioTypes,
             EbookTypes = settings.EbookTypes,
+            ComicTypes = settings.ComicTypes,
             MusicTypes = settings.MusicTypes,
             RadioTypes = settings.RadioTypes,
             Libraries = settings.Library
-                .Where(library => library.Name is not null && (library.AudioTypes is not null || library.EbookTypes is not null))
-                .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes), StringComparer.Ordinal),
+                .Where(library => library.Name is not null && (library.AudioTypes is not null || library.EbookTypes is not null || library.ComicTypes is not null))
+                .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes, library.ComicTypes), StringComparer.Ordinal),
         });
         services.AddSingleton<IReadOnlyList<Library>>(settings.Library);
         services.AddSingleton(new LinkRunnerOptions(

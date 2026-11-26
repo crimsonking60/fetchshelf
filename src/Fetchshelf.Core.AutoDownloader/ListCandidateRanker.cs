@@ -29,11 +29,17 @@ public static class ListCandidateRanker
     /// </summary>
     public static IReadOnlyList<ListCandidate<T>> IdentifierMatches<T>(
         IReadOnlyList<ListCandidate<T>> candidates, IReadOnlySet<string> identifiers, IReadOnlyList<string> preferredFileTypes) =>
+        IdentifierMatches(candidates, identifiers, _ => preferredFileTypes);
+
+    /// <inheritdoc cref="IdentifierMatches{T}(IReadOnlyList{ListCandidate{T}}, IReadOnlySet{string}, IReadOnlyList{string})"/>
+    /// <param name="preferredFileTypesFor">The format list for a candidate's media type, as comics can have their own.</param>
+    public static IReadOnlyList<ListCandidate<T>> IdentifierMatches<T>(
+        IReadOnlyList<ListCandidate<T>> candidates, IReadOnlySet<string> identifiers, Func<MediaType, IReadOnlyList<string>> preferredFileTypesFor) =>
         identifiers.Count == 0
             ? []
             : OrderByFormat(
                 candidates.Where(c => BookIdentifiers.From([c.Metadata.Isbn, c.Metadata.Asin]).Overlaps(identifiers)),
-                preferredFileTypes);
+                preferredFileTypesFor);
 
     /// <summary>
     /// Returns candidates within <see cref="ScoreMargin"/> of the best fuzzy score, ordered best
@@ -45,7 +51,17 @@ public static class ListCandidateRanker
         string title,
         IReadOnlyList<string> authors,
         (string Name, double Number)? series,
-        IReadOnlyList<string> preferredFileTypes)
+        IReadOnlyList<string> preferredFileTypes) =>
+        RankAndFilter(candidates, title, authors, series, _ => preferredFileTypes);
+
+    /// <inheritdoc cref="RankAndFilter{T}(IReadOnlyList{ListCandidate{T}}, string, IReadOnlyList{string}, ValueTuple{string, double}?, IReadOnlyList{string})"/>
+    /// <param name="preferredFileTypesFor">The format list for a candidate's media type, as comics can have their own.</param>
+    public static IReadOnlyList<ListCandidate<T>> RankAndFilter<T>(
+        IReadOnlyList<ListCandidate<T>> candidates,
+        string title,
+        IReadOnlyList<string> authors,
+        (string Name, double Number)? series,
+        Func<MediaType, IReadOnlyList<string>> preferredFileTypesFor)
     {
         if (candidates.Count == 0)
         {
@@ -60,12 +76,13 @@ public static class ListCandidateRanker
         var maxScore = scored[0].Score;
         var withinMargin = scored.Where(s => s.Score > maxScore - ScoreMargin);
 
-        return OrderByFormat(withinMargin.Select(s => s.Candidate), preferredFileTypes);
+        return OrderByFormat(withinMargin.Select(s => s.Candidate), preferredFileTypesFor);
     }
 
-    private static List<ListCandidate<T>> OrderByFormat<T>(IEnumerable<ListCandidate<T>> candidates, IReadOnlyList<string> preferredFileTypes) =>
+    private static List<ListCandidate<T>> OrderByFormat<T>(
+        IEnumerable<ListCandidate<T>> candidates, Func<MediaType, IReadOnlyList<string>> preferredFileTypesFor) =>
         candidates
-            .Select(c => (Candidate: c, Rank: FormatRanker.Rank(preferredFileTypes, c.Metadata.FileTypes)))
+            .Select(c => (Candidate: c, Rank: FormatRanker.Rank(preferredFileTypesFor(c.Metadata.MediaType), c.Metadata.FileTypes)))
             .OrderBy(s => s.Rank)
             .ThenBy(s => s.Candidate.Metadata.FileCount)
             .ThenByDescending(s => s.Candidate.Metadata.TotalSizeBytes)

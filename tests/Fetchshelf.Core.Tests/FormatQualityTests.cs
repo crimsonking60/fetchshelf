@@ -58,6 +58,10 @@ public class FormatQualityTests
         Assert.Equal("Format: no epub (preferred), it has pdf.", Rate(["pdf"], MediaType.ComicBook, ["epub", "pdf"]).Issue);
 
     [Fact]
+    public void Rate_AComicWithComicTypes_PrefersTheFirstInThatList() =>
+        Assert.Equal("Format: no pdf (preferred), it has cbz.", FormatQuality.Rate(["pdf", "cbz"], ["cbz"], MediaType.ComicBook, "comic_types").Issue);
+
+    [Fact]
     public void Rate_OtherMediaTypes_PreferTheFirstInTheList() =>
         Assert.Equal("Format: no m4b (preferred), it has mp3.", FormatQuality.Rate(["m4b", "mp3"], ["mp3"], MediaType.Audiobook, "audio_types").Issue);
 

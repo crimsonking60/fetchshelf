@@ -567,7 +567,7 @@ type and the category switch, for example `media_type = ["Radio"]` with `categor
 (see the [shared torrent filter](configuration.md#the-shared-torrent-filter)).
 
 You can narrow a library with `allow_tags` (the torrent needs at least one) and `deny_tags` (the torrent
-is rejected if it has any), and give it its own `audio_types` / `ebook_types` to control which files are
+is rejected if it has any), and give it its own `audio_types` / `ebook_types` / `comic_types` to control which files are
 linked into it.
 
 ### Sorting books by genre
@@ -928,11 +928,11 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   about the formats when something is wrong with them, then what the information is missing.
 
   The formats are checked against the format list for the torrent's media type (`audio_types`,
-  `ebook_types`, `music_types` or `radio_types`), whose first entry is the format you want most. With
+  `ebook_types`, `comic_types`, `music_types` or `radio_types`), whose first entry is the format you want most. With
   `ebook_types = ["epub", "mobi", "pdf"]`, an ebook with an `epub` is fine, one with only a `mobi` or a `pdf`
   is at best *Lacking*, and one with none of the three is *Poor*, since Fetchshelf won't download it. The
   pill shows the worse of the two ratings: an upload with perfect information in a second-choice format is
-  *Lacking*. Ebooks, comics and manga share `ebook_types`, so a comic or manga prefers the first comic format
+  *Lacking*. Without `comic_types`, ebooks, comics and manga share `ebook_types`, so a comic or manga prefers the first comic format
   in it (`cbz`, `cbr`, `cb7` or `cbt`), and any other ebook the first format that isn't one; a comic in
   another format from the list, such as `pdf`, is *Lacking*, not *Poor*.
 
@@ -969,7 +969,7 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   **Wedge select**, since the torrent then waits on the **Selected** page for the next Download run.
 - **Can't download** replaces the download buttons on a torrent Fetchshelf would refuse anyway: one whose
   MAM listing has no file types, or whose file types are all missing from your format list for its kind of
-  book (`ebook_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
+  book (`ebook_types`, `comic_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
   second case, adding one of its file types to that list makes it downloadable.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
   know, such as one you added by hand, or has only selected; importing takes it off the **Selected** queue. It records the torrent with MAM's details without downloading
@@ -1605,7 +1605,8 @@ next scheduled run after it finishes. It needs the background jobs, so it doesn'
 - **Which files.** From each torrent Fetchshelf links the files of at most two formats: the best audio
   format and the best ebook format it contains, where best means earliest in your format lists. The audio
   format comes from `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
-  else; the ebook format always comes from `ebook_types`. With the default lists, a torrent with both
+  else; the ebook format comes from `comic_types` for comics and manga when it is set, and from `ebook_types`
+  otherwise. With the default lists, a torrent with both
   `m4b` and `mp3` files gets only its `m4b` files linked, and an audiobook that comes with a PDF gets the
   PDF as well. Other files are left alone.
 - **Folder names.** Under `library_dir`:
@@ -1875,7 +1876,8 @@ Whether a collection is split is decided, first that applies:
   the words it adds name neither a collection ("Complete", "Collection", …), an author nor years:
   files named `Black  White Vol 1 #01.cbr` in *Batman: Black and White* are *Batman: Black and White Vol 1* #1. Files named after another series in
   the same torrent are books of that series: `Ultimate Spider-Man Annual 03` is *Ultimate Spider-Man Annual* #3.
-- **Each book picks its own format** from its own files by your `ebook_types`, as the other formats of a collection are
+- **Each book picks its own format** from its own files by your `ebook_types` (`comic_types` for comics and manga, when
+  set), as the other formats of a collection are
   usually other books, not copies.
 - **The books are books everywhere:** the Clean job, duplicates, selection, Hardcover lists, the Follow job, the Series
   page, OPDS and Audiobookshelf see each of them. A book held both from a collection and as a single torrent is two
@@ -1917,10 +1919,10 @@ split. When they are wrong, there are several ways out:
 
 ### Better formats replace worse ones
 
-Your format lists (`audio_types`, `ebook_types`, `music_types` and `radio_types`) are in order of
+Your format lists (`audio_types`, `ebook_types`, `comic_types`, `music_types` and `radio_types`) are in order of
 preference. If two copies of the same book are linked, the one whose format comes earlier in the list is
 kept, and ties go to the larger one. A copy is ranked by the format it was linked in, with its library's own
-`audio_types` or `ebook_types` when the library sets them; when the copies were linked into libraries with
+`audio_types`, `ebook_types` or `comic_types` when the library sets them; when the copies were linked into libraries with
 different lists, all of them are ranked with the top-level list instead. With `ebook_types = ["epub", "pdf"]`, an
 epub replaces a pdf of the same book.
 

@@ -405,7 +405,7 @@ public sealed class LinkRunner(
         }
 
         var split = CollectionSplitter.Analyze(
-            metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), library.EbookTypes ?? formatPreferenceLists.EbookTypes, ReadEpub);
+            metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), formatPreferenceLists.EbookSideFor(metadata.MediaType, library.EbookTypes, library.ComicTypes), ReadEpub);
         LogSplit(metadata.Title, split);
         return split.Books;
     }
@@ -605,7 +605,7 @@ public sealed class LinkRunner(
     {
         var (audio, ebook) = LinkedFormats.Choose(
             library.AudioTypes ?? formatPreferenceLists.AudioSideFor(metadata.MediaType),
-            library.EbookTypes ?? formatPreferenceLists.EbookTypes,
+            formatPreferenceLists.EbookSideFor(metadata.MediaType, library.EbookTypes, library.ComicTypes),
             files.Select(f => f.Name));
         if (library.IsSeriesLayout)
         {
@@ -1170,7 +1170,7 @@ public sealed class LinkRunner(
 
                 var files = await client.ListFilesAsync(torrent.Id, cancellationToken);
                 var books = CollectionSplitter.Split(
-                    metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), library.EbookTypes ?? formatPreferenceLists.EbookTypes);
+                    metadata, files.Select(f => new TorrentFileEntry(f.Name, f.Size)).ToList(), formatPreferenceLists.EbookSideFor(metadata.MediaType, library.EbookTypes, library.ComicTypes));
                 if (books is not null)
                 {
                     findings.Add(new LibraryFinding(LibraryFindingKind.CollectionNotSplit, Path.GetFullPath(torrent.LibraryPath!), library.Name ?? library.LibraryDir)

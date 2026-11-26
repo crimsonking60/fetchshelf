@@ -421,25 +421,25 @@ public sealed class ListImporter(
                 var affordable = candidates.Where(c => GrabMatching.Accepts(grab.Cost, c.Payload)).ToList();
                 if (needAudio && audioWinner is null)
                 {
-                    if (Best(affordable, FilterMainType.Audio, item, authors, series, identifiers, preferenceLists.AudioTypes) is { } audio)
+                    if (Best(affordable, FilterMainType.Audio, item, authors, series, identifiers, _ => preferenceLists.AudioTypes) is { } audio)
                     {
                         (audioWinner, audioGrab) = (audio, grab);
                     }
                     else
                     {
-                        audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, identifiers, preferenceLists.AudioTypes);
+                        audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, identifiers, _ => preferenceLists.AudioTypes);
                     }
                 }
 
                 if (needEbook && ebookWinner is null)
                 {
-                    if (Best(affordable, FilterMainType.Ebook, item, authors, series, identifiers, preferenceLists.EbookTypes) is { } ebook)
+                    if (Best(affordable, FilterMainType.Ebook, item, authors, series, identifiers, mediaType => preferenceLists.EbookSideFor(mediaType)) is { } ebook)
                     {
                         (ebookWinner, ebookGrab) = (ebook, grab);
                     }
                     else
                     {
-                        ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, identifiers, preferenceLists.EbookTypes);
+                        ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, identifiers, mediaType => preferenceLists.EbookSideFor(mediaType));
                     }
                 }
 
@@ -608,7 +608,7 @@ public sealed class ListImporter(
 
     private static ListCandidate<MamTorrentRecord>? Best(
         IReadOnlyList<ListCandidate<MamTorrentRecord>> candidates, FilterMainType side, ListItemEntity item,
-        IReadOnlyList<string> authors, (string Name, double Number)? series, IReadOnlySet<string> identifiers, IReadOnlyList<string> preferredTypes)
+        IReadOnlyList<string> authors, (string Name, double Number)? series, IReadOnlySet<string> identifiers, Func<MediaType, IReadOnlyList<string>> preferredTypes)
     {
         var ofSide = candidates.Where(c => FilterMainTypeMapper.FromMediaType(c.Metadata.MediaType) == side).ToList();
         // An upload with one of the book's ISBNs or ASINs is the book, however far its title is from the list's.

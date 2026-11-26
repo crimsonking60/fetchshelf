@@ -67,7 +67,8 @@ extra_categories = ["seed-only"]
 # Wanted file types per kind of media, best first. A torrent is only downloaded if it has at least one
 # of these, only these are linked, and the first-listed type wins when two copies of a book compete.
 audio_types = ["m4b", "m4a", "mp4", "mp3", "ogg"]            # audiobooks, periodical audiobooks
-ebook_types = ["epub", "azw3", "mobi", "azw", "pdf", "cbz", "cbr"] # ebooks, manga, comics, periodicals
+ebook_types = ["epub", "azw3", "mobi", "azw", "pdf", "cbz", "cbr"] # ebooks, periodicals (and comics without comic_types)
+comic_types = ["cbz", "cbr", "pdf", "epub"]                   # comics and manga; unset means ebook_types
 music_types = ["flac", "mp3", "pdf"]                          # musicology
 radio_types = ["mp3"]                                         # radio
 
@@ -455,6 +456,7 @@ library_dir = "/data/library/ebooks"
 method = "hardlink_or_copy"
 allow_tags = ["fetchshelf"]              # if not empty, torrents need at least one of these
 ebook_types = ["epub", "pdf"]
+comic_types = ["cbz", "pdf"]             # this library's own list for comics and manga
 metadata_opf = true                      # also write a metadata.opf (Calibre's format); default false
 metadata_json = false                    # leave out metadata.json (Audiobookshelf's format); default true
 split_collections = true                 # link a collection of ebooks as one book each; default the global setting

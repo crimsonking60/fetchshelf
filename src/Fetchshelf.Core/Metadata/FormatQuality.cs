@@ -15,7 +15,8 @@ public sealed record FormatQualityRating(MetadataQualityGrade Grade, string? Iss
 /// The preferred format is the first in the list, except that ebooks, comics and manga share `ebook_types`: a comic or
 /// manga prefers the first comic format in it, such as `cbz`, and any other ebook the first format that isn't a comic
 /// format, such as `epub`. A list without such a format falls back to its first. Every format in the list still counts
-/// as accepted, as it does for selection, so a comic in `pdf` is lacking, not poor.
+/// as accepted, as it does for selection, so a comic in `pdf` is lacking, not poor. With `comic_types` set, comics and
+/// manga have a list of their own, and its first format is the preferred one.
 /// </remarks>
 public static class FormatQuality
 {
@@ -42,7 +43,7 @@ public static class FormatQuality
                 $"Format: none of its file types ({has}) is in your {settingName} setting ({string.Join(", ", preferenceList)}).");
         }
 
-        var preferred = Preferred(preferenceList, mediaType);
+        var preferred = settingName == "comic_types" ? preferenceList[0] : Preferred(preferenceList, mediaType);
         return FormatRanker.Rank([preferred], fileTypes) == 0
             ? new FormatQualityRating(MetadataQualityGrade.Good, null)
             : new FormatQualityRating(MetadataQualityGrade.Lacking, $"Format: no {preferred} (preferred), it has {has}.");

@@ -71,6 +71,7 @@
             <tr><th>languages</th><td>@(settings.Languages.Count == 0 ? "any" : string.Join(", ", settings.Languages))</td></tr>
             <tr><th>audio_types</th><td>@string.Join(", ", settings.AudioTypes)</td></tr>
             <tr><th>ebook_types</th><td>@string.Join(", ", settings.EbookTypes)</td></tr>
+            <tr><th>comic_types</th><td>@(settings.ComicTypes is { } comicTypes ? string.Join(", ", comicTypes) : "unset: ebook_types")</td></tr>
             <tr><th>music_types</th><td>@string.Join(", ", settings.MusicTypes)</td></tr>
             <tr><th>radio_types</th><td>@string.Join(", ", settings.RadioTypes)</td></tr>
             <tr><th>search.wedge_over</th><td>@settings.Search.WedgeOver</td></tr>
