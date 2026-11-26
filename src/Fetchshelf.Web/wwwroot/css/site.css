@@ -568,6 +568,9 @@ td .sub.unclamped, td .sub.job-description { display: block; -webkit-line-clamp:
     box-shadow: 0 -4px 14px color-mix(in srgb, #000 28%, transparent);
 }
 .bulk-bar[hidden] { display: none; }
+/* A list of finds' bar has a form of its own after the table (its rows' buttons are forms, which can't nest). Sticky
+   stays within its parent, so the form gives up its box and the bar sticks within the list's container instead. */
+#bulk-finds { display: contents; }
 .bulk-bar form { margin: 0; }
 .bulk-count { margin-right: 0.5rem; font-weight: 600; }
 .bulk-danger { display: inline-flex; gap: 0.5rem; margin-left: auto; padding-left: 0.75rem; border-left: 1px solid var(--border-strong); }
