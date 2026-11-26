@@ -107,6 +107,9 @@ public sealed class Library
     /// <summary>Overrides the global `ebook_types` preference list for this library when non-null.</summary>
     public List<string>? EbookTypes { get; set; }
 
+    /// <summary>Overrides the global `comic_types` preference list, for comic books and manga, in this library when non-null.</summary>
+    public List<string>? ComicTypes { get; set; }
+
     private bool? _metadataJson;
     private bool? _metadataOpf;
 

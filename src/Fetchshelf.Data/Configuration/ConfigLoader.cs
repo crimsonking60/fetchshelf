@@ -64,6 +64,7 @@ public static partial class ConfigLoader
         ["ebook_types"] = (s, _, v) => s.EbookTypes = SplitList(v),
         ["music_types"] = (s, _, v) => s.MusicTypes = SplitList(v),
         ["radio_types"] = (s, _, v) => s.RadioTypes = SplitList(v),
+        ["comic_types"] = (s, _, v) => s.ComicTypes = SplitList(v),
         ["hardcover_token"] = (s, _, v) => (s.Hardcover ??= new()).Token = v,
         ["hardcover_token_file"] = (s, _, v) => (s.Hardcover ??= new()).TokenFile = v,
         ["opds_libraries"] = (s, _, v) => (s.Opds ??= new()).Libraries = SplitList(v),

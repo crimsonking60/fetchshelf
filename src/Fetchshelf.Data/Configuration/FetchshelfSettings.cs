@@ -138,6 +138,11 @@ public sealed class FetchshelfSettings
     public List<string> RadioTypes { get; set; } = ["mp3"];
 
     /// <summary>
+    /// File extensions wanted for comic books and manga, best first; unset means they use <see cref="EbookTypes"/>.
+    /// </summary>
+    public List<string>? ComicTypes { get; set; }
+
+    /// <summary>
     /// Repeatable `[[qbittorrent]]` connection entries. Explicit alias since the irregular
     /// "QBittorrent" casing is not safely reconstructible by the underscored naming convention.
     /// </summary>

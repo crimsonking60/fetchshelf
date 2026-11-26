@@ -147,6 +147,7 @@ public sealed class LibraryConfigTests : IDisposable
             deny_tags = ["dnp"]
             audio_types = ["m4b"]
             ebook_types = ["epub"]
+            comic_types = ["cbz"]
             folder_names = "portable"
             folder_template = "{authors}/{title}[ ({year})]"
             """);
@@ -162,8 +163,19 @@ public sealed class LibraryConfigTests : IDisposable
         Assert.Equal(["dnp"], library.DenyTags);
         Assert.Equal(["m4b"], library.AudioTypes);
         Assert.Equal(["epub"], library.EbookTypes);
+        Assert.Equal(["cbz"], library.ComicTypes);
         Assert.Equal(FileNameRules.Portable, library.FolderNames);
         Assert.Equal("{authors}/{title}[ ({year})]", library.TemplateLayout.Template);
+    }
+
+    [Fact]
+    public void Load_ComicTypes_IsUnsetByDefault_AndReadWhenGiven()
+    {
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\n");
+        Assert.Null(ConfigLoader.Load(ConfigPath).ComicTypes);
+
+        File.WriteAllText(ConfigPath, "mam_id = \"\"\ncomic_types = [\"cbz\", \"cbr\"]\n");
+        Assert.Equal(["cbz", "cbr"], ConfigLoader.Load(ConfigPath).ComicTypes);
     }
 
     [Theory]

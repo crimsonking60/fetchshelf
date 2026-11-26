@@ -69,22 +69,20 @@ public static class LibraryCopyRank
         }
 
         var library = torrent.LinkerName is { } name ? preferenceLists.Libraries.GetValueOrDefault(name) : null;
-        return (torrent.ChosenAudioExtension is not null ? library?.AudioTypes : library?.EbookTypes)
-            ?? GlobalPreferenceList(torrent, preferenceLists);
+        return torrent.ChosenAudioExtension is not null
+            ? library?.AudioTypes ?? preferenceLists.AudioSideFor(MediaTypeOf(torrent))
+            : preferenceLists.EbookSideFor(MediaTypeOf(torrent), library?.EbookTypes, library?.ComicTypes);
     }
 
     /// <summary>The global list for the copy's chosen format, leaving its library's own out; null without a chosen format.</summary>
-    private static IReadOnlyList<string>? GlobalPreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists)
-    {
-        if (torrent.ChosenAudioExtension is not null)
-        {
-            // The media type column saves reading the metadata; music and radio have lists of their own.
-            var mediaType = Enum.TryParse<Core.Metadata.MediaType>(torrent.MediaType, out var parsed)
-                ? parsed
-                : TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).MediaType;
-            return preferenceLists.AudioSideFor(mediaType);
-        }
+    private static IReadOnlyList<string>? GlobalPreferenceList(TorrentEntity torrent, FormatPreferenceLists preferenceLists) =>
+        ChosenFormat(torrent) is null ? null
+        : torrent.ChosenAudioExtension is not null ? preferenceLists.AudioSideFor(MediaTypeOf(torrent))
+        : preferenceLists.EbookSideFor(MediaTypeOf(torrent));
 
-        return torrent.ChosenEbookExtension is not null ? preferenceLists.EbookTypes : null;
-    }
+    /// <summary>The copy's media type: the column saves reading the metadata. Music, radio and comics can have lists of their own.</summary>
+    private static Core.Metadata.MediaType MediaTypeOf(TorrentEntity torrent) =>
+        Enum.TryParse<Core.Metadata.MediaType>(torrent.MediaType, out var parsed)
+            ? parsed
+            : TorrentMetadataSerializer.Deserialize(torrent.MetadataJson).MediaType;
 }

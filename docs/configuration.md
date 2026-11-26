@@ -233,7 +233,8 @@ These go at the top of the file, before any section.
 | `extra_categories` | `[]` | qBittorrent categories the web UI offers alongside the ones your `[[library]]` blocks use, such as `["seed-only"]`, for torrents that belong in no library. They appear, marked *no library*, in **Set category** and **Set category and tags** on the **Torrents** pages and in **Download into** on the Search page. A torrent in one is never linked, unless a library picks it up by its save path. |
 | `languages` | `[]` | The [`languages`](#the-shared-torrent-filter) of every `[[autograb]]`, `[[hardcover_list.grab]]`, `[[file_list.grab]]`, `[[bookmarks_list.grab]]` and `[[follow.grab]]` block that doesn't set its own, and the language the Search page starts with. Empty means any language. **`[[tag]]` rules don't use it.** Same names as in the filter; see [languages](#languages). |
 | `audio_types` | `["m4b", "m4a", "mp4", "mp3", "ogg"]` | File extensions wanted for Audiobooks and Periodical Audiobooks, best first. |
-| `ebook_types` | `["epub", "cbz", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks, Manga, Comic Books and Periodical Ebooks. |
+| `ebook_types` | `["epub", "cbz", "pdf", "mobi", "azw3", "azw", "cbr"]` | Same for Ebooks and Periodical Ebooks, and for Manga and Comic Books while `comic_types` is unset. |
+| `comic_types` | unset | Same for Manga and Comic Books, such as `["cbz", "cbr", "pdf", "epub"]`. Unset means they use `ebook_types`, as one list for novels, such as `["epub", "pdf"]`, would turn down every comic in `cbz`. |
 | `music_types` | `["flac", "mp3", "pdf"]` | Same for Musicology. |
 | `radio_types` | `["mp3"]` | Same for Radio. |
 | `page_explanations` | `true` | Show a short explanation under each page title in the web UI. |
@@ -247,7 +248,7 @@ Notes:
   the list order ranks competing copies of the same book: the copy whose first listed extension comes
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
-  `audio_types` and `ebook_types` for linking.
+  `audio_types`, `ebook_types` and `comic_types` for linking.
 - **Intervals** are per job: each `[[autograb]]` block runs on its own timer. A job
   with interval `0` is still listed on the Jobs page and can be started with **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
@@ -1139,6 +1140,7 @@ library, in file order, that accepts it is used.
 | `fiction` | unset | `"fiction"` or `"nonfiction"`: the book's main category on MAM must be this one. Unset takes both, and books MAM gave neither. Needs `genres = true`. |
 | `audio_types` | global | Overrides the global format list for linking into this library. |
 | `ebook_types` | global | Overrides the global format list for linking into this library. |
+| `comic_types` | global | Overrides the global `comic_types` for linking comics and manga into this library. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 | `split_collections` | global `split_collections` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. A torrent's own page can override it for that torrent. See [Collections](user-guide.md#collections). |
@@ -1174,8 +1176,11 @@ library, in file order, that accepts it is used.
   (`ENOENT`), would make the copy or the link fail too, so it is reported as itself: the Link error names it.
 - From each torrent, only the files of its best audio format and its best ebook format are linked. The
   audio side uses `music_types` for Musicology, `radio_types` for Radio and `audio_types` for everything
-  else; the ebook side uses `ebook_types`. A library's own `audio_types` replaces the audio-side list for
-  every media type, Musicology and Radio included, and its own `ebook_types` replaces the ebook-side list.
+  else; the ebook side uses `comic_types` for Comic Books and Manga when it is set, and `ebook_types` for everything
+  else. A library's own `audio_types` replaces the audio-side list for every media type, Musicology and Radio
+  included. For comics and manga the ebook side is the library's own `comic_types`, else the global one, else the
+  library's own `ebook_types`, else the global one; for other ebooks it is the library's own `ebook_types`, else the
+  global one.
 - Files in subfolders named like `CD 1`, `Disc 2` or `Disk 3` go to a `Disc N` folder. Other folder
   structure is flattened. Files that would then share a name keep their subfolders in front of the name:
   `Part 1/01.mp3` becomes `Part 1 - 01.mp3`. Anything still clashing gets ` (2)`, ` (3)` before the extension.

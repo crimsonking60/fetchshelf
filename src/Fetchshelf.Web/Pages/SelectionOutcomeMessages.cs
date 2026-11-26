@@ -23,7 +23,7 @@ public static class SelectionOutcomeMessages
             SelectionOutcome.RefreshedLibrary => $"{title} is already downloaded.",
             SelectionOutcome.NoPreferredFormat =>
                 $"{title} was not selected: none of its file types ({string.Join(", ", metadata.FileTypes)}) is in your "
-                + $"{FormatPreferenceLists.SettingNameFor(metadata.MediaType)} setting ({string.Join(", ", preferenceLists.For(metadata.MediaType))}).",
+                + $"{preferenceLists.SettingNameFor(metadata.MediaType)} setting ({string.Join(", ", preferenceLists.For(metadata.MediaType))}).",
             SelectionOutcome.DuplicateOfSelected => $"{title} was not selected: a copy is already selected.",
             SelectionOutcome.DuplicateOfLibrary => $"{title} was not selected: a copy is already in your library.",
             SelectionOutcome.CostNotFree => $"{title} was not selected: it is not free and the chosen cost does not allow it.",

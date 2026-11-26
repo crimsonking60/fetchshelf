@@ -109,7 +109,7 @@ public sealed record SearchResultViewModel(
 
         var wanted = preferenceLists.For(mediaType);
         return FormatRanker.Rank(wanted, fileTypes) == FormatRanker.NotPresent
-            ? $"None of its file types ({string.Join(", ", fileTypes)}) is in your {FormatPreferenceLists.SettingNameFor(mediaType)} "
+            ? $"None of its file types ({string.Join(", ", fileTypes)}) is in your {preferenceLists.SettingNameFor(mediaType)} "
                 + $"setting ({string.Join(", ", wanted)}), so Fetchshelf won't download it."
             : null;
     }
@@ -124,7 +124,7 @@ public sealed record SearchResultViewModel(
         return Enum.IsDefined(mediaType)
             ? Core.Metadata.FormatQuality.Rate(
                 preferenceLists.For(mediaType), record.FileTypesRaw.Split(' ', StringSplitOptions.RemoveEmptyEntries),
-                mediaType, FormatPreferenceLists.SettingNameFor(mediaType))
+                mediaType, preferenceLists.SettingNameFor(mediaType))
             : null;
     }
 
