@@ -20,7 +20,7 @@ public class ConfirmDialogTests
 
     [Theory]
     [InlineData("Torrents/_TorrentListPartial.cshtml")]
-    [InlineData("Selected/Index.cshtml")]
+    [InlineData("Queue/Index.cshtml")]
     [InlineData("Errors/Index.cshtml")]
     [InlineData("Duplicates/Index.cshtml")]
     [InlineData("Following/_FindList.cshtml")]

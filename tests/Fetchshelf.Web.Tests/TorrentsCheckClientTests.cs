@@ -143,13 +143,13 @@ public partial class TorrentsCheckClientTests
         }
 
         using var client = fixture.CreateNoRedirectClient();
-        Assert.Contains("Finished Book", await client.GetStringAsync("/selected"));
+        Assert.Contains("Finished Book", await client.GetStringAsync("/queue"));
         var page = await client.GetStringAsync("/torrents");
 
         var html = await (await PostCheckAsync(client, page, fromHtmx: true)).Content.ReadAsStringAsync();
 
         Assert.Contains("1 finished download was removed from the Selected queue.", html);
-        Assert.DoesNotContain("Finished Book", await client.GetStringAsync("/selected"));
+        Assert.DoesNotContain("Finished Book", await client.GetStringAsync("/queue"));
     }
 
     [Fact]

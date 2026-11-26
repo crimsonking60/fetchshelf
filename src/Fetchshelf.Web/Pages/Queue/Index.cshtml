@@ -1,10 +1,10 @@
 @page
-@model Fetchshelf.Web.Pages.Selected.IndexModel
+@model Fetchshelf.Web.Pages.Queue.IndexModel
 @{
-    ViewData["Title"] = "Selected";
+    ViewData["Title"] = "Queue";
 }
 
-<h2>Selected</h2>
+<h2>Queue</h2>
 @await Html.PartialAsync("_PageExplanation", "This page is the download queue: torrents Fetchshelf has picked and is about to send to qBittorrent, or has sent and is still downloading. A torrent leaves the queue once it has finished; the Torrents page follows it from there. Adjust a selection's cost, category or tags before it starts and press Update on its row, or tick one or more selections and use Remove selected if you no longer want them.")
 
 @if (Model.Selections.Count == 0)
@@ -28,8 +28,8 @@ else
             <thead>
                 <tr>
                     <th class="col-fit phone-title"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.selection-select').forEach(c => c.checked = this.checked)" /></th>
-                    <th class="phone-title" sort-by="Title" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Title</th>
-                    <th class="col-fit" sort-by="Cost" sort-state="Model.SortState" sort-page="/Selected/Index" sort-route="@(new Dictionary<string, string>())">Cost</th>
+                    <th class="phone-title" sort-by="Title" sort-state="Model.SortState" sort-page="/Queue/Index" sort-route="@(new Dictionary<string, string>())">Title</th>
+                    <th class="col-fit" sort-by="Cost" sort-state="Model.SortState" sort-page="/Queue/Index" sort-route="@(new Dictionary<string, string>())">Cost</th>
                     <th>Category</th>
                     <th>Tags</th>
                     <th class="col-fit"></th>
@@ -43,7 +43,7 @@ else
                         <td>
                             @* Opens the selection's details in a dialog; the link itself goes to the torrent on MAM, for a new tab. *@
                             <a class="selection-title" href="@Fetchshelf.Web.Pages.Duplicates.DuplicateViewModel.MamTorrentLink(Model.MamBaseUrl, selection.MamId)"
-                               hx-get="@Url.Page("/Selected/Index", "Details", new { id = selection.Id })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@selection.Title</a>
+                               hx-get="@Url.Page("/Queue/Index", "Details", new { id = selection.Id })" hx-target="#hit-dialog-body" hx-swap="innerHTML">@selection.Title</a>
                             @* Who selected it and when, under the title: three columns of plain text were most of the table's width. *@
                             <div class="sub unclamped">@selection.GrabberName · created <local-time value="selection.CreatedAt" />@if (selection.StartedAt is { } startedAt) { <text> · started <local-time value="startedAt" /></text> }</div>
                         </td>
@@ -51,7 +51,7 @@ else
                         {
                             <td class="col-fit">
                                 <select form="update-@selection.Id" name="cost" aria-label="Cost for @selection.Title">
-                                    @foreach (var cost in Fetchshelf.Web.Pages.Selected.IndexModel.CostChoicesFor(selection))
+                                    @foreach (var cost in Fetchshelf.Web.Pages.Queue.IndexModel.CostChoicesFor(selection))
                                     {
                                         <option value="@cost" selected="@(cost == selection.CostDecision)">@cost</option>
                                     }

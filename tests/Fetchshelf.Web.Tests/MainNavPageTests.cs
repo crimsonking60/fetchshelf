@@ -19,7 +19,7 @@ public class MainNavPageTests
 
         var firstMenu = nav.IndexOf("<details class=\"nav-menu\"", StringComparison.Ordinal);
         var bar = nav[..firstMenu];
-        foreach (var label in new[] { "Search", "Torrents", "Selected", "Jobs", "Errors" })
+        foreach (var label in new[] { "Search", "Torrents", "Queue", "Jobs", "Errors" })
         {
             Assert.Matches($"<a [^>]*>{label}", bar);
         }

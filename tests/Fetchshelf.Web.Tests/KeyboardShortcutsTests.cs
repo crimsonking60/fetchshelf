@@ -14,7 +14,7 @@ public class KeyboardShortcutsTests
         Assert.Contains("id=\"shortcuts\"", html);
         Assert.Contains("data-go=\"t\"", html);
         Assert.Contains("data-go=\"j\"", html);
-        Assert.Contains("data-go=\"s\"", html);
+        Assert.Contains("data-go=\"q\"", html);
         Assert.Contains("keys.", html);
     }
 

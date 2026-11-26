@@ -200,7 +200,7 @@ public sealed class FollowRunnerTests : IDisposable
     public async Task NoFreeSlots_StillSearchesAndSelects_TheDownloadJobWaitsForASlot()
     {
         // The account has 20 slots and the buffer takes them all: an autograb would select nothing, a follow selects its
-        // missing books, which wait on the Selected page until the Download job finds a slot beyond the buffer.
+        // missing books, which wait in the Queue until the Download job finds a slot beyond the buffer.
         var harness = CreateHarness(Results(Record(2, "Caliban's War", series: "The Expanse", number: "2")));
         AddFollows(harness, Follow(FollowKind.Series, "The Expanse"));
         var settings = Settings();

@@ -30,7 +30,7 @@ min_seeders = 1      # the default 'min_seeders' of every [[autograb]] block and
                      # [follow] or [upgrade]) that doesn't set its own; 0 = no minimum. Not used by [[tag]] rules.
 add_torrents_stopped = false
 download_after_selection = true # start downloading as soon as something is selected; false = wait for the
-                                # next scheduled Download run, leaving time to check the Selected page
+                                # next scheduled Download run, leaving time to check the Queue page
 
 page_explanations = true # short explanation under each page title in the web UI
 job_explanations = true  # short description of each job on the Jobs page

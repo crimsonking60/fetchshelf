@@ -83,7 +83,7 @@ public static class AccountNotificationRules
             $"{leftQueued} {(leftQueued == 1 ? "selection waits" : "selections wait")}: {limitedBy ?? "a budget is spent"}.",
             at,
             new Dictionary<string, object?> { ["left_queued"] = leftQueued, ["reason"] = limitedBy },
-            "/Selected");
+            "/Queue");
     }
 
     private static string Hours(DateTimeOffset time) => time.ToUniversalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + " UTC";

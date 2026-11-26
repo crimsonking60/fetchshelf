@@ -232,7 +232,7 @@ and `detail`.
 
 ### selected
 
-Shows the download queue, the rows of the **Selected** page, oldest first. Alias: `queue`. `--since` and
+Shows the download queue, the rows of the **Queue** page, oldest first. Alias: `queue`. `--since` and
 `--until` compare the time the torrent was selected.
 
 `QUERY`
@@ -241,7 +241,7 @@ Shows the download queue, the rows of the **Selected** page, oldest first. Alias
 `--state STATE`
 : `queued` (waiting for the Download job), `downloading` (added to qBittorrent, not finished), `removed`
   (gone from the queue: finished, removed by hand, or replaced by a better pick), or `all`. The default is
-  `queued,downloading`, what the **Selected** page shows.
+  `queued,downloading`, what the **Queue** page shows.
 
 `--grabber NAME`
 : Only entries selected by this autograb, list or `Manual search`.

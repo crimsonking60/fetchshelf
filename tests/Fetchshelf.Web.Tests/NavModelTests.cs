@@ -15,7 +15,7 @@ public class NavModelTests
     {
         var model = NavModel.Build(Inputs());
 
-        Assert.Equal(["Search", "Torrents", "Selected", "Jobs", "Errors"], Labels(model.Primary));
+        Assert.Equal(["Search", "Torrents", "Queue", "Jobs", "Errors"], Labels(model.Primary));
         Assert.Equal(["Library", "Insight"], model.Groups.Select(g => g.Label).ToArray());
         Assert.Equal(["Books", "Series", "Duplicates", "Library check"], Labels(model.Groups[0].Entries));
         Assert.Equal(["Events", "Statistics"], Labels(model.Groups[1].Entries));

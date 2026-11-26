@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-/// <summary>The sortable column headings of the Events, Series, Errors and Selected pages.</summary>
+/// <summary>The sortable column headings of the Events, Series, Errors and Queue pages.</summary>
 public class SortableHeadingsTests
 {
     private static async Task SeedEventsAsync(FetchshelfWebAppFixture fixture)

@@ -76,6 +76,8 @@ public static class FetchshelfApp
         app.MapStaticAssets();
         app.MapRazorPages()
            .WithStaticAssets();
+        // The Queue page was called Selected until 2026.11; old bookmarks and links still reach it.
+        app.MapGet("/selected", (HttpContext context) => Results.Redirect("/queue" + context.Request.QueryString, permanent: true));
         app.MapThemeEndpoint();
         app.MapHealthChecks("/health");
         if (settings.Metrics)

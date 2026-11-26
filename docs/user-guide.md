@@ -319,7 +319,7 @@ folder containing only an empty `mam_id`. The web interface starts, but **no bac
 you set `mam_id`. That is intentional: you can look around before anything happens on your account.
 
 1. Open `http://<your-host>:3157`.
-2. The top bar has the pages **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, the menus
+2. The top bar has the pages **Search**, **Torrents**, **Queue**, **Jobs** and **Errors**, the menus
    **Library** and **Insight**, **Config**, and the theme menu (◐). See
    [Using the web interface](#using-the-web-interface).
 3. Open **Config** to see the settings Fetchshelf loaded. It is read-only, and secrets are hidden.
@@ -966,13 +966,13 @@ The **Search** page is also the home page. Use it to search MAM yourself and dow
   costs no ratio. A message at the top of the page says whether the torrent was selected, and if not, why:
   for example, that a copy is already in your library. A selected torrent's status then follows it into the
   library by itself (see below). With `download_after_selection = false` the buttons say **Select** and
-  **Wedge select**, since the torrent then waits on the **Selected** page for the next Download run.
+  **Wedge select**, since the torrent then waits on the **Queue** page for the next Download run.
 - **Can't download** replaces the download buttons on a torrent Fetchshelf would refuse anyway: one whose
   MAM listing has no file types, or whose file types are all missing from your format list for its kind of
   book (`ebook_types`, `comic_types`, `audio_types`, `music_types` or `radio_types`). Point at it to see which. In the
   second case, adding one of its file types to that list makes it downloadable.
 - **Import** replaces the two download buttons on a torrent qBittorrent already has but Fetchshelf doesn't
-  know, such as one you added by hand, or has only selected; importing takes it off the **Selected** queue. It records the torrent with MAM's details without downloading
+  know, such as one you added by hand, or has only selected; importing takes it off the **Queue**. It records the torrent with MAM's details without downloading
   anything, so it shows on the **Torrents** page. Its category in qBittorrent stays as it is: if a library
   uses that category, the next Link run links it; otherwise give it one with **Set category** on the
   **Torrents** page. A torrent that Fetchshelf already has and qBittorrent too gets no buttons.
@@ -989,7 +989,7 @@ downloader processes with the ratio, unsatisfied-slot and wedge checks (see
 [Protecting your account](#protecting-your-account)) and then adds to qBittorrent with the category and tags
 from the `[[tag]]` rules, or the category chosen under **Download into**. The download starts straight away,
 unless `download_after_selection = false`
-makes selections wait for the next scheduled Download run. You can follow it on the **Selected** page.
+makes selections wait for the next scheduled Download run. You can follow it on the **Queue** page.
 
 Only one thing talks to MAM at a time (see [Background jobs](#background-jobs)). While a job is talking to
 MAM, a search, a **Download**, an **Import** or a result's details wait up to 10 seconds for it, then say which job
@@ -1111,7 +1111,7 @@ its category and reaches its library.
 |---|---|
 | `free` (default) | Only freeleech or VIP torrents. |
 | `ratio` or `all` | Pay with ratio. Free torrents still cost nothing. |
-| `wedge` | Always use a wedge on torrents that are not already free. With no wedge to spare above `wedge_buffer`, the torrent waits on the **Selected** page. |
+| `wedge` | Always use a wedge on torrents that are not already free. With no wedge to spare above `wedge_buffer`, the torrent waits on the **Queue** page. |
 | `try_wedge` | Use a wedge if one is available above your reserve, otherwise pay with ratio. |
 | `metadata_only` | Never download; just refresh the details of books Fetchshelf already has. |
 | `metadata_only_add` | Like `metadata_only`, but also records the books Fetchshelf does not have yet, still without downloading them. Fetchshelf then treats those books as already in your library: it will not download them again unless it finds a better format. |
@@ -1146,7 +1146,7 @@ cost = "try_wedge"
 Give each block a `name`. Each block is its own job, and the **Jobs** page lists it, with its **Run now**
 button, under that name, so you can tell "Free bookmarks" from "Small bookmarks" at a glance. Without
 names the jobs are only called `autograb[0]`, `autograb[1]` and so on, by their position in the file. The
-name also shows on the **Selected** page and in **Events** as what chose each torrent, and in the log
+name also shows on the **Queue** page and in **Events** as what chose each torrent, and in the log
 lines of each run. Without a name the log only gives the block's `type`, which is the same for all three
 blocks above.
 
@@ -1170,12 +1170,12 @@ blocks above.
   starts a Download run.
 
   "Would be selected" means the torrent would be queued. Your ratio, unsatisfied-snatch slots and wedges
-  are only checked when a download starts, so a queued torrent can still wait on the **Selected** page.
+  are only checked when a download starts, so a queued torrent can still wait on the **Queue** page.
 - `search_interval = 0` stops the block running by itself. Start it from the **Jobs** page with **Run now**.
   This suits a one-off backfill: a block that runs only when you press **Run now**, usually with
   `sort_by = "oldest_first"` and a higher `max_pages`. Check it with `dry_run = true` first, as above, then
   remove `dry_run`, restart and press **Run now** once.
-- `max_active_downloads` (which needs a `name`) caps how many of one block's selections may wait on the **Selected** page to be
+- `max_active_downloads` (which needs a `name`) caps how many of one block's selections may wait on the **Queue** page to be
   downloaded.
 
 Examples of each pattern are in [`4-targeted-searches.toml`](config-examples/4-targeted-searches.toml).
@@ -1314,7 +1314,7 @@ is matched on the title alone, which finds the wrong book more often. Use `dry_r
 ## Your MAM bookmarks as a list
 
 An autograb with `type = "bookmarks"` downloads your MAM bookmarks, but what happened to each one is spread over
-the log, the **Selected** page and the **Duplicates** page. A `[[bookmarks_list]]` downloads them too, and shows
+the log, the **Queue** page and the **Duplicates** page. A `[[bookmarks_list]]` downloads them too, and shows
 every bookmark on the **Lists** page with what happened to it: selected, already in the library, costing more
 than its `grab` blocks allow, or taken by none of their filters.
 
@@ -1367,7 +1367,7 @@ categories = { ebook = false }
   download** and **Dismiss** buttons, and nothing downloaded by itself.
 - **Auto** instead has the Follow job download the series' missing books, and new ones as they are uploaded,
   through the same rules as automatic downloads. They are selected even when no unsatisfied-snatch slot is free, and
-  wait on the **Selected** page until the Download job can start them.
+  wait on the **Queue** page until the Download job can start them.
 - **Ignore** a series to leave it out of the series with missing books.
 - **Follow** a series or an author with the button on a torrent's page, or next to an author or series filter
   on the **Torrents** page. One with nothing in the library yet can be followed from MAM's search results: a search
@@ -1499,13 +1499,13 @@ Fetchshelf will not start a download that would break these limits.
 
 Each autograb with a `name`, each `[[hardcover_list]]`, `[[file_list]]` and `[[bookmarks_list]]`, `[follow]` and `[upgrade]` can override `unsat_buffer` and
 `wedge_buffer` for what it selects. The values are checked when a torrent is downloaded, not when it is queued, so after you change them and restart, they also
-apply to torrents already waiting on the **Selected** page.
+apply to torrents already waiting on the **Queue** page.
 
 How a run works out how much it may download:
 
 - **Slots:** your unsatisfied limit, minus the torrents already unsatisfied, minus the buffer. That is the
   most torrents one run may select. The Follow job is the exception: a series or author on *Auto* is searched and
-  its missing books selected even with no slot free, and they wait on the **Selected** page until one is, while
+  its missing books selected even with no slot free, and they wait on the **Queue** page until one is, while
   `max_active_downloads` in `[follow]` caps how many may wait.
 - **Ratio:** free torrents cost nothing, and neither do `wedge` downloads, which use a wedge or wait for one. For
   the others, the size must fit within
@@ -1515,7 +1515,7 @@ How a run works out how much it may download:
   at the start of every run.
 - **Wedges:** a wedge is used only while more than `wedge_buffer` remain, so you never drop below it.
 
-When a limit is reached, the remaining torrents stay selected on the **Selected** page and are tried on the
+When a limit is reached, the remaining torrents stay selected on the **Queue** page and are tried on the
 next run.
 
 Other safeguards:
@@ -1583,7 +1583,7 @@ section, the Bonus job spends them before that happens, every two hours by defau
 a VIP top-up if you ask for one, then upload credit, keeping `keep_points` back. Upload credit raises your ratio,
 so ratio-cost downloads that wait for budget can start; wedges keep `wedge` costs supplied.
 
-It is worth turning on when the points sit near the cap, or when downloads wait on the **Selected** page for
+It is worth turning on when the points sit near the cap, or when downloads wait on the **Queue** page for
 ratio budget. Without a `[bonus]` section nothing is bought, and the **Account** page says what the points
 would buy.
 
@@ -2037,7 +2037,7 @@ edited by hand with MAM's.
 
 There is no login. See [Security and privacy](#security-and-privacy).
 
-The top bar holds the pages used most, **Search**, **Torrents**, **Selected**, **Jobs** and **Errors**, then two menus:
+The top bar holds the pages used most, **Search**, **Torrents**, **Queue**, **Jobs** and **Errors**, then two menus:
 **Library** (**Books**, **Series**, **Following** and **Lists** when they apply, **Duplicates**, and **Library check**,
 with a count when it found something) and
 **Insight** (**Events**, **Statistics**, **Unsatisfied burndown** with a `[seeding]` section and, when `mam_id` is set,
@@ -2057,7 +2057,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
 | **Unsatisfied burndown** | How many torrents will look unsatisfied now and each hour of the next 72, Fetchshelf's own and every MAM torrent in qBittorrent, with the hours where seeding completes highlighted. Only in the menu with a `[seeding]` section. See [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied). |
 | **MAM API** | Every call Fetchshelf made to MAM, as a chart and a table, to see the pattern behind a 429 (too many requests). Only in the menu when `mam_id` is set. See [MAM API](#mam-api). |
-| **Selected** | The queue of torrents that are chosen and not yet finished downloading, oldest first: the order the Download job starts them in. Click **Title** or **Cost** to sort by them; open the page again for this order. A title opens what Fetchshelf stored about the torrent when it was picked, with **Open on MAM**. |
+| **Queue** | Torrents that are chosen and not yet finished downloading, oldest first: the order the Download job starts them in. Click **Title** or **Cost** to sort by them; open the page again for this order. A title opens what Fetchshelf stored about the torrent when it was picked, with **Open on MAM**. |
 | **Torrents** | Every torrent Fetchshelf knows. |
 | **Books** | Every linked book, audiobooks included, to find one and open it in Audiobookshelf or download it. See [Browsing your books](#browsing-your-books). |
 | **Series** | Every series in the library, with its missing books; with a `[follow]` section, buttons to follow it, set it to Auto or ignore it. It lists the series not ignored unless **All series** or **Ignored** is chosen. |
@@ -2102,7 +2102,7 @@ line below gives Fetchshelf's own estimate of which of its torrents those are (s
   limit − those in use − `unsat_buffer`. An autograb, list, Follow or Upgrade with its own
   `unsat_buffer` or `max_active_downloads` gets a line of its own.
 - **Wedges to spend:** wedges − `wedge_buffer`, and a line for each block with its own `wedge_buffer`.
-- **Queue:** how many torrents wait on the **Selected** page, and how many of them these numbers would let
+- **Queue:** how many torrents wait on the **Queue** page, and how many of them these numbers would let
   the Download job start. An estimate: the Download job also skips torrents that are already in qBittorrent
   or no longer free.
 
@@ -2252,7 +2252,7 @@ reported, so they cannot be chosen by hand.
     qBittorrent, a torrent in Automatic Torrent Management mode also moves its files to the new category's
     save path.
 - **Check qBittorrent.** Updates the *Status* column for every torrent, and takes downloads that have
-  finished off the **Selected** queue. Books recorded with
+  finished off the **Queue**. Books recorded with
   `metadata_only_add` are skipped: Fetchshelf never downloaded them, so it has no info hash to look up.
 - **Export.** **CSV** and **JSON** next to **Check qBittorrent** download the list as it is searched, filtered
   and sorted, every page of it: MAM id, title, authors, narrators, series, media type, language, the linked
@@ -2325,7 +2325,7 @@ entry is updated while it keeps failing and disappears once it links. The except
 with this info-hash*: such a torrent is usually from another tracker or was removed from MAM, so it is
 looked up again only once a day. Remove its entry to have the next run look it up straight away. A queued download whose MAM link
 went stale, and couldn't be refreshed, is taken out of the queue instead; **Retry download** puts it back on the
-**Selected** page. One that MAM no longer has (deleted or merged) is taken out with that reason and has no
+**Queue** page. One that MAM no longer has (deleted or merged) is taken out with that reason and has no
 **Retry download**. A download that failed for another reason, such as MAM or qBittorrent not answering, stays
 queued for the next run and is listed here with the reason; its entry goes once a later run starts it. A run that MAM
 stopped by refusing the account (blocked, too many requests, or a refused session) gets no entry: that concerns the
@@ -2630,7 +2630,7 @@ docker compose up -d fetchshelf
     longer knows and that one of your libraries accepts, looks them up on MAM and records them again. Files already in the library are kept as
     they are, not linked a second time.
   - **The download queue.** A torrent queued before the backup but started after it shows on the
-    **Selected** page as waiting again. The next download run sees it is already in qBittorrent and
+    **Queue** page as waiting again. The next download run sees it is already in qBittorrent and
     marks it as started, so nothing is downloaded twice. It does fetch the torrent file from MAM again
     to recognise it, but MAM does not charge a second wedge for a torrent you already used one on.
   - **Lost for good:** events, errors and duplicates recorded after the backup, and metadata you edited by
@@ -2810,7 +2810,7 @@ The usual reasons, in order:
 2. The filter is too narrow, or the search returns nothing. Run the block with `dry_run = true` and read the
    log.
 3. The budget is used up: no unsatisfied slots, not enough ratio budget, or the wedge reserve. The
-   torrents stay on the **Selected** page. The **Account** page shows each budget and what it is worked out
+   torrents stay on the **Queue** page. The **Account** page shows each budget and what it is worked out
    from, and whether MAM calls are paused.
 4. The book is already in your library, or a duplicate of one, in an equal or better format. Skipped
    torrents are listed on the **Duplicates** page.

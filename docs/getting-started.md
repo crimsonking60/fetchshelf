@@ -364,7 +364,7 @@ wedge_buffer = 5
 | `wedge_buffer` | Use a freeleech wedge that would leave you fewer than this. |
 
 Without these lines, Fetchshelf uses `2`, `10` and `0`. Start strict; you can loosen them later. A download that
-doesn't fit waits on the **Selected** page and is tried again on the next run.
+doesn't fit waits on the **Queue** page and is tried again on the next run.
 
 ### 5. Download your free bookmarks
 
@@ -476,7 +476,7 @@ Open Fetchshelf in your browser again. The bar at the top has the pages you need
   - **Link**: puts finished downloads into your library, every 10 minutes. A download Fetchshelf added is
     linked within about a minute of finishing.
   - **Clean**: runs after Link and tidies up when a better copy of a book replaces a worse one.
-- **Selected** is the queue: what was picked and is waiting to be downloaded. Something stays here while it
+- **Queue** is the download queue: what was picked and is waiting to be downloaded. Something stays here while it
   doesn't fit your limits.
 - **Torrents** lists every torrent Fetchshelf knows, and where each is in your library. **Check qBittorrent**
   there asks qBittorrent about all of them, a quick test that the connection works.
@@ -497,7 +497,7 @@ nothing.
 
 1. On MAM, bookmark a book that is freeleech.
 2. On the **Jobs** page, press **Run now** next to **Free bookmarks**.
-3. When it has run, its result says how many torrents it selected, and the book shows on the **Selected** page,
+3. When it has run, its result says how many torrents it selected, and the book shows on the **Queue** page,
    then in qBittorrent.
 4. When qBittorrent has finished it, the book appears in your library folder within a minute or so, and on the
    **Torrents** page.
@@ -590,7 +590,7 @@ docker run --rm --entrypoint dotnet -v /srv/fetchshelf/config:/config:ro ghcr.io
 ```
 
 **Nothing is downloaded.** Your bookmarks have nothing free at the moment, or the limits hold it: what was picked
-then waits on the **Selected** page, and the **Account** page shows what is left of your slots and ratio. A book
+then waits on the **Queue** page, and the **Account** page shows what is left of your slots and ratio. A book
 you already have in the library, in an equal or better format, is skipped.
 
 ### Getting help

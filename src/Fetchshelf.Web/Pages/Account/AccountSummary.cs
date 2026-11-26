@@ -41,7 +41,7 @@ public sealed record AccountSummary
 
     public IReadOnlyList<DerivedNumber> Wedges { get; init; } = [];
 
-    /// <summary>Selections waiting on the Selected page.</summary>
+    /// <summary>Selections waiting in the Queue.</summary>
     public int Queued { get; init; }
 
     /// <summary>How many of <see cref="Queued"/> the current numbers would let the Download job start.</summary>

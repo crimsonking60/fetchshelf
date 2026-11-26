@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace Fetchshelf.Web.Pages.Selected;
+namespace Fetchshelf.Web.Pages.Queue;
 
-/// <summary>The Selected page: the download queue.</summary>
+/// <summary>The Queue page: the download queue.</summary>
 public class IndexModel(FetchshelfDbContext dbContext, MamClientOptions mamOptions, FetchshelfSettings settings) : PageModel
 {
     /// <summary>"CreatedAt" (the default, oldest first: the order the Download job starts them in), "Title" or "Cost".</summary>
