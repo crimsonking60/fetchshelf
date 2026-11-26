@@ -191,7 +191,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         {
             null => new("Not searched for yet", null),
             ListItemSideStatus.Existing => new("In the library", torrentLink),
-            ListItemSideStatus.Selected => torrentLink is null ? new("Selected for download", "/Selected") : new("In the library", torrentLink),
+            ListItemSideStatus.Selected => torrentLink is null ? new("Selected for download", "/Queue") : new("In the library", torrentLink),
             ListItemSideStatus.Wanted => new("On MAM, but it costs more than the list's grab blocks allow", null),
             ListItemSideStatus.NotWanted => new($"Not wanted: the list prefers the other format to the {format}", null),
             ListItemSideStatus.NotFound => new("Not found on MAM", null),

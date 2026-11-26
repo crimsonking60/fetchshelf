@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Fetchshelf.Web.Tests;
 
-public partial class SelectedIndexPageTests
+public partial class QueuePageTests
 {
     private static async Task<SelectedTorrentEntity> SeedSelectedAsync(
         FetchshelfWebAppFixture fixture, string title = "The Way of Kings", long mamId = 1, DateTimeOffset? startedAt = null,
@@ -38,9 +38,23 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
 
-        var html = await (await client.GetAsync("/selected")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/queue")).Content.ReadAsStringAsync();
 
         Assert.Contains("The Way of Kings", html);
+        Assert.Contains("<h2>Queue</h2>", html);
+    }
+
+    [Theory]
+    [InlineData("/selected", "/queue")]
+    [InlineData("/Selected?Sort=Title&Dir=desc", "/queue?Sort=Title&Dir=desc")]
+    public async Task TheOldAddress_RedirectsToTheQueue(string oldUrl, string newUrl)
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+
+        var response = await fixture.CreateNoRedirectClient().GetAsync(oldUrl);
+
+        Assert.Equal(System.Net.HttpStatusCode.MovedPermanently, response.StatusCode);
+        Assert.Equal(newUrl, response.Headers.Location!.OriginalString);
     }
 
     [Fact]
@@ -52,8 +66,8 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture, "Older Book", mamId: 2, createdAt: day);
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
-        var byTitleDescending = await client.GetStringAsync("/selected?Sort=Title&Dir=desc");
+        var html = await client.GetStringAsync("/queue");
+        var byTitleDescending = await client.GetStringAsync("/queue?Sort=Title&Dir=desc");
 
         Assert.True(html.IndexOf("Older Book", StringComparison.Ordinal) < html.IndexOf("Newer Book", StringComparison.Ordinal));
         Assert.True(byTitleDescending.IndexOf("Older Book", StringComparison.Ordinal) < byTitleDescending.IndexOf("Newer Book", StringComparison.Ordinal));
@@ -66,9 +80,9 @@ public partial class SelectedIndexPageTests
         var selection = await SeedSelectedAsync(fixture, "Nightfall", mamId: 4242);
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
-        var details = await client.GetStringAsync($"/selected?handler=Details&id={selection.Id}");
-        var missing = await client.GetAsync("/selected?handler=Details&id=999999");
+        var html = await client.GetStringAsync("/queue");
+        var details = await client.GetStringAsync($"/queue?handler=Details&id={selection.Id}");
+        var missing = await client.GetAsync("/queue?handler=Details&id=999999");
 
         Assert.Matches($"hx-get=\"[^\"]*handler=Details[^\"]*\"", html);
         Assert.Matches($"hx-get=\"[^\"]*id={selection.Id}[^\"]*\"", html);
@@ -88,7 +102,7 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture, "Second Book", mamId: 2);
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
+        var html = await client.GetStringAsync("/queue");
 
         Assert.Equal(2, Regex.Matches(html, "class=\"selection-select\" type=\"checkbox\" name=\"selectedIds\"").Count);
         Assert.Single(Regex.Matches(html, ">Remove selected</button>"));
@@ -104,7 +118,7 @@ public partial class SelectedIndexPageTests
         var second = await SeedSelectedAsync(fixture, "Second Book", mamId: 2);
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
+        var html = await client.GetStringAsync("/queue");
 
         Assert.Equal(2, Regex.Matches(html, "<button form=\"update-\\d+\" type=\"submit\">Update</button>").Count);
         Assert.Contains($"id=\"update-{first.Id}\"", html);
@@ -119,7 +133,7 @@ public partial class SelectedIndexPageTests
         var second = await SeedSelectedAsync(fixture, "Second Book", mamId: 2);
         var third = await SeedSelectedAsync(fixture, "Third Book", mamId: 3);
         var client = fixture.CreateClient();
-        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/queue"));
 
         using var form = new FormUrlEncodedContent(new List<KeyValuePair<string, string>>
         {
@@ -127,9 +141,9 @@ public partial class SelectedIndexPageTests
             new("selectedIds", third.Id.ToString()),
             new("__RequestVerificationToken", token),
         });
-        await client.PostAsync("/selected?handler=RemoveSelected", form);
+        await client.PostAsync("/queue?handler=RemoveSelected", form);
 
-        var afterHtml = await client.GetStringAsync("/selected");
+        var afterHtml = await client.GetStringAsync("/queue");
         Assert.Contains("Second Book", afterHtml);
         Assert.DoesNotContain("First Book", afterHtml);
         Assert.DoesNotContain("Third Book", afterHtml);
@@ -147,12 +161,12 @@ public partial class SelectedIndexPageTests
         using var fixture = new FetchshelfWebAppFixture();
         await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
-        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/queue"));
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token });
-        await client.PostAsync("/selected?handler=RemoveSelected", form);
+        await client.PostAsync("/queue?handler=RemoveSelected", form);
 
-        Assert.Contains("The Way of Kings", await client.GetStringAsync("/selected"));
+        Assert.Contains("The Way of Kings", await client.GetStringAsync("/queue"));
     }
 
     [Fact]
@@ -169,13 +183,13 @@ public partial class SelectedIndexPageTests
         }
 
         var client = fixture.CreateClient();
-        var tokenSource = await client.GetStringAsync("/torrents"); // /selected has no form to take a token from while its list is empty
+        var tokenSource = await client.GetStringAsync("/torrents"); // /queue has no form to take a token from while its list is empty
         using var form = new FormUrlEncodedContent(new List<KeyValuePair<string, string>>
         {
             new("selectedIds", entity.Id.ToString()),
             new("__RequestVerificationToken", ExtractAntiforgeryToken(tokenSource)),
         });
-        await client.PostAsync("/selected?handler=RemoveSelected", form);
+        await client.PostAsync("/queue?handler=RemoveSelected", form);
 
         using var verifyScope = fixture.CreateScope();
         var stored = await verifyScope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(entity.Id);
@@ -190,7 +204,7 @@ public partial class SelectedIndexPageTests
         var started = await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
+        var html = await client.GetStringAsync("/queue");
 
         // Only the waiting row can be edited and saved.
         Assert.Contains($"id=\"update-{waiting.Id}\"", html);
@@ -209,7 +223,7 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture, "Waiting Book", mamId: 1, clientName: "vpn", savePath: "/data/audiobooks");
         await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow, clientName: "home");
 
-        var html = await fixture.CreateClient().GetStringAsync("/selected");
+        var html = await fixture.CreateClient().GetStringAsync("/queue");
 
         Assert.Contains("qBittorrent: vpn", html);
         Assert.Contains("Save path: /data/audiobooks", html);
@@ -224,7 +238,7 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture, "Waiting Book", mamId: 1);
         var started = await SeedSelectedAsync(fixture, "Started Book", mamId: 2, startedAt: DateTimeOffset.UtcNow.AddMinutes(-5));
         var client = fixture.CreateClient();
-        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/queue"));
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -234,7 +248,7 @@ public partial class SelectedIndexPageTests
             ["cost"] = "Free",
             ["__RequestVerificationToken"] = token,
         });
-        await client.PostAsync("/selected?handler=Update", form);
+        await client.PostAsync("/queue?handler=Update", form);
 
         using var scope = fixture.CreateScope();
         var saved = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(started.Id);
@@ -249,7 +263,7 @@ public partial class SelectedIndexPageTests
         using var fixture = new FetchshelfWebAppFixture();
         var entity = await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
-        var html = await (await client.GetAsync("/selected")).Content.ReadAsStringAsync();
+        var html = await (await client.GetAsync("/queue")).Content.ReadAsStringAsync();
         var token = ExtractAntiforgeryToken(html);
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -259,7 +273,7 @@ public partial class SelectedIndexPageTests
             ["tags"] = "a,b",
             ["__RequestVerificationToken"] = token,
         });
-        await client.PostAsync("/selected?handler=Update", form);
+        await client.PostAsync("/queue?handler=Update", form);
 
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -274,7 +288,7 @@ public partial class SelectedIndexPageTests
         await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
 
-        var html = await client.GetStringAsync("/selected");
+        var html = await client.GetStringAsync("/queue");
 
         var options = Regex.Matches(html, "<option value=\"([A-Za-z]+)\"").Select(m => m.Groups[1].Value).ToList();
         Assert.Equal(["Ratio", "TryWedge", "UseWedge"], options);
@@ -286,7 +300,7 @@ public partial class SelectedIndexPageTests
         using var fixture = new FetchshelfWebAppFixture();
         var entity = await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
-        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/queue"));
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -295,7 +309,7 @@ public partial class SelectedIndexPageTests
             ["cost"] = "UseWedge",
             ["__RequestVerificationToken"] = token,
         });
-        await client.PostAsync("/selected?handler=Update", form);
+        await client.PostAsync("/queue?handler=Update", form);
 
         using var scope = fixture.CreateScope();
         var saved = await scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>().SelectedTorrents.FindAsync(entity.Id);
@@ -308,7 +322,7 @@ public partial class SelectedIndexPageTests
         using var fixture = new FetchshelfWebAppFixture();
         var entity = await SeedSelectedAsync(fixture);
         var client = fixture.CreateClient();
-        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/selected"));
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync("/queue"));
 
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -317,7 +331,7 @@ public partial class SelectedIndexPageTests
             ["cost"] = "Vip",
             ["__RequestVerificationToken"] = token,
         });
-        var response = await client.PostAsync("/selected?handler=Update", form);
+        var response = await client.PostAsync("/queue?handler=Update", form);
 
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         using var scope = fixture.CreateScope();

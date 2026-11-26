@@ -43,7 +43,7 @@ public sealed record NavModel(IReadOnlyList<NavEntry> Primary, IReadOnlyList<Nav
         [
             new(SearchPage, "Search"),
             new("/Torrents/Index", "Torrents"),
-            new("/Selected/Index", "Selected"),
+            new("/Queue/Index", "Queue"),
             new("/Jobs/Index", "Jobs"),
             new("/Errors/Index", "Errors", Badge("error-badge", inputs.ErrorCount, inputs.ErrorDescription)),
         ];

@@ -3,10 +3,10 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Fetchshelf.Web.Pages.Duplicates;
 
-namespace Fetchshelf.Web.Pages.Selected;
+namespace Fetchshelf.Web.Pages.Queue;
 
 /// <summary>
-/// What Fetchshelf stored about a selection when it was picked, for the dialog its title opens on the Selected page.
+/// What Fetchshelf stored about a selection when it was picked, for the dialog its title opens on the Queue page.
 /// Nothing is asked of MAM: the link to the torrent's MAM page is there for the rest.
 /// </summary>
 public sealed record SelectionDetailsViewModel(

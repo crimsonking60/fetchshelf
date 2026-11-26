@@ -88,7 +88,7 @@ public sealed class FollowRunner(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? ((wait, ct) => Task.Delay(wait, ct));
     private readonly ILogger<FollowRunner> _logger = logger ?? NullLogger<FollowRunner>.Instance;
 
-    /// <summary>The grabber name the job's selections carry, so the Selected page says which follow chose them.</summary>
+    /// <summary>The grabber name the job's selections carry, so the Queue page says which follow chose them.</summary>
     /// <summary>What every grabber name of the Follow job starts with, which `[follow]`'s own buffers are found by.</summary>
     public const string GrabberPrefix = "Follow: ";
 

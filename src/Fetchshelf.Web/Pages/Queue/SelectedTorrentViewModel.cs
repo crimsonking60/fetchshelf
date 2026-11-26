@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 
-namespace Fetchshelf.Web.Pages.Selected;
+namespace Fetchshelf.Web.Pages.Queue;
 
 /// <summary>Display model for one row on the Selected page.</summary>
 public sealed record SelectedTorrentViewModel(

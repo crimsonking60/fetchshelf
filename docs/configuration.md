@@ -139,7 +139,7 @@ Fetchshelf has two halves that can be used independently.
 - `min_ratio`, `unsat_buffer` and `wedge_buffer` cap how much the downloader may spend. A block's own
   `unsat_buffer` / `wedge_buffer` (on a named `[[autograb]]`, any list, `[follow]` or `[upgrade]`)
   override the global ones. The downloader reads them when it starts each
-  torrent, so a changed value also applies to torrents already waiting on the **Selected** page.
+  torrent, so a changed value also applies to torrents already waiting on the **Queue** page.
 
 **Library organizer** — turns finished downloads into a tidy folder tree:
 
@@ -217,7 +217,7 @@ These go at the top of the file, before any section.
 | `wedge_buffer` | `0` | Fetchshelf never uses a freeleech wedge that would leave fewer than this many, including for **Wedge download** on the Search page. Can be overridden per block, as `unsat_buffer`. |
 | `min_seeders` | `1` | The [`min_seeders`](#the-shared-torrent-filter) of every `[[autograb]]` block and every `grab` block (`[[hardcover_list.grab]]`, `[[file_list.grab]]`, `[[bookmarks_list.grab]]`, `[[follow.grab]]`, `[[upgrade.grab]]`, and the `free` block `[upgrade]` uses when it has none) that doesn't set its own, so a torrent nobody seeds is not downloaded. `0` means no minimum. A block whose own `max_seeders` is below it gets no minimum. **`[[tag]]` rules don't use it.** |
 | `add_torrents_stopped` | `false` | Add torrents to qBittorrent in the stopped state. |
-| `download_after_selection` | `true` | Start the Download job as soon as an autograb, a list, Follow, Upgrade, the Search page or the Following page selects a torrent. With `false`, selections wait on the **Selected** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
+| `download_after_selection` | `true` | Start the Download job as soon as an autograb, a list, Follow, Upgrade, the Search page or the Following page selects a torrent. With `false`, selections wait on the **Queue** page for the next scheduled Download run, every `search_interval` minutes, which leaves time to look them over first. |
 | `exclude_narrator_in_library_dir` | `false` | Leave the `{Narrator}` part out of library folder names. See [folder naming](#folder-naming). |
 | `database_wal` | `false` | Use SQLite's write-ahead log, so pages stay responsive while a job writes. Only for a database on a local disk: on a network share it corrupts the database. Read at startup; turning it off again switches the database back. See [Database setup](database-setup.md). |
 | `link_method` | `"hardlink_or_copy"` | How files are placed in every `[[library]]` that does not set its own `method`. Same values as [`method`](#library). |
@@ -610,7 +610,7 @@ in its range would look like a gap. Setting `mark_removed` on one stops startup 
 | Value | Meaning |
 |---|---|
 | `free` (default) | Only torrents that are free: VIP, personal freeleech or global freeleech. Others are not selected. |
-| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Selected** page. It never downloads on ratio, so the ratio budget doesn't hold it back. |
+| `wedge` | Use a freeleech wedge on torrents that are not already free. While wedges are at or below `wedge_buffer`, the torrent stays queued on the **Queue** page. It never downloads on ratio, so the ratio budget doesn't hold it back. |
 | `try_wedge` | Use a wedge if one is available above `wedge_buffer`, otherwise download without one and pay with ratio. As it may pay with ratio, it waits while the ratio budget is too small for it. |
 | `ratio` (alias `all`) | Pay with ratio. Free torrents are still free. |
 | `metadata_only` | Record the torrent's metadata for books you already have, without downloading. |
@@ -696,7 +696,7 @@ What each run does:
    instead: a book that matches but costs too much, or that was left out for the other format, counts as found.
    New books are searched for on the next run, and **Search again** on the **Lists** page has the next run search
    one book whenever it was last searched.
-5. **Looks again for what went away.** A format whose selection was taken out of the **Selected** queue before it
+5. **Looks again for what went away.** A format whose selection was taken out of the **Queue** before it
    was downloaded (a stale link, MAM no longer having the torrent, or removed by hand) is searched for again, as is
    one whose copy is no longer in the library (its record removed). A format the selection's duplicate check marked
    as selected or in the library, because another copy of the book was, stays as it is.
@@ -705,7 +705,7 @@ What each run does:
   not searched for at all.
 - The **Lists** page shows every book and what was found for each format, and lets you mark a book done so
   it is no longer searched for.
-- Selected torrents go to the **Selected** page and are downloaded by the Download job, as autograbs' are.
+- Selected torrents go to the **Queue** page and are downloaded by the Download job, as autograbs' are.
 
 ## `[[file_list]]`
 
@@ -843,7 +843,7 @@ missing.
 | `save_path` | unset | The folder qBittorrent saves the Follow job's downloads in, and those from the **Following** page, as qBittorrent sees it; an absolute path. Unset: the first matching `[[tag]]` rule's, else qBittorrent decides, from the category or its default. A library must accept the folder (`download_dir`) or the category for the download to be linked. |
 | `unsat_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
 | `wedge_buffer` | global | Overrides the global buffer for what the Follow job and the **Following** page selects. |
-| `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. The free unsatisfied-snatch slots don't limit what the Follow job selects, so this is what keeps the **Selected** page from filling with Follow's selections while none can download. |
+| `max_active_downloads` | unset | Cap on torrents of every followed series and author together that are still waiting to be downloaded, at least 1. The free unsatisfied-snatch slots don't limit what the Follow job selects, so this is what keeps the **Queue** page from filling with Follow's selections while none can download. |
 | `dry_run` | `false` | Search MAM, but record and select nothing. What would be selected is logged. It is listed under the run in the job's history too. **Dry run** on the Jobs page does one such run without this setting. |
 | `grab` | (at least one) | Repeatable `[[follow.grab]]` blocks, tried in order: a [`cost`](#cost) plus the [shared filter](#the-shared-torrent-filter), as in [`[[hardcover_list]]`](#hardcover_list). A book goes to the first block whose filter and `cost` accept it. `metadata_only` costs are not allowed. Blocks without `languages` get the top-level `languages`. |
 | `audiobookshelf_series` | `"off"` | `"follow"` or `"auto"`: follow every series in Audiobookshelf, in that mode, so series from before Fetchshelf are completed too. Needs [`[audiobookshelf]`](#audiobookshelf). See [series from Audiobookshelf](#series-from-audiobookshelf). |
@@ -873,12 +873,12 @@ What each run does:
    not all of them. MAM matches words, so a result only counts when its series (or author) is the followed one,
    compared the way the library compares names.
 3. **Leaves out what the library has**: the same torrent, the same book (as selection judges a duplicate), a
-   series entry already owned in that format and language, and anything already on the **Selected** page.
+   series entry already owned in that format and language, and anything already on the **Queue** page.
 4. **Decides each book, language and format on its own**, a series in entry order and an author's books newest first:
    the first `grab` block whose filter and `cost` accept a torrent takes the one in the best format. A series or author on *Auto* has
    it selected, through the usual rules, whether or not an unsatisfied-snatch slot is free: the Download job
    checks the slots, `unsat_buffer`, ratio and wedges when it downloads, so what it can't start yet waits on the
-   **Selected** page. A followed one has it listed on the **Following** page. A match no block's `cost` accepts is listed as *not free*.
+   **Queue** page. A followed one has it listed on the **Following** page. A match no block's `cost` accepts is listed as *not free*.
 
 With the defaults, a run searches at most 10 series or authors, and each series or author on the **Following**
 page is searched once a day. A search that fails is recorded on the **Errors** page and waits its turn like one that worked, so it
@@ -1107,7 +1107,7 @@ For each new download:
   apply either, for the same reason.
 
 The rules are worked out when a torrent is selected, and the result is applied when it is added to qBittorrent. A
-changed rule therefore doesn't reach torrents already waiting on the **Selected** page. Each rule can also be applied to torrents
+changed rule therefore doesn't reach torrents already waiting on the **Queue** page. Each rule can also be applied to torrents
 you already have, from the Config page; that sets the category and tags only, and doesn't move a torrent to
 another qBittorrent or folder.
 

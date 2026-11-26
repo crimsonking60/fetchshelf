@@ -38,7 +38,7 @@ public sealed class FetchshelfSettings
 
     /// <summary>
     /// When true, the Download job starts as soon as an autograb, a Hardcover list or the Search page selects a
-    /// torrent. When false, selections wait on the Selected page for the next scheduled Download run.
+    /// torrent. When false, selections wait in the Queue for the next scheduled Download run.
     /// </summary>
     public bool DownloadAfterSelection { get; set; } = true;
 

@@ -72,7 +72,7 @@ public partial class AccountPageTests
         Assert.Contains("37 wedges - wedge_buffer 0", html);
         Assert.Contains("37 wedges - wedge_buffer 30", html);
         Assert.Contains("Autograb Careful", html);
-        Assert.Matches(@"1 waiting on the <a href=""/Selected"">Selected</a> page; the numbers above would let the Download job start 1 of them", html);
+        Assert.Matches(@"1 waiting in the <a href=""/Queue"">Queue</a>; the numbers above would let the Download job start 1 of them", html);
         Assert.Contains("Connectable: yes", html);
     }
 
@@ -251,7 +251,7 @@ public partial class AccountPageTests
 
         var html = await client.GetStringAsync("/Account");
 
-        Assert.Contains("2 waiting on the", html);
+        Assert.Contains("2 waiting in the", html);
         Assert.Contains("would let the Download job start 1 of them", html);
     }
 

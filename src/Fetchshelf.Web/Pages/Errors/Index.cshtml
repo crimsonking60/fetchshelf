@@ -6,7 +6,7 @@
 }
 
 <h2>Errors</h2>
-@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into. Jobs that keep failing come first; then one row per torrent or book a job couldn't handle. The jobs try a failed item again on every run: its row is updated while it keeps failing and disappears once it succeeds. A download whose link went stale is taken out of the download queue instead; Retry download puts it back on the Selected page. For a torrent MAM gives no author, Edit adds one, and the next Link run links it. Rows that have been dealt with can be ticked and removed with Remove selected.")
+@await Html.PartialAsync("_PageExplanation", "Problems Fetchshelf ran into. Jobs that keep failing come first; then one row per torrent or book a job couldn't handle. The jobs try a failed item again on every run: its row is updated while it keeps failing and disappears once it succeeds. A download whose link went stale is taken out of the download queue instead; Retry download puts it back in the Queue. For a torrent MAM gives no author, Edit adds one, and the next Link run links it. Rows that have been dealt with can be ticked and removed with Remove selected.")
 
 @if (Model.FailingJobs.Count > 0)
 {
