@@ -356,6 +356,71 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal([(1L, FollowFindStatus.Owned), (2L, FollowFindStatus.New), (3L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
     }
 
+    /// <summary>The settings with one free grab block that takes only uploads from June 2026 on.</summary>
+    private static FollowSettings NarrowedSettings()
+    {
+        var settings = Settings();
+        settings.Grab = [new GrabEntry { Cost = ConfiguredCost.Free, UploadedAfter = "2026-06-01" }];
+        return settings;
+    }
+
+    [Fact]
+    public async Task ANarrowedGrabBlock_RemovesTheWaitingFindsItNoLongerTakes_KeepingTheDismissedOnes()
+    {
+        var answer = new StrongBox<string>(Results(
+            Record(1, "Old Book", added: "2026-01-01 00:00:00"),
+            Record(2, "Old Dismissed Book", added: "2026-01-02 00:00:00"),
+            Record(3, "New Book", added: "2026-07-01 00:00:00")));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        await harness.RunAsync();
+        harness.Context.FollowFinds.Single(f => f.MamId == 2).Status = FollowFindStatus.Dismissed;
+        await harness.Context.SaveChangesAsync();
+        await MakeDueAsync(harness);
+
+        // Not a read of every page: only the finds whose torrent the search returned are looked at.
+        await harness.RunAsync(NarrowedSettings());
+
+        Assert.Equal([(2L, FollowFindStatus.Dismissed), (3L, FollowFindStatus.New)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
+    [Fact]
+    public async Task AReadOfEveryPage_RemovesTheWaitingFindsItDidNotReturn_ALaterSearchKeepsThem()
+    {
+        var answer = new StrongBox<string>(Results(Record(1, "Leviathan Wakes"), Record(2, "Caliban's War")));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        await harness.RunAsync();
+
+        // A later search that doesn't read every page doesn't know about torrents it didn't return.
+        answer.Value = Results(Record(2, "Caliban's War"));
+        await MakeDueAsync(harness);
+        await harness.RunAsync();
+        Assert.Equal([1L, 2L], Finds(harness).Select(f => f.MamId));
+
+        // Search now: every page is read, and the first book is no longer among them.
+        harness.Context.Follows.Single().LastSearchedAt = null;
+        await harness.Context.SaveChangesAsync();
+        await harness.RunAsync();
+        Assert.Equal([2L], Finds(harness).Select(f => f.MamId));
+    }
+
+    [Fact]
+    public async Task AReadOfEveryPageThatReturnsNothing_RemovesNoFinds()
+    {
+        var answer = new StrongBox<string>(Results(Record(1, "Leviathan Wakes")));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        await harness.RunAsync();
+
+        answer.Value = Results();
+        harness.Context.Follows.Single().LastSearchedAt = null;
+        await harness.Context.SaveChangesAsync();
+        await harness.RunAsync();
+
+        Assert.Equal([1L], Finds(harness).Select(f => f.MamId));
+    }
+
     [Fact]
     public async Task FindsOfOneBookAndFormat_AreTidiedToTheMostSettled_LeavingTheDismissedOne()
     {

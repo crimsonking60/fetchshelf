@@ -1424,7 +1424,14 @@ Once a find is downloaded, its status moves on by itself as on the **Search** pa
 `cost = "free"` turns a torrent down for its cost, so without one nothing is ever not free, and the pages leave
 *not free* out. A find waiting in a
 format no `[[follow.grab]]` block takes any more, such as an audiobook found before the blocks were limited to
-ebooks, is no longer listed or counted; it shows again if a block takes its format again. **Search now** puts a
+ebooks, is no longer listed or counted; it shows again if a block takes its format again.
+
+A find still waiting (to look at, or *not free*) that no `[[follow.grab]]` block takes any more, such as a book with four
+authors once a block has `max_authors = 3`, is removed at the follow's next search that returns its torrent. A search
+that reads every page, the first one, one every 30 days and **Search now**, also removes those it didn't return at all,
+such as audiobooks after the blocks were limited to ebooks. So after a block is narrowed, **Search now** clears a
+follow's list of what no longer fits. Dismissed, selected and owned finds stay. A find that fits again after a block is
+widened comes back at the next search that reaches its torrent. **Search now** puts a
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
 found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done. A run that
 didn't get to it, such as one stopped at `max_active_downloads`, says so, and it is searched first in the next one.

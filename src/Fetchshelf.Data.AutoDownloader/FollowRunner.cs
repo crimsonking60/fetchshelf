@@ -322,6 +322,7 @@ public sealed class FollowRunner(
         {
             finds[candidate.Record.MamId].Language = candidate.Metadata.Language.ToString();
         }
+        DropUnwantedFinds(follow, records, candidates, grabFilters, finds, readAll);
         (candidates, var had) = await WithoutOwnedAsync(follow, candidates, finds, cancellationToken);
         await RetireCoveredFindsAsync(follow, finds, cancellationToken);
         TidyDuplicateFinds(follow, finds);
@@ -780,6 +781,45 @@ public sealed class FollowRunner(
         if (retired > 0)
         {
             _logger.LogInformation("{Name}: {Count} found earlier are in the library or selected by now", follow.DisplayName, retired);
+        }
+    }
+
+    /// <summary>
+    /// Removes the finds still waiting (new, or not free) that no `[[follow.grab]]` block's filter takes any more, such as
+    /// a book with four authors once a block has <c>max_authors = 3</c>: those whose torrent this search returned, and,
+    /// when it read every page, also those it didn't return at all. A find stays while another upload of its book and
+    /// format passes a block, as the search moves it on to that one. Dismissed, selected and owned finds stay, as a
+    /// record of what was done. A read of every page that returned nothing removes nothing it didn't see, so one empty
+    /// answer from MAM doesn't empty the list.
+    /// </summary>
+    private void DropUnwantedFinds(
+        FollowEntity follow, IReadOnlyList<MamTorrentRecord> records, IReadOnlyList<Candidate> candidates,
+        IReadOnlyList<TorrentFilter> grabFilters, Dictionary<long, FollowFindEntity> finds, bool readAll)
+    {
+        var passing = candidates
+            .Where(c => grabFilters.Any(filter => TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata))))
+            .ToList();
+        var passingTorrents = passing.Select(c => c.Record.MamId).ToHashSet();
+        var passingBooks = passing.Select(c => (c.BookKey, c.Side.ToString())).ToHashSet();
+        var returned = records.Select(r => r.MamId).ToHashSet();
+        var unseenToo = readAll && records.Count > 0;
+        var dropped = finds.Values
+            .Where(f => f.Status is FollowFindStatus.New or FollowFindStatus.Wanted
+                && (unseenToo || returned.Contains(f.MamId))
+                && !passingTorrents.Contains(f.MamId)
+                && !passingBooks.Contains((BookKeyOf(follow, f), f.MediaSide)))
+            .ToList();
+        foreach (var find in dropped)
+        {
+            finds.Remove(find.MamId);
+            dbContext.FollowFinds.Remove(find);
+        }
+
+        if (dropped.Count > 0)
+        {
+            _logger.LogInformation(
+                "{Name}: {Count} found earlier no longer pass any [[follow.grab]] block and are no longer listed",
+                follow.DisplayName, dropped.Count);
         }
     }
 
