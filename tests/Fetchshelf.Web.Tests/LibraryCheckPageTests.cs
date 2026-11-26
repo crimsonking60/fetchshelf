@@ -197,7 +197,7 @@ public sealed class LibraryCheckPageTests : IDisposable
         Assert.Contains("<h3>Collections not split</h3>", html);
         Assert.Contains(">Nightfall Reading Order</a>", html);
         Assert.Matches("<td class=\"nowrap\">120</td>", html);
-        Assert.Contains("Relink selected", html);
+        Assert.Matches("<div class=\"bulk-bar\" data-bulk-bar>\\s*<span class=\"bulk-count\" data-bulk-count>Nothing selected</span>\\s*<button[^>]*>Relink selected</button>", html);
         Assert.DoesNotContain("The library matches the records", html);
     }
 

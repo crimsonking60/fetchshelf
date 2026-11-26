@@ -2337,7 +2337,10 @@ them when it ends; the page reloads itself then. A check that ends within two se
 back with its findings straight away. With more than one library, a dropdown above the findings shows
 **All libraries** or one library's findings only, by its `name`, or by its `library_dir` when it has none.
 
-![The Library check page with one folder no book points at, and the Delete selected button](images/library-check.png)
+![The Library check page with one folder no book points at](images/library-check.png)
+
+Tick the findings to act on: a bar with the count and the buttons for those findings stays at the bottom of the window while
+any are ticked, as on the **Torrents** page.
 
 | Finding | Means | Actions |
 |---|---|---|
