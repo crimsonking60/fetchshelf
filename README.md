@@ -59,6 +59,7 @@ setup. If you use one, please report how it went, good or bad (see
 - Following a series or author from the **Search** page: a search result's page and dialog, and a search in the
   series or author field.
 - `comic_types`, globally and in a `[[library]]`.
+- **Looks for** on a followed series' or author's page: following only its audiobooks or only its ebooks.
 - The Follow job removing the waiting finds no `[[follow.grab]]` block takes any more, after a block is narrowed.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'

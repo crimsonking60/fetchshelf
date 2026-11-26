@@ -12,7 +12,7 @@
     @* What the buttons change, refreshed in place after one (InPlaceFormTagHelper); the dialog stays outside, as its script must run once. *@
     <div id="in-place">
     <h2>@follow.DisplayName</h2>
-    <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).@(follow.Source == FollowSource.Audiobookshelf ? " Followed from Audiobookshelf." : "")
+    <p id="follow-mode" class="muted">@kind, @IndexModel.ModeLabel(follow.Mode).@(follow.Formats != FollowFormats.Both ? $" {IndexModel.FormatsLabel(follow.Formats)}." : "")@(follow.Source == FollowSource.Audiobookshelf ? " Followed from Audiobookshelf." : "")
         <a asp-page="/Torrents/Index" asp-route-Series="@(follow.Kind == FollowKind.Series ? follow.NameKey : null)"
            asp-route-Author="@(follow.Kind == FollowKind.Author ? follow.NameKey : null)"
            asp-route-CollectionBooks="@Pages.Torrents.IndexModel.ShowCollectionBooks">In Torrents</a>
@@ -43,6 +43,21 @@
         <div class="actions">
             <partial name="_FollowActions" model="Model.Actions" />
         </div>
+        @* The formats looked for; a change saves at once, as the page's filters do. *@
+        <form id="follow-formats" method="post" asp-page="/Following/Index" asp-page-handler="Formats" class="toolbar" in-place="true">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="followId" value="@follow.Id" />
+            <input type="hidden" name="returnUrl" value="@Model.Actions!.ReturnUrl" />
+            <label>Looks for
+                <select name="formats" onchange="this.form.requestSubmit()">
+                    @foreach (var formats in Enum.GetValues<FollowFormats>())
+                    {
+                        <option value="@formats" selected="@(follow.Formats == formats)">@IndexModel.FormatsLabel(formats).ToLowerInvariant()</option>
+                    }
+                </select>
+            </label>
+            <noscript><button type="submit">Save</button></noscript>
+        </form>
 
         @if (Model.Summary is { } summary)
         {

@@ -561,7 +561,10 @@ public sealed class FollowRunner(
         };
     }
 
-    /// <summary>The result as a candidate when it really is a book of the followed series or author, as an audiobook or ebook.</summary>
+    /// <summary>
+    /// The result as a candidate when it really is a book of the followed series or author, as an audiobook or ebook in a
+    /// format the follow looks for (<see cref="FollowEntity.Formats"/>).
+    /// </summary>
     private static Candidate? ToCandidate(FollowEntity follow, MamTorrentRecord record)
     {
         if (GrabMatching.TryMap(record) is not { } metadata)
@@ -570,7 +573,7 @@ public sealed class FollowRunner(
         }
 
         var side = FilterMainTypeMapper.FromMediaType(metadata.MediaType);
-        if (side is not (FilterMainType.Audio or FilterMainType.Ebook))
+        if (side is not (FilterMainType.Audio or FilterMainType.Ebook) || !follow.TakesSide(side.ToString()))
         {
             return null;
         }
@@ -797,7 +800,8 @@ public sealed class FollowRunner(
     /// when it read every page, also those it didn't return at all. A find stays while another upload of its book and
     /// format passes a block, as the search moves it on to that one. Dismissed, selected and owned finds stay, as a
     /// record of what was done. A read of every page that returned nothing removes nothing it didn't see, so one empty
-    /// answer from MAM doesn't empty the list.
+    /// answer from MAM doesn't empty the list. Waiting finds in a format the follow's <see cref="FollowEntity.Formats"/> leaves
+    /// out are removed whether returned or not.
     /// </summary>
     private void DropUnwantedFinds(
         FollowEntity follow, IReadOnlyList<MamTorrentRecord> records, IReadOnlyList<Candidate> candidates,
@@ -812,9 +816,10 @@ public sealed class FollowRunner(
         var unseenToo = readAll && records.Count > 0;
         var dropped = finds.Values
             .Where(f => f.Status is FollowFindStatus.New or FollowFindStatus.Wanted
-                && (unseenToo || returned.Contains(f.MamId))
-                && !passingTorrents.Contains(f.MamId)
-                && !passingBooks.Contains((BookKeyOf(follow, f), f.MediaSide)))
+                && (!follow.TakesSide(f.MediaSide)
+                    || ((unseenToo || returned.Contains(f.MamId))
+                        && !passingTorrents.Contains(f.MamId)
+                        && !passingBooks.Contains((BookKeyOf(follow, f), f.MediaSide)))))
             .ToList();
         foreach (var find in dropped)
         {
@@ -825,7 +830,7 @@ public sealed class FollowRunner(
         if (dropped.Count > 0)
         {
             _logger.LogInformation(
-                "{Name}: {Count} found earlier no longer pass any [[follow.grab]] block and are no longer listed",
+                "{Name}: {Count} found earlier no longer pass any [[follow.grab]] block, or are in a format the follow no longer looks for, and are no longer listed",
                 follow.DisplayName, dropped.Count);
         }
     }

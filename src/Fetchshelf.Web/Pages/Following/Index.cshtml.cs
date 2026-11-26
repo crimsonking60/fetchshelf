@@ -152,6 +152,27 @@ public class IndexModel(
         return Back(returnUrl);
     }
 
+    public async Task<IActionResult> OnPostFormatsAsync(int followId, FollowFormats formats, string? returnUrl)
+    {
+        if (FollowService is not { } followService)
+        {
+            return NotFound();
+        }
+
+        if (!Enum.IsDefined(formats))
+        {
+            return BadRequest();
+        }
+
+        if (await followService.SetFormatsAsync(followId, formats) is { } follow)
+        {
+            var described = Describe(follow);
+            Message = $"{char.ToUpperInvariant(described[0])}{described[1..]}: {FormatsLabel(formats).ToLowerInvariant()}.";
+        }
+
+        return Back(returnUrl);
+    }
+
     public async Task<IActionResult> OnPostStopAsync(int followId, string name, string? returnUrl)
     {
         if (FollowService is not { } followService)
@@ -272,6 +293,13 @@ public class IndexModel(
         FollowMode.Download => "Auto - downloaded automatically",
         FollowMode.Watch => "Followed - download yourself",
         _ => "Ignored",
+    };
+
+    public static string FormatsLabel(FollowFormats formats) => formats switch
+    {
+        FollowFormats.Audiobooks => "Audiobooks only",
+        FollowFormats.Ebooks => "Ebooks only",
+        _ => "Audiobooks and ebooks",
     };
 
     /// <summary>

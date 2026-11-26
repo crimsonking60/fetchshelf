@@ -1376,7 +1376,10 @@ categories = { ebook = false }
   search result are, has a button above the results for that series or author, as MAM spells it. It is followed to
   begin with: new books are listed, not downloaded. On the
   **Following** page and on each series' or author's own page, **Change to Auto** and **Change to Followed**
-  switch between downloading automatically and only listing.
+  switch between downloading automatically and only listing. A series' or author's own page also has **Looks for**:
+  *audiobooks and ebooks* (the default), *audiobooks only* or *ebooks only*, where ebooks include comics, manga and
+  periodicals. It narrows what the `[[follow.grab]]` blocks take, for that one series or author: a find in another
+  format isn't listed, counted or downloaded, on *Auto* or not.
 
 > [!WARNING]
 > **Auto** downloads *anything* MAM lists as part of the series, or by the author, that the
@@ -1394,7 +1397,7 @@ download by itself, one line per block, such as "Ebooks in English: free ones, a
 A book on *Auto* that isn't downloaded usually costs more than that.
 
 The **Following** page lists every series and author on *Auto* or followed, one row each: whether it is on
-*Auto*, how many of its finds are to look at, not free, selected and in the library, and when it was last
+*Auto* (and *audiobooks only* or *ebooks only* when **Looks for** says so), how many of its finds are to look at, not free, selected and in the library, and when it was last
 searched and will be searched again at the earliest. It can be searched by name, limited to series or authors,
 to those on *Auto* or followed, or to those with books to look at, sorted by name, by what is to look at or by
 when they were searched (click a column heading, as on the **Torrents** page), and paged like it. Each row has the **Change to Auto** or **Change to
@@ -1438,7 +1441,9 @@ authors once a block has `max_authors = 3`, is removed at the follow's next sear
 that reads every page, the first one, one every 30 days and **Search now**, also removes those it didn't return at all,
 such as audiobooks after the blocks were limited to ebooks. So after a block is narrowed, **Search now** clears a
 follow's list of what no longer fits. Dismissed, selected and owned finds stay. A find that fits again after a block is
-widened comes back at the next search that reaches its torrent. **Search now** puts a
+widened comes back at the next search that reaches its torrent. A find still waiting in a format **Looks for** leaves
+out stops being listed at once, and the follow's next search removes it, whether it returns its torrent or not; changed
+back before that search, it is listed again. **Search now** puts a
 series or author first in line, starts the Follow job and waits for it, so the page comes back with what it
 found; a run that takes longer than 15 seconds carries on, and the Jobs page shows when it is done. A run that
 didn't get to it, such as one stopped at `max_active_downloads`, says so, and it is searched first in the next one.

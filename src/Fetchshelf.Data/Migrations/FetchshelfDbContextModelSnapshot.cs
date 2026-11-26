@@ -260,6 +260,9 @@ namespace Fetchshelf.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Formats")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset?>("FullySearchedAt")
                         .HasColumnType("TEXT");
 

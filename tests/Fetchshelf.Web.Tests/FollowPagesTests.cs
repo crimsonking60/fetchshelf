@@ -125,6 +125,31 @@ public partial class FollowPagesTests
     }
 
     [Fact]
+    public async Task FollowPage_EbooksOnly_StopsListingTheWaitingAudiobooks()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        AddFind(fixture, 20, "Leviathan Falls", side: "Ebook");
+        using var client = fixture.CreateClient();
+        var page = FollowPage(fixture);
+
+        var before = WebUtility.HtmlDecode(await client.GetStringAsync(page));
+        var response = await PostAsync(client, page, "/Following?handler=Formats",
+            new() { ["followId"] = FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), ["formats"] = "Ebooks", ["returnUrl"] = page });
+        var after = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains("<option value=\"Both\" selected=\"selected\">audiobooks and ebooks</option>", before);
+        Assert.Contains("The Way of Kings", before);
+        Assert.Equal(FollowFormats.Ebooks, FollowOf(fixture, FollowKind.Author, "jamessacorey")!.Formats);
+        Assert.Contains("Author, Followed - download yourself. Ebooks only.", after);
+        Assert.Contains("To look at: 1", after);
+        Assert.Contains("Leviathan Falls", after);
+        Assert.DoesNotContain("The Way of Kings", after);
+        var list = WebUtility.HtmlDecode(await client.GetStringAsync("/Following"));
+        Assert.Contains("<span class=\"muted follow-formats\">ebooks only</span>", list);
+    }
+
+    [Fact]
     public async Task FollowPage_ChangeToAuto_ReloadsThePageWithTheNewMode()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigWithFollow);

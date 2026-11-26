@@ -392,6 +392,44 @@ public sealed class FollowRunnerTests : IDisposable
         Assert.Equal("ComicBook", Assert.Single(Finds(harness)).MediaType);
     }
 
+    [Fact]
+    public async Task AnAutoFollowOfEbooksOnly_SelectsTheEbook_AndNeitherSelectsNorListsTheAudiobook()
+    {
+        var harness = CreateHarness(Results(
+            Record(1, "Leviathan Wakes", series: "The Expanse", number: "1"),
+            Record(2, "Leviathan Wakes", series: "The Expanse", number: "1", ebook: true)));
+        var follow = Follow(FollowKind.Series, "The Expanse");
+        follow.Formats = FollowFormats.Ebooks;
+        AddFollows(harness, follow);
+
+        await harness.RunAsync();
+
+        Assert.Equal(2L, Assert.Single(harness.Context.SelectedTorrents.AsNoTracking()).MamId);
+        Assert.Equal([(2L, "Ebook")], Finds(harness).Select(f => (f.MamId, f.MediaSide)));
+    }
+
+    [Fact]
+    public async Task LimitingAFollowToAudiobooks_RemovesItsWaitingEbookFinds_KeepingTheDismissedOnes()
+    {
+        var answer = new StrongBox<string>(Results(
+            Record(1, "Leviathan Wakes"),
+            Record(2, "Leviathan Wakes", ebook: true),
+            Record(3, "Caliban's War", ebook: true)));
+        var harness = SwitchingHarness(answer);
+        AddFollows(harness, Follow(FollowKind.Author, "James S. A. Corey"));
+        await harness.RunAsync();
+        harness.Context.FollowFinds.Single(f => f.MamId == 3).Status = FollowFindStatus.Dismissed;
+        harness.Context.Follows.Single().Formats = FollowFormats.Audiobooks;
+        await harness.Context.SaveChangesAsync();
+
+        // Removed whether the search returns the torrent or not.
+        answer.Value = Results(Record(1, "Leviathan Wakes"));
+        await MakeDueAsync(harness);
+        await harness.RunAsync();
+
+        Assert.Equal([(1L, FollowFindStatus.New), (3L, FollowFindStatus.Dismissed)], Finds(harness).Select(f => (f.MamId, f.Status)));
+    }
+
     /// <summary>The settings with one free grab block that takes only uploads from June 2026 on.</summary>
     private static FollowSettings NarrowedSettings()
     {
