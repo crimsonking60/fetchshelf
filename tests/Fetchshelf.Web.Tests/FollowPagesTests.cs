@@ -64,7 +64,7 @@ public partial class FollowPagesTests
     /// <summary>Another find for the follow seeded by <see cref="SeedFindAsync"/>.</summary>
     private static int AddFind(
         FetchshelfWebAppFixture fixture, long mamId, string title, FollowFindStatus status = FollowFindStatus.New, string side = "Audio",
-        string? seriesDisplay = null, long? size = null, DateTimeOffset? foundAt = null, string? language = null)
+        string? seriesDisplay = null, long? size = null, DateTimeOffset? foundAt = null, string? language = null, string? mediaType = null)
     {
         using var scope = fixture.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
@@ -77,6 +77,7 @@ public partial class FollowPagesTests
             SeriesDisplay = seriesDisplay,
             SizeBytes = size,
             Language = language,
+            MediaType = mediaType,
             Status = status,
             FoundAt = foundAt ?? DateTimeOffset.UtcNow,
             StatusAt = DateTimeOffset.UtcNow,
@@ -107,6 +108,20 @@ public partial class FollowPagesTests
         }
 
         return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task FindLists_FormatIsTheMediaType_OrTheSideForAFindRecordedBeforeMediaTypesWereKept()
+    {
+        using var fixture = new FetchshelfWebAppFixture(configToml: ConfigWithFollow);
+        await SeedFindAsync(fixture);
+        AddFind(fixture, 20, "The Expanse Graphic Novel", side: "Ebook", mediaType: "ComicBook");
+        AddFind(fixture, 21, "Memory's Legion", side: "Ebook");
+
+        var html = WebUtility.HtmlDecode(await fixture.CreateClient().GetStringAsync(FollowPage(fixture)));
+
+        Assert.Contains("<td class=\"find-format\">Comic Book / Graphic Novel</td>", html);
+        Assert.Contains("<td class=\"find-format\">Ebook</td>", html);
     }
 
     [Fact]

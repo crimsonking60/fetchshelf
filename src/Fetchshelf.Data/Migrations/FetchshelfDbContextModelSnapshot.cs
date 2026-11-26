@@ -312,6 +312,9 @@ namespace Fetchshelf.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MediaType")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SeriesDisplay")
                         .HasColumnType("TEXT");
 

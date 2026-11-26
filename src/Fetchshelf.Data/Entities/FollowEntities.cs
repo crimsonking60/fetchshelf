@@ -104,6 +104,13 @@ public sealed class FollowFindEntity
 
     public required string MediaSide { get; set; }
 
+    /// <summary>
+    /// The torrent's media type (<c>MediaType</c> enum name), such as "ComicBook", as shown in the Format column; null for
+    /// a find recorded before media types were kept, until a search finds it again. <see cref="MediaSide"/> is what the
+    /// Follow job matches by.
+    /// </summary>
+    public string? MediaType { get; set; }
+
     /// <summary>The torrent's size as MAM gave it when last found; null for finds recorded before sizes were kept.</summary>
     public long? SizeBytes { get; set; }
 
