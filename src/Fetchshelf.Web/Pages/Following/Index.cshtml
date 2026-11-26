@@ -135,6 +135,10 @@ else
                             {
                                 <span class="status-badge status-selected" title="Download yourself">Followed</span>
                             }
+                            @if (follow.Formats != FollowFormats.Both)
+                            {
+                                <span class="muted follow-formats">@IndexModel.FormatsLabel(follow.Formats).ToLowerInvariant()</span>
+                            }
                         </td>
                         <td class="follow-count" data-label="To look at">@(summary.ToLookAt > 0 ? summary.ToLookAt : "")</td>
                         @if (Model.ShowsNotFree)

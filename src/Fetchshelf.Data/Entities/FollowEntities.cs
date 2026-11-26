@@ -20,6 +20,19 @@ public enum FollowMode
     Ignore = 2,
 }
 
+/// <summary>Which formats the Follow job looks for, for one followed series or author.</summary>
+public enum FollowFormats
+{
+    /// <summary>Audiobooks and ebooks, as far as the `[[follow.grab]]` blocks take them.</summary>
+    Both = 0,
+
+    /// <summary>Only audiobooks (with periodical audiobooks).</summary>
+    Audiobooks = 1,
+
+    /// <summary>Only ebooks (with comics, manga and periodicals).</summary>
+    Ebooks = 2,
+}
+
 /// <summary>Where a follow came from.</summary>
 public enum FollowSource
 {
@@ -65,6 +78,20 @@ public sealed class FollowEntity
     public required FollowMode Mode { get; set; }
 
     public FollowSource Source { get; set; } = FollowSource.Manual;
+
+    /// <summary>
+    /// The formats looked for. A find in another format isn't listed, counted or selected, and the next search removes
+    /// one still waiting to be looked at.
+    /// </summary>
+    public FollowFormats Formats { get; set; } = FollowFormats.Both;
+
+    /// <summary>Whether <see cref="Formats"/> takes a find's <see cref="FollowFindEntity.MediaSide"/> ("Audio" or "Ebook").</summary>
+    public bool TakesSide(string mediaSide) => Formats switch
+    {
+        FollowFormats.Audiobooks => mediaSide == "Audio",
+        FollowFormats.Ebooks => mediaSide == "Ebook",
+        _ => true,
+    };
 
     public required DateTimeOffset CreatedAt { get; set; }
 

@@ -69,15 +69,15 @@ public static class FollowQueries
 
     /// <summary>
     /// Finds waiting to be looked at: new ones, and wanted ones, which can still be downloaded at another cost, in a
-    /// format a grab block takes (<see cref="WantedSides"/>). Finds of an ignored series are left out: the Following page
-    /// doesn't list those.
+    /// format a grab block takes (<see cref="WantedSides"/>) and the follow looks for (<see cref="FollowEntity.Formats"/>).
+    /// Finds of an ignored series are left out: the Following page doesn't list those.
     /// </summary>
     public static Task<int> WaitingCountAsync(
         FetchshelfDbContext dbContext, IReadOnlySet<string> wantedSides, CancellationToken cancellationToken = default) =>
         (from find in dbContext.FollowFinds
          join follow in dbContext.Follows on find.FollowId equals follow.Id
          where follow.Mode != FollowMode.Ignore && (find.Status == FollowFindStatus.New || find.Status == FollowFindStatus.Wanted)
-             && wantedSides.Contains(find.MediaSide)
+             && wantedSides.Contains(find.MediaSide) && (follow.Formats == FollowFormats.Both || find.MediaSide == (follow.Formats == FollowFormats.Audiobooks ? "Audio" : "Ebook"))
          select find.Id).CountAsync(cancellationToken);
 
     /// <summary>
@@ -100,8 +100,8 @@ public static class FollowQueries
             int Count(Func<FollowFindStatus, string, bool, bool> which) => own.Where(c => which(c.Status, c.MediaSide, c.Linked)).Sum(c => c.Count);
             return new FollowSummary(
                 follow,
-                ToLookAt: Count((status, side, _) => status is FollowFindStatus.New or FollowFindStatus.Wanted && wantedSides.Contains(side)),
-                NotFree: Count((status, side, _) => status == FollowFindStatus.Wanted && wantedSides.Contains(side)),
+                ToLookAt: Count((status, side, _) => status is FollowFindStatus.New or FollowFindStatus.Wanted && wantedSides.Contains(side) && follow.TakesSide(side)),
+                NotFree: Count((status, side, _) => status == FollowFindStatus.Wanted && wantedSides.Contains(side) && follow.TakesSide(side)),
                 Selected: Count((status, _, linked) => status == FollowFindStatus.Selected && !linked),
                 InLibrary: Count((status, _, linked) => status == FollowFindStatus.Owned || (status == FollowFindStatus.Selected && linked)));
         }).ToList();
@@ -121,9 +121,13 @@ public static class FollowQueries
         FetchshelfDbContext dbContext, int? followId, FindShow show, string? side, IReadOnlySet<string> wantedSides,
         CancellationToken cancellationToken = default)
     {
+        // A find waiting in a format the follow no longer looks for isn't listed at all, until the next search removes it.
         var query = from find in dbContext.FollowFinds.AsNoTracking()
                     join follow in dbContext.Follows.AsNoTracking() on find.FollowId equals follow.Id
                     where follow.Mode != FollowMode.Ignore
+                        && (follow.Formats == FollowFormats.Both
+                            || find.MediaSide == (follow.Formats == FollowFormats.Audiobooks ? "Audio" : "Ebook")
+                            || (find.Status != FollowFindStatus.New && find.Status != FollowFindStatus.Wanted))
                     select new { find, follow, linked = dbContext.Torrents.Any(t => t.MamId == find.MamId && t.LibraryPath != null) };
         if (followId is { } id)
         {
@@ -238,6 +242,27 @@ public sealed class FollowService(
         await dbContext.Follows.Where(f => f.Id == followId).ExecuteDeleteAsync(cancellationToken);
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Follow, ErrorLog.FollowKey(followId), cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the formats the follow looks for. Finds waiting in a format left out stop being listed at once, and the next
+    /// search removes them. Null when the follow is gone.
+    /// </summary>
+    public async Task<FollowEntity?> SetFormatsAsync(int followId, FollowFormats formats, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(formats))
+        {
+            throw new ArgumentOutOfRangeException(nameof(formats));
+        }
+
+        var follow = await dbContext.Follows.FirstOrDefaultAsync(f => f.Id == followId, cancellationToken);
+        if (follow is not null)
+        {
+            follow.Formats = formats;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return follow;
     }
 
     /// <summary>Makes the follow the first one the next Follow run searches, whenever it was searched last.</summary>
