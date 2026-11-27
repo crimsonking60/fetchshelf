@@ -7,32 +7,44 @@
 }
 
 <h2>Unsatisfied burndown</h2>
-@await Html.PartialAsync("_PageExplanation", $"How many torrents will look unsatisfied, now and each hour of the next {UnsatisfiedBurndown.Hours}. Fetchshelf unsatisfied counts Fetchshelf's own torrents, from the Seeding job's last estimates; MAM unsatisfied counts every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time right now, so it includes torrents added outside Fetchshelf. A torrent seeding now is taken to keep seeding until it is satisfied; one not seeding stays unsatisfied until its period ends, when MAM likely counts it as a hit-and-run. A highlighted count is lower than the hour before, mostly because seeding completed; pointing at it says how many. Both are estimates; MAM's own counts are what matter.")
+@await Html.PartialAsync("_PageExplanation", $"How many torrents will look unsatisfied, now and each hour of the next {UnsatisfiedBurndown.Hours}. Fetchshelf unsatisfied counts Fetchshelf's own torrents, from the Seeding job's last estimates, and starts with the estimate itself. In qBittorrent counts every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time right now, so it includes torrents added outside Fetchshelf. MAM projected starts from MAM's own count, as last read, and takes off the torrents qBittorrent's numbers say are satisfied since. MAM updates its count some time after a torrent is satisfied, so its count can stay above the other two for a while; MAM projected keeps that difference. A torrent seeding now is taken to keep seeding until it is satisfied; one not seeding stays unsatisfied until its period ends, when MAM likely counts it as a hit-and-run. A highlighted count is lower than the row before, mostly because seeding completed; pointing at it says how many. All three are estimates; MAM's own count is what matters.")
 
 @await Html.PartialAsync("_SeedingEstimate", Model.Estimate)
 
 <p id="seeding-checked">Seeding job's last estimate: <local-time value="Model.CheckedAt" empty="none yet" /></p>
 
+@if (Model.MamReported is { } reported)
+{
+    <p id="mam-reported">MAM's own count: @reported.Count unsatisfied, read <local-time value="reported.ReadAt" />.</p>
+}
+else
+{
+    <p id="mam-reported" class="muted">MAM's own count hasn't been read since Fetchshelf started, so MAM projected is left out.</p>
+}
+
 @if (Model.QBittorrentError is { } error)
 {
-    <p id="qbittorrent-error" class="notice error" role="alert">qBittorrent could not be read, so MAM unsatisfied is left out: @error</p>
+    <p id="qbittorrent-error" class="notice error" role="alert">qBittorrent could not be read, so In qBittorrent and MAM projected are left out: @error</p>
 }
 
 <table id="burndown" class="stat-table burndown">
-    <thead><tr><th>Timestamp</th><th class="num">Fetchshelf unsatisfied</th><th class="num">MAM unsatisfied</th></tr></thead>
+    <thead><tr><th>Timestamp</th><th class="num">Fetchshelf unsatisfied</th><th class="num">In qBittorrent</th><th class="num">MAM projected</th></tr></thead>
     <tbody>
         @foreach (var row in Model.Rows)
         {
             <tr>
-                <td><local-time value="row.Fetchshelf.At" minute /></td>
+                <td><local-time value="row.Fetchshelf.At" minute />@if (row.IsEstimate) { <span class="muted"> (the estimate)</span> }</td>
                 <td class="num@(row.Fetchshelf.Fewer ? " fewer" : "")" title="@(row.Fetchshelf.Fewer ? IndexModel.Change(row.Fetchshelf) : null)">@row.Fetchshelf.Unsatisfied</td>
-                @if (row.Mam is { } mam)
+                @foreach (var other in new[] { row.InClient, row.Mam })
                 {
-                    <td class="num@(mam.Fewer ? " fewer" : "")" title="@(mam.Fewer ? IndexModel.Change(mam) : null)">@mam.Unsatisfied</td>
-                }
-                else
-                {
-                    <td class="num">-</td>
+                    if (other is { } count)
+                    {
+                        <td class="num@(count.Fewer ? " fewer" : "")" title="@(count.Fewer ? IndexModel.Change(count) : null)">@count.Unsatisfied</td>
+                    }
+                    else
+                    {
+                        <td class="num">-</td>
+                    }
                 }
             </tr>
         }
