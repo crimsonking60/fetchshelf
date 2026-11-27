@@ -25,7 +25,7 @@ public class StatusModel(ILogger<StatusModel> logger) : PageModel
         {
             logger.LogWarning(
                 "{Method} {Path}{Query} answered {StatusCode}; the browser came from {Referer}",
-                Request.Method, original.OriginalPath, original.OriginalQueryString, code,
+                Request.Method, original.OriginalPath, original.OriginalQueryString ?? string.Empty, code,
                 Request.Headers.Referer.FirstOrDefault() is { Length: > 0 } referer ? referer : "no page");
         }
 

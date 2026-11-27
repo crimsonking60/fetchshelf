@@ -9,7 +9,7 @@ namespace Fetchshelf.Web.Tests;
 /// <summary>The page shown for an error status that came without a page of its own, and the log line it writes.</summary>
 public class StatusPageTests
 {
-    private static (StatusModel Model, CapturingLogger Logger) Shown(int code, string? referer, bool reExecuted = true)
+    private static (StatusModel Model, CapturingLogger Logger) Shown(int code, string? referer, bool reExecuted = true, string? query = "?Show=any")
     {
         var context = new DefaultHttpContext();
         context.Request.Method = "GET";
@@ -23,7 +23,7 @@ public class StatusPageTests
             context.Features.Set<IStatusCodeReExecuteFeature>(new StatusCodeReExecuteFeature
             {
                 OriginalPath = "/Lists/Detail/nope",
-                OriginalQueryString = "?Show=any",
+                OriginalQueryString = query,
                 OriginalPathBase = string.Empty,
             });
         }
@@ -50,6 +50,15 @@ public class StatusPageTests
         var (_, logger) = Shown(StatusCodes.Status400BadRequest, referer: null);
 
         Assert.Equal([(LogLevel.Warning, "GET /Lists/Detail/nope?Show=any answered 400; the browser came from no page")], logger.Entries);
+    }
+
+    [Fact]
+    public void AnAddressWithoutAQuery_IsLoggedWithoutOne()
+    {
+        // The re-executed request's query is null then, which the log would write as "null".
+        var (_, logger) = Shown(StatusCodes.Status404NotFound, referer: null, query: null);
+
+        Assert.Equal([(LogLevel.Warning, "GET /Lists/Detail/nope answered 404; the browser came from no page")], logger.Entries);
     }
 
     [Fact]
