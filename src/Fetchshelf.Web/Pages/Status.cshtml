@@ -1,0 +1,9 @@
+@page "/status/{code:int}"
+@model StatusModel
+@{
+    ViewData["Title"] = Model.Heading;
+}
+
+<h2>@Model.Heading</h2>
+<p id="status-message" class="notice error" role="alert">@Model.Explanation</p>
+<p><a asp-page="/Index">Search</a> - <a asp-page="/Torrents/Index">Torrents</a></p>

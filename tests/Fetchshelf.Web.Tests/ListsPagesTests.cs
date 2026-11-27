@@ -161,13 +161,45 @@ public class ListsPagesTests
     }
 
     [Fact]
+    public async Task Detail_AnotherUsersList_OpensFromTheListsPage_AndFromAnEscapedAddress()
+    {
+        using var fixture = new FetchshelfWebAppFixture(ConfigToml + """
+
+
+            [[hardcover_list]]
+            name = "Award winners"
+            list = "@someone/award-winners"
+
+            [[hardcover_list.grab]]
+            """);
+        var client = fixture.CreateClient();
+
+        var lists = System.Net.WebUtility.HtmlDecode(await client.GetStringAsync("/Lists"));
+        var link = System.Text.RegularExpressions.Regex.Match(lists, "<a href=\"([^\"]+)\">Award winners</a>").Groups[1].Value;
+        var fromLink = await client.GetAsync(link);
+        var escaped = await client.GetAsync($"/Lists/Detail/{Uri.EscapeDataString("hardcover:list:@someone/award-winners")}");
+
+        Assert.Equal(HttpStatusCode.OK, fromLink.StatusCode);
+        Assert.Contains("Award winners", await fromLink.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, escaped.StatusCode);
+    }
+
+    [Fact]
     public async Task Detail_UnknownList_IsNotFound()
     {
         using var fixture = new FetchshelfWebAppFixture(ConfigToml);
 
-        var response = await fixture.CreateClient().GetAsync("/Lists/Detail/nope");
+        var client = fixture.CreateClient();
+        var response = await client.GetAsync("/Lists/Detail/nope");
+        using var htmx = new HttpRequestMessage(HttpMethod.Get, "/Lists/Detail/nope");
+        htmx.Headers.Add("HX-Request", "true");
+        var htmxResponse = await client.SendAsync(htmx);
 
+        // A page says so, rather than coming back blank; htmx's requests get the bare status.
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("Nothing is at this address (/Lists/Detail/nope).", await response.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NotFound, htmxResponse.StatusCode);
+        Assert.Empty(await htmxResponse.Content.ReadAsStringAsync());
     }
 
     [Fact]

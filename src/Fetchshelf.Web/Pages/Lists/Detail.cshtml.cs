@@ -57,6 +57,7 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
 
     public async Task<IActionResult> OnGetAsync(string id)
     {
+        id = ListIdOf(id);
         var list = await dbContext.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id);
         // A configured list has no stored row until its first real (not dry) run; show it as not read yet.
         var configured = ListDefinition.AllOf(settings).FirstOrDefault(l => l.ListId == id);
@@ -109,8 +110,16 @@ public class DetailModel(FetchshelfDbContext dbContext, FetchshelfSettings setti
         item.MissingSince = null;
     });
 
+    /// <summary>
+    /// The list id from the address. Another user's Hardcover list has a <c>/</c> in its id, which the page's links
+    /// write as is (<c>{**id}</c>); an address that escapes it as <c>%2F</c>, as links did before, reaches the page with
+    /// the <c>%2F</c> left in, as ASP.NET Core doesn't decode it in a path.
+    /// </summary>
+    internal static string ListIdOf(string id) => id.Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
+
     private async Task<IActionResult> ChangeAsync(string id, string externalId, Action<ListItemEntity> change)
     {
+        id = ListIdOf(id);
         var item = await dbContext.ListItems.FindAsync(id, externalId);
         if (item is null)
         {
