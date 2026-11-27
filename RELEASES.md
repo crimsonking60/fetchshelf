@@ -5,6 +5,51 @@ number within that month. Container images are published as `ghcr.io/crimsonking
 
 Before upgrading, read the **Upgrading** notes of every release between your version and the new one.
 
+## 2026.11.25 - 2026-11-27
+
+**A series or author can be followed for its audiobooks or its ebooks only**, and **followed straight from MAM's
+search results**, with nothing of it in the library yet. A `[[hardcover_list]]` can be **another user's public
+list**. New **`comic_types`** gives comic books and manga a format list of their own. The Selected page is now the
+**Queue** page, and an address with nothing at it shows a page saying so instead of a blank one.
+
+### Upgrading
+
+- **Two database migrations** run at startup: follows get the formats they look for (every existing follow looks for
+  both, as before), and follow finds get their media type. Existing finds show Audiobook or Ebook until their
+  follow's next search sees them (#234, #236).
+- **The Selected page is now the Queue page**, at `/queue`. Bookmarks and links to `/selected` are redirected to it
+  (#237).
+- **`comic_types` is unset by default**: comics and manga then use `ebook_types` as before. To give them their own
+  order, add for example `comic_types = ["cbz", "cbr", "pdf", "epub"]`, globally or in a `[[library]]` (#235).
+- **Waiting follow finds that no `[[follow.grab]]` block takes any more are removed** at their follow's next search
+  that sees them, or at its next read of every page. Dismissed, selected and owned finds are kept (#231).
+- Existing `[[hardcover_list]]` slugs work as before.
+
+### Added
+
+- **Following**: **Looks for** on a followed series' or author's page limits the follow to its audiobooks or its
+  ebooks. Waiting finds in the other format drop out of its list; dismissed ones are kept (#236).
+- **Search page**: a search result's page and dialog have Follow buttons for its series and authors, and a search
+  for one name in the Series or Author field offers to follow it (#233).
+- **`[[hardcover_list]]`**: `list` also takes another user's public list, as `@someone/award-winners` or as the
+  list's address (`https://hardcover.app/@someone/lists/award-winners`) (#229).
+- **`comic_types`**, top-level and per `[[library]]`, for Comic Books and Manga (see Upgrading) (#235).
+- **A status page**: a page opened in the browser whose address has nothing at it, such as a list or torrent that is
+  gone, says so, and the request is logged as a warning with its address, status and the page it came from. OPDS
+  readers, `/metrics`, `/health` and in-place updates get the bare status as before (#238).
+
+### Changed
+
+- **The Selected page is now called Queue**, with the keyboard shortcut <kbd>g</kbd> then <kbd>q</kbd> (#237).
+- **Following pages**: a find's Format column shows MAM's media type (Comic Book / Graphic Novel, Periodical Ebook,
+  …), as the Search page does (#234). The ticked finds' bar sticks to the bottom of the window again (#230).
+- **Follow job**: waiting finds no grab block takes any more are removed (see Upgrading) (#231).
+- **Library check**: the ticked findings' buttons are in a bar at the bottom of the window (#232).
+
+### Fixed
+
+- **Lists**: another user's Hardcover list, whose id has a `/`, opens instead of showing a blank page (#238).
+
 ## 2026.11.24 - 2026-11-25
 
 **Collections are split into their books much more often.** A torrent of several collections, such as a reading

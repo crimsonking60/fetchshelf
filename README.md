@@ -52,22 +52,18 @@ setup. If you use one, please report how it went, good or bad (see
 - VIP top-ups from `[bonus]` (`vip = true`): MAM's answer to them has not been seen yet. Wedges and upload credit
   are confirmed.
 - `on_invalid_torrent` in `[[qbittorrent]]`.
-- `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, searching again
-  for a selection that was removed, and another user's list (`list = "@someone/…"` or the list's address).
+- `[[hardcover_list]]`: matching by ISBN or ASIN, the weekly search for books MAM doesn't have, and searching again
+  for a selection that was removed. Another user's list is confirmed.
 - `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
   series and stopping one are confirmed.
-- Following a series or author from the **Search** page: a search result's page and dialog, and a search in the
-  series or author field.
 - `comic_types`, globally and in a `[[library]]`.
-- **Looks for** on a followed series' or author's page: following only its audiobooks or only its ebooks.
-- The Follow job removing the waiting finds no `[[follow.grab]]` block takes any more, after a block is narrowed.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.
 
 ## Latest release
 
-**2026.11.24** (2026-11-25). See [RELEASES.md](RELEASES.md#20261124---2026-11-25) for what changed, and for
+**2026.11.25** (2026-11-27). See [RELEASES.md](RELEASES.md#20261125---2026-11-27) for what changed, and for
 every earlier release. Its documentation is on the [documentation site](https://fetchshelf.readthedocs.io/en/stable/).
 
 ## Contributing
