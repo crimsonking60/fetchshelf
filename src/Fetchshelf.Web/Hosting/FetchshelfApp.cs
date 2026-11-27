@@ -72,6 +72,13 @@ public static class FetchshelfApp
             app.UseExceptionHandler("/Error");
         }
 
+        // A page that isn't there, such as a list or torrent that is gone, or a request refused, says so instead of coming back blank. Only for a
+        // page opened in the browser: OPDS readers, the metrics and health endpoints and htmx's requests get the bare status.
+        app.UseWhen(
+            context => HttpMethods.IsGet(context.Request.Method) && !context.Request.Headers.ContainsKey("HX-Request")
+                && !context.Request.Path.StartsWithSegments("/opds") && !context.Request.Path.StartsWithSegments("/metrics")
+                && !context.Request.Path.StartsWithSegments("/health"),
+            branch => branch.UseStatusCodePagesWithReExecute("/status/{0}"));
         app.UseRouting();
         app.MapStaticAssets();
         app.MapRazorPages()
