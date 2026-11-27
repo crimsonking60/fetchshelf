@@ -10,12 +10,12 @@ Before upgrading, read the **Upgrading** notes of every release between your ver
 **A series or author can be followed for its audiobooks or its ebooks only**, and **followed straight from MAM's
 search results**, with nothing of it in the library yet. A `[[hardcover_list]]` can be **another user's public
 list**. New **`comic_types`** gives comic books and manga a format list of their own. The Selected page is now the
-**Queue** page, and an address with nothing at it shows a page saying so instead of a blank one.
+**Queue** page, and an address that doesn't exist shows a page saying so instead of a blank one.
 
 ### Upgrading
 
 - **Two database migrations** run at startup: follows get the formats they look for (every existing follow looks for
-  both, as before), and follow finds get their media type. Existing finds show Audiobook or Ebook until their
+  both, as before), and follow finds get their media type. Existing finds show "Audiobook" or "Ebook" until their
   follow's next search sees them (#234, #236).
 - **The Selected page is now the Queue page**, at `/queue`. Bookmarks and links to `/selected` are redirected to it
   (#237).
@@ -34,9 +34,9 @@ list**. New **`comic_types`** gives comic books and manga a format list of their
 - **`[[hardcover_list]]`**: `list` also takes another user's public list, as `@someone/award-winners` or as the
   list's address (`https://hardcover.app/@someone/lists/award-winners`) (#229).
 - **`comic_types`**, top-level and per `[[library]]`, for Comic Books and Manga (see Upgrading) (#235).
-- **A status page**: a page opened in the browser whose address has nothing at it, such as a list or torrent that is
-  gone, says so, and the request is logged as a warning with its address, status and the page it came from. OPDS
-  readers, `/metrics`, `/health` and in-place updates get the bare status as before (#238).
+- **A status page**: an address opened in the browser that doesn't exist, such as a list or torrent that is gone,
+  shows a page saying so, and the request is logged as a warning with its address, status and the page it came
+  from. OPDS readers, `/metrics`, `/health` and in-place updates get the bare status as before (#238).
 
 ### Changed
 
