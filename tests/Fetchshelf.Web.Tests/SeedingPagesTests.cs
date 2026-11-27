@@ -123,7 +123,7 @@ public sealed class SeedingPagesTests
     }
 
     [Fact]
-    public async Task BurndownPage_Lists73Hours_ForFetchshelfAndEveryMamTorrent_AndMarksWhereSeedingCompletes()
+    public async Task BurndownPage_StartsAtTheEstimate_ThenLists73Hours_ForFetchshelfEveryMamTorrentAndMamsCount()
     {
         var added = DateTimeOffset.UtcNow.AddDays(-5).ToUnixTimeSeconds();
         List<QBittorrentTorrent> inClient =
@@ -150,26 +150,35 @@ public sealed class SeedingPagesTests
         using (var scope = fixture.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
-            await db.Torrents.ForEachAsync(t => t.SeedingCheckedAt = DateTimeOffset.UtcNow);
+            // The Seeding job estimated half an hour ago: the table starts with that estimate.
+            await db.Torrents.ForEachAsync(t => t.SeedingCheckedAt = DateTimeOffset.UtcNow.AddMinutes(-30));
             await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<MamClient>().GetAccountStateAsync();
         }
 
         var client = fixture.CreateClient();
         var html = System.Text.RegularExpressions.Regex.Replace(await client.GetStringAsync("/unsatisfied"), @"\s+", " ");
+        var estimate = System.Text.RegularExpressions.Regex.Match(
+            html, "<tr> <td><time[^>]*data-minute[^>]*>[^<]+</time> ?<span class=\"muted\"> ?\\(the estimate\\)</span> ?</td> <td class=\"num\"[^>]*>(\\d+)</td> <td class=\"num\">-</td> <td class=\"num\">-</td>");
         var rows = System.Text.RegularExpressions.Regex.Matches(
-            html, "<tr> <td><time[^>]*data-minute[^>]*>[^<]+</time></td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td>");
+            html, "<tr> <td><time[^>]*data-minute[^>]*>[^<]+</time></td>"
+            + " <td class=\"num( fewer)?\"[^>]*>(\\d+)</td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td> <td class=\"num( fewer)?\"[^>]*>(\\d+)</td>");
 
-        Assert.Contains("<th class=\"num\">Fetchshelf unsatisfied</th><th class=\"num\">MAM unsatisfied</th>", html);
+        Assert.Contains("<th class=\"num\">Fetchshelf unsatisfied</th><th class=\"num\">In qBittorrent</th><th class=\"num\">MAM projected</th>", html);
         Assert.Contains(">1 seeding</a> and <a href=\"/Torrents?Seeding=NotSeedingUnsatisfied\">1 not seeding</a> of its torrents look unsatisfied.", html);
         Assert.Contains("MAM counts 14 and 0.", html);
+        Assert.Matches("<p id=\"mam-reported\">MAM's own count: 14 unsatisfied, read <time", html);
+        Assert.True(estimate.Success);
+        Assert.Equal("2", estimate.Groups[1].Value);
         Assert.Equal(73, rows.Count);
-        Assert.Equal(("2", "2"), (rows[0].Groups[2].Value, rows[0].Groups[4].Value));
-        Assert.Equal(("1", "1"), (rows[72].Groups[2].Value, rows[72].Groups[4].Value));
+        Assert.Equal(("2", "2", "14"), (rows[0].Groups[2].Value, rows[0].Groups[4].Value, rows[0].Groups[6].Value));
+        Assert.Equal(("1", "1", "13"), (rows[72].Groups[2].Value, rows[72].Groups[4].Value, rows[72].Groups[6].Value));
         var fetchshelfFewer = Assert.Single(rows, row => row.Groups[1].Success);
-        var mamFewer = Assert.Single(rows, row => row.Groups[3].Success);
+        var inClientFewer = Assert.Single(rows, row => row.Groups[3].Success);
+        var mamFewer = Assert.Single(rows, row => row.Groups[5].Success);
         Assert.Contains("title=\"1 satisfied\"", fetchshelfFewer.Value);
-        Assert.InRange(rows.ToList().IndexOf(mamFewer), 10, 11);
+        Assert.InRange(rows.ToList().IndexOf(inClientFewer), 10, 11);
+        Assert.Equal(inClientFewer.Index, mamFewer.Index);
         Assert.Contains("Unsatisfied burndown</a>", await client.GetStringAsync("/"));
     }
 

@@ -77,4 +77,52 @@ public sealed class UnsatisfiedBurndownTests
     [InlineData(SeedingState.PastThePeriod)]
     public void Build_TorrentsNotUnsatisfiedNow_AreNotCounted(SeedingState state) =>
         Assert.All(Build(Torrent(state, 10)), row => Assert.Equal(0, row.Unsatisfied));
+
+    [Fact]
+    public void Build_AtTheGivenTimes_StartsWithTheEstimateBeforeNow()
+    {
+        // Estimated 30 minutes ago with 20 minutes to go: counted then, satisfied by now.
+        var torrent = Torrent(SeedingState.SeedingUnsatisfied, 72 - (20 / 60.0), checkedHoursAgo: 0.5);
+
+        var rows = UnsatisfiedBurndown.Build([torrent], [Now.AddMinutes(-30), .. UnsatisfiedBurndown.Times(Now)], Requirement);
+
+        Assert.Equal(74, rows.Count);
+        Assert.Equal((Now.AddMinutes(-30), 1), (rows[0].At, rows[0].Unsatisfied));
+        Assert.Equal(0, rows[1].Unsatisfied);
+        Assert.Equal(1, rows[1].Satisfied);
+    }
+
+    [Fact]
+    public void FromReported_StartsFromMamsCount_LessWhatIsSatisfiedAfterItWasRead()
+    {
+        var readAt = Now.AddMinutes(-30);
+        var torrents = new[]
+        {
+            // Satisfied 10 minutes ago, after MAM was read: off the count now.
+            Torrent(SeedingState.Satisfied, 72 + (10 / 60.0)),
+            // Satisfied an hour ago, before MAM was read: MAM's count already has it, or will, so it isn't taken off.
+            Torrent(SeedingState.Satisfied, 73),
+            // Satisfied 5 hours from now.
+            Torrent(SeedingState.SeedingUnsatisfied, 67),
+            // Not seeding: counts until its period ends.
+            Torrent(SeedingState.NotSeedingUnsatisfied, 10),
+        };
+
+        var rows = UnsatisfiedBurndown.FromReported(20, readAt, torrents, UnsatisfiedBurndown.Times(Now), Requirement);
+
+        Assert.Equal(19, rows[0].Unsatisfied);
+        Assert.Equal(19, rows[4].Unsatisfied);
+        Assert.Equal(18, rows[5].Unsatisfied);
+        Assert.Equal(1, rows[5].Satisfied);
+        Assert.Equal(18, rows[72].Unsatisfied);
+    }
+
+    [Fact]
+    public void FromReported_NeverGoesBelowZero()
+    {
+        var rows = UnsatisfiedBurndown.FromReported(
+            0, Now, [Torrent(SeedingState.SeedingUnsatisfied, 71)], UnsatisfiedBurndown.Times(Now), Requirement);
+
+        Assert.All(rows, row => Assert.Equal(0, row.Unsatisfied));
+    }
 }

@@ -1562,12 +1562,19 @@ Where it shows:
 - The **Torrents** page has a *Seeding* filter, and the *Status* column says how many hours a torrent still
   needs.
 - The **Unsatisfied burndown** page (under **Insight**) starts with the same estimate and MAM's counts as the
-  **Account** page, then counts the torrents that will look unsatisfied now and each hour of the next 72:
-  *Fetchshelf unsatisfied* for Fetchshelf's own torrents, from the Seeding job's last estimates, and *MAM unsatisfied*
-  for every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time when the page
-  opens, so it includes torrents added by hand or by another tool. A torrent seeding now is taken to keep seeding
-  until it is satisfied; one not seeding stays unsatisfied until its period ends. A count lower than the hour before
-  is highlighted, and pointing at it says how many were satisfied, or reached the end of their period, in that hour.
+  **Account** page, and MAM's own unsatisfied count with when it was read. It then counts the torrents that will look
+  unsatisfied now and each hour of the next 72, in three columns:
+  - *Fetchshelf unsatisfied*: Fetchshelf's own torrents, from the Seeding job's last estimates. Its first row is the
+    estimate itself, so the table starts from the count above it.
+  - *In qBittorrent*: every finished torrent in qBittorrent with MAM as its tracker, from qBittorrent's seeding time
+    when the page opens, so it includes torrents added by hand or by another tool.
+  - *MAM projected*: MAM's own count as last read, less the torrents qBittorrent's numbers say are satisfied, or past
+    their period, since. MAM updates its count some time after a torrent is satisfied, so its count can stay above
+    the other two for a while; this column keeps that difference rather than running ahead of MAM.
+
+  A torrent seeding now is taken to keep seeding until it is satisfied; one not seeding stays unsatisfied until its
+  period ends. A count lower than the row before is highlighted, and pointing at it says how many were satisfied, or
+  reached the end of their period, since then.
 - A torrent's page says how far it has got and by when, from qBittorrent's numbers right then.
 - **Unlink** and **Remove from qBittorrent with data** on a torrent that isn't satisfied say so before you confirm.
 - The Clean job holds `on_cleaned` back for a retired copy that isn't satisfied, so a qBittorrent rule acting on that
@@ -2055,7 +2062,7 @@ of Search, Torrents, Books and Series, and <kbd>g</kbd> then a letter to a page 
 | **Jobs** | Every background job, in three groups (standard jobs, the jobs that come with a section of the configuration, and one per `[[autograb]]`), with its last run, how long it took and what it did, when it runs next, and a **Run now** or **Cancel** button. Updates live. Each job's name opens its history. Above them, the account's main numbers; at the end of the second group, the kinds of job that are not configured. |
 | **Account** | The MAM account's numbers, and how much Fetchshelf may still download, select and spend. Only in the menu when `mam_id` is set. |
 | **Statistics** | Totals of the library, and what was grabbed month by month and by whom. |
-| **Unsatisfied burndown** | How many torrents will look unsatisfied now and each hour of the next 72, Fetchshelf's own and every MAM torrent in qBittorrent, with the hours where seeding completes highlighted. Only in the menu with a `[seeding]` section. See [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied). |
+| **Unsatisfied burndown** | How many torrents will look unsatisfied now and each hour of the next 72, Fetchshelf's own, every MAM torrent in qBittorrent, and MAM's own count going forward, with the hours where seeding completes highlighted. Only in the menu with a `[seeding]` section. See [Seeding torrents until MAM counts them as satisfied](#seeding-torrents-until-mam-counts-them-as-satisfied). |
 | **MAM API** | Every call Fetchshelf made to MAM, as a chart and a table, to see the pattern behind a 429 (too many requests). Only in the menu when `mam_id` is set. See [MAM API](#mam-api). |
 | **Queue** | Torrents that are chosen and not yet finished downloading, oldest first: the order the Download job starts them in. Click **Title** or **Cost** to sort by them; open the page again for this order. A title opens what Fetchshelf stored about the torrent when it was picked, with **Open on MAM**. |
 | **Torrents** | Every torrent Fetchshelf knows. |
