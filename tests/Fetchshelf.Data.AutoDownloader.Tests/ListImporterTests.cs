@@ -8,6 +8,7 @@ using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Configuration;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fetchshelf.Data.AutoDownloader.Tests;
 
@@ -104,11 +105,11 @@ public sealed class ListImporterTests : IDisposable
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
-    private Harness CreateHarness(Func<string, string> searchResponse, SelectionLibraries? libraries = null) =>
-        CreateHarness(body => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) }, libraries);
+    private Harness CreateHarness(Func<string, string> searchResponse, SelectionLibraries? libraries = null, ILogger<ListImporter>? logger = null) =>
+        CreateHarness(body => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) }, libraries, logger);
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/>'s whole response, status and all.</summary>
-    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, SelectionLibraries? libraries = null)
+    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, SelectionLibraries? libraries = null, ILogger<ListImporter>? logger = null)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -136,7 +137,7 @@ public sealed class ListImporterTests : IDisposable
             ctx, mamClient, new MamAccessGate(),
             new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists, libraries),
             SelectionTestSupport.PreferenceLists, clock,
-            delay: (_, _) => Task.CompletedTask), mamClient);
+            delay: (_, _) => Task.CompletedTask, logger: logger), mamClient);
     }
 
     private static HardcoverListEntry Entry(FilterMainType? preferFormat = null, bool dryRun = false, params GrabEntry[] grab) => new()
@@ -385,6 +386,33 @@ public sealed class ListImporterTests : IDisposable
         Assert.Equal(0, summary.Selected);
         Assert.Empty(harness.Context.SelectedTorrents);
         Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).EbookStatus);
+    }
+
+    [Fact]
+    public async Task RunAsync_ADryRun_LogsTheSearchAndWhyEachResultWasLeftOut()
+    {
+        var libraries = new SelectionLibraries(
+            [new SelectionLibrary(new Fetchshelf.Core.Organizer.LibraryMatchRule { Category = "ebooks" }, new LibraryFormatLists(null, ["epub"]))],
+            (_, path) => path);
+        var logger = new ListLogger<ListImporter>();
+        var harness = CreateHarness(
+            _ => Results(
+                Record(11, "Slow Sky", "Hank Dowd", ebook: true, fileType: "pdf"),
+                Record(12, "Slow Sky", "Hank Dowd", ebook: false),
+                Record(13, "Another Book Entirely", "Somebody Else", ebook: true)),
+            libraries,
+            logger);
+        harness.Books.Books = [Book(1, "Slow Sky", "Hank Dowd")];
+        var entry = Entry(dryRun: true, grab: new GrabEntry { Cost = ConfiguredCost.Free, Categories = new CategoriesConfig { Audio = CategoryListOrBool.None } });
+        entry.Category = "ebooks";
+
+        await harness.RunAsync(entry);
+
+        var messages = logger.Messages(LogLevel.Information);
+        Assert.Contains("\"Slow Sky\": grab block 1 searched MAM for @title Slow Sky @author (\"Hank Dowd\"): 3 results", messages);
+        Assert.Contains("\"Slow Sky\": MAM torrent 11 \"Slow Sky\" is left out: none of its formats (pdf) is in its library's list (epub)", messages);
+        Assert.Contains(messages, m => m.StartsWith("\"Slow Sky\": MAM torrent 12 \"Slow Sky\" is left out: the grab block's filter turns it down: ", StringComparison.Ordinal));
+        Assert.Contains("\"Slow Sky\": no ebook result has the book's title and an author close enough: MAM 13 \"Another Book Entirely\" by Somebody Else", messages);
     }
 
     [Fact]
