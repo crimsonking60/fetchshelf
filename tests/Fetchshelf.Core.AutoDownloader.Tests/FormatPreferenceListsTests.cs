@@ -67,4 +67,25 @@ public class FormatPreferenceListsTests
 
         Assert.Equal([expected], list);
     }
+
+    [Theory]
+    [InlineData(MediaType.Ebook, "epub")]
+    [InlineData(MediaType.PeriodicalEbook, "epub")]
+    [InlineData(MediaType.ComicBook, "cbz")]
+    [InlineData(MediaType.Audiobook, "m4b")]
+    [InlineData(MediaType.Musicology, "flac")]
+    public void ForLibrary_TakesTheLibrarysOwnList_WhereItHasOne(MediaType mediaType, string first)
+    {
+        var lists = new FormatPreferenceLists
+        {
+            AudioTypes = ["mp3"],
+            EbookTypes = ["pdf"],
+            MusicTypes = ["flac"],
+            RadioTypes = ["mp3"],
+        };
+        var library = new LibraryFormatLists(["m4b"], ["epub"], ["cbz"]);
+
+        Assert.Equal(first, lists.ForLibrary(mediaType, library)[0]);
+        Assert.Equal(lists.For(mediaType), lists.ForLibrary(mediaType, null));
+    }
 }

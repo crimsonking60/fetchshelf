@@ -568,7 +568,9 @@ type and the category switch, for example `media_type = ["Radio"]` with `categor
 
 You can narrow a library with `allow_tags` (the torrent needs at least one) and `deny_tags` (the torrent
 is rejected if it has any), and give it its own `audio_types` / `ebook_types` / `comic_types` to control which files are
-linked into it.
+linked into it. Those lists also decide what is downloaded for it: a torrent with no format the library it would be
+linked into lists, such as a PDF of a novel for a library with `ebook_types = ["epub", "mobi"]`, isn't selected, and a
+list looks for another upload of the book instead.
 
 ### Sorting books by genre
 

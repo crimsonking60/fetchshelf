@@ -132,4 +132,14 @@ public sealed class Library
 
     /// <summary>True when this library sets its own `metadata_opf`, so the global one must not replace it.</summary>
     internal bool HasOwnMetadataOpf => _metadataOpf is not null;
+
+    /// <summary>What the library takes, as the Link job, and selection working out where a torrent will go, match it.</summary>
+    public LibraryMatchRule ToMatchRule() => new()
+    {
+        Category = Category,
+        DownloadDir = DownloadDir,
+        AllowTags = AllowTags,
+        DenyTags = DenyTags,
+        Genres = Genres,
+    };
 }

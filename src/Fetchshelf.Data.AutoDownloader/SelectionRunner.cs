@@ -22,7 +22,8 @@ public sealed class SelectionRunner(
     FetchshelfDbContext dbContext,
     EventStore eventStore,
     IReadOnlyList<TagRule> tagRules,
-    FormatPreferenceLists preferenceLists)
+    FormatPreferenceLists preferenceLists,
+    SelectionLibraries? libraries = null)
 {
     private readonly List<DryRunSelection> _dryRunSelections = [];
     private readonly List<string> _details = [];
@@ -97,6 +98,29 @@ public sealed class SelectionRunner(
         _details.Add($"{what}: {metadata.Title}{authors} ({types}{DownloadBudget.FormatBytes(metadata.TotalSizeBytes)}) - MAM {record.MamId}");
     }
 
+    /// <summary>
+    /// The format list a candidate is selected by: that of the library it will be linked into, with the category, save
+    /// path and tags the block and the tag rules give it, or the global one for its media type when no library takes it.
+    /// </summary>
+    public IReadOnlyList<string> FormatListFor(MamTorrentRecord record, TorrentMetadata metadata, DownloadPlacement placement) =>
+        FormatListFor(Resolve(record, metadata, placement), metadata);
+
+    private IReadOnlyList<string> FormatListFor((DownloadPlacement Placement, IReadOnlySet<string> Tags) resolved, TorrentMetadata metadata) =>
+        preferenceLists.ForLibrary(metadata.MediaType, (libraries ?? SelectionLibraries.None).FormatsFor(resolved.Placement, resolved.Tags, metadata));
+
+    private (DownloadPlacement Placement, IReadOnlySet<string> Tags) Resolve(MamTorrentRecord record, TorrentMetadata metadata, DownloadPlacement placement) =>
+        TagRuleResolver.Resolve(
+            new TorrentFilterCandidate
+            {
+                Metadata = metadata,
+                UploaderName = record.UploaderName,
+                Seeders = record.Seeders,
+                Leechers = record.Leechers,
+                TimesCompleted = record.TimesCompleted,
+            },
+            placement,
+            tagRules);
+
     private async Task<SelectionOutcome> DecideAsync(
         MamTorrentRecord record,
         TorrentMetadata metadata,
@@ -154,7 +178,9 @@ public sealed class SelectionRunner(
             return SelectionOutcome.MetadataOnlyStop;
         }
 
-        var preferenceList = formatList ?? preferenceLists.For(metadata.MediaType);
+        // The block's and the tag rules' category, save path and tags decide the library, whose format list this is.
+        var (resolved, tags) = Resolve(record, metadata, placement);
+        var preferenceList = formatList ?? FormatListFor((resolved, tags), metadata);
         var candidateRank = FormatRanker.Rank(preferenceList, metadata.FileTypes);
         if (candidateRank == FormatRanker.NotPresent)
         {
@@ -186,16 +212,6 @@ public sealed class SelectionRunner(
 
             return SelectionOutcome.DuplicateOfLibrary;
         }
-
-        var candidate = new TorrentFilterCandidate
-        {
-            Metadata = metadata,
-            UploaderName = record.UploaderName,
-            Seeders = record.Seeders,
-            Leechers = record.Leechers,
-            TimesCompleted = record.TimesCompleted,
-        };
-        var (resolved, tags) = TagRuleResolver.Resolve(candidate, placement, tagRules);
 
         var cost = CostPolicy.Derive(record.IsVip, record.IsPersonalFreeleech, record.IsFree, configuredCost);
         if (cost is null)

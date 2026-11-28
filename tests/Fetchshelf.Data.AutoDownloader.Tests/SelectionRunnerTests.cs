@@ -1,5 +1,7 @@
 using Fetchshelf.Clients.Mam;
 using Fetchshelf.Core.AutoDownloader;
+using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +25,88 @@ public sealed class SelectionRunnerTests : IDisposable
         DownloadPlacement? placement = null,
         string? grabberName = "test-grabber") =>
         runner.ProcessCandidateAsync(record, MamTorrentMapper.Map(record), [], cost, placement ?? DownloadPlacement.None, grabberName);
+
+    /// <summary>
+    /// Two libraries on the "ebooks" category, split by fiction: novels in epub only, nonfiction in epub or pdf; and a
+    /// "comics" library with pdf. The global list (<see cref="SelectionTestSupport.PreferenceLists"/>) has epub and pdf.
+    /// </summary>
+    private static SelectionLibraries Libraries(Func<string?, string, string>? mapSavePath = null) => new(
+        [
+            new SelectionLibrary(
+                new LibraryMatchRule
+                {
+                    Category = "ebooks",
+                    Genres = new GenreCondition(new HashSet<GenreCategory>(), new HashSet<GenreCategory>(), FictionCategory.Fiction),
+                },
+                new LibraryFormatLists(null, ["epub"])),
+            new SelectionLibrary(
+                new LibraryMatchRule { Category = "ebooks" },
+                new LibraryFormatLists(null, ["epub", "pdf"])),
+            new SelectionLibrary(
+                new LibraryMatchRule { DownloadDir = "/downloads/comics" },
+                new LibraryFormatLists(null, ["cbz", "pdf"])),
+        ],
+        mapSavePath ?? ((_, path) => path));
+
+    private static MamTorrentRecord Ebook(long mamId, string fileType, MediaType mediaType = MediaType.Ebook, FictionCategory fiction = FictionCategory.Fiction) =>
+        SelectionTestSupport.BuildRecord(mamId: mamId, fileTypes: [fileType]) with
+        {
+            MediaTypeId = (int)mediaType,
+            LegacyCategoryId = (int)LegacyCategory.EbookGeneralFiction,
+            FictionCategoryId = (int)fiction,
+        };
+
+    [Fact]
+    public async Task ProcessCandidateAsync_AFormatItsLibraryDoesntLink_IsSkipped()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists, Libraries());
+
+        var outcome = await Process(runner, Ebook(1, "pdf"), ConfiguredCost.Ratio, new DownloadPlacement(Category: "ebooks"));
+
+        Assert.Equal(SelectionOutcome.NoPreferredFormat, outcome);
+        Assert.Empty(context.SelectedTorrents);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_TheLibraryIsChosenByGenre_AsTheLinkJobChoosesIt()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists, Libraries());
+
+        var novel = await Process(runner, Ebook(1, "epub"), ConfiguredCost.Ratio, new DownloadPlacement(Category: "ebooks"));
+        var nonfiction = await Process(
+            runner, Ebook(2, "pdf", fiction: FictionCategory.Nonfiction) with { Title = "Another Book" }, ConfiguredCost.Ratio, new DownloadPlacement(Category: "ebooks"));
+
+        Assert.Equal((SelectionOutcome.Selected, SelectionOutcome.Selected), (novel, nonfiction));
+    }
+
+    [Theory]
+    [InlineData("other", SelectionOutcome.Selected)]
+    [InlineData(null, SelectionOutcome.NoPreferredFormat)]
+    public async Task ProcessCandidateAsync_ALibraryBySavePath_IsFoundThroughTheClientsPathMapping(string? client, SelectionOutcome expected)
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        // Only the client "other" sees the comics folder as /qbt/comics. The global list has no cbz, the comics library has.
+        var libraries = Libraries((name, path) => name == "other" ? path.Replace("/qbt", "/downloads", StringComparison.Ordinal) : path);
+        var runner = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists, libraries);
+        var comic = Ebook(1, "cbz", MediaType.ComicBook) with { LegacyCategoryId = (int)LegacyCategory.EbookComicsGraphicNovels };
+
+        var outcome = await Process(runner, comic, ConfiguredCost.Ratio, new DownloadPlacement(Client: client, SavePath: "/qbt/comics"));
+
+        Assert.Equal(expected, outcome);
+    }
+
+    [Fact]
+    public async Task ProcessCandidateAsync_NoLibraryTakesIt_UsesTheGlobalList()
+    {
+        using var context = SelectionTestSupport.CreateContext(DbPath);
+        var runner = new SelectionRunner(context, new EventStore(context), [], SelectionTestSupport.PreferenceLists, Libraries());
+
+        var outcome = await Process(runner, Ebook(1, "pdf"), ConfiguredCost.Ratio, new DownloadPlacement(Category: "elsewhere"));
+
+        Assert.Equal(SelectionOutcome.Selected, outcome);
+    }
 
     [Fact]
     public async Task ProcessCandidateAsync_IgnoredMamId_ReturnsIgnored()
