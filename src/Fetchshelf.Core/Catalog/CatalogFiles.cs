@@ -19,7 +19,10 @@ public static class CatalogFiles
         "epub" => "application/epub+zip",
         "pdf" => "application/pdf",
         "mobi" => "application/x-mobipocket-ebook",
-        "azw3" or "azw" => "application/vnd.amazon.ebook",
+        // AZW3 (KF8) has no registered type; calibre serves it as this one. Safari takes application/vnd.amazon.ebook for
+        // a .mobi and adds that to the name of an .azw3 it downloads.
+        "azw3" => "application/x-mobi8-ebook",
+        "azw" => "application/vnd.amazon.ebook",
         "cbz" => "application/vnd.comicbook+zip",
         "cbr" => "application/vnd.comicbook-rar",
         "m4b" or "m4a" => "audio/mp4",
