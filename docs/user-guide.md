@@ -1774,7 +1774,7 @@ cover put there by you, by Audiobookshelf or by an earlier run is never replaced
 
 1. **The book's own files**, first: the cover inside an EPUB, the cover a MOBI, AZW or AZW3 file names, the first
    page of a CBZ or CBR comic, the picture embedded in an m4b, m4a or mp3 audiobook, or the picture filling a PDF's first page. This costs no request, so it isn't limited by the number, but each Link
-   run spends at most about 10 seconds on it: a large library is filled in over a few runs, and the Link job never
+   run spends at most about 20 seconds on it: a large library is filled in over a few runs, and the Link job never
    takes much longer than it did.
 2. **Hardcover**, when the files have none and a [`[hardcover]`](configuration.md#hardcover) token is set: first the
    edition with the book's ISBN (or an audiobook's ASIN), then a search by title and first author. A search hit is

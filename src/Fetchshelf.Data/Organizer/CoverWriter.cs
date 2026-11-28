@@ -28,12 +28,12 @@ public sealed record CoverRunSummary(int FromFiles, int Fetched, int Waiting)
 /// at all, from the files either.
 /// </param>
 /// <param name="FileBudget">
-/// How long one run spends reading covers out of books' files, which costs no request: about 10 seconds by default. A time
+/// How long one run spends reading covers out of books' files, which costs no request: about 20 seconds by default. A time
 /// rather than a count, as a read takes milliseconds on a local disk and many times that on a network share.
 /// </param>
 public sealed record CoverWriterOptions(int MaxFetchesPerRun, TimeSpan? FileBudget = null)
 {
-    public static readonly TimeSpan DefaultFileBudget = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan DefaultFileBudget = TimeSpan.FromSeconds(20);
 
     public TimeSpan EffectiveFileBudget => FileBudget ?? DefaultFileBudget;
 }
