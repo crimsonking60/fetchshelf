@@ -1,5 +1,6 @@
 using Fetchshelf.Core.AutoDownloader;
 using Fetchshelf.Core.Metadata;
+using Fetchshelf.Core.Organizer;
 using Fetchshelf.Data;
 using Fetchshelf.Data.AutoDownloader;
 using Fetchshelf.Data.Configuration;
@@ -30,6 +31,14 @@ public static class RunnerServices
                 .ToDictionary(library => library.Name!, library => new LibraryFormatLists(library.AudioTypes, library.EbookTypes, library.ComicTypes), StringComparer.Ordinal),
         });
         services.AddSingleton<IReadOnlyList<Library>>(settings.Library);
+        // Selection takes the format lists of the library a torrent will be linked into.
+        services.AddSingleton(new SelectionLibraries(
+            settings.Library.Select(library => new SelectionLibrary(
+                library.ToMatchRule(), new LibraryFormatLists(library.AudioTypes, library.EbookTypes, library.ComicTypes))).ToList(),
+            (client, savePath) => (client is null
+                    ? settings.QBittorrent.FirstOrDefault()
+                    : settings.QBittorrent.FirstOrDefault(c => string.Equals(c.Name, client, StringComparison.OrdinalIgnoreCase)))
+                is { } connection ? PathMapper.Translate(connection.PathMapping, savePath) : savePath));
         services.AddSingleton(new LinkRunnerOptions(
             settings.ExcludeNarratorInLibraryDir,
             settings.Languages.Count > 0 && LanguageNameResolver.TryResolve(settings.Languages[0], out var firstLanguage) ? firstLanguage : null,

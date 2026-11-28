@@ -61,6 +61,22 @@ public sealed record FormatPreferenceLists
             : libraryEbookTypes ?? EbookTypes;
 
     /// <summary>
+    /// The list a torrent of this media type is linked by in a library with these lists of its own: the library's
+    /// `audio_types` for audiobooks, <see cref="EbookSideFor"/> for ebooks, comics and manga, and the global list where
+    /// the library sets none, or for music and radio. Without a library, <see cref="For"/>.
+    /// </summary>
+    public IReadOnlyList<string> ForLibrary(MediaType mediaType, LibraryFormatLists? library) =>
+        library is null
+            ? For(mediaType)
+            : mediaType switch
+            {
+                MediaType.Audiobook or MediaType.PeriodicalAudiobook => library.AudioTypes ?? AudioTypes,
+                MediaType.Ebook or MediaType.PeriodicalEbook or MediaType.ComicBook or MediaType.Manga =>
+                    EbookSideFor(mediaType, library.EbookTypes, library.ComicTypes),
+                _ => For(mediaType),
+            };
+
+    /// <summary>
     /// The list that picks the audio-side file type when linking: music and radio have their own lists, every other
     /// media type uses <see cref="AudioTypes"/>. The ebook side is <see cref="EbookSideFor"/>.
     /// </summary>

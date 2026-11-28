@@ -32,12 +32,12 @@ public sealed class ListImporterTests : IDisposable
 
     private const string EmptyResultJson = """{"perpage":100,"start":0,"total":0,"found":0,"data":[]}""";
 
-    private static string Record(long mamId, string title, string author, bool ebook = false, bool free = true, string? isbn = null) => $$"""
+    private static string Record(long mamId, string title, string author, bool ebook = false, bool free = true, string? isbn = null, string? fileType = null) => $$"""
         {
             "id": {{mamId}}, "title": "{{title}}", "author_info": "{\"1\":\"{{author}}\"}",
             "narrator_info": "{}", "series_info": "{}", "isbn": {{(isbn is null ? "null" : $"\"{isbn}\"")}}, "description": null,
             "mediatype": {{(ebook ? 2 : 1)}}, "main_cat": {{(ebook ? 14 : 13)}}, "maincat": 1, "category": {{(ebook ? 60 : 39)}}, "categories": "[]",
-            "language": 1, "browseflags": 0, "filetype": "{{(ebook ? "epub" : "m4b")}}", "numfiles": 1, "size": "100 MiB",
+            "language": 1, "browseflags": 0, "filetype": "{{fileType ?? (ebook ? "epub" : "m4b")}}", "numfiles": 1, "size": "100 MiB",
             "tags": "", "owner": 1, "owner_name": "uploader", "added": "2026-01-01 00:00:00",
             "seeders": 5, "leechers": 1, "times_completed": 1,
             "free": {{(free ? "true" : "false")}}, "personal_freeleech": false, "fl_vip": false, "vip": false,
@@ -104,11 +104,11 @@ public sealed class ListImporterTests : IDisposable
     }
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/> for each search text.</summary>
-    private Harness CreateHarness(Func<string, string> searchResponse) =>
-        CreateHarness(body => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) });
+    private Harness CreateHarness(Func<string, string> searchResponse, SelectionLibraries? libraries = null) =>
+        CreateHarness(body => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(searchResponse(body)) }, libraries);
 
     /// <summary>A harness whose MAM search answers with <paramref name="searchResponse"/>'s whole response, status and all.</summary>
-    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse)
+    private Harness CreateHarness(Func<string, HttpResponseMessage> searchResponse, SelectionLibraries? libraries = null)
     {
         var context = SelectionTestSupport.CreateContext(DbPath);
         var searches = new List<string>();
@@ -134,7 +134,7 @@ public sealed class ListImporterTests : IDisposable
         var clock = new Clock(new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero));
         return new Harness(context, books, clock, searches, ctx => new ListImporter(
             ctx, mamClient, new MamAccessGate(),
-            new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists),
+            new SelectionRunner(ctx, new EventStore(ctx), [], SelectionTestSupport.PreferenceLists, libraries),
             SelectionTestSupport.PreferenceLists, clock,
             delay: (_, _) => Task.CompletedTask), mamClient);
     }
@@ -345,6 +345,46 @@ public sealed class ListImporterTests : IDisposable
         Assert.Equal(1, summary.Selected);
         Assert.Equal(11, Assert.Single(harness.Context.SelectedTorrents).MamId);
         Assert.Equal("[\"0765326353\",\"9780765326355\"]", Item(harness, 1).IdentifiersJson);
+    }
+
+    [Fact]
+    public async Task RunAsync_AnUploadInAFormatItsLibraryDoesntLink_GivesWayToOneItDoes()
+    {
+        // The PDF has the book's ISBN, which would make it the book whatever else MAM has; its library takes only epub.
+        var libraries = new SelectionLibraries(
+            [new SelectionLibrary(new Fetchshelf.Core.Organizer.LibraryMatchRule { Category = "ebooks" }, new LibraryFormatLists(null, ["epub"]))],
+            (_, path) => path);
+        var harness = CreateHarness(
+            _ => Results(
+                Record(11, "The Way of Kings", "Brandon Sanderson", ebook: true, isbn: "9780765326355", fileType: "pdf"),
+                Record(12, "The Way of Kings", "Brandon Sanderson", ebook: true)),
+            libraries);
+        harness.Books.Books = [Book(1, "The Way of Kings", "Brandon Sanderson", "9780765326355")];
+        var entry = Entry(grab: new GrabEntry { Cost = ConfiguredCost.Free });
+        entry.Category = "ebooks";
+
+        var summary = await harness.RunAsync(entry);
+
+        Assert.Equal(1, summary.Selected);
+        Assert.Equal(12, Assert.Single(harness.Context.SelectedTorrents).MamId);
+    }
+
+    [Fact]
+    public async Task RunAsync_OnlyUploadsItsLibraryDoesntLink_IsNotFound()
+    {
+        var libraries = new SelectionLibraries(
+            [new SelectionLibrary(new Fetchshelf.Core.Organizer.LibraryMatchRule { Category = "ebooks" }, new LibraryFormatLists(null, ["epub"]))],
+            (_, path) => path);
+        var harness = CreateHarness(_ => Results(Record(11, "The Way of Kings", "Brandon Sanderson", ebook: true, fileType: "pdf")), libraries);
+        harness.Books.Books = [Book(1, "The Way of Kings", "Brandon Sanderson")];
+        var entry = Entry(grab: new GrabEntry { Cost = ConfiguredCost.Free });
+        entry.Category = "ebooks";
+
+        var summary = await harness.RunAsync(entry);
+
+        Assert.Equal(0, summary.Selected);
+        Assert.Empty(harness.Context.SelectedTorrents);
+        Assert.Equal(ListItemSideStatus.NotFound, Item(harness, 1).EbookStatus);
     }
 
     [Fact]

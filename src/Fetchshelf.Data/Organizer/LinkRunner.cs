@@ -628,7 +628,7 @@ public sealed class LinkRunner(
         return (mappedSavePath, LibraryMatcher.CandidateIndexes(MatchRules, torrent.Category, mappedSavePath, torrent.TagList));
     }
 
-    private IReadOnlyList<LibraryMatchRule> MatchRules => _matchRules ??= libraries.Select(ToMatchRule).ToList();
+    private IReadOnlyList<LibraryMatchRule> MatchRules => _matchRules ??= libraries.Select(library => library.ToMatchRule()).ToList();
 
     private IReadOnlyList<LibraryMatchRule>? _matchRules;
 
@@ -1490,15 +1490,6 @@ public sealed class LinkRunner(
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
-
-    private static LibraryMatchRule ToMatchRule(Library library) => new()
-    {
-        Category = library.Category,
-        DownloadDir = library.DownloadDir,
-        AllowTags = library.AllowTags,
-        DenyTags = library.DenyTags,
-        Genres = library.Genres,
-    };
 
     /// <param name="lookedUpMetadataJson">The torrent's metadata from MAM, kept on the error for a torrent without a record.</param>
     private async Task RecordLinkerErrorAsync(

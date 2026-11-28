@@ -248,7 +248,9 @@ Notes:
   the list order ranks competing copies of the same book: the copy whose first listed extension comes
   earliest wins, and between two linked copies that rank the same, the larger one is kept. With
   `ebook_types = ["epub", "pdf"]`, an epub replaces a pdf of the same book. A `[[library]]` can override
-  `audio_types`, `ebook_types` and `comic_types` for linking.
+  `audio_types`, `ebook_types` and `comic_types`. A torrent being selected is then checked against the lists of the
+  library it will be linked into, worked out from the category, save path and tags it gets and from its genres, as the
+  Link job does; the top-level lists apply when no library takes it.
 - **Intervals** are per job: each `[[autograb]]` block runs on its own timer. A job
   with interval `0` is still listed on the Jobs page and can be started with **Run now**.
 - **Buffers** are subtracted from your limits before anything is downloaded. If your unsat limit is 200,
@@ -1138,9 +1140,9 @@ library, in file order, that accepts it is used.
 | `allow_genres` | `[]` | If not empty, the book must have at least one of these [genres](#genres). Needs `genres = true`. See [libraries by genre](#libraries-by-genre). |
 | `deny_genres` | `[]` | A book with any of these genres is not taken. Needs `genres = true`. |
 | `fiction` | unset | `"fiction"` or `"nonfiction"`: the book's main category on MAM must be this one. Unset takes both, and books MAM gave neither. Needs `genres = true`. |
-| `audio_types` | global | Overrides the global format list for linking into this library. |
-| `ebook_types` | global | Overrides the global format list for linking into this library. |
-| `comic_types` | global | Overrides the global `comic_types` for linking comics and manga into this library. |
+| `audio_types` | global | Overrides the global format list for this library: for linking into it, and for selecting a torrent that will be linked into it, so one with no format in the list isn't downloaded. |
+| `ebook_types` | global | Overrides the global format list for this library: for linking into it, and for selecting a torrent that will be linked into it, so one with no format in the list isn't downloaded. |
+| `comic_types` | global | Overrides the global `comic_types` for comics and manga in this library, for linking and selecting as `ebook_types` does. |
 | `metadata_json` | global `metadata_json` | Write a `metadata.json`, Audiobookshelf's format, next to each book's files. |
 | `metadata_opf` | global `metadata_opf` | Write a `metadata.opf`, Calibre's format, next to each book's files. Audiobookshelf reads it too. |
 | `split_collections` | global `split_collections` | Link a collection of ebooks or comics as one book each, as if each had come from its own torrent. A torrent's own page can override it for that torrent. See [Collections](user-guide.md#collections). |

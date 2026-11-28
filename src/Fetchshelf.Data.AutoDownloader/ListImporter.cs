@@ -410,9 +410,12 @@ public sealed class ListImporter(
                 var result = await mamClient.SearchAsync(query, cancellationToken);
                 await _delay(PolitenessDelay, cancellationToken);
 
+                // An upload with no format the library it would go to links, such as a PDF of a novel for a library of
+                // epubs, isn't the book: another upload of it may be.
                 var candidates = result.Data
                     .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
                     .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata!)))
+                    .Where(c => FormatRanker.Rank(selectionRunner.FormatListFor(c.Record, c.Metadata!, list.Placement), c.Metadata!.FileTypes) != FormatRanker.NotPresent)
                     .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
                     .ToList();
 
