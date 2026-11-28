@@ -165,7 +165,9 @@ public class OpdsFeedBuilderTests
     [Theory]
     [InlineData("epub", "application/epub+zip")]
     [InlineData("PDF", "application/pdf")]
-    [InlineData("azw3", "application/vnd.amazon.ebook")]
+    [InlineData("azw3", "application/x-mobi8-ebook")]
+    [InlineData("azw", "application/vnd.amazon.ebook")]
+    [InlineData("mobi", "application/x-mobipocket-ebook")]
     [InlineData("cbz", "application/vnd.comicbook+zip")]
     [InlineData("djvu", "application/octet-stream")]
     public void MediaTypeFor_KnownAndUnknownFormats(string extension, string mediaType) =>
