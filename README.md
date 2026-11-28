@@ -57,6 +57,9 @@ setup. If you use one, please report how it went, good or bad (see
 - `[follow] audiobookshelf_series` leaving the books Audiobookshelf has out of the Follow job's finds. Following the
   series and stopping one are confirmed.
 - `comic_types`, globally and in a `[[library]]`.
+- The **Unsatisfied burndown** page's *MAM projected* column, counted down from MAM's own count.
+- Selection by the format lists of the library a torrent will be linked into, such as a PDF novel turned down for a
+  library with `ebook_types = ["epub", "mobi"]`, and a list taking another upload of the book instead.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.
