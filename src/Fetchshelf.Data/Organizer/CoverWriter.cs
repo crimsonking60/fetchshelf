@@ -40,7 +40,7 @@ public sealed record CoverWriterOptions(int MaxFetchesPerRun, TimeSpan? FileBudg
 
 /// <summary>
 /// With `covers` above 0, writes a cover into the folder of each linked book that has no image, at the end of every Link
-/// run: first one read out of the book's own files (an EPUB's, a comic's first page, an m4b's or mp3's embedded picture),
+/// run: first one read out of the book's own files (an EPUB's or a MOBI, AZW or AZW3's, a comic's first page, an m4b's or mp3's embedded picture),
 /// then, when the files have none, one fetched from the cover source, if there is one. A book is looked at once
 /// (<see cref="TorrentEntity.CoverCheckedAt"/>), and again only when it is linked again or refreshed. Series libraries
 /// are left out: one series folder holds many books. Never from MAM, whose image server refuses Fetchshelf.
@@ -60,7 +60,7 @@ public sealed class CoverWriter(
     private const int PageSize = 500;
 
     /// <summary>The file types a cover can be read out of, in the order they are tried.</summary>
-    private static readonly string[] CoverBearing = [".epub", ".cbz", ".cbr", ".m4b", ".m4a", ".mp3", ".pdf"];
+    private static readonly string[] CoverBearing = [".epub", ".cbz", ".cbr", ".azw3", ".azw", ".mobi", ".m4b", ".m4a", ".mp3", ".pdf"];
 
     /// <summary>
     /// Looks at every book not looked at yet. A book that doesn't need a cover (it has an image, or is in a series
