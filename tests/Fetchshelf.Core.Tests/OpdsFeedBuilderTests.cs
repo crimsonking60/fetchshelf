@@ -107,7 +107,7 @@ public class OpdsFeedBuilderTests
         // A PDF's first page may hold its cover, so it may have one even where a shared series folder's image isn't its own.
         Assert.True(HasCover(entry));
         Assert.True(HasCover(EntryOf(Book("pdf", files: 2) with { HasOwnFolder = false })));
-        Assert.False(HasCover(EntryOf(Book("mobi", files: 2) with { HasOwnFolder = false })));
+        Assert.False(HasCover(EntryOf(Book("djvu", files: 2) with { HasOwnFolder = false })));
     }
 
     [Fact]

@@ -68,7 +68,10 @@ public class BookCatalogTests
     [InlineData("flac", "pdf", "Book.pdf")]
     [InlineData("mp3", "pdf", "Book.mp3")]
     [InlineData(null, "pdf", "Book.pdf")]
-    [InlineData(null, "mobi", null)]
+    [InlineData(null, "mobi", "Book.mobi")]
+    [InlineData(null, "azw3", "Book.azw3")]
+    [InlineData("mp3", "azw", "Book.azw")]
+    [InlineData(null, "djvu", null)]
     [InlineData(null, "cbz", "Book.cbz")]
     [InlineData(null, "cbr", "Book.cbr")]
     public void EmbeddedCoverFile_IsTheFirstFileOfAFormatThatCanHoldOne(string? audio, string? ebook, string? expected)
@@ -82,12 +85,14 @@ public class BookCatalogTests
     [Fact]
     public void MayHaveCover_InItsOwnFolderAlways_InASharedOneOnlyWithAnEmbeddedCover()
     {
-        var mobi = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "mobi", [("Book.mobi", 1)])!;
+        var djvu = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "djvu", [("Book.djvu", 1)])!;
         var epub = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "epub", [("Book.epub", 1)])!;
+        var mobi = CatalogBooks.From("hash", Metadata("Book"), "/b", Day, 0, null, "mobi", [("Book.mobi", 1)])!;
 
-        Assert.True(mobi.MayHaveCover);
-        Assert.False((mobi with { HasOwnFolder = false }).MayHaveCover);
+        Assert.True(djvu.MayHaveCover);
+        Assert.False((djvu with { HasOwnFolder = false }).MayHaveCover);
         Assert.True((epub with { HasOwnFolder = false }).MayHaveCover);
+        Assert.True((mobi with { HasOwnFolder = false }).MayHaveCover);
     }
 
     [Fact]
