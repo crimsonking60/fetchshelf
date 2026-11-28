@@ -16,6 +16,15 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
     /// <summary>How often <see cref="PruneIfDue"/> prunes.</summary>
     public static readonly TimeSpan PruneEvery = TimeSpan.FromDays(7);
 
+    /// <summary>
+    /// The cache name's part for a cover read out of the book's file, with the version of how it is read: raised when
+    /// covers come out differently, so each is read again, and the old ones are pruned (from 2, the stencil of a layered
+    /// PDF scan was taken for the cover).
+    /// </summary>
+    private const string FileKind = "file2";
+
+    private const string FolderKind = "folder";
+
     private const string CoverSuffix = ".cover";
     private const string NoCoverSuffix = ".none";
 
@@ -43,7 +52,7 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
             return null;
         }
 
-        var key = $"{SafeId(book.Id)}-{(folderImage is null ? "file" : "folder")}-{source.Length}-{source.LastWriteTimeUtc.Ticks}";
+        var key = $"{SafeId(book.Id)}-{(folderImage is null ? FileKind : FolderKind)}-{source.Length}-{source.LastWriteTimeUtc.Ticks}";
         var coverPath = Path.Combine(folder, key + CoverSuffix);
         if (File.Exists(coverPath))
         {
@@ -107,11 +116,13 @@ public sealed class OpdsCoverCache(string folder, ILogger<OpdsCoverCache>? logge
                 continue;
             }
 
-            var dash = file.Name.IndexOf('-', StringComparison.Ordinal);
-            var id = dash > 0 ? file.Name[..dash] : file.Name;
+            var parts = file.Name.Split('-');
+            var id = parts[0];
             var abandoned = !file.Name.EndsWith(CoverSuffix, StringComparison.Ordinal) && !file.Name.EndsWith(NoCoverSuffix, StringComparison.Ordinal)
                 && now - new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero) > AbandonedAfter;
-            if (kept.Contains(id) && !abandoned)
+            // A cover read the way an older version read it is never asked for again.
+            var outdated = parts.Length > 1 && parts[1] is not (FileKind or FolderKind);
+            if (kept.Contains(id) && !abandoned && !outdated)
             {
                 continue;
             }

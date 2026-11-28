@@ -418,16 +418,20 @@ public sealed class BookCoverExtractorTests : IDisposable
         File.SetLastWriteTimeUtc(abandoned, now.UtcDateTime.AddHours(-2));
         File.WriteAllBytes(writing, Jpeg);
         File.SetLastWriteTimeUtc(writing, now.UtcDateTime.AddMinutes(-1));
+        // A cover read the way an older version read it, of a book still in the library.
+        File.WriteAllBytes(Path.Combine(cacheFolder, "kept-file-10-638000000000000000.cover"), Jpeg);
 
         // "gone-3" is cached as "gone3": the removed one is found by the same name.
-        Assert.Equal(3, cache.PruneIfDue(["kept", "nocover-x"], now));
+        Assert.Equal(4, cache.PruneIfDue(["kept", "nocover-x"], now));
         Assert.Equal([kept, writing], Directory.GetFiles(cacheFolder).Where(file => !file.EndsWith(".pruned", StringComparison.Ordinal)).Order());
 
         Assert.Null(cache.PruneIfDue([], now.AddDays(6)));
         Assert.Equal(2, cache.PruneIfDue([], now.AddDays(8)));
     }
     /// <summary>One image drawn on a test PDF's page: its bytes and size in pixels, and where it is drawn, in points.</summary>
-    private sealed record PdfPicture(byte[] Bytes, int PixelWidth, int PixelHeight, double X, double Y, double Width, double Height, string Filter = "DCTDecode");
+    /// <param name="ImageMask">A stencil: one bit per pixel, unfiltered, painting the current colour where it is 0.</param>
+    private sealed record PdfPicture(
+        byte[] Bytes, int PixelWidth, int PixelHeight, double X, double Y, double Width, double Height, string Filter = "DCTDecode", bool ImageMask = false);
 
     /// <summary>A one-page A4 PDF whose page is filled by one picture with the given filter, such as JPXDecode.</summary>
     private static string WritePdfWithFilter(string folder, string fileName, byte[] picture, int pixelWidth, int pixelHeight, string filter) =>
@@ -454,7 +458,9 @@ public sealed class BookCoverExtractorTests : IDisposable
             ($"<< /Length {content.Length} >>", Encoding.ASCII.GetBytes(content)),
         };
         objects.AddRange(pictures.Select(p => (
-            $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /{p.Filter} /Length {p.Bytes.Length} >>",
+            p.ImageMask
+                ? $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ImageMask true /BitsPerComponent 1 /Length {p.Bytes.Length} >>"
+                : $"<< /Type /XObject /Subtype /Image /Width {p.PixelWidth} /Height {p.PixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /{p.Filter} /Length {p.Bytes.Length} >>",
             (byte[]?)p.Bytes)));
         using var pdf = new MemoryStream();
         var offsets = new List<long>();
@@ -547,16 +553,61 @@ public sealed class BookCoverExtractorTests : IDisposable
     }
 
     [Fact]
-    public void Pdf_SmallPicturesSideBySide_OrApart_AreNoCover()
+    public void Pdf_PicturesApart_AreNoCover()
     {
+        // Two pictures across the page with a gap between them fill less of it than a cut-up cover does.
         var picture = SolidJpeg(400, 400, SkiaSharp.SKColors.Red);
-        var sideBySide = WritePdf(_root, "side.pdf",
-            new PdfPicture(picture, 400, 400, 0, 0, 290, 842), new PdfPicture(picture, 400, 400, 300, 0, 290, 842));
         var apart = WritePdf(_root, "apart.pdf",
-            new PdfPicture(picture, 400, 400, 0, 500, 595, 342), new PdfPicture(picture, 400, 400, 0, 0, 595, 342));
+            new PdfPicture(picture, 400, 400, 0, 500, 595, 342), new PdfPicture(picture, 400, 400, 0, 0, 342 * 595 / 842.0, 342));
 
-        Assert.Null(BookCoverExtractor.Extract(sideBySide));
         Assert.Null(BookCoverExtractor.Extract(apart));
+    }
+
+    [Fact]
+    public void Pdf_ACoverCutIntoTilesOfDifferentSizes_IsPutTogether_WithoutTheStencilOverIt()
+    {
+        // As a layered scan: a red picture across the top half, a green column down the left of the bottom half and a
+        // blue picture beside it, with a stencil for the black print over the whole page, larger than any one picture.
+        var (red, green, blue) = (SolidJpeg(600, 425, SkiaSharp.SKColors.Red), SolidJpeg(150, 425, SkiaSharp.SKColors.Lime), SolidJpeg(450, 425, SkiaSharp.SKColors.Blue));
+        var stencil = new byte[(200 / 8) * 280];
+        var path = WritePdf(_root, "layered.pdf",
+            new PdfPicture(red, 600, 425, 0, 421, 595, 421),
+            new PdfPicture(green, 150, 425, 0, 0, 149, 421),
+            new PdfPicture(blue, 450, 425, 149, 0, 446, 421),
+            new PdfPicture(stencil, 200, 280, 0, 0, 595, 842, ImageMask: true));
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal("image/jpeg", cover!.ContentType);
+        using var bitmap = SkiaSharp.SKBitmap.Decode(cover.Bytes);
+        Assert.InRange(bitmap.Width / (double)bitmap.Height, 0.69, 0.73);
+        Assert.True(bitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 4).Red > 200, "red across the top");
+        Assert.True(bitmap.GetPixel(bitmap.Width / 10, bitmap.Height * 3 / 4).Green > 200, "green at the bottom left");
+        Assert.True(bitmap.GetPixel(bitmap.Width * 3 / 4, bitmap.Height * 3 / 4).Blue > 200, "blue at the bottom right");
+    }
+
+    [Fact]
+    public void Pdf_PicturesDrawnOverEachOther_AreNotPutTogether()
+    {
+        // A designed page layering two pictures over a third that fills most of it: not a cut-up scan. The largest one
+        // is taken, as before.
+        var (red, green) = (SolidJpeg(400, 500, SkiaSharp.SKColors.Red), SolidJpeg(200, 200, SkiaSharp.SKColors.Lime));
+        var path = WritePdf(_root, "designed.pdf",
+            new PdfPicture(red, 400, 500, 0, 100, 595, 742),
+            new PdfPicture(green, 200, 200, 0, 0, 595, 300),
+            new PdfPicture(green, 200, 200, 100, 300, 300, 300));
+
+        var cover = BookCoverExtractor.Extract(path);
+
+        Assert.Equal(red, cover!.Bytes);
+    }
+
+    [Fact]
+    public void Pdf_AStencilAlone_IsNoCover()
+    {
+        var path = WritePdf(_root, "stencil.pdf", new PdfPicture(new byte[(200 / 8) * 280], 200, 280, 0, 0, 595, 842, ImageMask: true));
+
+        Assert.Null(BookCoverExtractor.Extract(path));
     }
 
     [Fact]
