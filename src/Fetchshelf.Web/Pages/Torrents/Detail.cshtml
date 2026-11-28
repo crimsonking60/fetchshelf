@@ -83,6 +83,11 @@
         }
         <p><span class="label">Language</span><span class="value">@torrent.Metadata.Language</span></p>
         <p><span class="label">Media type</span><span class="value">@torrent.Metadata.MediaType</span></p>
+        @if (torrent.Metadata.FileCount > 0 || torrent.Metadata.FileTypes.Count > 0)
+        {
+            @* MAM's own details, so they show also for a torrent qBittorrent no longer has. *@
+            <p id="files-summary"><span class="label">Files</span><span class="value">@(torrent.Metadata.FileCount == 1 ? "1 file" : $"{torrent.Metadata.FileCount} files")@(torrent.Metadata.FileTypes.Count > 0 ? ": " + string.Join(", ", torrent.Metadata.FileTypes) : ""), @Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(torrent.Metadata.TotalSizeBytes)</span></p>
+        }
         @if (Model.GenresOn)
         {
             var fiction = torrent.Metadata.FictionCategory;
@@ -141,6 +146,20 @@
             <li><span class="mono">@file.RelativePath</span> <span class="muted" title="@file.SizeBytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) bytes">(@Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(file.SizeBytes))</span></li>
         }
     </ul>
+
+    @if (Model.ClientFiles is { Count: > 0 } clientFiles)
+    {
+        var fileList = clientFiles.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        <details id="client-files" open="@(fileList.Count <= Fetchshelf.Web.Pages.Torrents.DetailModel.ClientFilesShownOpen)">
+            <summary>Files in the torrent (@fileList.Count)</summary>
+            <ul>
+                @foreach (var file in fileList)
+                {
+                    <li><span class="mono">@file.Name</span> <span class="muted" title="@file.Size.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) bytes">(@Fetchshelf.Core.AutoDownloader.DownloadBudget.FormatBytes(file.Size))</span></li>
+                }
+            </ul>
+        </details>
+    }
 
     @if (torrent.ClientState is { } state)
     {

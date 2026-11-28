@@ -2271,7 +2271,9 @@ reported, so they cannot be chosen by hand.
   so a spreadsheet doesn't take an uploaded title for a formula. The JSON has the same names as keys, with lists
   as arrays.
 - **Torrent page.** Click a title for the full details: authors, narrators, series, language, media type,
-  where the metadata came from, the library folder and linked files, the qBittorrent state, links to the
+  its files as MAM lists them (how many, their formats and the total size), where the metadata came from, the
+  library folder and linked files, the torrent's own files while qBittorrent has it (folded when there are more than
+  20), the qBittorrent state, links to the
   torrent on MAM and, once the book is matched there, in Audiobookshelf, and the torrent's events. Notices
   show a library mismatch, an unlinked book, a book MAM no longer has (with the date that was found; the MAM
   link stays, as MAM may say why) and, for a replaced book, a link to the torrent that replaced it. Actions: **Clean**, **Refresh**, **Refresh and relink**, **Unlink**, **Start** and **Stop** in
