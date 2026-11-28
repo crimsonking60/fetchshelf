@@ -147,12 +147,12 @@ public sealed class GenreFilterPageTests : IDisposable
         using var fixture = await FixtureAsync(genres: true);
         var client = fixture.CreateClient();
 
-        var authors = await client.GetStringAsync("/books?View=authors&Format=ebooks&Fiction=Fiction");
+        var authors = await client.GetStringAsync("/books?View=authors&MediaType=Ebook&Fiction=Fiction");
         var plain = await client.GetStringAsync("/books?View=authors");
         var search = await client.GetStringAsync("/books?Q=history&Genre=17");
 
         var filters = authors[authors.IndexOf("id=\"books-filters\"", StringComparison.Ordinal)..authors.IndexOf("</form>", StringComparison.Ordinal)];
-        Assert.Contains("name=\"Format\"", filters);
+        Assert.Contains("name=\"MediaType\"", filters);
         Assert.Contains("name=\"Fiction\"", filters);
         Assert.Contains("name=\"Genre\"", filters);
         Assert.DoesNotContain("name=\"Q\"", filters);

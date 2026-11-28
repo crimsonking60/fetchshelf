@@ -7,30 +7,11 @@ public enum CatalogFileKind
     Ebook,
 }
 
-/// <summary>What the Books page's format filter keeps.</summary>
-public enum CatalogFormat
-{
-    All,
-    Audiobooks,
-    Ebooks,
-}
-
-/// <summary>How a book's files are served: their content types, their download names, and the format filter.</summary>
+/// <summary>How a book's files are served: their content types and their download names.</summary>
 public static class CatalogFiles
 {
     public static IReadOnlyList<CatalogFile> Of(CatalogBook book, CatalogFileKind kind) =>
         kind == CatalogFileKind.Audio ? book.AudioFiles : book.EbookFiles;
-
-    /// <summary>
-    /// Whether a book passes the format filter: an audiobook has audio files; an ebook is a book to read with an ebook
-    /// file, so an audiobook's companion PDF doesn't make it one (as in the OPDS catalog).
-    /// </summary>
-    public static bool Matches(CatalogBook book, CatalogFormat format) => format switch
-    {
-        CatalogFormat.Audiobooks => book.AudioFiles.Count > 0,
-        CatalogFormat.Ebooks => Opds.OpdsCatalog.Serves(book),
-        _ => true,
-    };
 
     /// <summary>The content type a file is served with, by its extension.</summary>
     public static string ContentTypeFor(string extension) => extension.ToLowerInvariant() switch

@@ -20,9 +20,6 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
     public static IReadOnlyList<(string Value, string Label)> Views { get; } =
         [("", "Recently added"), (ViewAuthors, "Authors"), (ViewSeries, "Series"), (ViewLibraries, "Libraries")];
 
-    public static IReadOnlyList<(string Value, string Label)> Formats { get; } =
-        [("", "All"), ("audiobooks", "Audiobooks"), ("ebooks", "Ebooks")];
-
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
@@ -42,9 +39,19 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
     [BindProperty(SupportsGet = true)]
     public int? Library { get; set; }
 
-    /// <summary>Empty for all, "audiobooks" or "ebooks".</summary>
+    /// <summary>Empty for all, or a media type by its name, such as "Ebook" or "ComicBook".</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? MediaType { get; set; }
+
+    /// <summary>
+    /// The filter before it was by media type: "audiobooks" or "ebooks". An address that still has it, such as a
+    /// bookmark, shows audiobooks or ebooks.
+    /// </summary>
     [BindProperty(SupportsGet = true)]
     public string? Format { get; set; }
+
+    /// <summary>The media types the library has, in MAM's order, with their labels: the media type filter's choices.</summary>
+    public IReadOnlyList<(string Value, string Label)> MediaTypeOptions { get; private set; } = [];
 
     /// <summary>A genre by MAM's id, or <see cref="GenreFilters.NoGenre"/>. Used only with `genres = true`.</summary>
     [BindProperty(SupportsGet = true)]
@@ -107,12 +114,11 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
 
     public int ShownCount => Books?.Count ?? Groups?.Count ?? 0;
 
-    public CatalogFormat CatalogFormat => Format switch
-    {
-        "audiobooks" => CatalogFormat.Audiobooks,
-        "ebooks" => CatalogFormat.Ebooks,
-        _ => CatalogFormat.All,
-    };
+    /// <summary>The media type chosen; null for all, or a name that isn't one.</summary>
+    public Fetchshelf.Core.Metadata.MediaType? ChosenMediaType =>
+        Enum.TryParse<Fetchshelf.Core.Metadata.MediaType>(MediaType, ignoreCase: true, out var mediaType) && Enum.IsDefined(mediaType) && !int.TryParse(MediaType, out _)
+            ? mediaType
+            : null;
 
     /// <summary>The address's values without the page number: what every link on the page keeps.</summary>
     public Dictionary<string, string> RouteValues =>
@@ -123,7 +129,7 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
             [nameof(Author)] = Author ?? string.Empty,
             [nameof(Series)] = Series ?? string.Empty,
             [nameof(Library)] = Library?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            [nameof(Format)] = Format ?? string.Empty,
+            [nameof(MediaType)] = MediaType ?? string.Empty,
             [nameof(Genre)] = GenresOn ? Genre ?? string.Empty : string.Empty,
             [nameof(Fiction)] = GenresOn ? Fiction ?? string.Empty : string.Empty,
             [nameof(Singles)] = View == ViewSeries ? Singles ?? string.Empty : string.Empty,
@@ -133,13 +139,13 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
             .Where(pair => pair.Value.Length > 0)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-    /// <summary>Whether the format, fiction or genre filter is in use.</summary>
+    /// <summary>Whether the media type, fiction or genre filter is in use.</summary>
     public bool HasFilters =>
-        !string.IsNullOrEmpty(Format) || (GenresOn && (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction)));
+        !string.IsNullOrEmpty(MediaType) || (GenresOn && (!string.IsNullOrEmpty(Genre) || !string.IsNullOrEmpty(Fiction)));
 
-    /// <summary>The address without the format, fiction and genre filters: what is shown and the search stay.</summary>
+    /// <summary>The address without the media type, fiction and genre filters: what is shown and the search stay.</summary>
     public Dictionary<string, string> WithoutFilters =>
-        RouteValues.Where(pair => pair.Key is not (nameof(Format) or nameof(Genre) or nameof(Fiction))).ToDictionary(pair => pair.Key, pair => pair.Value);
+        RouteValues.Where(pair => pair.Key is not (nameof(MediaType) or nameof(Genre) or nameof(Fiction))).ToDictionary(pair => pair.Key, pair => pair.Value);
 
     /// <summary>What is shown (a view, an author, a series or a library), for the filter form to keep when a filter changes.</summary>
     public IEnumerable<(string Name, string Value)> ShownRouteValues =>
@@ -159,13 +165,13 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
         return route;
     }
 
-    /// <summary>The route values for another view or list, keeping the format, genre and fiction filters and the page size.</summary>
+    /// <summary>The route values for another view or list, keeping the media type, genre and fiction filters and the page size.</summary>
     public Dictionary<string, string> RouteFor(string key, string value)
     {
         var route = new Dictionary<string, string> { [nameof(PageSize)] = PageSize.ToString(CultureInfo.InvariantCulture) };
-        if (!string.IsNullOrEmpty(Format))
+        if (!string.IsNullOrEmpty(MediaType))
         {
-            route[nameof(Format)] = Format;
+            route[nameof(MediaType)] = MediaType;
         }
 
         if (GenresOn && !string.IsNullOrEmpty(Genre))
@@ -193,8 +199,14 @@ public class IndexModel(BookCatalogCache catalogCache, FetchshelfSettings settin
         PageSize = PageSizeCookie.Apply(HttpContext, "books", PageSize);
         var all = await catalogCache.GetAsync(cancellationToken);
         LibraryEmpty = all.Books.Count == 0;
-        var format = CatalogFormat;
-        var catalog = format == CatalogFormat.All ? all : all.Narrow(book => CatalogFiles.Matches(book, format));
+        if (string.IsNullOrEmpty(MediaType) && Format is "audiobooks" or "ebooks")
+        {
+            MediaType = Format == "audiobooks" ? nameof(Fetchshelf.Core.Metadata.MediaType.Audiobook) : nameof(Fetchshelf.Core.Metadata.MediaType.Ebook);
+        }
+
+        MediaTypeOptions = all.Books.Select(book => book.MediaType).Distinct().Order()
+            .Select(mediaType => (mediaType.ToString(), MediaTypeLabels.Of(mediaType))).ToList();
+        var catalog = ChosenMediaType is { } chosen ? all.Narrow(book => book.MediaType == chosen) : all;
         if (GenresOn)
         {
             GenreOptions = GenreFilters.Options(all.Books.SelectMany(book => book.GenreCategories).Distinct(), Genre);
