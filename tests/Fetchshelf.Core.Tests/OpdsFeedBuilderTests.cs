@@ -107,7 +107,7 @@ public class OpdsFeedBuilderTests
         // A PDF's first page may hold its cover, so it may have one even where a shared series folder's image isn't its own.
         Assert.True(HasCover(entry));
         Assert.True(HasCover(EntryOf(Book("pdf", files: 2) with { HasOwnFolder = false })));
-        Assert.False(HasCover(EntryOf(Book("mobi", files: 2) with { HasOwnFolder = false })));
+        Assert.False(HasCover(EntryOf(Book("djvu", files: 2) with { HasOwnFolder = false })));
     }
 
     [Fact]
@@ -165,7 +165,9 @@ public class OpdsFeedBuilderTests
     [Theory]
     [InlineData("epub", "application/epub+zip")]
     [InlineData("PDF", "application/pdf")]
-    [InlineData("azw3", "application/vnd.amazon.ebook")]
+    [InlineData("azw3", "application/x-mobi8-ebook")]
+    [InlineData("azw", "application/vnd.amazon.ebook")]
+    [InlineData("mobi", "application/x-mobipocket-ebook")]
     [InlineData("cbz", "application/vnd.comicbook+zip")]
     [InlineData("djvu", "application/octet-stream")]
     public void MediaTypeFor_KnownAndUnknownFormats(string extension, string mediaType) =>
