@@ -37,7 +37,7 @@ same book cards and OPDS entries as the other views. The list's own page links i
 3. **Books page.**
    - `View = "lists"`, labelled *Lists*, after *Series*, shown when a list is configured.
    - The view lists the lists with at least one book in the library, as the Series view lists series: name and
-     "*n* of *m* books in the library" (*m* the list's books, removed ones left out). The format filter applies to the
+     "*n* of *m* books in the library" (*m* the list's books, removed ones left out). The media type filter applies to the
      counts and books, as elsewhere.
    - A list opens its books in the list's order (`List = <list id>`), with a link to the list's own page for what is
      not in the library yet. Search, genre and fiction filters work as on the other views.
@@ -72,7 +72,7 @@ same book cards and OPDS entries as the other views. The list's own page links i
   out.
 - `OpdsCatalog`: an audiobook-only list has no books and no entry; a mixed list keeps its ebooks; a library's scope
   keeps its own.
-- Books page: the Lists view's groups and counts, a list's books in order with the format filter, a list id with a
+- Books page: the Lists view's groups and counts, a list's books in order with the media type filter, a list id with a
   `/`, no Lists choice without a configured list.
 - OPDS: the start feed's *Lists* entry only when a list has an ebook, the lists feed and a list's books feed.
 - Lists page: *In the library* links to the book's page, also for a side matched by title.

@@ -830,10 +830,11 @@ heard; it doesn't play or show books itself. The **Torrents** page is for managi
 - **Authors** on a card stop at three; for a book with more, **... more** opens the book, like its cover, with all
   of them.
 - **Fiction** and **Genre**, with [`genres = true`](#sorting-books-by-genre), show only fiction or nonfiction (or
-  neither, when there are such books), and only the books of one of MAM's genres, or of none. Like the format, they
+  neither, when there are such books), and only the books of one of MAM's genres, or of none. Like the media type, they
   apply as soon as one is chosen, to every view, and **Clear filters** drops all three, keeping the search and the view.
-- **Search** by title, author or series, and show **All**, only **Audiobooks** or only **Ebooks**. An audiobook's
-  companion PDF doesn't count as an ebook.
+- **Search** by title, author or series, and show only one **media type**, by MAM's names: Audiobook, Ebook, Comic
+  Book / Graphic Novel, Manga, Periodical Ebook and so on, offering those your library has. A book is of its torrent's
+  media type, so an audiobook with a companion PDF is an audiobook.
 - **Covers** come from the book's folder or its file, as in the OPDS catalog, and for audiobooks also from the
   cover inside an m4b, m4a or mp3 file. A book without one shows its title's first letter.
 - **A book** opens over the page with its details, its files and sizes, and links: **Open in Audiobookshelf**

@@ -8,17 +8,18 @@
 <h2>Books</h2>
 @await Html.PartialAsync("_PageExplanation", "This page lists every book Fetchshelf has linked, audiobooks included, to find one and open it in the app that plays or shows it best: Audiobookshelf, or an OPDS reader for ebooks. The Torrents page is for managing the same books, and the Series page for completing series.")
 
-@* The search runs on the button; the format, fiction and genre filters apply as soon as one is chosen, to whatever is shown. *@
+@* The search runs on the button; the media type, fiction and genre filters apply as soon as one is chosen, to whatever is shown. *@
 <form method="get" class="toolbar-stack" id="books-search">
     <div class="toolbar search-line">
         <input type="text" name="Q" value="@Model.Q" placeholder="Search titles, authors and series" aria-label="Search" />
         <button type="submit" class="primary">Search</button>
     </div>
     <div class="toolbar" id="books-filters">
-        <select name="Format" aria-label="Format" onchange="this.form.requestSubmit()">
-            @foreach (var (value, label) in Fetchshelf.Web.Pages.Books.IndexModel.Formats)
+        <select name="MediaType" aria-label="Media type" onchange="this.form.requestSubmit()">
+            <option value="">Any media type</option>
+            @foreach (var (value, label) in Model.MediaTypeOptions)
             {
-                <option value="@value" selected="@((Model.Format ?? string.Empty) == value)">@label</option>
+                <option value="@value" selected="@(string.Equals(Model.MediaType, value, StringComparison.OrdinalIgnoreCase))">@label</option>
             }
         </select>
         @if (Model.GenresOn)
@@ -105,7 +106,7 @@ else if (Model.Groups is { } groups)
     }
     @if (groups.Count == 0)
     {
-        <p id="no-books-message" class="empty">@(Model.SinglesHidden > 0 ? "Every series here has one book." : "Nothing in this format.")</p>
+        <p id="no-books-message" class="empty">@(Model.SinglesHidden > 0 ? "Every series here has one book." : "Nothing of this media type.")</p>
     }
     else
     {

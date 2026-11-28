@@ -112,25 +112,49 @@ public sealed class BooksPageTests : IDisposable
         html.IndexOf(text, StringComparison.Ordinal) is var index and >= 0 ? index : throw new Xunit.Sdk.XunitException($"'{text}' is not on the page");
 
     [Fact]
-    public async Task RecentlyAdded_ListsEveryBook_NewestFirst_AndTheFormatFilterNarrowsIt()
+    public async Task RecentlyAdded_ListsEveryBook_NewestFirst_AndTheMediaTypeFilterNarrowsIt()
     {
         using var fixture = await LibraryAsync();
+        await SeedAsync(fixture, "comic", "Lantern Comics 1", MediaType.ComicBook, ["Lantern Comics 1.pdf"], author: "Ann Artist");
         var client = fixture.CreateClient();
 
         var all = await client.GetStringAsync("/books");
-        var audiobooks = await client.GetStringAsync("/books?Format=audiobooks");
-        var ebooks = await client.GetStringAsync("/books?Format=ebooks");
+        var audiobooks = await client.GetStringAsync("/books?MediaType=Audiobook");
+        var ebooks = await client.GetStringAsync("/books?MediaType=Ebook");
+        var comics = await client.GetStringAsync("/books?MediaType=ComicBook");
 
         Assert.True(IndexOf(all, "Dune") < IndexOf(all, "Ancillary Sword"));
         Assert.True(IndexOf(all, "Ancillary Sword") < IndexOf(all, "Ancillary Justice"));
         Assert.Contains("Imperial Radch #2", all);
         Assert.Contains("M4B", all);
+        // Only the media types the library has, in MAM's order, with MAM's names.
+        var filter = all[IndexOf(all, "name=\"MediaType\"")..IndexOf(all, "</select>")];
+        Assert.Equal(
+            ["Any media type", "Audiobook", "Ebook", "Comic Book / Graphic Novel"],
+            System.Text.RegularExpressions.Regex.Matches(filter, "<option[^>]*>([^<]+)</option>").Select(m => m.Groups[1].Value));
+        Assert.Contains("<option value=\"Audiobook\" selected=\"selected\">Audiobook</option>", audiobooks);
         Assert.Contains("Ancillary Sword", audiobooks);
         Assert.Contains("Dune", audiobooks);
         Assert.DoesNotContain("Ancillary Justice", audiobooks);
-        // An audiobook's companion PDF doesn't make it an ebook.
+        // An audiobook with a companion PDF is an audiobook, not an ebook.
         Assert.Contains("Ancillary Justice", ebooks);
         Assert.DoesNotContain("Ancillary Sword", ebooks);
+        Assert.DoesNotContain("Lantern Comics 1", ebooks);
+        Assert.Contains("Lantern Comics 1", comics);
+        Assert.DoesNotContain("Ancillary Justice", comics);
+    }
+
+    [Theory]
+    [InlineData("audiobooks", "Dune", "Ancillary Justice")]
+    [InlineData("ebooks", "Ancillary Justice", "Dune")]
+    public async Task TheFormatFilterOfOldAddresses_ShowsTheirMediaType(string format, string shown, string notShown)
+    {
+        using var fixture = await LibraryAsync();
+
+        var html = await fixture.CreateClient().GetStringAsync($"/books?Format={format}");
+
+        Assert.Contains(shown, html);
+        Assert.DoesNotContain(notShown, html);
     }
 
     [Fact]
