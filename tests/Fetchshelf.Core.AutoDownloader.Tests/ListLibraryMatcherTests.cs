@@ -87,4 +87,25 @@ public class ListLibraryMatcherTests
 
         Assert.Null(match);
     }
+
+    [Theory]
+    [InlineData("R.T. de Vries", "R T de Vries")]
+    [InlineData("R.T. de Vries", "R. T. de Vries")]
+    [InlineData("Henry P. Dowd Jr.", "Henry P Dowd")]
+    [InlineData("Henry P. Dowd, Jr.", "Henry P. Dowd Jr")]
+    [InlineData("ann-marie quill", "Ann Marie Quill")]
+    public void AnAuthorWrittenWithOtherPunctuationOrASuffix_Matches(string listAuthor, string mamAuthor)
+    {
+        var candidates = new[] { Build("match", "Slow Sky", [mamAuthor], MediaType.Ebook) };
+
+        Assert.NotNull(ListLibraryMatcher.FindMatch("Slow Sky", [listAuthor], FilterMainType.Ebook, candidates));
+    }
+
+    [Fact]
+    public void AnotherAuthorWithASimilarName_StillDoesntMatch()
+    {
+        var candidates = new[] { Build("other", "Slow Sky", ["R T de Vos"], MediaType.Ebook) };
+
+        Assert.Null(ListLibraryMatcher.FindMatch("Slow Sky", ["R.T. de Vries"], FilterMainType.Ebook, candidates));
+    }
 }
