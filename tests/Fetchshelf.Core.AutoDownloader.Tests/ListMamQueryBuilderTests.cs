@@ -126,6 +126,38 @@ public class ListMamQueryBuilderTests
         Assert.Equal(expected, ListMamQueryBuilder.BuildAuthorQuery(author));
     }
 
+    [Theory]
+    [InlineData("Henry P. Dowd Jr.", "Henry (P|P.) Dowd")]
+    [InlineData("Henry P. Dowd Jr", "Henry (P|P.) Dowd")]
+    [InlineData("Henry P. Dowd, Jr.", "Henry (P|P.) Dowd")]
+    [InlineData("Henry Dowd Sr.", "Henry Dowd")]
+    [InlineData("Henry Dowd III", "Henry Dowd")]
+    [InlineData("Jr. Dowd", "Jr. Dowd")]
+    [InlineData("Ilse Junior", "Ilse Junior")]
+    [InlineData("Jr", "Jr")]
+    public void BuildAuthorQueries_ASuffix_IsLeftOut(string author, string expected)
+    {
+        Assert.Equal([expected], ListMamQueryBuilder.BuildAuthorQueries(author));
+    }
+
+    [Theory]
+    [InlineData("R.T. de Vries", "R.T. de Vries", "(R|R.) (T|T.) de Vries")]
+    [InlineData("R.T de Vries", "R.T de Vries", "(R|R.) (T|T.) de Vries")]
+    [InlineData("J.R.R. Tolkien", "J.R.R. Tolkien", "(J|J.) (R|R.) (R|R.) Tolkien")]
+    [InlineData("Ann R.T. Vries Jr.", "Ann R.T. Vries", "Ann (R|R.) (T|T.) Vries")]
+    public void BuildAuthorQueries_InitialsWrittenTogether_AreAlsoSearchedApart(string author, string together, string apart)
+    {
+        Assert.Equal([together, apart], ListMamQueryBuilder.BuildAuthorQueries(author));
+    }
+
+    [Fact]
+    public void Build_EachAuthorsPhrases_AreAlternatives()
+    {
+        var query = ListMamQueryBuilder.Build("Book", ["R.T. de Vries", "Henry P. Dowd Jr."]);
+
+        Assert.Equal("@title Book @author (\"R.T. de Vries\"|\"(R|R.) (T|T.) de Vries\"|\"Henry (P|P.) Dowd\")", query);
+    }
+
     [Fact]
     public void Build_AuthorWithInitial_MatchesTheInitialEitherWay()
     {
