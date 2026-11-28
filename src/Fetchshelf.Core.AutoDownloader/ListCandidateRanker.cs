@@ -95,7 +95,7 @@ public static class ListCandidateRanker
 
         var authorScore = metadata.Authors.Count == 0 || authors.Count == 0
             ? 0
-            : metadata.Authors.Max(candidateAuthor => authors.Max(author => Fuzz.Ratio(author, candidateAuthor)));
+            : metadata.Authors.Max(candidateAuthor => authors.Max(author => AuthorNameKey.Similarity(author, candidateAuthor)));
 
         var seriesScore = series is { } s ? SeriesScore(s, metadata.Series) : 0;
 

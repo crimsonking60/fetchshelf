@@ -35,7 +35,7 @@ public static class ListLibraryMatcher
             }
 
             var hasMatchingAuthor = authors.Count == 0 || metadata.Authors.Any(
-                candidateAuthor => authors.Any(author => Fuzz.Ratio(author, candidateAuthor) > AuthorScoreThreshold));
+                candidateAuthor => authors.Any(author => AuthorNameKey.Similarity(author, candidateAuthor) > AuthorScoreThreshold));
             if (!hasMatchingAuthor)
             {
                 continue;
