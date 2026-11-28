@@ -195,4 +195,13 @@ public class TorrentFilterMatcherTests
 
         Assert.False(TorrentFilterMatcher.Matches(filter, candidate));
     }
+
+    [Fact]
+    public void Mismatch_SaysWhichFieldTurnsItDown()
+    {
+        Assert.Null(TorrentFilterMatcher.Mismatch(new TorrentFilter(), Build()));
+        Assert.Equal("language German", TorrentFilterMatcher.Mismatch(new TorrentFilter { Languages = [Language.English] }, Build(language: Language.German)));
+        Assert.Equal("0 seeders", TorrentFilterMatcher.Mismatch(new TorrentFilter { MinSeeders = 1 }, Build(seeders: 0)));
+        Assert.Equal("3 authors", TorrentFilterMatcher.Mismatch(new TorrentFilter { MaxAuthors = 2 }, Build(authorCount: 3)));
+    }
 }

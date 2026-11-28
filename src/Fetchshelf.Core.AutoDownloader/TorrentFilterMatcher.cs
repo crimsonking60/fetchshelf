@@ -8,23 +8,29 @@ namespace Fetchshelf.Core.AutoDownloader;
 /// </summary>
 public static class TorrentFilterMatcher
 {
-    public static bool Matches(TorrentFilter filter, TorrentFilterCandidate candidate)
+    public static bool Matches(TorrentFilter filter, TorrentFilterCandidate candidate) => Mismatch(filter, candidate) is null;
+
+    /// <summary>
+    /// The first of the filter's fields the torrent fails, in words, such as "language German" or "0 seeders"; null when
+    /// it passes them all. For logs that say why a torrent was turned down.
+    /// </summary>
+    public static string? Mismatch(TorrentFilter filter, TorrentFilterCandidate candidate)
     {
         var meta = candidate.Metadata;
 
         if (filter.MediaTypes is { Count: > 0 } && !filter.MediaTypes.Contains(meta.MediaType))
         {
-            return false;
+            return $"media type {meta.MediaType}";
         }
 
         if (!MatchesCategories(filter.Categories, meta.MediaType, meta.LegacyCategory))
         {
-            return false;
+            return $"category {meta.LegacyCategory}";
         }
 
         if (filter.Languages is { Count: > 0 } && !filter.Languages.Contains(meta.Language))
         {
-            return false;
+            return $"language {meta.Language}";
         }
 
         if (filter.Flags is not null)
@@ -34,75 +40,75 @@ public static class TorrentFilterMatcher
                 var present = meta.Flags.HasFlag(flag);
                 if (present != required)
                 {
-                    return false;
+                    return $"flag {flag}";
                 }
             }
         }
 
         if (filter.MinSizeBytes is { } minSize && meta.TotalSizeBytes < minSize)
         {
-            return false;
+            return "smaller than min_size";
         }
 
         if (filter.MaxSizeBytes is { } maxSize && meta.TotalSizeBytes > maxSize)
         {
-            return false;
+            return "larger than max_size";
         }
 
         if (filter.ExcludeUploader is { Count: > 0 }
             && filter.ExcludeUploader.Contains(candidate.UploaderName, StringComparer.OrdinalIgnoreCase))
         {
-            return false;
+            return $"uploader {candidate.UploaderName}";
         }
 
         var uploadDate = DateOnly.FromDateTime(meta.UploadTime.UtcDateTime);
 
         if (filter.UploadedAfter is { } after && uploadDate < after)
         {
-            return false;
+            return "uploaded before uploaded_after";
         }
 
         if (filter.UploadedBefore is { } before && uploadDate > before)
         {
-            return false;
+            return "uploaded after uploaded_before";
         }
 
         if (filter.MinSeeders is { } minSeeders && candidate.Seeders < minSeeders)
         {
-            return false;
+            return $"{candidate.Seeders} seeders";
         }
 
         if (filter.MaxSeeders is { } maxSeeders && candidate.Seeders > maxSeeders)
         {
-            return false;
+            return $"{candidate.Seeders} seeders";
         }
 
         if (filter.MinLeechers is { } minLeechers && candidate.Leechers < minLeechers)
         {
-            return false;
+            return $"{candidate.Leechers} leechers";
         }
 
         if (filter.MaxLeechers is { } maxLeechers && candidate.Leechers > maxLeechers)
         {
-            return false;
+            return $"{candidate.Leechers} leechers";
         }
 
         if (filter.MinSnatched is { } minSnatched && candidate.TimesCompleted < minSnatched)
         {
-            return false;
+            return $"snatched {candidate.TimesCompleted} times";
         }
 
         if (filter.MaxSnatched is { } maxSnatched && candidate.TimesCompleted > maxSnatched)
         {
-            return false;
+            return $"snatched {candidate.TimesCompleted} times";
         }
 
         if (filter.MaxAuthors is { } maxAuthors && meta.Authors.Count > maxAuthors)
         {
-            return false;
+            return $"{meta.Authors.Count} authors";
         }
 
-        return true;
+        return null;
     }
 
     private static bool MatchesCategories(

@@ -410,14 +410,10 @@ public sealed class ListImporter(
                 var result = await mamClient.SearchAsync(query, cancellationToken);
                 await _delay(PolitenessDelay, cancellationToken);
 
-                // An upload with no format the library it would go to links, such as a PDF of a novel for a library of
-                // epubs, isn't the book: another upload of it may be.
-                var candidates = result.Data
-                    .Select(record => (Record: record, Metadata: GrabMatching.TryMap(record)))
-                    .Where(c => c.Metadata is not null && TorrentFilterMatcher.Matches(filter, GrabMatching.ToFilterCandidate(c.Record, c.Metadata!)))
-                    .Where(c => FormatRanker.Rank(selectionRunner.FormatListFor(c.Record, c.Metadata!, list.Placement), c.Metadata!.FileTypes) != FormatRanker.NotPresent)
-                    .Select(c => new ListCandidate<MamTorrentRecord> { Metadata = c.Metadata!, Payload = c.Record })
-                    .ToList();
+                _logger.Log(
+                    Detail(), "\"{Title}\": grab block {Block} searched MAM for {Query}{Page}: {Count} results",
+                    item.BookTitle, i + 1, queryText, pageOffset == 0 ? "" : " (second page)", result.Data.Count);
+                var candidates = Candidates(result.Data, filter, list.Placement, item.BookTitle);
 
                 // A block only takes a torrent its own cost accepts. The search isn't limited by cost, so a free block also
                 // sees uploads that aren't free; those are left for the later blocks, which may pay for them.
@@ -431,6 +427,7 @@ public sealed class ListImporter(
                     else
                     {
                         audioTooExpensive ??= Best(candidates, FilterMainType.Audio, item, authors, series, identifiers, _ => preferenceLists.AudioTypes);
+                        LogNoCloseMatch(item.BookTitle, candidates, FilterMainType.Audio, audioTooExpensive);
                     }
                 }
 
@@ -443,6 +440,7 @@ public sealed class ListImporter(
                     else
                     {
                         ebookTooExpensive ??= Best(candidates, FilterMainType.Ebook, item, authors, series, identifiers, mediaType => preferenceLists.EbookSideFor(mediaType));
+                        LogNoCloseMatch(item.BookTitle, candidates, FilterMainType.Ebook, ebookTooExpensive);
                     }
                 }
 
@@ -608,6 +606,62 @@ public sealed class ListImporter(
 
 
     private LogLevel Detail() => _dryRun ? LogLevel.Information : LogLevel.Debug;
+
+    /// <summary>
+    /// The search's results the grab block's filter takes and the library each would go to can link, logging why each
+    /// other result was turned down. An upload with no format that library links, such as a PDF of a novel for a library
+    /// of epubs, isn't the book: another upload of it may be.
+    /// </summary>
+    private List<ListCandidate<MamTorrentRecord>> Candidates(
+        IReadOnlyList<MamTorrentRecord> results, TorrentFilter filter, DownloadPlacement placement, string bookTitle)
+    {
+        var candidates = new List<ListCandidate<MamTorrentRecord>>();
+        foreach (var record in results)
+        {
+            string? turnedDown;
+            if (GrabMatching.TryMap(record) is not { } metadata)
+            {
+                turnedDown = "its details can't be read";
+            }
+            else if (TorrentFilterMatcher.Mismatch(filter, GrabMatching.ToFilterCandidate(record, metadata)) is { } mismatch)
+            {
+                turnedDown = $"the grab block's filter turns it down: {mismatch}";
+            }
+            else if (selectionRunner.FormatListFor(record, metadata, placement) is var formats
+                && FormatRanker.Rank(formats, metadata.FileTypes) == FormatRanker.NotPresent)
+            {
+                turnedDown = $"none of its formats ({string.Join(", ", metadata.FileTypes)}) is in its library's list ({string.Join(", ", formats)})";
+            }
+            else
+            {
+                candidates.Add(new ListCandidate<MamTorrentRecord> { Metadata = metadata, Payload = record });
+                turnedDown = null;
+            }
+
+            if (turnedDown is not null)
+            {
+                _logger.Log(
+                    Detail(), "\"{Title}\": MAM torrent {MamId} \"{TorrentTitle}\" is left out: {Reason}",
+                    bookTitle, record.MamId, record.Title, turnedDown);
+            }
+        }
+
+        return candidates;
+    }
+
+    /// <summary>Logs the results of a side that pass the filters but none of which is close enough to the book.</summary>
+    private void LogNoCloseMatch(
+        string bookTitle, List<ListCandidate<MamTorrentRecord>> candidates, FilterMainType side, ListCandidate<MamTorrentRecord>? tooExpensive)
+    {
+        var ofSide = candidates.Where(c => FilterMainTypeMapper.FromMediaType(c.Metadata.MediaType) == side).ToList();
+        if (tooExpensive is null && ofSide.Count > 0)
+        {
+            _logger.Log(
+                Detail(), "\"{Title}\": no {Side} result has the book's title and an author close enough: {Results}",
+                bookTitle, side == FilterMainType.Audio ? "audiobook" : "ebook",
+                string.Join("; ", ofSide.Take(5).Select(c => $"MAM {c.Payload.MamId} \"{c.Metadata.Title}\" by {string.Join(", ", c.Metadata.Authors)}")));
+        }
+    }
 
     private static ListCandidate<MamTorrentRecord>? Best(
         IReadOnlyList<ListCandidate<MamTorrentRecord>> candidates, FilterMainType side, ListItemEntity item,
