@@ -1245,7 +1245,8 @@ Hardcover; it never changes anything there.
 
 On each run Fetchshelf reads the list from Hardcover and, for every book still missing a format, first
 checks your library (including books recorded as metadata only), then searches MAM by title and author with
-each `grab` block in turn. Each block only takes a torrent its `cost` accepts, so blocks like `free`, then
+each `grab` block in turn. The author's initials match with or without a full stop and written together or apart
+("A.E." or "A E"), and a suffix such as "Jr." is left out, as lists and MAM often write names differently. Each block only takes a torrent its `cost` accepts, so blocks like `free`, then
 `wedge`, then `ratio` try the cheapest way first. One block with the most you are willing to pay works as
 well: VIP and freeleech torrents are always downloaded for free, whatever the cost says. A result must match
 the title and an author closely; Hardcover and MAM sometimes
