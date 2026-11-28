@@ -14,6 +14,9 @@ public sealed record BookCover(byte[] Bytes, string ContentType);
 /// </summary>
 public static class BookCoverExtractor
 {
+    /// <summary>A picture covering this much of a PDF's first page is its cover on its own.</summary>
+    private const double FillsThePage = 0.9;
+
     /// <summary>Covers larger than this are left out, as MAM covers are.</summary>
     public const int MaxCoverBytes = 5 * 1024 * 1024;
 
@@ -73,7 +76,8 @@ public static class BookCoverExtractor
     /// <summary>
     /// The picture filling a PDF's first page: its largest image when that covers at least half the page, as a scanned or
     /// retail cover is one picture, while a title page of text with a small logo has none that large. Some scans cut the
-    /// page into strips of the same width, one above the other (<see cref="PdfStripCover"/>); those are put together. The
+    /// page into tiles that together fill it (<see cref="PdfMosaicCover"/>), or into strips of the same width, one above
+    /// the other (<see cref="PdfStripCover"/>); those are put together. Stencils (image masks) are left out. The
     /// page is not drawn, so text printed over the picture isn't in the cover, and a cover drawn as vector graphics isn't
     /// found. A JPEG is taken as it is, a JPEG 2000 picture is turned into a JPEG, and other images are taken only when
     /// PdfPig can turn them into a PNG. Null for a PDF that can't be read, such as an encrypted one.
@@ -90,16 +94,34 @@ public static class BookCoverExtractor
 
             var page = document.GetPage(1);
             var pageArea = page.Width * page.Height;
-            var images = page.GetImages().ToList();
+            // A stencil (an image mask) is no picture: it paints the page's sharp black print, such as a layered scan's
+            // text and barcode, over the pictures, and alone it is a page of black specks on white.
+            var images = page.GetImages().Where(i => !i.IsImageMask).ToList();
             var image = images.MaxBy(i => i.BoundingBox.Area);
             if (image is null || pageArea <= 0)
             {
                 return null;
             }
 
+            // A cover some scans cut up is put together: strips stacked as they are, else tiles of different sizes that
+            // together fill the page.
+            if (image.BoundingBox.Area < pageArea * FillsThePage)
+            {
+                if (PdfStripCover.Join(images, pageArea) is { } strips)
+                {
+                    return strips;
+                }
+
+                if (PdfMosaicCover.Coverage(images, page.CropBox.Bounds) >= PdfMosaicCover.MinCoverage
+                    && PdfMosaicCover.Join(images, page.CropBox.Bounds) is { } mosaic)
+                {
+                    return mosaic;
+                }
+            }
+
             if (image.BoundingBox.Area < pageArea / 2)
             {
-                return PdfStripCover.Join(images, pageArea);
+                return null;
             }
 
             var bytes = PdfImageBytes(image);
