@@ -93,6 +93,11 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
 
     private IReadOnlyDictionary<string, string> _titles = new Dictionary<string, string>();
 
+    private IReadOnlyDictionary<int, CleanedReplacement> _replacements = new Dictionary<int, CleanedReplacement>();
+
+    /// <summary>The better copy a Cleaned event's torrent was retired in favour of, when it is still tracked.</summary>
+    public CleanedReplacement? Replacement(EventEntity e) => _replacements.GetValueOrDefault(e.Id);
+
     /// <summary>The torrent's title for an event's link text, falling back to its id when the torrent is no longer tracked.</summary>
     public string TorrentLabel(EventEntity e) =>
         e.TorrentId is { } id && _titles.TryGetValue(id, out var title) ? title : e.TorrentId ?? string.Empty;
@@ -138,8 +143,32 @@ public class IndexModel(FetchshelfDbContext dbContext) : PageModel
         Events = page;
 
         var torrentIds = page.Where(e => e.TorrentId != null).Select(e => e.TorrentId!).Distinct().ToList();
-        _titles = await dbContext.Torrents.AsNoTracking()
+        var torrents = await dbContext.Torrents.AsNoTracking()
             .Where(t => torrentIds.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id, t => t.Title);
+            .Select(t => new { t.Id, t.Title, t.ReplacedWithTorrentId })
+            .ToDictionaryAsync(t => t.Id);
+        _titles = torrents.ToDictionary(pair => pair.Key, pair => pair.Value.Title);
+
+        // The better copy each Cleaned event names; events written before it was recorded take the one the retired
+        // torrent is marked replaced with, as long as it still is.
+        var replacedBy = page
+            .Where(e => e.Kind == EventKind.Cleaned)
+            .Select(e => (e.Id, Keeper: e.ReplacedByTorrentId
+                ?? (e.TorrentId is { } id && torrents.TryGetValue(id, out var torrent) ? torrent.ReplacedWithTorrentId : null)))
+            .Where(pair => pair.Keeper is not null)
+            .ToList();
+        var keeperIds = replacedBy.Select(pair => pair.Keeper!).Distinct().ToList();
+        var keepers = await dbContext.Torrents.AsNoTracking()
+            .Where(t => keeperIds.Contains(t.Id))
+            .Select(t => new { t.Id, t.Title, t.ChosenAudioExtension, t.ChosenEbookExtension })
+            .ToDictionaryAsync(t => t.Id);
+        _replacements = replacedBy.ToDictionary(
+            pair => pair.Id,
+            pair => keepers.TryGetValue(pair.Keeper!, out var keeper)
+                ? new CleanedReplacement(keeper.Id, keeper.Title, string.Join(" and ", new[] { keeper.ChosenAudioExtension, keeper.ChosenEbookExtension }.OfType<string>()))
+                : new CleanedReplacement(pair.Keeper!, pair.Keeper!, string.Empty));
     }
 }
+
+/// <summary>The better copy a Cleaned event's torrent was retired in favour of: its id, title and linked format.</summary>
+public sealed record CleanedReplacement(string TorrentId, string Title, string Format);

@@ -95,6 +95,12 @@ else
                         {
                             @details
                         }
+                        @if (Model.Replacement(e) is { } replacement)
+                        {
+                            <span class="event-replacement">
+                                Replaced by <a asp-page="/Torrents/Detail" asp-route-id="@replacement.TorrentId" title="@replacement.TorrentId">@replacement.Title</a>@(string.IsNullOrEmpty(replacement.Format) ? "" : $" ({replacement.Format})")
+                            </span>
+                        }
                     </td>
                 </tr>
             }

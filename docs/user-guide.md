@@ -1955,7 +1955,8 @@ what a new download duplicates (see the **Duplicates** page).
 
 The replaced copy has its linked files, its folder and the series and author folders above it (if empty),
 its cover and its metadata files removed, is
-tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. When the better copy
+tagged or moved in qBittorrent according to `on_cleaned`, and is marked *replaced* on its torrent page. Its *Cleaned* event on the
+**Events** page names the better copy, with its format and a link to it. When the better copy
 was linked into the same folder, `cover.jpg` and the metadata files stay, since they now belong to it. The
 downloaded data itself is not deleted.
 

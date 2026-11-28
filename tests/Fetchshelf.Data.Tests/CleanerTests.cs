@@ -81,6 +81,7 @@ public sealed class CleanerTests : IDisposable
 
         var cleanedEvent = await context.Events.SingleAsync(e => e.Kind == EventKind.Cleaned);
         Assert.Equal("loser", cleanedEvent.TorrentId);
+        Assert.Equal("keeper", cleanedEvent.ReplacedByTorrentId);
     }
 
     [Fact]

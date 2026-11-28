@@ -323,6 +323,7 @@ public sealed class Cleaner(
             LinkerName = member.LinkerName,
             LibraryPath = oldLibraryPath,
             FilesRemovedJson = JsonSerializer.Serialize(removedFiles),
+            ReplacedByTorrentId = keeper?.Id,
         }, cancellationToken);
 
         await ErrorLog.ClearAsync(dbContext, ErrorStage.Cleaner, member.Id, cancellationToken);
