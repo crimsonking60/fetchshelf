@@ -1,3 +1,5 @@
+using Fetchshelf.Data;
+using Microsoft.Extensions.DependencyInjection;
 using Fetchshelf.Data.Entities;
 
 namespace Fetchshelf.Web.Tests;
@@ -329,5 +331,80 @@ public class EventsPageTests
 
         Assert.Contains($"Linked by audiobooks to {path}", html);
         Assert.DoesNotContain("class=\"link-button details-more\"", html);
+    }
+
+    [Fact]
+    public async Task Get_CleanedEvent_NamesTheBetterCopyWithItsFormat()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedRetiredPairAsync(fixture, markReplaced: false);
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Cleaned,
+            TorrentId = "old",
+            FilesRemovedJson = "[\"Old Copy.mobi\"]",
+            ReplacedByTorrentId = "new",
+        });
+        var client = fixture.CreateClient();
+
+        var table = Table(await (await client.GetAsync("/events")).Content.ReadAsStringAsync());
+
+        Assert.Contains("removed files: Old Copy.mobi", table);
+        Assert.Matches(@"Replaced by <a[^>]*href=""/torrents/new""[^>]*>The Better Copy</a> \(epub\)", table);
+    }
+
+    [Fact]
+    public async Task Get_CleanedEventWrittenBeforeTheBetterCopyWasRecorded_TakesTheOneTheTorrentIsReplacedWith()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedRetiredPairAsync(fixture, markReplaced: true);
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Cleaned,
+            TorrentId = "old",
+            FilesRemovedJson = "[\"Old Copy.mobi\"]",
+        });
+        var client = fixture.CreateClient();
+
+        var table = Table(await (await client.GetAsync("/events")).Content.ReadAsStringAsync());
+
+        Assert.Contains("The Better Copy</a> (epub)", table);
+    }
+
+    [Fact]
+    public async Task Get_UnlinkedEvent_NamesNoBetterCopy()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        await SeedRetiredPairAsync(fixture, markReplaced: false);
+        await OrganizerTestSupport.SeedEventAsync(fixture, new EventEntity
+        {
+            OccurredAt = DateTimeOffset.UtcNow,
+            Kind = EventKind.Unlinked,
+            TorrentId = "old",
+            FilesRemovedJson = "[\"Old Copy.mobi\"]",
+        });
+        var client = fixture.CreateClient();
+
+        var table = Table(await (await client.GetAsync("/events")).Content.ReadAsStringAsync());
+
+        Assert.DoesNotContain("Replaced by", table);
+    }
+
+    /// <summary>A retired copy "old" and the better copy "new", linked as epub.</summary>
+    private static async Task SeedRetiredPairAsync(FetchshelfWebAppFixture fixture, bool markReplaced)
+    {
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "old", OrganizerTestSupport.BuildMetadata("The Older Copy"));
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "new", OrganizerTestSupport.BuildMetadata("The Better Copy"), libraryPath: "/lib/Author/Title");
+        using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FetchshelfDbContext>();
+        (await dbContext.Torrents.FindAsync("new"))!.ChosenEbookExtension = "epub";
+        if (markReplaced)
+        {
+            (await dbContext.Torrents.FindAsync("old"))!.ReplacedWithTorrentId = "new";
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 }

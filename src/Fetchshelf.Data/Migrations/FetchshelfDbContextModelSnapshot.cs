@@ -229,6 +229,9 @@ namespace Fetchshelf.Data.Migrations
                     b.Property<double?>("PointsBefore")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("ReplacedByTorrentId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RunSummary")
                         .HasColumnType("TEXT");
 

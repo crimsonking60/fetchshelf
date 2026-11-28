@@ -52,6 +52,12 @@ public sealed class EventEntity
 
     public string? FilesRemovedJson { get; set; }
 
+    /// <summary>
+    /// For Cleaned: the id of the better copy the torrent was retired in favour of. Null for events written before it
+    /// was recorded, 2026.11.28.
+    /// </summary>
+    public string? ReplacedByTorrentId { get; set; }
+
     // Updated: list of (field name, from, to)
     public string? FieldChangesJson { get; set; }
 

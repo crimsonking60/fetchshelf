@@ -58,6 +58,7 @@ setup. If you use one, please report how it went, good or bad (see
   series and stopping one are confirmed.
 - `comic_types`, globally and in a `[[library]]`.
 - The **Unsatisfied burndown** page's *MAM projected* column, counted down from MAM's own count.
+- The **Events** page naming the better copy, with its format, that a *Cleaned* book was retired in favour of.
 - `[[notify]]`: the Gotify, Discord and Apprise formats follow those services' documented APIs but have not been
   tried against the services themselves. The `ntfy` format is confirmed, and the `json` format and the messages'
   contents are covered by tests.
