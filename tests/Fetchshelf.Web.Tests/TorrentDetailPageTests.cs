@@ -121,6 +121,61 @@ public class TorrentDetailPageTests
         Assert.DoesNotContain("category-tags-form", html);
     }
 
+    private const string ConfigWithQBittorrent = """
+        mam_id = ""
+
+        [[qbittorrent]]
+        url = "http://qbittorrent.test"
+        username = "admin"
+        password = "adminadmin"
+        """;
+
+    [Fact]
+    public async Task Get_ShowsMamsFileCountFormatsAndSize_WithoutQBittorrent()
+    {
+        using var fixture = new FetchshelfWebAppFixture();
+        var metadata = OrganizerTestSupport.BuildMetadata() with
+        {
+            MediaType = Fetchshelf.Core.Metadata.MediaType.Ebook,
+            FileTypes = ["azw3"],
+            FileCount = 1,
+            TotalSizeBytes = 2_411_724,
+        };
+        await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1", metadata);
+
+        var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+        Assert.Contains("<p id=\"files-summary\"><span class=\"label\">Files</span><span class=\"value\">1 file: azw3, 2.3 MiB</span></p>", html);
+        Assert.DoesNotContain("client-files", html);
+    }
+
+    [Fact]
+    public async Task Get_TorrentInQBittorrent_ListsItsFiles_FoldedWhenThereAreMany()
+    {
+        string[] few = ["Book/Book.epub", "Book/cover.jpg"];
+        using (var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1", fileNames: few)))
+        {
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+            var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+            Assert.Contains("<details id=\"client-files\" open=\"open\">", html);
+            Assert.Contains("<summary>Files in the torrent (2)</summary>", html);
+            Assert.Contains("<li><span class=\"mono\">Book/Book.epub</span> <span class=\"muted\" title=\"4 bytes\">(4 B)</span></li>", html);
+        }
+
+        var many = Enumerable.Range(1, Fetchshelf.Web.Pages.Torrents.DetailModel.ClientFilesShownOpen + 1).Select(i => $"Issue {i:000}.pdf").ToList();
+        using (var fixture = new FetchshelfWebAppFixture(ConfigWithQBittorrent, qbittorrentHandler: OrganizerTestSupport.FakeQBittorrentServer("hash1", fileNames: many)))
+        {
+            await OrganizerTestSupport.SeedTorrentAsync(fixture, "hash1");
+
+            var html = await fixture.CreateClient().GetStringAsync("/torrents/hash1");
+
+            Assert.Contains("<details id=\"client-files\">", html);
+            Assert.Contains($"<summary>Files in the torrent ({many.Count})</summary>", html);
+        }
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = System.Text.RegularExpressions.Regex.Match(

@@ -29,6 +29,15 @@ public class DetailModel(
     /// </summary>
     public SeedingEstimate? Seeding { get; private set; }
 
+    /// <summary>A torrent with this many files or fewer shows them open; more, and the list starts folded.</summary>
+    public const int ClientFilesShownOpen = 20;
+
+    /// <summary>
+    /// The torrent's files as qBittorrent has them, a collection book's being its collection's; null when qBittorrent
+    /// doesn't have the torrent or can't be reached.
+    /// </summary>
+    public IReadOnlyList<QBittorrentFile>? ClientFiles { get; private set; }
+
     public SeedingRequirement? SeedingRequirement => settings.Seeding?.Requirement;
 
     /// <summary>Whether `genres = true`, which shows the book's main category and genres.</summary>
@@ -409,6 +418,10 @@ public class DetailModel(
             if (client is not null)
             {
                 clientState = await client.GetTorrentAsync(CollectionBookId.HashOf(id)); // a book shows its collection's torrent
+                if (clientState is not null)
+                {
+                    ClientFiles = await client.ListFilesAsync(CollectionBookId.HashOf(id));
+                }
             }
         }
         catch (HttpRequestException)
